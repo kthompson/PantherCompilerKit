@@ -1,0 +1,10 @@
+<project version="4">
+    <component name="ProjectModuleManager">
+        <modules>
+            <module fileurl="file://$PROJECT_DIR$/.idea/mill_modules/mill-build.iml" filepath="$PROJECT_DIR$/.idea/mill_modules/mill-build.iml"/>
+            <module fileurl="file://$PROJECT_DIR$/.idea/mill_modules/panther-bootstrap.iml" filepath="$PROJECT_DIR$/.idea/mill_modules/panther-bootstrap.iml"/>
+            <module fileurl="file://$PROJECT_DIR$/.idea/mill_modules/pncs.iml" filepath="$PROJECT_DIR$/.idea/mill_modules/pncs.iml"/>
+            <module fileurl="file://$PROJECT_DIR$/.idea/mill_modules/runtime.iml" filepath="$PROJECT_DIR$/.idea/mill_modules/runtime.iml"/>
+        </modules>
+    </component>
+</project>

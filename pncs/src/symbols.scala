@@ -1,0 +1,291 @@
+import panther._
+
+object ScopeParentKind {
+    val Symbol = 0
+    val Scope = 1
+}
+
+case class ScopeParent(kind: int, symbol: Option[Symbol], scope: Option[Scope]) {
+    def get_scope(): Scope = {
+        if (kind == ScopeParentKind.Symbol) {
+            symbol.get.members
+        } else {
+            scope.get
+        }
+    }
+
+    def get(name: string): Option[Symbol] = {
+        if (kind == ScopeParentKind.Scope) {
+            scope.get.get(name)
+        } else if (symbol.get.has_parent()) {
+            // if we are a Symbol, we already searched this symbols scope so go to our parent
+            symbol.get.parent().members.get(name)
+        } else {
+            None
+        }
+    }
+}
+
+object MakeScopeParent {
+    def symbol(value: Symbol): ScopeParent = new ScopeParent(ScopeParentKind.Symbol, Some(value), None)
+    def scope(value: Scope): ScopeParent = new ScopeParent(ScopeParentKind.Scope, None, Some(value))
+}
+
+object SymbolKind {
+    val Root = 0 // maps to the SymbolTable
+    val Class = 1 // maps to a specific TypeSymbol
+    val Method = 2 // maps to a specific MethodSymbol (includes parameters)
+    val Constructor = 3
+
+    val Field = 4
+    val Parameter = 5
+    val Local = 6
+}
+
+object ScopeKind {
+    val Root = 0 // maps to the SymbolTable
+    val Type = 1 // maps to a specific TypeSymbol
+    val Method = 2 // maps to a specific MethodSymbol (includes parameters)
+    val Block = 3 // maps to the body of a MethodSymbol
+}
+
+case class Scope(parent: ScopeParent, note: string) {
+
+    var _symbol_count = 0
+    var _symbols: Array[Symbol] = new Array[Symbol](0)
+
+    var _scope_count = 0
+    var _scopes: Array[Scope] = new Array[Scope](0)
+
+    def empty(): bool = _symbol_count == 0 && _scope_count == 0
+
+    def open_scope(note: string): Scope = {
+        val scope = new Scope(MakeScopeParent.scope(this), note)
+
+        if (_scope_count + 1 >= _scopes.length) {
+            val newItems = new Array[Scope]((_scope_count + 1) * 2)
+            for (i <- 0 to (_scope_count-1)) {
+                newItems(i) = _scopes(i)
+            }
+            _scopes = newItems
+        } else {
+            ()
+        }
+        _scopes(_scope_count) = scope
+        _scope_count = _scope_count + 1
+        scope
+    }
+
+    def scopes(): Array[Scope] = {
+        var newItems = new Array[Scope](_scope_count)
+        for (i <- 0 to (_scope_count-1)) {
+            newItems(i) = _scopes(i)
+        }
+        newItems
+    }
+
+    def add_symbol(symbol: Symbol): Symbol = {
+        if (_symbol_count + 1 >= _symbols.length) {
+            val newItems = new Array[Symbol]((_symbol_count + 1) * 2)
+            for (i <- 0 to (_symbol_count-1)) {
+                newItems(i) = _symbols(i)
+            }
+            _symbols = newItems
+        } else {
+            ()
+        }
+        _symbols(_symbol_count) = symbol
+        _symbol_count = _symbol_count + 1
+        symbol
+    }
+
+    def symbols(): Array[Symbol] = {
+        val newItems = new Array[Symbol](_symbol_count)
+        for (i <- 0 to (_symbol_count-1)) {
+            newItems(i) = _symbols(i)
+        }
+        newItems
+    }
+
+    def get_parent_symbol(): Symbol = {
+        if (parent.kind == ScopeParentKind.Symbol) {
+            parent.symbol.get
+        } else {
+            parent.scope.get.get_parent_symbol()
+        }
+    }
+
+    // returns true if we are not in a type or method
+    def is_global_scope(): bool = get_parent_symbol().kind == SymbolKind.Root
+
+    def get_from_locals(name: string, index: int): Option[Symbol] = {
+        if (index >= _symbol_count) {
+            None
+        } else if (_symbols(index).name == name) {
+            Some(_symbols(index))
+        } else {
+            get_from_locals(name, index + 1)
+        }
+    }
+
+    def get(name: string): Option[Symbol] = {
+        val result = get_from_locals(name, 0)
+        if (result.isDefined) {
+            result
+        } else {
+            parent.get(name)
+        }
+    }
+
+    def name(): string = if(is_global_scope()) "" else get_parent_symbol().fullName()
+}
+
+/**
+  * Symbols can have 0 or 1 Scope.
+  * Block scopes can have multiple levels of inner scopes
+  * Scopes have hold symbols
+  * Scopes can have child scopes
+  * Scopes have a parent. Either another Scope or a Symbol
+  * For block scopes, another block scope or method will be the parent
+  */
+case class Symbol(kind: int, name: string, location: TextLocation, _parent: Option[Symbol]) {
+    var _declarations: Array[Declaration] = new Array[Declaration](0)
+    var _declaration_count = 0
+    var id = -1 // used in type checking
+
+    val members: Scope = new Scope(MakeScopeParent.symbol(this), name)
+
+    def parent(): Symbol = _parent.get
+    def has_parent(): bool = _parent.isDefined
+
+    def fullName(): string = if (has_parent()) {
+        val parentName = parent().fullName()
+        if(parentName == "") name else parentName + "." + name
+    } else name
+
+    def has_declaration(): bool = _declaration_count > 0
+
+    def add_declaration(declaration: Declaration): Declaration = {
+        if (_declaration_count + 1 >= _declarations.length) {
+            val newItems = new Array[Declaration]((_declaration_count + 1) * 2)
+            for (i <- 0 to (_declaration_count-1)) {
+                newItems(i) = _declarations(i)
+            }
+            _declarations = newItems
+        } else {
+            ()
+        }
+        _declarations(_declaration_count) = declaration
+        _declaration_count = _declaration_count + 1
+        declaration
+    }
+
+    def declaration(): Declaration = _declarations(0)
+
+    def declarations(): Array[Declaration] = {
+        var newItems = new Array[Declaration](_declaration_count)
+        for (i <- 0 to (_declaration_count-1)) {
+            newItems(i) = _declarations(i)
+        }
+        newItems
+    }
+}
+
+
+object SymbolTreePrinter {
+    def print_scope(scope: Scope, indent: string, last: bool): unit = {
+        val symbols = scope.symbols()
+        val scopes = scope.scopes()
+        val num_symbols = symbols.length
+        val num_scopes = scopes.length
+
+        val marker = if (last) "└──" else "├──"
+        var childIndent = indent
+        if (scope.parent.kind == ScopeParentKind.Scope) {
+            print(ANSI.foreground_color(ColorPalette.Comments))
+            print(indent)
+            print(marker)
+            print(ANSI.Clear)
+            if (scope.note == "") {
+                println("Scope")
+            } else {
+                println("Scope: " + scope.note)
+            }
+
+            val end = if (last) "    " else "│   "
+            childIndent = childIndent + end
+        } else {}
+
+
+        if (num_symbols > 0) {
+            for (i <- 0 to (num_symbols - 1)) {
+                print_symbol(symbols(i), childIndent, false)
+            }
+            print_symbol(symbols(num_symbols - 1), childIndent, num_scopes == 0)
+        } else {}
+
+        if (num_scopes > 0) {
+            for (s <- 0 to (num_scopes - 1)) {
+                print_scope(scopes(s), childIndent, false)
+            }
+            print_scope(scopes(num_scopes - 1), childIndent, true)
+        } else {}
+    }
+
+    def print_symbol(symbol: Symbol): unit = print_symbol(symbol, "", true)
+
+    def print_symbol(symbol: Symbol, indent: string, last: bool): unit = {
+        val marker = if (last) "└──" else "├──"
+
+        print(ANSI.foreground_color(ColorPalette.Comments))
+        print(indent)
+        print(marker)
+        print(ANSI.Clear)
+
+        if (symbol.kind == SymbolKind.Root) {
+            print(ANSI.foreground_color(ColorPalette.Keyword))
+            print("Root")
+            print(ANSI.Clear)
+        } else if (symbol.kind == SymbolKind.Class) {
+            print(ANSI.foreground_color(ColorPalette.Literal1))
+            print("Type")
+            print(ANSI.Clear)
+        } else if (symbol.kind == SymbolKind.Field) {
+            print(ANSI.foreground_color(ColorPalette.Members))
+            print("Field")
+            print(ANSI.Clear)
+        } else if (symbol.kind == SymbolKind.Method) {
+            print(ANSI.foreground_color(ColorPalette.Members))
+            print("Method")
+            print(ANSI.Clear)
+        } else if (symbol.kind == SymbolKind.Constructor) {
+            print(ANSI.foreground_color(ColorPalette.Members))
+            print("Constructor")
+            print(ANSI.Clear)
+        } else if (symbol.kind == SymbolKind.Parameter) {
+            print(ANSI.foreground_color(ColorPalette.Identifier))
+            print("Parameter")
+            print(ANSI.Clear)
+        } else {
+            print("Local")
+        }
+        print(ANSI.Clear)
+        print(": ")
+
+        print(symbol.name)
+        if (symbol.has_declaration()) {
+        } else {
+            print(ANSI.foreground_color("e06c75"))
+            print(" [missing declaration]")
+            print(ANSI.Clear)
+        }
+        println()
+
+        if (!symbol.members.empty()) {
+            val end = if (last) "    " else "│   "
+            val childIndent = indent + end
+            print_scope(symbol.members, childIndent, true)
+        } else {}
+    }
+
+}
