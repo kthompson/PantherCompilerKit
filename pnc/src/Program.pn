@@ -1,12 +1,12 @@
-import panther._
+using panther
 
 object Program {
-    def main(args: Array[string]): unit = {
+    def main(args: Array<string>): unit = {
         if(args.length < 2) {
             printHelp()
         } else if (args(0) == "-t") {
             printLogo()
-            val trees = new Array[SyntaxTree](args.length - 2)
+            val trees = new Array<SyntaxTree>(args.length - 2)
             for (x <- 2 to (args.length - 1)) {
                 print("parsing " + args(x) + "...")
                 trees(x - 2) = MakeSyntaxTree.parse_file(args(x))
@@ -25,7 +25,7 @@ object Program {
             }
         } else {
             printLogo()
-            val trees = new Array[SyntaxTree](args.length - 1)
+            val trees = new Array<SyntaxTree>(args.length - 1)
             for (x <- 1 to (args.length - 1)) {
                 print("parsing " + args(x) + "...")
                 trees(x - 1) = MakeSyntaxTree.parse_file(args(x))

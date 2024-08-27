@@ -1,5 +1,5 @@
-import panther._
-import system.io._
+using panther
+using system.io
 
 object EmitSection {
     val Header = 0
@@ -8,8 +8,8 @@ object EmitSection {
     val Declarations = 3
 }
 
-case class Emitter(syntaxTrees: Array[SyntaxTree], root: Symbol, file: string) {
-    var sections = new Array[string](4)
+class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
+    var sections = new Array<string>(4)
 
     sections(EmitSection.Header) = ""
     sections(EmitSection.Types) = ""
@@ -65,7 +65,7 @@ case class Emitter(syntaxTrees: Array[SyntaxTree], root: Symbol, file: string) {
         }
     }
 
-    def emit_symbols(symbols: Array[Symbol]): unit = {
+    def emit_symbols(symbols: Array<Symbol>): unit = {
         val num_symbols = symbols.length
         for (i <- 0 to (num_symbols-1)) {
             emit_symbol(symbols(i))

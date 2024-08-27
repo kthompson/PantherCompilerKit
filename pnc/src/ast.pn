@@ -1,65 +1,65 @@
-import panther._
+using panther
 
 /**
     separatorToken may be either a `.` or `,` in the case
 */
 
-case class TypeAnnotationSyntax(colonToken: SyntaxToken, typ: NameSyntax)
+class TypeAnnotationSyntax(colonToken: SyntaxToken, typ: NameSyntax)
 
-case class ArrayInitializerExpressionSyntax(
+class ArrayInitializerExpressionSyntax(
     openBrace: SyntaxToken,
     expressions: ExpressionListSyntax,
     closeBrace: SyntaxToken
 )
 
-case class ArrayCreationExpressionSyntax(
+class ArrayCreationExpressionSyntax(
     newKeyword: SyntaxToken,
     name: NameSyntax,
     openBracket: SyntaxToken,
-    arrayRank: Option[ExpressionSyntax],
+    arrayRank: Option<ExpressionSyntax>,
     closeBracket: SyntaxToken,
-    initializer: Option[ArrayInitializerExpressionSyntax]
+    initializer: Option<ArrayInitializerExpressionSyntax>
 )
 
-case class IdentifierNameSyntax(identifier: SyntaxToken)
-case class GenericNameSyntax(
+class IdentifierNameSyntax(identifier: SyntaxToken)
+class GenericNameSyntax(
     identifier: SyntaxToken,
     typeArgumentlist: TypeArgumentListSyntax
 )
-case class QualifiedNameSyntax(left: NameSyntax, dotToken: SyntaxToken, right: SimpleNameSyntax)
+class QualifiedNameSyntax(left: NameSyntax, dotToken: SyntaxToken, right: SimpleNameSyntax)
 
-case class SimpleNameSyntax(
+class SimpleNameSyntax(
     kind: int,
-    genericName: Option[GenericNameSyntax],
-    identifierName: Option[IdentifierNameSyntax]
+    genericName: Option<GenericNameSyntax>,
+    identifierName: Option<IdentifierNameSyntax>
 )
-case class NameSyntax(
+class NameSyntax(
     kind: int,
-    qualifiedName: Option[QualifiedNameSyntax],
-    simpleName: Option[SimpleNameSyntax]
+    qualifiedName: Option<QualifiedNameSyntax>,
+    simpleName: Option<SimpleNameSyntax>
 )
-case class ExpressionItemSyntax(expression: ExpressionSyntax, separatorToken: Option[SyntaxToken])
-case class ExpressionListSyntax(expressions: Array[ExpressionItemSyntax])
+class ExpressionItemSyntax(expression: ExpressionSyntax, separatorToken: Option<SyntaxToken>)
+class ExpressionListSyntax(expressions: Array<ExpressionItemSyntax>)
 
-case class AssignmentExpressionSyntax(
+class AssignmentExpressionSyntax(
     left: ExpressionSyntax,
     equals: SyntaxToken,
     right: ExpressionSyntax
 )
-case class BinaryExpressionSyntax(left: ExpressionSyntax, operator: SyntaxToken, right: ExpressionSyntax)
-case class BlockExpressionSyntax(
+class BinaryExpressionSyntax(left: ExpressionSyntax, operator: SyntaxToken, right: ExpressionSyntax)
+class BlockExpressionSyntax(
     openBrace: SyntaxToken,
-    statements: Array[StatementSyntax],
-    expression: Option[ExpressionSyntax], /* 0 to 1 */
+    statements: Array<StatementSyntax>,
+    expression: Option<ExpressionSyntax>, /* 0 to 1 */
     closeBrace: SyntaxToken
 )
-case class CallExpressionSyntax(
+class CallExpressionSyntax(
     name: ExpressionSyntax,
     openParen: SyntaxToken,
     arguments: ExpressionListSyntax,
     closeParen: SyntaxToken
 )
-case class ForExpressionSyntax(
+class ForExpressionSyntax(
     forKeyword: SyntaxToken,
     openParen: SyntaxToken,
     identifier: SyntaxToken,
@@ -70,12 +70,12 @@ case class ForExpressionSyntax(
     closeParen: SyntaxToken,
     body: ExpressionSyntax
 )
-case class GroupExpressionSyntax(
+class GroupExpressionSyntax(
     openParen: SyntaxToken,
     expression: ExpressionSyntax,
     closeParen: SyntaxToken
 )
-case class IfExpressionSyntax(
+class IfExpressionSyntax(
                                ifKeyword: SyntaxToken,
                                openParen: SyntaxToken,
                                condition: ExpressionSyntax,
@@ -84,28 +84,28 @@ case class IfExpressionSyntax(
                                elseKeyword: SyntaxToken,
                                elseExpr: ExpressionSyntax
 )
-case class IndexExpressionSyntax(
+class IndexExpressionSyntax(
     left: ExpressionSyntax,
     openBracket: SyntaxToken,
     index: ExpressionSyntax,
     closeBracket: SyntaxToken
 )
-case class LiteralExpressionSyntax(token: SyntaxToken, value: SyntaxTokenValue)
-case class MemberAccessExpressionSyntax(
+class LiteralExpressionSyntax(token: SyntaxToken, value: SyntaxTokenValue)
+class MemberAccessExpressionSyntax(
     left: ExpressionSyntax,
     dotToken: SyntaxToken,
     right: IdentifierNameSyntax
 )
-case class NewExpressionSyntax(
+class NewExpressionSyntax(
                                 newKeyword: SyntaxToken,
                                 name: NameSyntax,
                                 openParen: SyntaxToken,
                                 arguments: ExpressionListSyntax,
                                 closeParen: SyntaxToken
 )
-case class UnaryExpressionSyntax(operator: SyntaxToken, expression: ExpressionSyntax)
-case class UnitExpressionSyntax(openParen: SyntaxToken, closeParen: SyntaxToken)
-case class WhileExpressionSyntax(
+class UnaryExpressionSyntax(operator: SyntaxToken, expression: ExpressionSyntax)
+class UnitExpressionSyntax(openParen: SyntaxToken, closeParen: SyntaxToken)
+class WhileExpressionSyntax(
                                   whileKeyword: SyntaxToken,
                                   openParen: SyntaxToken,
                                   condition: ExpressionSyntax,
@@ -113,111 +113,111 @@ case class WhileExpressionSyntax(
                                   body: ExpressionSyntax
 )
 
-case class ExpressionSyntax(
+class ExpressionSyntax(
     kind: int,
-    arrayCreationExpression: Option[ArrayCreationExpressionSyntax],
-    assignmentExpression: Option[AssignmentExpressionSyntax],
-    binaryExpression: Option[BinaryExpressionSyntax],
-    blockExpression: Option[BlockExpressionSyntax],
-    callExpression: Option[CallExpressionSyntax],
-    forExpression: Option[ForExpressionSyntax],
-    groupExpression: Option[GroupExpressionSyntax],
-    identifierName: Option[IdentifierNameSyntax],
-    ifExpression: Option[IfExpressionSyntax],
-    indexExpression: Option[IndexExpressionSyntax],
-    literalExpression: Option[LiteralExpressionSyntax],
-    memberAccessExpression: Option[MemberAccessExpressionSyntax],
-    newExpression: Option[NewExpressionSyntax],
-    unaryExpression: Option[UnaryExpressionSyntax],
-    unitExpression: Option[UnitExpressionSyntax],
-    whileExpression: Option[WhileExpressionSyntax]
+    arrayCreationExpression: Option<ArrayCreationExpressionSyntax>,
+    assignmentExpression: Option<AssignmentExpressionSyntax>,
+    binaryExpression: Option<BinaryExpressionSyntax>,
+    blockExpression: Option<BlockExpressionSyntax>,
+    callExpression: Option<CallExpressionSyntax>,
+    forExpression: Option<ForExpressionSyntax>,
+    groupExpression: Option<GroupExpressionSyntax>,
+    identifierName: Option<IdentifierNameSyntax>,
+    ifExpression: Option<IfExpressionSyntax>,
+    indexExpression: Option<IndexExpressionSyntax>,
+    literalExpression: Option<LiteralExpressionSyntax>,
+    memberAccessExpression: Option<MemberAccessExpressionSyntax>,
+    newExpression: Option<NewExpressionSyntax>,
+    unaryExpression: Option<UnaryExpressionSyntax>,
+    unitExpression: Option<UnitExpressionSyntax>,
+    whileExpression: Option<WhileExpressionSyntax>
 ) {
     var id = -1 // used in type checker
 }
 
-case class FunctionBodySyntax(equalToken: SyntaxToken, expression: ExpressionSyntax)
-case class ParameterSyntax(
-    modifier: Option[SyntaxToken],
+class FunctionBodySyntax(equalToken: SyntaxToken, expression: ExpressionSyntax)
+class ParameterSyntax(
+    modifier: Option<SyntaxToken>,
     identifier: SyntaxToken,
     typeAnnotation: TypeAnnotationSyntax,
-    commaToken: Option[SyntaxToken]
+    commaToken: Option<SyntaxToken>
 )
 
-case class TypeArgumentItemSyntax(name: NameSyntax, separator: Option[SyntaxToken])
+class TypeArgumentItemSyntax(name: NameSyntax, separator: Option<SyntaxToken>)
 
-case class TypeArgumentListSyntax(
+class TypeArgumentListSyntax(
     lessThanToken: SyntaxToken,
-    arguments: Array[TypeArgumentItemSyntax],
+    arguments: Array<TypeArgumentItemSyntax>,
     greaterThanToken: SyntaxToken
 )
 
-case class UsingDirectiveSyntax(usingKeyword: SyntaxToken, name: NameSyntax)
+class UsingDirectiveSyntax(usingKeyword: SyntaxToken, name: NameSyntax)
 
-case class TemplateSyntax(
+class TemplateSyntax(
     openBrace: SyntaxToken,
-    members: Array[MemberSyntax],
+    members: Array<MemberSyntax>,
     closeBrace: SyntaxToken
 )
 
-case class ObjectDeclarationSyntax(
+class ObjectDeclarationSyntax(
     objectKeyword: SyntaxToken,
     identifier: SyntaxToken,
     template: TemplateSyntax
 )
 
-case class ClassDeclarationSyntax(
-    caseKeyword: Option[SyntaxToken],
+class ClassDeclarationSyntax(
+    caseKeyword: Option<SyntaxToken>,
     classKeyword: SyntaxToken,
     identifier: SyntaxToken,
     openParenToken: SyntaxToken,
-    parameters: Array[ParameterSyntax],
+    parameters: Array<ParameterSyntax>,
     closeParenToken: SyntaxToken,
-    template: Option[TemplateSyntax]
+    template: Option<TemplateSyntax>
  )
 
-case class FunctionDeclarationSyntax(
+class FunctionDeclarationSyntax(
     defKeyword: SyntaxToken,
     identifier: SyntaxToken,
     openParenToken: SyntaxToken,
-    parameters: Array[ParameterSyntax],
+    parameters: Array<ParameterSyntax>,
     closeParenToken: SyntaxToken,
-    typeAnnotation: Option[TypeAnnotationSyntax],
-    body: Option[FunctionBodySyntax]
+    typeAnnotation: Option<TypeAnnotationSyntax>,
+    body: Option<FunctionBodySyntax>
 )
 
-case class VariableDeclarationStatementSyntax(
+class VariableDeclarationStatementSyntax(
     valOrVarKeyword: SyntaxToken,
     identifier: SyntaxToken,
-    typeAnnotation: Option[TypeAnnotationSyntax],
+    typeAnnotation: Option<TypeAnnotationSyntax>,
     equalToken: SyntaxToken,
     expression: ExpressionSyntax
 )
-case class BreakStatementSyntax(breakKeyword: SyntaxToken)
-case class ContinueStatementSyntax(continueKeyword: SyntaxToken)
-case class ExpressionStatementSyntax(expression: ExpressionSyntax)
+class BreakStatementSyntax(breakKeyword: SyntaxToken)
+class ContinueStatementSyntax(continueKeyword: SyntaxToken)
+class ExpressionStatementSyntax(expression: ExpressionSyntax)
 
-case class StatementSyntax(
+class StatementSyntax(
     kind: int,
-    variableDeclarationStatement: Option[VariableDeclarationStatementSyntax],
-    breakStatement: Option[BreakStatementSyntax],
-    continueStatement: Option[ContinueStatementSyntax],
-    expressionStatement: Option[ExpressionStatementSyntax]
+    variableDeclarationStatement: Option<VariableDeclarationStatementSyntax>,
+    breakStatement: Option<BreakStatementSyntax>,
+    continueStatement: Option<ContinueStatementSyntax>,
+    expressionStatement: Option<ExpressionStatementSyntax>
 )
 
-case class GlobalStatementSyntax(statement: StatementSyntax)
+class GlobalStatementSyntax(statement: StatementSyntax)
 
-case class MemberSyntax(
+class MemberSyntax(
                          kind: int,
-                         objekt: Option[ObjectDeclarationSyntax],
-                         klass: Option[ClassDeclarationSyntax],
-                         function: Option[FunctionDeclarationSyntax],
-                         statement: Option[GlobalStatementSyntax]
+                         objekt: Option<ObjectDeclarationSyntax>,
+                         klass: Option<ClassDeclarationSyntax>,
+                         function: Option<FunctionDeclarationSyntax>,
+                         statement: Option<GlobalStatementSyntax>
 )
 
 /**
   * names [1..n]
   */
-case class NamespaceDeclarationSyntax(namespaceKeyword: SyntaxToken, name: NameSyntax)
+class NamespaceDeclarationSyntax(namespaceKeyword: SyntaxToken, name: NameSyntax)
 
 
 /**
@@ -225,7 +225,7 @@ case class NamespaceDeclarationSyntax(namespaceKeyword: SyntaxToken, name: NameS
     usings [0..n]
     members [0..n]
 */
-case class CompilationUnitSyntax(namespaceDeclaration: Option[NamespaceDeclarationSyntax], usings: Array[UsingDirectiveSyntax], members: Array[MemberSyntax], endToken: SyntaxToken) {
+class CompilationUnitSyntax(namespaceDeclaration: Option<NamespaceDeclarationSyntax>, usings: Array<UsingDirectiveSyntax>, members: Array<MemberSyntax>, endToken: SyntaxToken) {
     val kind: int = SyntaxKind.CompilationUnit
 }
 
@@ -243,16 +243,16 @@ object DeclarationKind {
 // symbol will not always match the declarations.
 // For example, a constructor symbol will usually have a Class declaration
 // and field symbols can either be Local declarations or Parameter declarations
-case class Declaration(
+class Declaration(
     kind: int,
     name: string,
     location: TextLocation,
-    object_declaration: Option[ObjectDeclarationSyntax],
-    class_declaration: Option[ClassDeclarationSyntax],
-    function_declaration: Option[FunctionDeclarationSyntax],
-    parameter_declaration: Option[ParameterSyntax],
-    local_declaration: Option[VariableDeclarationStatementSyntax],
-    token_declaration: Option[SyntaxToken]
+    object_declaration: Option<ObjectDeclarationSyntax>,
+    class_declaration: Option<ClassDeclarationSyntax>,
+    function_declaration: Option<FunctionDeclarationSyntax>,
+    parameter_declaration: Option<ParameterSyntax>,
+    local_declaration: Option<VariableDeclarationStatementSyntax>,
+    token_declaration: Option<SyntaxToken>
 ) {
     var id = -1 // used in type checker
 }
@@ -339,9 +339,9 @@ object MakeDeclaration {
 
 
 // A Node represents any piece of the AST
-case class Node(
-    declaration: Option[Declaration],
-    expression: Option[ExpressionSyntax]
+class Node(
+    declaration: Option<Declaration>,
+    expression: Option<ExpressionSyntax>
 ) {
 
     def is_decl(): bool = declaration.isDefined

@@ -1,16 +1,16 @@
-import panther._
+using panther
 
-case class SyntaxTrivia(kind: int, start: int, text: string) {
+class SyntaxTrivia(kind: int, start: int, text: string) {
     def is_statement_terminator(): bool = kind == SyntaxKind.EndOfLineTrivia
 }
 
-case class SyntaxTriviaList() {
-    var _items: Array[SyntaxTrivia] = new Array[SyntaxTrivia](0)
+class SyntaxTriviaList() {
+    var _items: Array<SyntaxTrivia> = new Array<SyntaxTrivia>(0)
     var _size: int = 0
 
     def ensure_capacity(count: int): unit = {
         if (_size + count >= _items.length) {
-            var newItems = new Array[SyntaxTrivia]((_size + count) * 2)
+            var newItems = new Array<SyntaxTrivia>((_size + count) * 2)
             for (i <- 0 to (_size-1)) {
                 newItems(i) = _items(i)
             }
@@ -26,8 +26,8 @@ case class SyntaxTriviaList() {
         _size = _size + 1
     }
 
-    def to_array(): Array[SyntaxTrivia] = {
-        val newItems = new Array[SyntaxTrivia](_size)
+    def to_array(): Array<SyntaxTrivia> = {
+        val newItems = new Array<SyntaxTrivia>(_size)
         for (i <- 0 to (_size-1)) {
             newItems(i) = _items(i)
         }
@@ -42,7 +42,7 @@ object SyntaxTokenValueKind {
     val Character = 3
     val Number = 4
 }
-case class SyntaxTokenValue(kind: int, boolValue: Option[bool], stringValue: Option[string], characterValue: Option[char], numberValue: Option[int])
+class SyntaxTokenValue(kind: int, boolValue: Option<bool>, stringValue: Option<string>, characterValue: Option<char>, numberValue: Option<int>)
 
 object MakeSyntaxTokenValue {
     def none() = new SyntaxTokenValue(SyntaxTokenValueKind.None, None, None, None, None)
@@ -52,7 +52,7 @@ object MakeSyntaxTokenValue {
     def number(value: int) = new SyntaxTokenValue(SyntaxTokenValueKind.Number, None, None, None, Some(value))
 }
 
-case class SyntaxToken(source_file: SourceFile, kind: int, start: int, text: string, value: SyntaxTokenValue, leading: Array[SyntaxTrivia], trailing: Array[SyntaxTrivia]) {
+class SyntaxToken(source_file: SourceFile, kind: int, start: int, text: string, value: SyntaxTokenValue, leading: Array<SyntaxTrivia>, trailing: Array<SyntaxTrivia>) {
     val span: TextSpan = new TextSpan(start, text.length)
     val location: TextLocation = new TextLocation(source_file, span)
 
@@ -68,7 +68,7 @@ case class SyntaxToken(source_file: SourceFile, kind: int, start: int, text: str
         } else is_statement_terminator(index + 1)
 }
 
-case class SimpleToken(kind: int, start: int, text: string, value: SyntaxTokenValue)
+class SimpleToken(kind: int, start: int, text: string, value: SyntaxTokenValue)
 
 object SyntaxKind {
     // Special Tokens

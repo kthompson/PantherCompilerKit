@@ -1,4 +1,4 @@
-import panther._
+using panther
 
 // object TypeSchemeKind {
 //     val Polymorphic = 1
@@ -70,9 +70,9 @@ import panther._
 // then simplify variables
 // f: A ∩ int -> A ∩ int -> A
 
-case class SymbolLinks() {
+class SymbolLinks() {
     var typing = false
-    var _type: Option[Type] = None
+    var _type: Option<Type> = None
 
     def set_type(typ: Type): Type = {
         _type = Some(typ)
@@ -84,8 +84,8 @@ case class SymbolLinks() {
 }
 
 // will be connected to a Declaration or an Expression
-case class NodeLinks() {
-    var _symbol: Option[Symbol] = None
+class NodeLinks() {
+    var _symbol: Option<Symbol> = None
     def has_symbol(): bool = _symbol.isDefined
     def get_symbol(): Symbol = _symbol.get
     def set_symbol(symbol: Symbol): Symbol = {
@@ -93,7 +93,7 @@ case class NodeLinks() {
         symbol
     }
 
-    var _type: Option[Type] = None
+    var _type: Option<Type> = None
     def has_type(): bool = _type.isDefined
     def get_type(): Type = _type.get
     def set_type(typ: Type): Type = {
@@ -102,12 +102,12 @@ case class NodeLinks() {
     }
 }
 
-case class TypeLinks() {
+class TypeLinks() {
     var resolved: bool = false
     var resolving: bool = false
 }
 
-case class Checker(root: Symbol) {
+class Checker(root: Symbol) {
 
     val BoolType: Type = MakeType.primitive("bool")
     val CharType: Type = MakeType.primitive("char")
@@ -134,11 +134,11 @@ case class Checker(root: Symbol) {
     // )
 
     var last_symbol_id = 0
-    var symbol_links = new Array[SymbolLinks](10)
+    var symbol_links = new Array<SymbolLinks>(10)
     var last_node_id = 0
-    var node_links = new Array[NodeLinks](10)
+    var node_links = new Array<NodeLinks>(10)
     var last_type_id = 0
-    var type_links = new Array[TypeLinks](10)
+    var type_links = new Array<TypeLinks>(10)
 
     def infer_types(root: Symbol): unit = {
 
@@ -247,6 +247,7 @@ case class Checker(root: Symbol) {
             }
         }
 
+
         if (links.resolved == start) {
 
         } else {
@@ -256,22 +257,6 @@ case class Checker(root: Symbol) {
         links.resolved = resolved
         resolved
     }
-
-//    def getTypeOfNode(node: Node): Type = {
-//        val links = get_node_links(node)
-//        if (links.has_type()) {
-//            links.get_type()
-//        } else if(links.has_symbol()) {
-//            get_type_of_symbol(links.get_symbol())
-//        } else {
-//            // need to find the symbol of this node
-//
-//        }
-//    }
-//
-//    def getTypeOfDeclaration(decl: Declaration): Type = {
-//
-//    }
 
     def get_type_of_symbol(symbol: Symbol): Type = {
         val links = get_symbol_links(symbol)
@@ -284,9 +269,9 @@ case class Checker(root: Symbol) {
                 node_links.get_type()
             } else {
                 if (links.typing) {
-                    // we are already trying to type this symbol so we need to short
-                    // circuit once we get the type we should be able to reattempt
-                    // resolving by updating the unresolved type
+                    // we are already trying to type this symbol so we need to short ciruit
+                    // once we get the type we should be able to reattempt resolving by
+                    // updating the unresolved type
                     MakeType.unresolved(symbol)
                 } else {
                     links.typing = true
@@ -348,11 +333,11 @@ case class Checker(root: Symbol) {
         val name = scope.name()
 //        val fullName = if(name == "") cls.identifier.text else name + "." + cls.identifier.text
 
-        MakeType.typeConstructor(scope.parent.symbol.get, new TypeConstructor(name, new Array[Type](0)))
+        MakeType.typeConstructor(scope.parent.symbol.get, new TypeConstructor(name, new Array<Type>(0)))
     }
 
     def get_type_of_method_declaration(decl: FunctionDeclarationSyntax, scope: Scope): Type = {
-        val param_types = new Array[Type](decl.parameters.length)
+        val param_types = new Array<Type>(decl.parameters.length)
         for (i <- 0 to (decl.parameters.length-1)) {
             param_types(i) = get_type_of_parameter_declaration(decl.parameters(i), scope)
         }
@@ -428,7 +413,7 @@ case class Checker(root: Symbol) {
 
     def get_type_of_array_creation_expression(expr: ArrayCreationExpressionSyntax, scope: Scope): Type = {
         val inner = get_type_of_name(expr.name, scope)
-        MakeType.array(inner)
+        MakeType.array(get_type_of_name(expr.name, scope))
     }
 
     def get_type_of_assignment_expression(expr: AssignmentExpressionSyntax): Type = {
@@ -519,6 +504,7 @@ case class Checker(root: Symbol) {
         panic("get_type_of_while_expression")
         ErrorType
     }
+
 
     def get_type_of_type_annotation(typ: TypeAnnotationSyntax, scope: Scope): Type =
         get_type_of_name(typ.typ, scope)
@@ -627,7 +613,7 @@ case class Checker(root: Symbol) {
             node.id()
         } else {
             if (last_node_id + 1 >= node_links.length) {
-                val newItems = new Array[NodeLinks]((last_node_id + 1) * 2)
+                val newItems = new Array<NodeLinks>((last_node_id + 1) * 2)
                 for (i <- 0 to (last_node_id-1)) {
                     newItems(i) = node_links(i)
                 }
@@ -652,7 +638,7 @@ case class Checker(root: Symbol) {
             typ.id
         } else {
             if (last_type_id + 1 >= type_links.length) {
-                val newItems = new Array[TypeLinks]((last_type_id + 1) * 2)
+                val newItems = new Array<TypeLinks>((last_type_id + 1) * 2)
                 for (i <- 0 to (last_type_id-1)) {
                     newItems(i) = type_links(i)
                 }
@@ -676,7 +662,7 @@ case class Checker(root: Symbol) {
             symbol.id
         } else {
             if (last_symbol_id + 1 >= symbol_links.length) {
-                val newItems = new Array[SymbolLinks]((last_symbol_id + 1) * 2)
+                val newItems = new Array<SymbolLinks>((last_symbol_id + 1) * 2)
                 for (i <- 0 to (last_symbol_id-1)) {
                     newItems(i) = symbol_links(i)
                 }

@@ -1,6 +1,6 @@
-import panther._
+using panther
 
-case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
+class Binder(root: Symbol, diagnostics: DiagnosticBag) {
 
     var ns = "" // namespace
     var _parent = root
@@ -11,7 +11,7 @@ case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
         bind_members(compilationUnit.members, root.members)
     }
 
-    def bind_members(nodes: Array[MemberSyntax], scope: Scope): unit = {
+    def bind_members(nodes: Array<MemberSyntax>, scope: Scope): unit = {
         for (x <- 0 to (nodes.length-1)) {
             bind_member(nodes(x), scope)
         }
@@ -56,7 +56,7 @@ case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
         _parent = saveParent
     }
 
-    def bind_optional_template(node: Option[TemplateSyntax], scope: Scope): unit =
+    def bind_optional_template(node: Option<TemplateSyntax>, scope: Scope): unit =
         if (node.isDefined) bind_template(node.get, scope) else ()
 
     def bind_template(node: TemplateSyntax, scope: Scope): unit = {
@@ -77,7 +77,7 @@ case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
         _parent = saveParent
     }
 
-    def bind_constructor(node: ClassDeclarationSyntax, parameters: Array[ParameterSyntax], scope: Scope): unit = {
+    def bind_constructor(node: ClassDeclarationSyntax, parameters: Array<ParameterSyntax>, scope: Scope): unit = {
         val saveParent = _parent
         val symbol = declare_symbol(SymbolKind.Constructor, MakeDeclaration.cls(node), scope, _parent)
         _parent = symbol
@@ -146,7 +146,7 @@ case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
     def bind_parameter(node: ParameterSyntax, scope: Scope): unit =
         declare_symbol(SymbolKind.Parameter, MakeDeclaration.parameter(node), scope, _parent)
 
-    def bind_optional_function_body(node: Option[FunctionBodySyntax], scope: Scope): unit =
+    def bind_optional_function_body(node: Option<FunctionBodySyntax>, scope: Scope): unit =
         if (node.isDefined) bind_function_body(node.get, scope) else ()
 
     def bind_function_body(node: FunctionBodySyntax, scope: Scope): unit = {
@@ -200,7 +200,7 @@ case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
         bind_array_initializer_expressions(node.initializer, scope)
     }
 
-    def bind_array_initializer_expressions(node: Option[ArrayInitializerExpressionSyntax], scope: Scope): unit = {
+    def bind_array_initializer_expressions(node: Option<ArrayInitializerExpressionSyntax>, scope: Scope): unit = {
         if (node.isDefined) {
             bind_array_initializer_expression(node.get, scope)
         } else ()
@@ -281,7 +281,7 @@ case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
         bind_expression_items(node.expressions, scope)
     }
 
-    def bind_expression_items(nodes: Array[ExpressionItemSyntax], scope: Scope): unit = {
+    def bind_expression_items(nodes: Array<ExpressionItemSyntax>, scope: Scope): unit = {
         for (x <- 0 to (nodes.length-1)) {
             bind_expression_item(nodes(x), scope)
         }
@@ -325,31 +325,31 @@ case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
         bind_expression(node.expression, scope)
     }
 
-    def bind_statments(nodes: Array[StatementSyntax], scope: Scope): unit = {
+    def bind_statments(nodes: Array<StatementSyntax>, scope: Scope): unit = {
         for (x <- 0 to (nodes.length-1)) {
             bind_statment(nodes(x), scope)
         }
     }
 
-    def bind_optional_expression(node: Option[ExpressionSyntax], scope: Scope): unit = {
+    def bind_optional_expression(node: Option<ExpressionSyntax>, scope: Scope): unit = {
         if (node.isDefined) {
             bind_expression(node.get, scope)
         } else ()
     }
 
-    def bind_expressions(nodes: Array[ExpressionSyntax], scope: Scope): unit = {
+    def bind_expressions(nodes: Array<ExpressionSyntax>, scope: Scope): unit = {
         for (x <- 0 to (nodes.length-1)) {
             bind_expression(nodes(x), scope)
         }
     }
 
-    def bind_parameters(nodes: Array[ParameterSyntax], scope: Scope): unit = {
+    def bind_parameters(nodes: Array<ParameterSyntax>, scope: Scope): unit = {
         for (x <- 0 to (nodes.length-1)) {
             bind_parameter(nodes(x), scope)
         }
     }
 
-    def bind_fields(nodes: Array[ParameterSyntax], scope: Scope): unit = {
+    def bind_fields(nodes: Array<ParameterSyntax>, scope: Scope): unit = {
         for (x <- 0 to (nodes.length-1)) {
             bind_field(nodes(x), scope)
         }
@@ -387,7 +387,7 @@ case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
         }
     }
 
-    def get_type_argument_lists(nodes: Array[TypeArgumentListSyntax], scope: Scope): string = {
+    def get_type_argument_lists(nodes: Array<TypeArgumentListSyntax>, scope: Scope): string = {
         var res = "<"
         for (x <- 0 to (nodes.length-1)) {
             res = res + get_type_argument_list(nodes(x))
@@ -398,7 +398,7 @@ case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
     def get_type_argument_list(node: TypeArgumentListSyntax): string =
         get_type_argument_list_items(node.arguments)
 
-    def get_type_argument_list_items(nodes: Array[TypeArgumentItemSyntax]): string = {
+    def get_type_argument_list_items(nodes: Array<TypeArgumentItemSyntax>): string = {
         var res = ""
         for (x <- 0 to (nodes.length-1)) {
             res = res + bind_type_argument_list_item(nodes(x))
@@ -413,7 +413,7 @@ case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
         get_name(node.name) + sep
     }
 
-    def bind_identifier_names(nodes: Array[IdentifierNameSyntax], scope: Scope): unit = {
+    def bind_identifier_names(nodes: Array<IdentifierNameSyntax>, scope: Scope): unit = {
         for (x <- 0 to (nodes.length-1)) {
             bind_identifier_name(nodes(x))
         }

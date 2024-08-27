@@ -1,4 +1,4 @@
-import panther._
+using panther
 
 object ANSI {
     val Red = "\u001b[0;31m"
@@ -38,7 +38,7 @@ object ColorPalette {
 
     val Error = "c73e1d"
 
-    val Brackets = new Array[string](3)
+    val Brackets = new Array<string>(3)
     Brackets(0) = "d19a66"
     Brackets(1) = "c678dd"
     Brackets(2) = "56b6c2"
@@ -53,13 +53,13 @@ object AstPrinter {
         printToken(compilationUnit.endToken)
     }
 
-    def printUsingDeclarations(nodes: Array[UsingDirectiveSyntax]): unit = {
+    def printUsingDeclarations(nodes: Array<UsingDirectiveSyntax>): unit = {
         for (x <- 0 to (nodes.length-1)) {
             printUsingDeclaration(nodes(x))
         }
     }
 
-    def printMembers(nodes: Array[MemberSyntax]): unit = {
+    def printMembers(nodes: Array<MemberSyntax>): unit = {
         for (x <- 0 to (nodes.length-1)) {
             printMember(nodes(x))
         }
@@ -85,7 +85,7 @@ object AstPrinter {
         printTemplate(node.template)
     }
 
-    def printOptionalTemplate(node: Option[TemplateSyntax]): unit =
+    def printOptionalTemplate(node: Option<TemplateSyntax>): unit =
         if (node.isDefined) printTemplate(node.get) else ()
 
     def printTemplate(node: TemplateSyntax): unit = {
@@ -127,7 +127,7 @@ object AstPrinter {
         printOptionalToken(node.commaToken)
     }
 
-    def printOptionalTypeAnnotation(node: Option[TypeAnnotationSyntax]): unit =
+    def printOptionalTypeAnnotation(node: Option<TypeAnnotationSyntax>): unit =
         if (node.isDefined) printTypeAnnotation(node.get) else ()
 
     def printTypeAnnotation(node: TypeAnnotationSyntax): unit = {
@@ -135,7 +135,7 @@ object AstPrinter {
         printName(node.typ)
     }
 
-    def printOptionalFunctionBody(node: Option[FunctionBodySyntax]): unit =
+    def printOptionalFunctionBody(node: Option<FunctionBodySyntax>): unit =
         if (node.isDefined) printFunctionBody(node.get) else ()
 
     def printFunctionBody(node: FunctionBodySyntax): unit = {
@@ -179,7 +179,7 @@ object AstPrinter {
             printWhileExpression(node.whileExpression.get)
         } else ()
     }
-    def printOptionalExpression(node: Option[ExpressionSyntax]): unit = {
+    def printOptionalExpression(node: Option<ExpressionSyntax>): unit = {
         if (node.isDefined) {
             printExpression(node.get)
         } else {
@@ -196,7 +196,7 @@ object AstPrinter {
         printArrayInitializerExpressions(node.initializer)
     }
 
-    def printArrayInitializerExpressions(node: Option[ArrayInitializerExpressionSyntax]): unit = {
+    def printArrayInitializerExpressions(node: Option<ArrayInitializerExpressionSyntax>): unit = {
         if (node.isDefined) {
             printArrayInitializerExpression(node.get)
         } else {
@@ -300,7 +300,7 @@ object AstPrinter {
         printExpressionItems(node.expressions)
     }
 
-    def printExpressionItems(nodes: Array[ExpressionItemSyntax]): unit = {
+    def printExpressionItems(nodes: Array<ExpressionItemSyntax>): unit = {
         for (x <- 0 to (nodes.length-1)) {
             printExpressionItem(nodes(x))
         }
@@ -337,25 +337,25 @@ object AstPrinter {
         printExpression(node.expression)
     }
 
-    def printStatments(nodes: Array[StatementSyntax]): unit = {
+    def printStatments(nodes: Array<StatementSyntax>): unit = {
         for (x <- 0 to (nodes.length-1)) {
             printStatment(nodes(x))
         }
     }
 
-    def printExpressions(nodes: Array[ExpressionSyntax]): unit = {
+    def printExpressions(nodes: Array<ExpressionSyntax>): unit = {
         for (x <- 0 to (nodes.length-1)) {
             printExpression(nodes(x))
         }
     }
 
-    def printParameters(nodes: Array[ParameterSyntax]): unit = {
+    def printParameters(nodes: Array<ParameterSyntax>): unit = {
         for (x <- 0 to (nodes.length-1)) {
             printParameter(nodes(x))
         }
     }
 
-    def printNamespaceDeclaration(decl: Option[NamespaceDeclarationSyntax]): unit = {
+    def printNamespaceDeclaration(decl: Option<NamespaceDeclarationSyntax>): unit = {
         if (decl.isDefined) {
             printToken(decl.get.namespaceKeyword)
             printName(decl.get.name)
@@ -391,7 +391,7 @@ object AstPrinter {
         } else ()
     }
 
-    def printTypeArgumentLists(nodes: Array[TypeArgumentListSyntax]): unit = {
+    def printTypeArgumentLists(nodes: Array<TypeArgumentListSyntax>): unit = {
         for (x <- 0 to (nodes.length-1)) {
             printTypeArgumentList(nodes(x))
         }
@@ -403,7 +403,7 @@ object AstPrinter {
         printToken(node.greaterThanToken)
     }
 
-    def printTypeArgumentListItems(nodes: Array[TypeArgumentItemSyntax]): unit = {
+    def printTypeArgumentListItems(nodes: Array<TypeArgumentItemSyntax>): unit = {
         for (x <- 0 to (nodes.length-1)) {
             printTypeArgumentListItem(nodes(x))
         }
@@ -414,7 +414,7 @@ object AstPrinter {
         printOptionalToken(node.separator)
     }
 
-    def printIdentifierNames(nodes: Array[IdentifierNameSyntax], color: string): unit = {
+    def printIdentifierNames(nodes: Array<IdentifierNameSyntax>, color: string): unit = {
         for (x <- 0 to (nodes.length-1)) {
             printIdentifierName(nodes(x), color)
         }
@@ -424,7 +424,7 @@ object AstPrinter {
         printToken(node.identifier, color)
     }
 
-    def printTriviaArray(nodes: Array[SyntaxTrivia]): unit = {
+    def printTriviaArray(nodes: Array<SyntaxTrivia>): unit = {
         for (x <- 0 to (nodes.length-1)) {
             printTrivia(nodes(x))
         }
@@ -435,13 +435,13 @@ object AstPrinter {
         printClear()
     }
 
-    def printTokens(nodes: Array[SyntaxToken]): unit = {
+    def printTokens(nodes: Array<SyntaxToken>): unit = {
         for (x <- 0 to (nodes.length-1)) {
             printToken(nodes(x))
         }
     }
 
-    def printOptionalToken(node: Option[SyntaxToken]): unit = {
+    def printOptionalToken(node: Option<SyntaxToken>): unit = {
         if (node.isDefined) {
             printToken(node.get)
         } else ()

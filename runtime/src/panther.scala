@@ -3,7 +3,7 @@ import panther._
 object system {
   object io {
     object File {
-      def write_all_text(file: string, text: string): unit = {
+      def writeAllText(file: string, text: string): unit = {
         val writer = new java.io.PrintWriter(file)
         writer.write(text)
         writer.close()
@@ -39,8 +39,6 @@ object system {
         if (lastSeparator == -1) ""
         else path.substring(0, lastSeparator)
       }
-
-
     }
   }
 }

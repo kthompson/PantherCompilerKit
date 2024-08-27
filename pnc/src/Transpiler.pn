@@ -1,0 +1,432 @@
+using panther
+using system.io
+
+class StringBuilder() {
+  var content = ""
+
+  def append(value: string): unit = {
+    content = content + value
+  }
+
+  def appendLine(value: string): unit = {
+    content = content + value + "\n"
+  }
+
+  def toString(): string = content
+}
+
+class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: string) {
+  var inUsing = false
+  var inName = false
+
+  def transpile(): unit = {
+    for (x <- 0 to (syntaxTrees.length - 1)) {
+      val tree = syntaxTrees(x)
+      val sourceFile = tree.file
+
+      val name = Path.nameWithoutExtension(sourceFile.fileName) + ".pn"
+      val filePath = Path.combine(outputPath, name)
+      print("transpiling " + filePath + "...")
+
+      if (!sourceFile.isScala()) {
+        // skip transpiling as we are already in the target language
+        File.writeAllText(filePath, sourceFile.content)
+      } else {
+        // transpile
+        val sb = new StringBuilder()
+        transpileRoot(tree.root, sb)
+        File.writeAllText(filePath, sb.toString())
+      }
+      println("done")
+    }
+  }
+
+  def transpileRoot(root: CompilationUnitSyntax, sb: StringBuilder): unit = {
+    transpileNamespace(root.namespaceDeclaration, sb)
+    transpileUsingDirectives(root.usings, sb)
+    transpileMembers(root.members, sb)
+  }
+
+  def transpileUsingDirectives(usings: Array<UsingDirectiveSyntax>, sb: StringBuilder): unit =
+    for (x <- 0 to (usings.length - 1)) {
+      val usingDirective = usings(x)
+      transpileUsingDirective(usingDirective, sb)
+    }
+
+  def transpileUsingDirective(usingDirective: UsingDirectiveSyntax, sb: StringBuilder) = {
+    inUsing = true
+    transpileTokenWithText(usingDirective.usingKeyword, "using", sb)
+    transpileName(usingDirective.name, sb)
+    inUsing = false
+  }
+
+  def transpileToken(token: SyntaxToken, sb: StringBuilder): unit = {
+    if (token.kind == SyntaxKind.AnnotationToken) ()
+    else if (token.kind == SyntaxKind.OverrideKeyword)
+      transpileTrivia(token.leading, sb)
+    else {
+      transpileTrivia(token.leading, sb)
+      if (inName && token.kind == SyntaxKind.LessThanToken) {
+        sb.append("[")
+      } else if (inName && token.kind == SyntaxKind.GreaterThanToken) {
+        sb.append("]")
+      } else {
+        sb.append(token.text)
+      }
+      transpileTrivia(token.trailing, sb)
+    }
+  }
+
+  def transpileTokenWithText(token: SyntaxToken, text: string, sb: StringBuilder): unit = {
+    transpileTrivia(token.leading, sb)
+    sb.append(text)
+    transpileTrivia(token.trailing, sb)
+  }
+
+  def transpileTrivia(leading: Array<SyntaxTrivia>, sb: StringBuilder) = {
+    for (x <- 0 to (leading.length - 1)) {
+      val trivia = leading(x)
+      sb.append(trivia.text)
+    }
+  }
+
+
+  def transpileMembers(members: Array<MemberSyntax>, sb: StringBuilder): unit =
+    for (x <- 0 to (members.length - 1)) {
+      val member = members(x)
+      transpileMember(member, sb)
+    }
+
+  def transpileMember(member: MemberSyntax, sb: StringBuilder) = {
+    if (member.kind == SyntaxKind.ObjectDeclaration) {
+      transpileObjectDeclaration(member.objekt.get, sb)
+    } else if (member.kind == SyntaxKind.ClassDeclaration) {
+      transpileClassDeclaration(member.klass.get, sb)
+    } else if (member.kind == SyntaxKind.FunctionDeclaration) {
+      transpileFunctionDeclaration(member.function.get, sb)
+    } else if (member.kind == SyntaxKind.GlobalStatement) {
+      transpileGlobalStatement(member.statement.get, sb)
+    } else {
+      panic("unexpected member kind")
+    }
+  }
+
+  def transpileObjectDeclaration(decl: ObjectDeclarationSyntax, sb: StringBuilder):unit = {
+    transpileToken(decl.objectKeyword, sb)
+    transpileToken(decl.identifier, sb)
+    transpileTemplate(decl.template, sb)
+  }
+
+  def transpileOptionalTemplate(template: Option<TemplateSyntax>, sb: StringBuilder) =
+    if (template.isEmpty) ()
+    else transpileTemplate(template.get, sb)
+
+  def transpileTemplate(template: TemplateSyntax, sb: StringBuilder) = {
+    transpileToken(template.openBrace, sb)
+    transpileMembers(template.members, sb)
+    transpileToken(template.closeBrace, sb)
+  }
+
+  def transpileClassDeclaration(decl: ClassDeclarationSyntax, sb: StringBuilder) = {
+    if(decl.caseKeyword.isDefined) {
+      transpileTrivia(decl.caseKeyword.get.leading, sb)
+    } else ()
+    transpileToken(decl.classKeyword, sb)
+    transpileToken(decl.identifier, sb)
+    transpileToken(decl.openParenToken, sb)
+    transpileParameters(decl.parameters, sb)
+    transpileToken(decl.closeParenToken, sb)
+    transpileOptionalTemplate(decl.template, sb)
+  }
+
+  def transpileGlobalStatement(stmt: GlobalStatementSyntax, sb: StringBuilder) =
+    transpileStatement(stmt.statement, sb)
+
+  def transpileStatement(statement: StatementSyntax, sb: StringBuilder) =
+    if (statement.kind == SyntaxKind.BreakStatement) {
+      transpileBreakStatement(statement.breakStatement.get, sb)
+    } else if (statement.kind == SyntaxKind.ContinueStatement) {
+      transpileContinueStatement(statement.continueStatement.get, sb)
+    } else if (statement.kind == SyntaxKind.ExpressionStatement) {
+      transpileExpressionStatement(statement.expressionStatement.get, sb)
+    } else if (statement.kind == SyntaxKind.VariableDeclarationStatement) {
+      transpileVariableDeclarationStatement(statement.variableDeclarationStatement.get, sb)
+    } else {
+      panic("unexpected statement kind")
+    }
+
+  def transpileVariableDeclarationStatement(get: VariableDeclarationStatementSyntax, sb: StringBuilder) = {
+    transpileToken(get.valOrVarKeyword, sb)
+    transpileToken(get.identifier, sb)
+    transpileOptionalTypeAnnotation(get.typeAnnotation, sb)
+    transpileToken(get.equalToken, sb)
+    transpileExpression(get.expression, sb)
+  }
+
+
+  def transpileExpressionStatement(get: ExpressionStatementSyntax, sb: StringBuilder): unit =
+    transpileExpression(get.expression, sb)
+
+  def transpileOptionalExpression(expression: Option<ExpressionSyntax>, sb: StringBuilder): unit =
+    if (expression.isEmpty) ()
+    else transpileExpression(expression.get, sb)
+
+  def transpileExpression(expression: ExpressionSyntax, sb: StringBuilder): unit =
+    if (expression.kind == SyntaxKind.AssignmentExpression) {
+      transpileAssignmentExpression(expression.assignmentExpression.get, sb)
+    } else if (expression.kind == SyntaxKind.BinaryExpression) {
+      transpileBinaryExpression(expression.binaryExpression.get, sb)
+    } else if (expression.kind == SyntaxKind.ArrayCreationExpression) {
+      transpileArrayCreationExpression(expression.arrayCreationExpression.get, sb)
+    } else if (expression.kind == SyntaxKind.AssignmentExpression) {
+      transpileAssignmentExpression(expression.assignmentExpression.get, sb)
+    } else if (expression.kind == SyntaxKind.BinaryExpression){
+      transpileBinaryExpression(expression.binaryExpression.get, sb)
+    } else if (expression.kind == SyntaxKind.BlockExpression){
+      transpileBlockExpression(expression.blockExpression.get, sb)
+    } else if (expression.kind == SyntaxKind.CallExpression){
+      transpileCallExpression(expression.callExpression.get, sb)
+    } else if (expression.kind == SyntaxKind.ForExpression) {
+      transpileForExpression(expression.forExpression.get, sb)
+    } else if (expression.kind == SyntaxKind.GroupExpression) {
+      transpileGroupExpression(expression.groupExpression.get, sb)
+    } else if (expression.kind == SyntaxKind.IdentifierName) {
+      transpileIdentifierName(expression.identifierName.get, sb)
+    } else if (expression.kind == SyntaxKind.IfExpression) {
+      transpileIfExpression(expression.ifExpression.get, sb)
+    } else if (expression.kind == SyntaxKind.IndexExpression) {
+      transpileIndexExpression(expression.indexExpression.get, sb)
+    } else if (expression.kind == SyntaxKind.LiteralExpression) {
+      transpileLiteralExpression(expression.literalExpression.get, sb)
+    } else if (expression.kind == SyntaxKind.MemberAccessExpression) {
+      transpileMemberAccessExpression(expression.memberAccessExpression.get, sb)
+    } else if (expression.kind == SyntaxKind.NewExpression) {
+      transpileNewExpression(expression.newExpression.get, sb)
+    } else if (expression.kind == SyntaxKind.UnaryExpression){
+      transpileUnaryExpression(expression.unaryExpression.get, sb)
+    } else if (expression.kind == SyntaxKind.UnitExpression) {
+      transpileUnitExpression(expression.unitExpression.get, sb)
+    } else if (expression.kind == SyntaxKind.WhileExpression) {
+      transpileWhileExpression(expression.whileExpression.get, sb)
+    } else {
+      panic("unexpected expression kind: " + string(expression.kind))
+    }
+
+  def transpileIdentifierName(name: IdentifierNameSyntax, sb: StringBuilder) = transpileToken(name.identifier, sb)
+
+  def transpileArrayCreationExpression(expr: ArrayCreationExpressionSyntax, sb: StringBuilder) = panic("todo")
+
+  def transpileBinaryExpression(expr: BinaryExpressionSyntax, sb: StringBuilder) = {
+    transpileExpression(expr.left, sb)
+    transpileToken(expr.operator, sb)
+    transpileExpression(expr.right, sb)
+  }
+
+  def transpileBlockExpression(expr: BlockExpressionSyntax, sb: StringBuilder) = {
+    transpileToken(expr.openBrace, sb)
+    transpileStatements(expr.statements, sb)
+    transpileOptionalExpression(expr.expression, sb)
+    transpileToken(expr.closeBrace, sb)
+  }
+
+  def transpileStatements(statements: Array<StatementSyntax>, sb: StringBuilder) =
+    for (x <- 0 to (statements.length - 1)) {
+      val statement = statements(x)
+      transpileStatement(statement, sb)
+    }
+
+  def transpileCallExpression(expr: CallExpressionSyntax, sb: StringBuilder): unit = {
+    transpileExpression(expr.name, sb)
+    transpileToken(expr.openParen, sb)
+    transpileExpressions(expr.arguments, sb)
+    transpileToken(expr.closeParen, sb)
+  }
+
+  def transpileExpressions(arguments: ExpressionListSyntax, sb: StringBuilder): unit = {
+    for (x <- 0 to (arguments.expressions.length - 1)) {
+      val expression = arguments.expressions(x)
+      transpileExpression(expression.expression, sb)
+      transpileOptionalToken(expression.separatorToken, sb)
+    }
+  }
+
+
+  def transpileForExpression(expr: ForExpressionSyntax, sb: StringBuilder): unit = {
+    transpileToken(expr.forKeyword, sb)
+    transpileToken(expr.openParen, sb)
+    transpileToken(expr.identifier, sb)
+    transpileToken(expr.arrow, sb)
+    transpileExpression(expr.fromExpr, sb)
+    transpileToken(expr.toKeyword, sb)
+    transpileExpression(expr.toExpr, sb)
+    transpileToken(expr.closeParen, sb)
+    transpileExpression(expr.body, sb)
+  }
+
+  def transpileGroupExpression(expr: GroupExpressionSyntax, sb: StringBuilder) = {
+    transpileToken(expr.openParen, sb)
+    transpileExpression(expr.expression, sb)
+    transpileToken(expr.closeParen, sb)
+  }
+
+  def transpileIfExpression(expr: IfExpressionSyntax, sb: StringBuilder): unit = {
+    transpileToken(expr.ifKeyword, sb)
+    transpileToken(expr.openParen, sb)
+    transpileExpression(expr.condition, sb)
+    transpileToken(expr.closeParen, sb)
+    transpileExpression(expr.thenExpr, sb)
+    transpileToken(expr.elseKeyword, sb)
+    transpileExpression(expr.elseExpr, sb)
+  }
+
+  def transpileIndexExpression(expr: IndexExpressionSyntax, sb: StringBuilder) = panic("todo")
+
+  def transpileLiteralExpression(expr: LiteralExpressionSyntax, sb: StringBuilder) =
+    transpileToken(expr.token, sb)
+
+  def transpileMemberAccessExpression(expr: MemberAccessExpressionSyntax, sb: StringBuilder):unit  = {
+    transpileExpression(expr.left, sb)
+    transpileToken(expr.dotToken, sb)
+    transpileIdentifierName(expr.right, sb)
+  }
+
+  def transpileNewExpression(expr: NewExpressionSyntax, sb: StringBuilder) = {
+    transpileToken(expr.newKeyword, sb)
+    transpileName(expr.name, sb)
+    transpileToken(expr.openParen, sb)
+    transpileExpressions(expr.arguments, sb)
+    transpileToken(expr.closeParen, sb)
+  }
+
+  def transpileUnaryExpression(expr: UnaryExpressionSyntax, sb: StringBuilder) = {
+    transpileToken(expr.operator, sb)
+    transpileExpression(expr.expression, sb)
+  }
+
+  def transpileUnitExpression(expr: UnitExpressionSyntax, sb: StringBuilder) = {
+    transpileToken(expr.openParen, sb)
+    transpileToken(expr.closeParen, sb)
+  }
+
+  def transpileWhileExpression(expr: WhileExpressionSyntax, sb: StringBuilder) = {
+    transpileToken(expr.whileKeyword, sb)
+    transpileToken(expr.openParen, sb)
+    transpileExpression(expr.condition, sb)
+    transpileToken(expr.closeParen, sb)
+    transpileExpression(expr.body, sb)
+  }
+
+  def transpileAssignmentExpression(expr: AssignmentExpressionSyntax, sb: StringBuilder): unit = {
+    transpileExpression(expr.left, sb)
+    transpileToken(expr.equals, sb)
+    transpileExpression(expr.right, sb)
+  }
+
+  def transpileContinueStatement(stmt: ContinueStatementSyntax, sb: StringBuilder) = panic("todo")
+
+  def transpileBreakStatement(stmt: BreakStatementSyntax, sb: StringBuilder) = panic("todo")
+
+  def transpileFunctionDeclaration(decl: FunctionDeclarationSyntax, sb: StringBuilder) = {
+    transpileToken(decl.defKeyword, sb)
+    transpileToken(decl.identifier, sb)
+    transpileToken(decl.openParenToken, sb)
+    transpileParameters(decl.parameters, sb)
+    transpileToken(decl.closeParenToken, sb)
+    transpileOptionalTypeAnnotation(decl.typeAnnotation, sb)
+    transpileOptionalFunctionBody(decl.body, sb)
+  }
+
+  def transpileOptionalFunctionBody(body: Option<FunctionBodySyntax>, sb: StringBuilder): unit =
+    if (body.isEmpty) ()
+    else       transpileOptionalFunctionBody(body.get, sb)
+
+
+    def transpileOptionalFunctionBody(body: FunctionBodySyntax, sb: StringBuilder) = {
+      transpileToken(body.equalToken, sb)
+      transpileExpression(body.expression, sb)
+    }
+
+  def transpileTypeAnnotation(typeAnnotation: TypeAnnotationSyntax, sb: StringBuilder) = {
+    transpileToken(typeAnnotation.colonToken, sb)
+    transpileName(typeAnnotation.typ, sb)
+  }
+
+  def transpileOptionalTypeAnnotation(typeAnnotation: Option<TypeAnnotationSyntax>, sb: StringBuilder) =
+    if(typeAnnotation.isDefined) transpileTypeAnnotation(typeAnnotation.get, sb)
+    else ()
+
+  def transpileParameters(parameters: Array<ParameterSyntax>, sb: StringBuilder) =
+    for (x <- 0 to (parameters.length - 1)) {
+      val parameter = parameters(x)
+      transpileParameter(parameter, sb)
+    }
+
+  def transpileParameter(parameter: ParameterSyntax, sb: StringBuilder) = {
+    transpileOptionalToken(parameter.modifier, sb)
+    transpileToken(parameter.identifier, sb)
+    transpileTypeAnnotation(parameter.typeAnnotation, sb)
+    transpileOptionalToken(parameter.commaToken, sb)
+  }
+
+  def transpileOptionalToken(modifier: Option<SyntaxToken>, sb: StringBuilder) =
+    if (modifier.isEmpty) ()
+    else transpileToken(modifier.get, sb)
+
+  def transpileNamespace(namespaceDeclaration: Option<NamespaceDeclarationSyntax>, sb: StringBuilder): unit = {
+    if (namespaceDeclaration.isEmpty) ()
+    else {
+      transpileToken(namespaceDeclaration.get.namespaceKeyword, sb)
+      transpileName(namespaceDeclaration.get.name, sb)
+    }
+  }
+
+  def transpileName(name: NameSyntax, sb: StringBuilder): unit = {
+    if(name.kind == SyntaxKind.QualifiedName) {
+      transpileQualifiedName(name.qualifiedName.get, sb)
+    } else {
+      transpileSimpleName(name.simpleName.get, sb)
+    }
+  }
+
+  def transpileSimpleName(name: SimpleNameSyntax, sb: StringBuilder) =
+    {
+      if(name.kind == SyntaxKind.IdentifierName) {
+        transpileIdentifierName(name.identifierName.get, sb)
+      } else if (name.kind == SyntaxKind.GenericName) {
+        transpileGenericName(name.genericName.get, sb)
+      } else {
+        panic("unexpected simple name kind")
+      }
+    }
+
+  def transpileGenericName(get: GenericNameSyntax, sb: StringBuilder) = {
+    transpileToken(get.identifier, sb)
+    transpileTypeArgumentList(get.typeArgumentlist, sb)
+  }
+
+  def transpileTypeArgumentList(typeArgumentlist: TypeArgumentListSyntax, sb: StringBuilder) = {
+    inName = true
+    transpileTokenWithText(typeArgumentlist.lessThanToken, "<", sb)
+    for (x <- 0 to (typeArgumentlist.arguments.length - 1)) {
+      val argument = typeArgumentlist.arguments(x)
+      transpileName(argument.name, sb)
+      transpileOptionalToken(argument.separator, sb)
+    }
+    transpileTokenWithText(typeArgumentlist.greaterThanToken,">", sb)
+    inName = false
+  }
+
+
+  def transpileQualifiedName(name: QualifiedNameSyntax, sb: StringBuilder) = {
+    transpileName(name.left, sb)
+    if(inUsing && name.right.kind == SyntaxKind.IdentifierName && name.right.identifierName.get.identifier.text == "_") {
+      // skip . and _ in `import bleh._`
+      val ident = name.right.identifierName.get.identifier
+      transpileTokenWithText(name.dotToken, "", sb)
+      transpileTokenWithText(ident, "", sb)
+    } else {
+      transpileToken(name.dotToken, sb)
+      transpileSimpleName(name.right, sb)
+    }
+  }
+}
