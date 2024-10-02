@@ -1,5 +1,8 @@
 import panther._
 
+import MemberSyntax._
+import SimpleNameSyntax._
+
 /**
     separatorToken may be either a `.` or `,` in the case
 */
@@ -21,23 +24,15 @@ case class ArrayCreationExpressionSyntax(
     initializer: Option[ArrayInitializerExpressionSyntax]
 )
 
-case class IdentifierNameSyntax(identifier: SyntaxToken)
-case class GenericNameSyntax(
-    identifier: SyntaxToken,
-    typeArgumentlist: TypeArgumentListSyntax
-)
-case class QualifiedNameSyntax(left: NameSyntax, dotToken: SyntaxToken, right: SimpleNameSyntax)
-
-case class SimpleNameSyntax(
-    kind: int,
-    genericName: Option[GenericNameSyntax],
-    identifierName: Option[IdentifierNameSyntax]
-)
-case class NameSyntax(
-    kind: int,
-    qualifiedName: Option[QualifiedNameSyntax],
-    simpleName: Option[SimpleNameSyntax]
-)
+enum SimpleNameSyntax {
+    case GenericNameSyntax(identifier: SyntaxToken,
+                           typeArgumentlist: TypeArgumentListSyntax)
+    case IdentifierNameSyntax(identifier: SyntaxToken)
+}
+enum NameSyntax {
+    case QualifiedNameSyntax(left: NameSyntax, dotToken: SyntaxToken, right: SimpleNameSyntax)
+    case SimpleName(name: SimpleNameSyntax)
+}
 case class ExpressionItemSyntax(expression: ExpressionSyntax, separatorToken: Option[SyntaxToken])
 case class ExpressionListSyntax(expressions: Array[ExpressionItemSyntax])
 
@@ -49,10 +44,14 @@ case class AssignmentExpressionSyntax(
 case class BinaryExpressionSyntax(left: ExpressionSyntax, operator: SyntaxToken, right: ExpressionSyntax)
 case class BlockExpressionSyntax(
     openBrace: SyntaxToken,
-    statements: Array[StatementSyntax],
-    expression: Option[ExpressionSyntax], /* 0 to 1 */
+    block: BlockExpressionListSyntax,
     closeBrace: SyntaxToken
-)
+) {
+    var id = -1 // used in type checker, set in binder
+}
+case class BlockExpressionListSyntax(
+                                      statements: Array[StatementSyntax],
+                                      expression: Option[ExpressionSyntax])
 case class CallExpressionSyntax(
     name: ExpressionSyntax,
     openParen: SyntaxToken,
@@ -69,7 +68,9 @@ case class ForExpressionSyntax(
     toExpr: ExpressionSyntax,
     closeParen: SyntaxToken,
     body: ExpressionSyntax
-)
+) {
+    var id = -1 // used in type checker, set in binder
+}
 case class GroupExpressionSyntax(
     openParen: SyntaxToken,
     expression: ExpressionSyntax,
@@ -113,27 +114,42 @@ case class WhileExpressionSyntax(
                                   body: ExpressionSyntax
 )
 
-case class ExpressionSyntax(
-    kind: int,
-    arrayCreationExpression: Option[ArrayCreationExpressionSyntax],
-    assignmentExpression: Option[AssignmentExpressionSyntax],
-    binaryExpression: Option[BinaryExpressionSyntax],
-    blockExpression: Option[BlockExpressionSyntax],
-    callExpression: Option[CallExpressionSyntax],
-    forExpression: Option[ForExpressionSyntax],
-    groupExpression: Option[GroupExpressionSyntax],
-    identifierName: Option[IdentifierNameSyntax],
-    ifExpression: Option[IfExpressionSyntax],
-    indexExpression: Option[IndexExpressionSyntax],
-    literalExpression: Option[LiteralExpressionSyntax],
-    memberAccessExpression: Option[MemberAccessExpressionSyntax],
-    newExpression: Option[NewExpressionSyntax],
-    unaryExpression: Option[UnaryExpressionSyntax],
-    unitExpression: Option[UnitExpressionSyntax],
-    whileExpression: Option[WhileExpressionSyntax]
-) {
-    var id = -1 // used in type checker
+enum ExpressionSyntax {
+    case ArrayCreationExpression(value: ArrayCreationExpressionSyntax)
+    case AssignmentExpression(value: AssignmentExpressionSyntax)
+    case BinaryExpression(value: BinaryExpressionSyntax)
+    case BlockExpression(value: BlockExpressionSyntax)
+    case CallExpression(value: CallExpressionSyntax)
+    case ForExpression(value: ForExpressionSyntax)
+    case GroupExpression(value: GroupExpressionSyntax)
+    case IdentifierName(value: IdentifierNameSyntax)
+    case IfExpression(value: IfExpressionSyntax)
+    case IndexExpression(value: IndexExpressionSyntax)
+    case LiteralExpression(value: LiteralExpressionSyntax)
+    case MemberAccessExpression(value: MemberAccessExpressionSyntax)
+    case MatchExpression(expression: ExpressionSyntax, matchKeyword: SyntaxToken, openBrace: SyntaxToken, cases : Array[MatchCaseSyntax], closeBrace: SyntaxToken)
+    case NewExpression(value: NewExpressionSyntax)
+    case UnaryExpression(value: UnaryExpressionSyntax)
+    case UnitExpression(value: UnitExpressionSyntax)
+    case WhileExpression(value: WhileExpressionSyntax)
 }
+
+case class MatchCaseSyntax(
+    caseKeyword: SyntaxToken,
+    pattern: PatternSyntax,
+    arrow: SyntaxToken,
+    block: BlockExpressionListSyntax
+)
+
+enum PatternSyntax {
+    case ExtractPattern(value: NameSyntax, openParenToken: SyntaxToken, patterns: Array[PatternItemSyntax], closeParenToken: SyntaxToken)
+    case IdentifierPattern(value: SyntaxToken, typeAnnotation: TypeAnnotationSyntax)
+    case TypePattern(typ: NameSyntax)
+    case LiteralPattern(value: SyntaxToken)
+    case DiscardPattern(value: SyntaxToken)
+}
+
+case class PatternItemSyntax(pattern: PatternSyntax, separatorToken: Option[SyntaxToken])
 
 case class FunctionBodySyntax(equalToken: SyntaxToken, expression: ExpressionSyntax)
 case class ParameterSyntax(
@@ -159,32 +175,6 @@ case class TemplateSyntax(
     closeBrace: SyntaxToken
 )
 
-case class ObjectDeclarationSyntax(
-    objectKeyword: SyntaxToken,
-    identifier: SyntaxToken,
-    template: TemplateSyntax
-)
-
-case class ClassDeclarationSyntax(
-    caseKeyword: Option[SyntaxToken],
-    classKeyword: SyntaxToken,
-    identifier: SyntaxToken,
-    openParenToken: SyntaxToken,
-    parameters: Array[ParameterSyntax],
-    closeParenToken: SyntaxToken,
-    template: Option[TemplateSyntax]
- )
-
-case class FunctionDeclarationSyntax(
-    defKeyword: SyntaxToken,
-    identifier: SyntaxToken,
-    openParenToken: SyntaxToken,
-    parameters: Array[ParameterSyntax],
-    closeParenToken: SyntaxToken,
-    typeAnnotation: Option[TypeAnnotationSyntax],
-    body: Option[FunctionBodySyntax]
-)
-
 case class VariableDeclarationStatementSyntax(
     valOrVarKeyword: SyntaxToken,
     identifier: SyntaxToken,
@@ -196,23 +186,42 @@ case class BreakStatementSyntax(breakKeyword: SyntaxToken)
 case class ContinueStatementSyntax(continueKeyword: SyntaxToken)
 case class ExpressionStatementSyntax(expression: ExpressionSyntax)
 
-case class StatementSyntax(
-    kind: int,
-    variableDeclarationStatement: Option[VariableDeclarationStatementSyntax],
-    breakStatement: Option[BreakStatementSyntax],
-    continueStatement: Option[ContinueStatementSyntax],
-    expressionStatement: Option[ExpressionStatementSyntax]
-)
+enum StatementSyntax {
+    case VariableDeclarationStatement(value: VariableDeclarationStatementSyntax)
+    case BreakStatement(value: BreakStatementSyntax)
+    case ContinueStatement(value: ContinueStatementSyntax)
+    case ExpressionStatement(value: ExpressionStatementSyntax)
+}
 
-case class GlobalStatementSyntax(statement: StatementSyntax)
+case class EnumCaseParametersSyntax(openParenToken: SyntaxToken, parameters: Array[ParameterSyntax], closeParenToken: SyntaxToken)
+case class EnumCaseSyntax(caseKeyword: SyntaxToken, identifier: SyntaxToken, parameters: Option[EnumCaseParametersSyntax])
 
-case class MemberSyntax(
-                         kind: int,
-                         objekt: Option[ObjectDeclarationSyntax],
-                         klass: Option[ClassDeclarationSyntax],
-                         function: Option[FunctionDeclarationSyntax],
-                         statement: Option[GlobalStatementSyntax]
-)
+enum MemberSyntax {
+    case ObjectDeclarationSyntax(objectKeyword: SyntaxToken,
+                                 identifier: SyntaxToken,
+                                 template: TemplateSyntax)
+    case ClassDeclarationSyntax(caseKeyword: Option[SyntaxToken],
+                                classKeyword: SyntaxToken,
+                                identifier: SyntaxToken,
+                                openParenToken: SyntaxToken,
+                                parameters: Array[ParameterSyntax],
+                                closeParenToken: SyntaxToken,
+                                template: Option[TemplateSyntax])
+    case FunctionDeclarationSyntax(defKeyword: SyntaxToken,
+                                   identifier: SyntaxToken,
+                                   openParenToken: SyntaxToken,
+                                   parameters: Array[ParameterSyntax],
+                                   closeParenToken: SyntaxToken,
+                                   typeAnnotation: Option[TypeAnnotationSyntax],
+                                   body: Option[FunctionBodySyntax])
+    case GlobalStatementSyntax(statement: StatementSyntax)
+    case EnumDeclarationSyntax(enumKeyword: SyntaxToken,
+                               identifier: SyntaxToken,
+                               openBraceToken: SyntaxToken,
+                               cases: Array[EnumCaseSyntax],
+                               members: Array[MemberSyntax],
+                               closeBraceToken: SyntaxToken)
+}
 
 /**
   * names [1..n]
@@ -231,12 +240,10 @@ case class CompilationUnitSyntax(namespaceDeclaration: Option[NamespaceDeclarati
 
 
 object DeclarationKind {
-    val Object = 1
-    val Class = 2
-    val Method = 3
-    val Parameter = 4
-    val Local = 5
-    val Token = 6
+    val Member = 1
+    val Parameter = 2
+    val Local = 3
+    val Token = 4
 }
 
 // A declaration is any syntax that defines a binding, the type of the
@@ -247,9 +254,8 @@ case class Declaration(
     kind: int,
     name: string,
     location: TextLocation,
-    object_declaration: Option[ObjectDeclarationSyntax],
-    class_declaration: Option[ClassDeclarationSyntax],
-    function_declaration: Option[FunctionDeclarationSyntax],
+    memberDeclaration: Option[MemberSyntax],
+    enumCaseSyntax: Option[EnumCaseSyntax],
     parameter_declaration: Option[ParameterSyntax],
     local_declaration: Option[VariableDeclarationStatementSyntax],
     token_declaration: Option[SyntaxToken]
@@ -258,51 +264,37 @@ case class Declaration(
 }
 
 object MakeDeclaration {
-    def obj(node: ObjectDeclarationSyntax): Declaration =
+    def enumCaseSyntax(node: EnumCaseSyntax): Declaration = {
         new Declaration(
-            DeclarationKind.Object,
+            DeclarationKind.Member,
             node.identifier.text,
             node.identifier.location,
+            None,
             Some(node),
-            None,
-            None,
             None,
             None,
             None
         )
+    }
 
-    def cls(node: ClassDeclarationSyntax): Declaration =
+    def member(identifier: SyntaxToken, node: MemberSyntax): Declaration = {
         new Declaration(
-            DeclarationKind.Class,
-            node.identifier.text,
-            node.identifier.location,
-            None,
+            DeclarationKind.Member,
+            identifier.text,
+            identifier.location,
             Some(node),
             None,
             None,
             None,
             None
         )
-
-    def function(node: FunctionDeclarationSyntax): Declaration =
-        new Declaration(
-            DeclarationKind.Method,
-            node.identifier.text,
-            node.identifier.location,
-            None,
-            None,
-            Some(node),
-            None,
-            None,
-            None
-        )
+    }
 
     def parameter(node: ParameterSyntax): Declaration =
         new Declaration(
             DeclarationKind.Parameter,
             node.identifier.text,
             node.identifier.location,
-            None,
             None,
             None,
             Some(node),
@@ -315,7 +307,6 @@ object MakeDeclaration {
             DeclarationKind.Local,
             node.identifier.text,
             node.identifier.location,
-            None,
             None,
             None,
             None,
@@ -332,34 +323,33 @@ object MakeDeclaration {
             None,
             None,
             None,
-            None,
             Some(node)
         )
 }
 
+//
+//// A Node represents any piece of the AST
+//case class Node(
+//    declaration: Option[Declaration],
+//    expression: Option[ExpressionSyntax]
+//) {
+//
+//    def is_decl(): bool = declaration.isDefined
+//
+//    def id(): int =
+//        if (is_decl()) declaration.get.id
+//        else expression.get.id
+//
+//    def set_id(value: int): unit = {
+//        if (is_decl()) {
+//            declaration.get.id = value
+//        } else {
+//            expression.get.id = value
+//        }
+//    }
+//}
 
-// A Node represents any piece of the AST
-case class Node(
-    declaration: Option[Declaration],
-    expression: Option[ExpressionSyntax]
-) {
-
-    def is_decl(): bool = declaration.isDefined
-
-    def id(): int =
-        if (is_decl()) declaration.get.id
-        else expression.get.id
-
-    def set_id(value: int): unit = {
-        if (is_decl()) {
-            declaration.get.id = value
-        } else {
-            expression.get.id = value
-        }
-    }
-}
-
-object MakeNode {
-    def decl(declaration: Declaration): Node = new Node(Some(declaration), None)
-    def expr(expression: ExpressionSyntax): Node = new Node(None, Some(expression))
-}
+//object MakeNode {
+//    def decl(declaration: Declaration): Node = new Node(Some(declaration), None)
+//    def expr(expression: ExpressionSyntax): Node = new Node(None, Some(expression))
+//}

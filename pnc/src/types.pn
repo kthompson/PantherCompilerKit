@@ -6,7 +6,7 @@ using panther
 class Type(
     var kind: int,
     var symbol: Option<Symbol>,
-    var intersection: Option<IntersectionType>,
+//    var intersection: Option[IntersectionType],
     var primitive: Option<PrimitiveType>,
     var typeVariable: Option<TypeVariable>,
     var function: Option<FunctionType>,
@@ -18,11 +18,11 @@ class Type(
 }
 
 object TypeKind {
-    val Any = 1
-    val Nothing = 2
-    val Intersection = 4
+//    val Any = 1
+//    val Nothing = 2
+//    val Intersection = 4
     val Primitive = 5
-    val TypeVariable = 6
+//    val TypeVariable = 6
     val Function = 7
     val TypeConstructor = 8
     val Array = 9
@@ -30,10 +30,10 @@ object TypeKind {
     val Unresolved = 11
 }
 
-class UnionType(left: Type, right: Type)
+//case class UnionType(left: Type, right: Type)
 class ArrayType(inner: Type)
 class OptionType(inner: Type)
-class IntersectionType(left: Type, right: Type)
+//case class IntersectionType(left: Type, right: Type)
 class PrimitiveType(name: string)
 class TypeVariable(name: string, hash: int)
 class FunctionType(parameters: Array<Type>, returnType: Type)
@@ -42,33 +42,32 @@ class TypeConstructor(name: string, parameters: Array<Type>)
 //case class RecordTypeField(name: string, typ: Type)
 
 object MakeType {
-    val top: Type = new Type(
-        TypeKind.Any,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None
-    )
-
-    val bottom: Type = new Type(
-        TypeKind.Nothing,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None
-    )
+//    val top: Type = new Type(
+//        TypeKind.Any,
+//        None,
+//        None,
+//        None,
+//        None,
+//        None,
+//        None,
+//        None,
+//        None
+//    )
+//
+//    val bottom: Type = new Type(
+//        TypeKind.Nothing,
+//        None,
+//        None,
+//        None,
+//        None,
+//        None,
+//        None,
+//        None,
+//        None
+//    )
 
     def primitive(name: string): Type = new Type(
         TypeKind.Primitive,
-        None,
         None,
         Some(new PrimitiveType(name) ),
         None,
@@ -82,7 +81,6 @@ object MakeType {
         new Type(
             TypeKind.Function,
             Some(symbol),
-            None,
             None,
             None,
             Some(new FunctionType(parameters, returnType) ),
@@ -101,7 +99,6 @@ object MakeType {
             None,
             None,
             None,
-            None,
             Some(typ)
         )
     }
@@ -109,7 +106,6 @@ object MakeType {
     def array(inner: Type): Type =
         new Type(
             TypeKind.Array,
-            None,
             None,
             None,
             None,
@@ -127,7 +123,6 @@ object MakeType {
         None,
         None,
         None,
-        None,
         None
     )
 
@@ -138,9 +133,7 @@ object MakeType {
         None,
         None,
         None,
-        None,
         Some(new OptionType(inner)),
         None
     )
-
 }

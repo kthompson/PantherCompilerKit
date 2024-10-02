@@ -95,23 +95,25 @@ object SyntaxKind {
     val ClassKeyword            = 17
     val ContinueKeyword         = 18
     val DefKeyword              = 19
-    val ElseKeyword             = 20
-    val FalseKeyword            = 21
-    val ForKeyword              = 22
-    val IfKeyword               = 23
-    val ImplicitKeyword         = 24
-    val ImportKeyword           = 25
-    val NamespaceKeyword        = 26
-    val NewKeyword              = 27
-    val ObjectKeyword           = 28
-    val OverrideKeyword         = 29
-    val StaticKeyword           = 30
-    val ToKeyword               = 31
-    val TrueKeyword             = 32
-    val UsingKeyword            = 33
-    val ValKeyword              = 34
-    val VarKeyword              = 35
-    val WhileKeyword            = 36
+    val EnumKeyword             = 20
+    val ElseKeyword             = 21
+    val FalseKeyword            = 22
+    val ForKeyword              = 23
+    val IfKeyword               = 24
+    val ImplicitKeyword         = 25
+    val ImportKeyword           = 26
+    val MatchKeyword            = 27
+    val NamespaceKeyword        = 28
+    val NewKeyword              = 29
+    val ObjectKeyword           = 30
+    val OverrideKeyword         = 31
+    val StaticKeyword           = 32
+    val ToKeyword               = 33
+    val TrueKeyword             = 34
+    val UsingKeyword            = 35
+    val ValKeyword              = 36
+    val VarKeyword              = 37
+    val WhileKeyword            = 38
 
     // Operators
     val AmpersandAmpersandToken = 41
@@ -123,18 +125,19 @@ object SyntaxKind {
     val DashToken               = 47
     val DotToken                = 48
     val EqualsEqualsToken       = 49
-    val EqualsToken             = 50
-    val GreaterThanEqualsToken  = 51
-    val GreaterThanToken        = 52
-    val LessThanDashToken       = 53
-    val LessThanEqualsToken     = 54
-    val LessThanToken           = 55
-    val PipePipeToken           = 56
-    val PipeToken               = 57
-    val PlusToken               = 58
-    val SlashToken              = 59
-    val StarToken               = 60
-    val TildeToken              = 61
+    val EqualsGreaterThanToken  = 50
+    val EqualsToken             = 51
+    val GreaterThanEqualsToken  = 52
+    val GreaterThanToken        = 53
+    val LessThanDashToken       = 54
+    val LessThanEqualsToken     = 55
+    val LessThanToken           = 56
+    val PipePipeToken           = 57
+    val PipeToken               = 58
+    val PlusToken               = 59
+    val SlashToken              = 60
+    val StarToken               = 61
+    val TildeToken              = 62
 
     // grouping tokens
     val CloseParenToken         = 70
@@ -200,107 +203,110 @@ object OperatorPrecedence {
 }
 
 object SyntaxFacts {
-    def get_kind_name(kind: int): string = {
-        if (kind == SyntaxKind.EndOfInputToken) "EndOfInputToken"
-        else if (kind == SyntaxKind.IdentifierToken) "IdentifierToken"
-        else if (kind == SyntaxKind.CommaToken) "CommaToken"
-        else if (kind == SyntaxKind.InvalidTokenTrivia) "InvalidTokenTrivia"
-        else if (kind == SyntaxKind.EndOfLineTrivia) "EndOfLineTrivia"
-        else if (kind == SyntaxKind.WhitespaceTrivia) "WhitespaceTrivia"
-        else if (kind == SyntaxKind.LineCommentTrivia) "LineCommentTrivia"
+    def getKindName(kind: int): string = {
+        if (kind == SyntaxKind.AmpersandAmpersandToken) "AmpersandAmpersandToken"
+        else if (kind == SyntaxKind.AmpersandToken) "AmpersandToken"
+        else if (kind == SyntaxKind.ArrayCreationExpression) "ArrayCreationExpression"
+        else if (kind == SyntaxKind.ArrayInitializer) "ArrayInitializer"
+        else if (kind == SyntaxKind.AssignmentExpression) "AssignmentExpression"
+        else if (kind == SyntaxKind.BangEqualsToken) "BangEqualsToken"
+        else if (kind == SyntaxKind.BangToken) "BangToken"
+        else if (kind == SyntaxKind.BinaryExpression) "BinaryExpression"
         else if (kind == SyntaxKind.BlockCommentTrivia) "BlockCommentTrivia"
-        else if (kind == SyntaxKind.NumberToken) "NumberToken"
-        else if (kind == SyntaxKind.StringToken) "StringToken"
-        else if (kind == SyntaxKind.CharToken) "CharToken"
+        else if (kind == SyntaxKind.BlockExpression) "BlockExpression"
         else if (kind == SyntaxKind.BreakKeyword) "BreakKeyword"
+        else if (kind == SyntaxKind.BreakStatement) "BreakStatement"
+        else if (kind == SyntaxKind.CallExpression) "CallExpression"
+        else if (kind == SyntaxKind.CaretToken) "CaretToken"
         else if (kind == SyntaxKind.CaseKeyword) "CaseKeyword"
+        else if (kind == SyntaxKind.CharToken) "CharToken"
+        else if (kind == SyntaxKind.ClassDeclaration) "ClassDeclaration"
         else if (kind == SyntaxKind.ClassKeyword) "ClassKeyword"
+        else if (kind == SyntaxKind.CloseBraceToken) "CloseBraceToken"
+        else if (kind == SyntaxKind.CloseBracketToken) "CloseBracketToken"
+        else if (kind == SyntaxKind.CloseParenToken) "CloseParenToken"
+        else if (kind == SyntaxKind.ColonToken) "ColonToken"
+        else if (kind == SyntaxKind.CommaToken) "CommaToken"
+        else if (kind == SyntaxKind.CompilationUnit) "CompilationUnit"
         else if (kind == SyntaxKind.ContinueKeyword) "ContinueKeyword"
+        else if (kind == SyntaxKind.ContinueStatement) "ContinueStatement"
+        else if (kind == SyntaxKind.DashToken) "DashToken"
         else if (kind == SyntaxKind.DefKeyword) "DefKeyword"
+        else if (kind == SyntaxKind.DotToken) "DotToken"
         else if (kind == SyntaxKind.ElseKeyword) "ElseKeyword"
+        else if (kind == SyntaxKind.EndOfInputToken) "EndOfInputToken"
+        else if (kind == SyntaxKind.EndOfLineTrivia) "EndOfLineTrivia"
+        else if (kind == SyntaxKind.EnumKeyword) "EnumKeyword"
+        else if (kind == SyntaxKind.EqualsEqualsToken) "EqualsEqualsToken"
+        else if (kind == SyntaxKind.EqualsGreaterThanToken) "EqualsGreaterThanToken"
+        else if (kind == SyntaxKind.EqualsToken) "EqualsToken"
+        else if (kind == SyntaxKind.ExpressionStatement) "ExpressionStatement"
         else if (kind == SyntaxKind.FalseKeyword) "FalseKeyword"
+        else if (kind == SyntaxKind.ForExpression) "ForExpression"
         else if (kind == SyntaxKind.ForKeyword) "ForKeyword"
+        else if (kind == SyntaxKind.FunctionBody) "FunctionBody"
+        else if (kind == SyntaxKind.FunctionDeclaration) "FunctionDeclaration"
+        else if (kind == SyntaxKind.GenericName) "GenericName"
+        else if (kind == SyntaxKind.GlobalStatement) "GlobalStatement"
+        else if (kind == SyntaxKind.GreaterThanEqualsToken) "GreaterThanEqualsToken"
+        else if (kind == SyntaxKind.GreaterThanToken) "GreaterThanToken"
+        else if (kind == SyntaxKind.GroupExpression) "GroupExpression"
+        else if (kind == SyntaxKind.IdentifierName) "IdentifierName"
+        else if (kind == SyntaxKind.IdentifierToken) "IdentifierToken"
+        else if (kind == SyntaxKind.IfExpression) "IfExpression"
         else if (kind == SyntaxKind.IfKeyword) "IfKeyword"
         else if (kind == SyntaxKind.ImplicitKeyword) "ImplicitKeyword"
         else if (kind == SyntaxKind.ImportKeyword) "ImportKeyword"
-        else if (kind == SyntaxKind.NamespaceKeyword) "NamespaceKeyword"
-        else if (kind == SyntaxKind.NewKeyword) "NewKeyword"
-        else if (kind == SyntaxKind.ObjectKeyword) "ObjectKeyword"
-        else if (kind == SyntaxKind.StaticKeyword) "StaticKeyword"
-        else if (kind == SyntaxKind.ToKeyword) "ToKeyword"
-        else if (kind == SyntaxKind.TrueKeyword) "TrueKeyword"
-        else if (kind == SyntaxKind.UsingKeyword) "UsingKeyword"
-        else if (kind == SyntaxKind.ValKeyword) "ValKeyword"
-        else if (kind == SyntaxKind.VarKeyword) "VarKeyword"
-        else if (kind == SyntaxKind.WhileKeyword) "WhileKeyword"
-        else if (kind == SyntaxKind.AmpersandAmpersandToken) "AmpersandAmpersandToken"
-        else if (kind == SyntaxKind.AmpersandToken) "AmpersandToken"
-        else if (kind == SyntaxKind.BangEqualsToken) "BangEqualsToken"
-        else if (kind == SyntaxKind.BangToken) "BangToken"
-        else if (kind == SyntaxKind.CaretToken) "CaretToken"
-        else if (kind == SyntaxKind.ColonToken) "ColonToken"
-        else if (kind == SyntaxKind.DashToken) "DashToken"
-        else if (kind == SyntaxKind.DotToken) "DotToken"
-        else if (kind == SyntaxKind.EqualsEqualsToken) "EqualsEqualsToken"
-        else if (kind == SyntaxKind.EqualsToken) "EqualsToken"
-        else if (kind == SyntaxKind.GreaterThanEqualsToken) "GreaterThanEqualsToken"
-        else if (kind == SyntaxKind.GreaterThanToken) "GreaterThanToken"
+        else if (kind == SyntaxKind.IndexExpression) "IndexExpression"
+        else if (kind == SyntaxKind.Initializer) "Initializer"
+        else if (kind == SyntaxKind.InvalidTokenTrivia) "InvalidTokenTrivia"
         else if (kind == SyntaxKind.LessThanDashToken) "LessThanDashToken"
         else if (kind == SyntaxKind.LessThanEqualsToken) "LessThanEqualsToken"
         else if (kind == SyntaxKind.LessThanToken) "LessThanToken"
+        else if (kind == SyntaxKind.LineCommentTrivia) "LineCommentTrivia"
+        else if (kind == SyntaxKind.LiteralExpression) "LiteralExpression"
+        else if (kind == SyntaxKind.MatchKeyword) "MatchKeyword"
+        else if (kind == SyntaxKind.MemberAccessExpression) "MemberAccessExpression"
+        else if (kind == SyntaxKind.NamespaceDeclaration) "NamespaceDeclaration"
+        else if (kind == SyntaxKind.NamespaceKeyword) "NamespaceKeyword"
+        else if (kind == SyntaxKind.NewExpression) "NewExpression"
+        else if (kind == SyntaxKind.NewKeyword) "NewKeyword"
+        else if (kind == SyntaxKind.NumberToken) "NumberToken"
+        else if (kind == SyntaxKind.ObjectDeclaration) "ObjectDeclaration"
+        else if (kind == SyntaxKind.ObjectKeyword) "ObjectKeyword"
+        else if (kind == SyntaxKind.OpenBraceToken) "OpenBraceToken"
+        else if (kind == SyntaxKind.OpenBracketToken) "OpenBracketToken"
+        else if (kind == SyntaxKind.OpenParenToken) "OpenParenToken"
+        else if (kind == SyntaxKind.Parameter) "Parameter"
         else if (kind == SyntaxKind.PipePipeToken) "PipePipeToken"
         else if (kind == SyntaxKind.PipeToken) "PipeToken"
         else if (kind == SyntaxKind.PlusToken) "PlusToken"
+        else if (kind == SyntaxKind.QualifiedName) "QualifiedName"
         else if (kind == SyntaxKind.SlashToken) "SlashToken"
         else if (kind == SyntaxKind.StarToken) "StarToken"
-        else if (kind == SyntaxKind.TildeToken) "TildeToken"
-        else if (kind == SyntaxKind.CloseParenToken) "CloseParenToken"
-        else if (kind == SyntaxKind.OpenParenToken) "OpenParenToken"
-        else if (kind == SyntaxKind.OpenBraceToken) "OpenBraceToken"
-        else if (kind == SyntaxKind.CloseBraceToken) "CloseBraceToken"
-        else if (kind == SyntaxKind.OpenBracketToken) "OpenBracketToken"
-        else if (kind == SyntaxKind.CloseBracketToken) "CloseBracketToken"
-        else if (kind == SyntaxKind.ArrayCreationExpression) "ArrayCreationExpression"
-        else if (kind == SyntaxKind.AssignmentExpression) "AssignmentExpression"
-        else if (kind == SyntaxKind.BinaryExpression) "BinaryExpression"
-        else if (kind == SyntaxKind.BlockExpression) "BlockExpression"
-        else if (kind == SyntaxKind.CallExpression) "CallExpression"
-        else if (kind == SyntaxKind.ForExpression) "ForExpression"
-        else if (kind == SyntaxKind.GroupExpression) "GroupExpression"
-        else if (kind == SyntaxKind.IfExpression) "IfExpression"
-        else if (kind == SyntaxKind.IndexExpression) "IndexExpression"
-        else if (kind == SyntaxKind.LiteralExpression) "LiteralExpression"
-        else if (kind == SyntaxKind.MemberAccessExpression) "MemberAccessExpression"
-        else if (kind == SyntaxKind.NewExpression) "NewExpression"
-        else if (kind == SyntaxKind.UnaryExpression) "UnaryExpression"
-        else if (kind == SyntaxKind.UnitExpression) "UnitExpression"
-        else if (kind == SyntaxKind.WhileExpression) "WhileExpression"
-        else if (kind == SyntaxKind.QualifiedName) "QualifiedName"
-        else if (kind == SyntaxKind.GenericName) "GenericName"
-        else if (kind == SyntaxKind.IdentifierName) "IdentifierName"
-        else if (kind == SyntaxKind.BreakStatement) "BreakStatement"
-        else if (kind == SyntaxKind.ContinueStatement) "ContinueStatement"
-        else if (kind == SyntaxKind.ExpressionStatement) "ExpressionStatement"
-        else if (kind == SyntaxKind.VariableDeclarationStatement) "VariableDeclarationStatement"
-        else if (kind == SyntaxKind.ArrayInitializer) "ArrayInitializer"
-        else if (kind == SyntaxKind.CompilationUnit) "CompilationUnit"
-        else if (kind == SyntaxKind.FunctionBody) "FunctionBody"
-        else if (kind == SyntaxKind.Initializer) "Initializer"
-        else if (kind == SyntaxKind.Parameter) "Parameter"
+        else if (kind == SyntaxKind.StaticKeyword) "StaticKeyword"
+        else if (kind == SyntaxKind.StringToken) "StringToken"
         else if (kind == SyntaxKind.Template) "Template"
+        else if (kind == SyntaxKind.TildeToken) "TildeToken"
+        else if (kind == SyntaxKind.ToKeyword) "ToKeyword"
+        else if (kind == SyntaxKind.TrueKeyword) "TrueKeyword"
         else if (kind == SyntaxKind.TypeAnnotation) "TypeAnnotation"
         else if (kind == SyntaxKind.TypeArgumentList) "TypeArgumentList"
-        else if (kind == SyntaxKind.ClassDeclaration) "ClassDeclaration"
-        else if (kind == SyntaxKind.FunctionDeclaration) "FunctionDeclaration"
-        else if (kind == SyntaxKind.ObjectDeclaration) "ObjectDeclaration"
+        else if (kind == SyntaxKind.UnaryExpression) "UnaryExpression"
+        else if (kind == SyntaxKind.UnitExpression) "UnitExpression"
         else if (kind == SyntaxKind.UsingDirective) "UsingDirective"
-        else if (kind == SyntaxKind.GlobalStatement) "GlobalStatement"
-        else if (kind == SyntaxKind.NamespaceDeclaration) "NamespaceDeclaration"
-        else "<invalid>"
+        else if (kind == SyntaxKind.UsingKeyword) "UsingKeyword"
+        else if (kind == SyntaxKind.ValKeyword) "ValKeyword"
+        else if (kind == SyntaxKind.VarKeyword) "VarKeyword"
+        else if (kind == SyntaxKind.VariableDeclarationStatement) "VariableDeclarationStatement"
+        else if (kind == SyntaxKind.WhileExpression) "WhileExpression"
+        else if (kind == SyntaxKind.WhileKeyword) "WhileKeyword"
+        else if (kind == SyntaxKind.WhitespaceTrivia) "WhitespaceTrivia"
+        else panic("Unknown SyntaxKind: " + kind)
     }
 
-    def is_keyword_kind(kind: int): bool =
-        kind >= 11 && kind <= 29
+    def isKeywordKind(kind: int): bool =
+        kind >= SyntaxKind.BreakKeyword && kind <= SyntaxKind.WhileKeyword
 
     def get_keyword_kind(span: string): int = {
         if (span == "break") SyntaxKind.BreakKeyword
@@ -309,11 +315,13 @@ object SyntaxFacts {
         else if (span == "continue") SyntaxKind.ContinueKeyword
         else if (span == "def") SyntaxKind.DefKeyword
         else if (span == "else") SyntaxKind.ElseKeyword
+        else if (span == "enum") SyntaxKind.EnumKeyword
         else if (span == "false") SyntaxKind.FalseKeyword
         else if (span == "for") SyntaxKind.ForKeyword
         else if (span == "if") SyntaxKind.IfKeyword
         else if (span == "implicit") SyntaxKind.ImplicitKeyword
         else if (span == "import") SyntaxKind.ImportKeyword
+        else if (span == "match") SyntaxKind.MatchKeyword
         else if (span == "namespace") SyntaxKind.NamespaceKeyword
         else if (span == "object") SyntaxKind.ObjectKeyword
         else if (span == "override") SyntaxKind.OverrideKeyword
@@ -327,4 +335,22 @@ object SyntaxFacts {
         else if (span == "while") SyntaxKind.WhileKeyword
         else SyntaxKind.IdentifierToken
     }
+
+    def isBinaryOperator(kind: int): bool =
+        kind == SyntaxKind.AmpersandAmpersandToken ||
+          kind == SyntaxKind.AmpersandToken ||
+          kind == SyntaxKind.BangEqualsToken ||
+          kind == SyntaxKind.CaretToken ||
+          kind == SyntaxKind.DashToken ||
+          kind == SyntaxKind.EqualsEqualsToken ||
+          kind == SyntaxKind.GreaterThanEqualsToken ||
+          kind == SyntaxKind.GreaterThanToken ||
+          kind == SyntaxKind.LessThanEqualsToken ||
+          kind == SyntaxKind.LessThanToken ||
+          kind == SyntaxKind.PipePipeToken ||
+          kind == SyntaxKind.PipeToken ||
+          kind == SyntaxKind.PlusToken ||
+          kind == SyntaxKind.SlashToken ||
+          kind == SyntaxKind.StarToken
+
 }

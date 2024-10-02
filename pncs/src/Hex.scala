@@ -29,4 +29,17 @@ object Hex {
         }
         value
     }
+
+    def toString(value: int): string = {
+        var s = ""
+        var curr = value
+        while (curr > 0) {
+            val digit = mod(curr, 16)
+            if (digit < 10) s = digit.toString() + s
+            else s = string(char('A' + (digit - 10))) + s
+            curr = curr / 16
+        }
+        if (s == "") "0"
+        else s
+    }
 }

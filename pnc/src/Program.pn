@@ -1,7 +1,7 @@
 using panther
 
 object Program {
-    def main(args: Array<string>): unit = {
+    def main(args: Array<String>): Unit = {
         if(args.length < 2) {
             printHelp()
         } else if (args(0) == "-t") {
@@ -20,7 +20,7 @@ object Program {
                     printDiagnostic(compilation.diagnostics(i))
                 }
             } else {
-                println("emitting to " + args(1) + "...")
+                println("transpiling to " + args(1) + "...")
                 compilation.transpile(args(1))
             }
         } else {
@@ -43,15 +43,6 @@ object Program {
                 compilation.emit(args(0))
             }
         }
-    }
-
-    def padRight(value: string, len: int): string = {
-        var padded = value
-        while (padded.length < len) {
-            padded = padded + " "
-        }
-
-        padded
     }
 
     def printDiagnostic(diagnostic: Diagnostic): unit = {
@@ -88,7 +79,7 @@ object Program {
             print(ANSI.Clear)
             println(suffix)
 
-            for(c <- 0 to (prefix_span.length - 1)) {
+            for(c <- 0 to (prefix_span.length - 2)) {
                 print('-')
             }
             println('^')
@@ -97,11 +88,11 @@ object Program {
         println()
     }
 
-    def printToken(token: SyntaxToken) =
-        println(padRight("TOKEN[" + SyntaxFacts.get_kind_name(token.kind) + "," + string(token.start) + "]: ", 36) + "\"" + token.text + "\"")
+    def printToken(token: SyntaxToken): unit =
+        println(Pad.right("TOKEN[" + SyntaxFacts.getKindName(token.kind) + "," + string(token.start) + "]: ", 36, ' ') + "\"" + token.text + "\"")
 
-    def printLogo() = println("panther compiler - 0.0.1")
-    def printHelp() = {
+    def printLogo(): unit = println("panther compiler - 0.0.1")
+    def printHelp(): unit = {
         println("pncs output.c [sources]")
         println("pncs -t output/ [sources]")
     }

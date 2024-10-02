@@ -1,4 +1,9 @@
 import panther._
+import ExpressionSyntax._
+import MemberSyntax._
+import StatementSyntax._
+import SimpleNameSyntax._
+import NameSyntax._
 
 object ANSI {
     val Red = "\u001b[0;31m"
@@ -66,16 +71,13 @@ object AstPrinter {
     }
 
     def printMember(member: MemberSyntax): unit = {
-        val kind = member.kind
-        if (kind == SyntaxKind.ObjectDeclaration) {
-            printObjectDeclaration(member.objekt.get)
-        } else if (kind == SyntaxKind.ClassDeclaration) {
-            printClassDeclaration(member.klass.get)
-        } else if (kind == SyntaxKind.FunctionDeclaration) {
-            printFunctionDeclaration(member.function.get)
-        } else if (kind == SyntaxKind.GlobalStatement) {
-            printGlobalStatement(member.statement.get)
-        } else panic("print_member")
+        member match {
+            case value: ObjectDeclarationSyntax => printObjectDeclaration(value)
+            case value: ClassDeclarationSyntax => printClassDeclaration(value)
+            case value: FunctionDeclarationSyntax => printFunctionDeclaration(value)
+            case value: GlobalStatementSyntax => printGlobalStatement(value)
+            case value: EnumDeclarationSyntax => panic("EnumDeclarationSyntax not implemented")
+        }
     }
 
 
@@ -144,41 +146,27 @@ object AstPrinter {
     }
 
     def printExpression(node: ExpressionSyntax): unit = {
-        val kind = node.kind
-        if (kind == SyntaxKind.ArrayCreationExpression) {
-            printArrayCreationExpression(node.arrayCreationExpression.get)
-        } else if (kind == SyntaxKind.AssignmentExpression) {
-            printAssignmentExpression(node.assignmentExpression.get)
-        } else if (kind == SyntaxKind.BinaryExpression) {
-            printBinaryExpression(node.binaryExpression.get)
-        } else if (kind == SyntaxKind.BlockExpression) {
-            printBlockExpression(node.blockExpression.get)
-        } else if (kind == SyntaxKind.CallExpression) {
-            printCallExpression(node.callExpression.get)
-        } else if (kind == SyntaxKind.ForExpression) {
-            printForExpression(node.forExpression.get)
-        } else if (kind == SyntaxKind.GroupExpression) {
-            printGroupExpression(node.groupExpression.get)
-        } else if (kind == SyntaxKind.IdentifierName) {
-            printIdentifierName(node.identifierName.get, ColorPalette.Identifier)
-        } else if (kind == SyntaxKind.IfExpression) {
-            printIfExpression(node.ifExpression.get)
-        } else if (kind == SyntaxKind.IndexExpression) {
-            printIndexExpression(node.indexExpression.get)
-        } else if (kind == SyntaxKind.LiteralExpression) {
-            printLiteralExpression(node.literalExpression.get)
-        } else if (kind == SyntaxKind.MemberAccessExpression) {
-            printMemberAccessExpression(node.memberAccessExpression.get)
-        } else if (kind == SyntaxKind.NewExpression) {
-            printNewExpression(node.newExpression.get)
-        } else if (kind == SyntaxKind.UnaryExpression) {
-            printUnaryExpression(node.unaryExpression.get)
-        } else if (kind == SyntaxKind.UnitExpression) {
-            printUnitExpression(node.unitExpression.get)
-        } else if (kind == SyntaxKind.WhileExpression) {
-            printWhileExpression(node.whileExpression.get)
-        } else ()
+        node match {
+            case ArrayCreationExpression(value) => printArrayCreationExpression(value)
+            case AssignmentExpression(value) => printAssignmentExpression(value)
+            case BinaryExpression(value) => printBinaryExpression(value)
+            case BlockExpression(value) => printBlockExpression(value)
+            case CallExpression(value) => printCallExpression(value)
+            case ForExpression(value) => printForExpression(value)
+            case GroupExpression(value) => printGroupExpression(value)
+            case IdentifierName(value) => printIdentifierName(value, ColorPalette.Identifier)
+            case IfExpression(value) => printIfExpression(value)
+            case IndexExpression(value) => printIndexExpression(value)
+            case LiteralExpression(value) => printLiteralExpression(value)
+            case value: MatchExpression => panic("MatchExpression not implemented")
+            case MemberAccessExpression(value) => printMemberAccessExpression(value)
+            case NewExpression(value) => printNewExpression(value)
+            case UnaryExpression(value) => printUnaryExpression(value)
+            case UnitExpression(value) => printUnitExpression(value)
+            case WhileExpression(value) => printWhileExpression(value)
+        }
     }
+
     def printOptionalExpression(node: Option[ExpressionSyntax]): unit = {
         if (node.isDefined) {
             printExpression(node.get)
@@ -221,9 +209,13 @@ object AstPrinter {
     }
     def printBlockExpression(node: BlockExpressionSyntax): unit = {
         printToken(node.openBrace)
+        printBlockExpressionList(node.block)
+        printToken(node.closeBrace)
+    }
+
+    def printBlockExpressionList(node: BlockExpressionListSyntax): unit = {
         printStatments(node.statements)
         printOptionalExpression(node.expression)
-        printToken(node.closeBrace)
     }
 
     def printCallExpression(node: CallExpressionSyntax): unit = {
@@ -312,16 +304,12 @@ object AstPrinter {
     }
 
     def printStatment(node: StatementSyntax): unit = {
-        val kind = node.kind
-        if (kind == SyntaxKind.VariableDeclarationStatement) {
-            printVariableDeclarationStatement(node.variableDeclarationStatement.get)
-        } else if (kind == SyntaxKind.BreakStatement) {
-            printBreakStatement(node.breakStatement.get)
-        } else if (kind == SyntaxKind.ContinueStatement) {
-            printContinueStatement(node.continueStatement.get)
-        } else if (kind == SyntaxKind.ExpressionStatement) {
-            printExpressionStatement(node.expressionStatement.get)
-        } else ()
+        node match {
+            case VariableDeclarationStatement(value) => printVariableDeclarationStatement(value)
+            case BreakStatement(value) => printBreakStatement(value)
+            case ContinueStatement(value) => printContinueStatement(value)
+            case ExpressionStatement(value) => printExpressionStatement(value)
+        }
     }
 
     def printVariableDeclarationStatement(node: VariableDeclarationStatementSyntax): unit = {
@@ -363,12 +351,10 @@ object AstPrinter {
     }
 
     def printName(name: NameSyntax): unit = {
-        val kind = name.kind
-        if (kind == SyntaxKind.QualifiedName) {
-            printQualifiedName(name.qualifiedName.get)
-        } else if (kind == SyntaxKind.SimpleName) {
-            printSimpleName(name.simpleName.get)
-        } else ()
+        name match {
+            case value: NameSyntax.QualifiedNameSyntax => printQualifiedName(value)
+            case value: NameSyntax.SimpleName => printSimpleName(value.name)
+        }
     }
 
     def printQualifiedName(node: QualifiedNameSyntax): unit = {
@@ -383,12 +369,10 @@ object AstPrinter {
     }
 
     def printSimpleName(node: SimpleNameSyntax): unit = {
-        val kind = node.kind
-        if (kind == SyntaxKind.GenericName) {
-            printGenericName(node.genericName.get)
-        } else if (kind == SyntaxKind.IdentifierName) {
-            printIdentifierName(node.identifierName.get, ColorPalette.Declarations)
-        } else ()
+        node match {
+            case value: SimpleNameSyntax.GenericNameSyntax => printGenericName(value)
+            case value: SimpleNameSyntax.IdentifierNameSyntax => printIdentifierName(value, ColorPalette.Declarations)
+        }
     }
 
     def printTypeArgumentLists(nodes: Array[TypeArgumentListSyntax]): unit = {
@@ -468,41 +452,60 @@ object AstPrinter {
 
 
     def _printType(typ: Type, clear: bool): unit = {
-        if (typ.kind == TypeKind.Primitive) {
-            printColor(ColorPalette.Keyword)
-            print(typ.primitive.get.name)
-        } else if (typ.kind == TypeKind.TypeConstructor) {
-            printColor(ColorPalette.Identifier)
-            print(typ.typeConstructor.get.name)
-        } else if (typ.kind == TypeKind.Array) {
-            printColor(ColorPalette.Identifier)
-            print("Array")
-            printColor(ColorPalette.Punctuation)
-            print("<")
-            _printType(typ.array.get.inner, false)
-            printColor(ColorPalette.Punctuation)
-            print(">")
-        } else if (typ.kind == TypeKind.Option) {
-            printColor(ColorPalette.Identifier)
-            print("Option")
-            printColor(ColorPalette.Punctuation)
-            print("<")
-            _printType(typ.option.get.inner, false)
-            printColor(ColorPalette.Punctuation)
-            print(">")
-        } else if (typ.kind == TypeKind.Function) {
-            for(i <- 0 to (typ.function.get.parameters.length-1)) {
-                _printType(typ.function.get.parameters(i), false)
-                if(i < typ.function.get.parameters.length - 1) {
-                    printColor(ColorPalette.Punctuation)
-                    print(", ")
-                } else ()
-            }
-            printColor(ColorPalette.Punctuation)
-            print(" -> ")
-            _printType(typ.function.get.returnType, false)
-        } else {
-            panic("getTypeName: " + typ.kind)
+        typ match {
+            case Type.Function(parameters, returnType) =>
+                val lastIndex = parameters.length - 1
+                for(i <- 0 to (lastIndex)) {
+                    _printType(parameters(i).typ, false)
+                    if(i < lastIndex) {
+                        printColor(ColorPalette.Punctuation)
+                        print(", ")
+                    } else ()
+                }
+                printColor(ColorPalette.Punctuation)
+                print(" -> ")
+                _printType(returnType, false)
+            case Type.Array(inner) =>
+                printColor(ColorPalette.Identifier)
+                print("Array")
+                printColor(ColorPalette.Punctuation)
+                print("<")
+                _printType(inner, false)
+                printColor(ColorPalette.Punctuation)
+                print(">")
+
+            case Type.Named(symbol) =>
+                printColor(ColorPalette.Identifier)
+                print(symbol.name)
+            case Type.Option(inner) =>
+                printColor(ColorPalette.Identifier)
+                print("Option")
+                printColor(ColorPalette.Punctuation)
+                print("<")
+                _printType(inner, false)
+                printColor(ColorPalette.Punctuation)
+                print(">")
+            case Type.Any =>
+                printColor(ColorPalette.Keyword)
+                print("any")
+            case Type.Boolean =>
+                printColor(ColorPalette.Keyword)
+                print("bool")
+            case Type.Int =>
+                printColor(ColorPalette.Keyword)
+                print("int")
+            case Type.Never =>
+                printColor(ColorPalette.Keyword)
+                print("never")
+            case Type.String =>
+                printColor(ColorPalette.Keyword)
+                print("string")
+            case Type.Unit =>
+                printColor(ColorPalette.Keyword)
+                print("unit")
+            case Type.Error =>
+                printColor(ColorPalette.Error)
+                print("error")
         }
 
         if(clear) printClear() else ()
@@ -511,7 +514,7 @@ object AstPrinter {
     def printKindColor(kind: int): unit = {
         if (kind == SyntaxKind.NumberToken || kind == SyntaxKind.TrueKeyword || kind == SyntaxKind.FalseKeyword) {
             printColor(ColorPalette.Literal1)
-        } else if (SyntaxFacts.is_keyword_kind(kind)) {
+        } else if (SyntaxFacts.isKeywordKind(kind)) {
             printColor(ColorPalette.Keyword)
         } else if (kind == SyntaxKind.StringToken || kind == SyntaxKind.CharToken) {
             printColor(ColorPalette.Literal2)
@@ -553,7 +556,7 @@ object AstPrinter {
     }
 
     def printTokenInfo(token: SyntaxToken): unit =
-        println(token.location.to_string() + "[" + SyntaxFacts.get_kind_name(token.kind) + "]: " + "\"" + token.text + "\"")
+        println(token.location.to_string() + "[" + SyntaxFacts.getKindName(token.kind) + "]: " + "\"" + token.text + "\"")
 
     def padRight(value: string, len: int): string = {
         var padded = value

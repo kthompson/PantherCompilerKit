@@ -10,7 +10,7 @@ object TextSpanFactory {
 }
 
 case class TextLine(start: int, length: int, length_with_line_breaks: int) {
-    val end: int = start + length
+    val end: int = start + length + 1
     val span: TextSpan = new TextSpan(start, length)
 }
 
@@ -131,7 +131,7 @@ case class SourceFile(content: string, fileName: string) {
 
 object MakeSourceFile {
     def from_file(filename: string): SourceFile = {
-        val contents = File.read_all_text(filename)
+        val contents = File.readAllText(filename)
         new SourceFile(contents, filename)
     }
 

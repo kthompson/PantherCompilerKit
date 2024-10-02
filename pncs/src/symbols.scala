@@ -6,7 +6,7 @@ object ScopeParentKind {
 }
 
 case class ScopeParent(kind: int, symbol: Option[Symbol], scope: Option[Scope]) {
-    def get_scope(): Scope = {
+    def getScope(): Scope = {
         if (kind == ScopeParentKind.Symbol) {
             symbol.get.members
         } else {
@@ -42,94 +42,107 @@ object SymbolKind {
     val Local = 6
 }
 
-object ScopeKind {
-    val Root = 0 // maps to the SymbolTable
-    val Type = 1 // maps to a specific TypeSymbol
-    val Method = 2 // maps to a specific MethodSymbol (includes parameters)
-    val Block = 3 // maps to the body of a MethodSymbol
-}
+//object ScopeKind {
+//    val Root = 0 // maps to the SymbolTable
+//    val Type = 1 // maps to a specific TypeSymbol
+//    val Method = 2 // maps to a specific MethodSymbol (includes parameters)
+//    val Block = 3 // maps to the body of a MethodSymbol
+//}
 
 case class Scope(parent: ScopeParent, note: string) {
 
-    var _symbol_count = 0
+    var _symbolCount = 0
     var _symbols: Array[Symbol] = new Array[Symbol](0)
 
-    var _scope_count = 0
+    var _scopeCount = 0
     var _scopes: Array[Scope] = new Array[Scope](0)
 
-    def empty(): bool = _symbol_count == 0 && _scope_count == 0
+    def empty(): bool = _symbolCount == 0 && _scopeCount == 0
 
-    def open_scope(note: string): Scope = {
+    def openScope(note: string): Scope = {
         val scope = new Scope(MakeScopeParent.scope(this), note)
 
-        if (_scope_count + 1 >= _scopes.length) {
-            val newItems = new Array[Scope]((_scope_count + 1) * 2)
-            for (i <- 0 to (_scope_count-1)) {
+        if (_scopeCount + 1 >= _scopes.length) {
+            val newItems = new Array[Scope]((_scopeCount + 1) * 2)
+            for (i <- 0 to (_scopeCount-1)) {
                 newItems(i) = _scopes(i)
             }
             _scopes = newItems
         } else {
             ()
         }
-        _scopes(_scope_count) = scope
-        _scope_count = _scope_count + 1
+        _scopes(_scopeCount) = scope
+        _scopeCount = _scopeCount + 1
         scope
     }
 
     def scopes(): Array[Scope] = {
-        var newItems = new Array[Scope](_scope_count)
-        for (i <- 0 to (_scope_count-1)) {
+        val newItems = new Array[Scope](_scopeCount)
+        for (i <- 0 to (_scopeCount-1)) {
             newItems(i) = _scopes(i)
         }
         newItems
     }
 
-    def add_symbol(symbol: Symbol): Symbol = {
-        if (_symbol_count + 1 >= _symbols.length) {
-            val newItems = new Array[Symbol]((_symbol_count + 1) * 2)
-            for (i <- 0 to (_symbol_count-1)) {
+    def getScopeByName(name: string): Option[Scope] =
+        getScopeByNameAndIndex(name, 0)
+
+    def getScopeByNameAndIndex(name: string, index: int): Option[Scope] = {
+        if (index >= _scopeCount) {
+            None
+        } else if (_scopes(index).note == name) {
+            Some(_scopes(index))
+        } else {
+            getScopeByNameAndIndex(name, index + 1)
+        }
+    }
+
+    def addSymbol(symbol: Symbol): Symbol = {
+        if (_symbolCount + 1 >= _symbols.length) {
+            val newItems = new Array[Symbol]((_symbolCount + 1) * 2)
+            for (i <- 0 to (_symbolCount-1)) {
                 newItems(i) = _symbols(i)
             }
             _symbols = newItems
         } else {
             ()
         }
-        _symbols(_symbol_count) = symbol
-        _symbol_count = _symbol_count + 1
+        _symbols(_symbolCount) = symbol
+        _symbolCount = _symbolCount + 1
         symbol
     }
 
     def symbols(): Array[Symbol] = {
-        val newItems = new Array[Symbol](_symbol_count)
-        for (i <- 0 to (_symbol_count-1)) {
+        val newItems = new Array[Symbol](_symbolCount)
+        for (i <- 0 to (_symbolCount-1)) {
             newItems(i) = _symbols(i)
         }
         newItems
     }
 
-    def get_parent_symbol(): Symbol = {
+    def getParentSymbol(): Symbol = {
         if (parent.kind == ScopeParentKind.Symbol) {
             parent.symbol.get
         } else {
-            parent.scope.get.get_parent_symbol()
+            parent.scope.get.getParentSymbol()
         }
     }
 
     // returns true if we are not in a type or method
-    def is_global_scope(): bool = get_parent_symbol().kind == SymbolKind.Root
+    def isGlobalScope(): bool = getParentSymbol().kind == SymbolKind.Root
 
-    def get_from_locals(name: string, index: int): Option[Symbol] = {
-        if (index >= _symbol_count) {
+    def getFromLocals(name: string, index: int): Option[Symbol] = {
+        if (index >= _symbolCount) {
             None
         } else if (_symbols(index).name == name) {
             Some(_symbols(index))
         } else {
-            get_from_locals(name, index + 1)
+            getFromLocals(name, index + 1)
         }
     }
 
     def get(name: string): Option[Symbol] = {
-        val result = get_from_locals(name, 0)
+        val result = getFromLocals(name, 0)
         if (result.isDefined) {
             result
         } else {
@@ -137,31 +150,36 @@ case class Scope(parent: ScopeParent, note: string) {
         }
     }
 
-    def name(): string = if(is_global_scope()) "" else get_parent_symbol().fullName()
+    def name(): string = if(isGlobalScope()) "" else getParentSymbol().fullName()
+}
+
+object SymbolFlags {
+    val None = 0
+    val Static = 1
 }
 
 /**
   * Symbols can have 0 or 1 Scope.
   * Block scopes can have multiple levels of inner scopes
-  * Scopes have hold symbols
+  * Scopes hold symbols
   * Scopes can have child scopes
   * Scopes have a parent. Either another Scope or a Symbol
   * For block scopes, another block scope or method will be the parent
   */
-case class Symbol(kind: int, name: string, location: TextLocation, _parent: Option[Symbol]) {
+case class Symbol(kind: int, flags: int, name: string, location: TextLocation, _parent: Option[Symbol]) {
     var _declarations: Array[Declaration] = new Array[Declaration](0)
     var _declaration_count = 0
     var id = -1 // used in type checking
-
+    val ns = if (_parent.isDefined) _parent.get.fullName() else ""
     val members: Scope = new Scope(MakeScopeParent.symbol(this), name)
 
     def parent(): Symbol = _parent.get
     def has_parent(): bool = _parent.isDefined
 
-    def fullName(): string = if (has_parent()) {
-        val parentName = parent().fullName()
-        if(parentName == "") name else parentName + "." + name
-    } else name
+    def fullName(): string = {
+        val parentName = ns
+        if (parentName == "") name else parentName + "." + name
+    }
 
     def has_declaration(): bool = _declaration_count > 0
 

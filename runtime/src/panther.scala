@@ -9,10 +9,26 @@ object system {
         writer.close()
       }
 
-      def read_all_text(file: string): string = {
+      def writeAllBytes(file: string, bytes: Array[int]): unit = {
+        val stream = new java.io.FileOutputStream(file)
+        for (b <- bytes) {
+          stream.write(b)
+        }
+        stream.close()
+      }
+
+      def readAllText(file: string): string = {
         val source = scala.io.Source.fromFile(file)
         val lines = try source.mkString finally source.close()
         lines
+      }
+
+      def readAllBytes(file: string): Array[int] = {
+        val stream = new java.io.FileInputStream(file)
+        val bytes = new Array[Byte](stream.available())
+        stream.read(bytes)
+        stream.close()
+        bytes.map(_.toInt)
       }
     }
 
@@ -51,7 +67,7 @@ object panther {
   type unit = scala.Unit
   type any = scala.Any
   type nothing = scala.Nothing
-  
+
   def string(any: Any): string = any.toString
   def char(any: Any): char = any match {
     case c: char => c
@@ -66,6 +82,11 @@ object panther {
   }
 
   def panic(message: string): nothing = throw new Exception(message)
+
+  def assert(condition: bool, message: string): unit = {
+    if (!condition) panic(message) else ()
+  }
+  def mod(a: int, b: int): int = a % b
 
   // scala to panther translate
   // * replace Array[ ] with Array< >

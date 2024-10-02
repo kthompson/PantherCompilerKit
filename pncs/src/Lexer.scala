@@ -1,53 +1,5 @@
 import panther._
 
-case class Diagnostic(location: TextLocation, message: string) {
-    override def toString(): string = location.to_string() + ": " + message
-}
-
-case class DiagnosticBag() {
-    var _size: int = 0
-    var _items: Array[Diagnostic] = new Array[Diagnostic](0)
-
-    def report(location: TextLocation, message: string): unit = add(new Diagnostic(location, message))
-
-    def reportBadCharacter(location: TextLocation, value: char): unit = report(location, "Invalid character in input: " + string(value))
-    def reportEmptyCharLiteral(location: TextLocation): unit = report(location, "Empty character literal")
-    def reportUnterminatedBlockComment(location: TextLocation): unit = report(location, "Unterminated block comment")
-    def reportUnterminatedChar(location: TextLocation): unit = report(location, "Unterminated character literal")
-    def reportUnterminatedString(location: TextLocation): unit = report(location, "Unterminated string literal")
-    def reportUnexpectedToken(location: TextLocation, currentKind: int, expectedKind: int): unit =
-        report(location, "Unexpected token " + SyntaxFacts.get_kind_name(currentKind) + ", expected " + SyntaxFacts.get_kind_name(expectedKind))
-    def reportInvalidEscapeSequence(location: TextLocation, current: char): unit =
-        report(location, "Invalid character in escape sequence: " + string(current))
-
-    def ensureCapacity(count: int): unit = {
-        if (_size + count >= _items.length) {
-            val newItems = new Array[Diagnostic]((_size + count) * 2)
-            for (i <- 0 to (_size-1)) {
-                newItems(i) = _items(i)
-            }
-            _items = newItems
-        } else {
-            ()
-        }
-    }
-
-    def add(diagnostic: Diagnostic): unit = {
-        ensureCapacity(1)
-        _items(_size) = diagnostic
-        _size = _size + 1
-    }
-
-    def diagnostics(): Array[Diagnostic] = {
-        val newItems = new Array[Diagnostic](_size)
-        for (i <- 0 to (_size-1)) {
-            newItems(i) = _items(i)
-        }
-        newItems
-    }
-}
-
-
 case class Result(is_success: bool, value: any)
 
 object MakeResult {
@@ -56,7 +8,7 @@ object MakeResult {
     def success(value: any) = new Result(true, value)
 }
 
-case class Scanner(source_file: SourceFile, diagnostics: DiagnosticBag) {
+case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
     var _position: int = 0
     var debug: bool = false
 
@@ -130,6 +82,8 @@ case class Scanner(source_file: SourceFile, diagnostics: DiagnosticBag) {
             scanSimpleTwo(SyntaxKind.GreaterThanEqualsToken)
         } else if (curr == '>') {
             scanSimpleOne(SyntaxKind.GreaterThanToken)
+        } else if (curr == '=' && look == '>') {
+            scanSimpleTwo(SyntaxKind.EqualsGreaterThanToken)
         } else if (curr == '=' && look == '=') {
             scanSimpleTwo(SyntaxKind.EqualsEqualsToken)
         } else if (curr == '=') {
