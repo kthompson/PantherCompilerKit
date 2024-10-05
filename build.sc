@@ -1,4 +1,6 @@
-import mill._, scalalib._
+import mill._
+import os.RelPath
+import scalalib._
 
 trait PantherCompilerKitModule extends ScalaModule {
   def scalaVersion = "3.3.3"
@@ -20,75 +22,44 @@ object pncs extends PantherCompilerKitModule {
 
   override def moduleDeps: Seq[JavaModule] = Seq(runtime, metadata)
 
-  def topvm: Target[PathRef] = T {
-    run(T.task {
-      val sources = super
-        .sources()
-        .map(_.path)
-        .flatMap(os.list(_))
-        .map(_.toString())
-        .filterNot(_.endsWith("SyntaxVisitor.scala"))
+  def transpileOutputPath = T.source(pnc.millSourcePath / "src")
 
-      Args(Seq(T.dest.toString() :: sources.toList))
-    })()
-
-    PathRef(T.dest)
+  def transpileSources = T {
+    super
+      .sources()
+      .map(_.path)
+      .flatMap(os.list(_))
+      .filterNot(_.endsWith(RelPath("SyntaxVisitor.scala")))
+      .toList
   }
 
-  def transpile(): Command[PathRef] = T.command {
+  def transpile = T {
     run(T.task {
-      val sources = super
-        .sources()
-        .map(_.path)
-        .flatMap(os.list(_))
-        .map(_.toString())
-        .filterNot(_.endsWith("SyntaxVisitor.scala"))
-
-      //      sources.foreach(println)
-
-      Args(Seq("-t" :: T.dest.toString() :: sources.toList))
+      println("transpile0: " + transpileOutputPath().path.toString)
+      Args(Seq("-t" :: transpileOutputPath().path.toString() :: transpileSources().map(_.toString)))
     })()
 
-    PathRef(T.dest)
+    println("transpile1: " + transpileOutputPath().path.toString)
+    transpileOutputPath()
   }
 }
 
-///**
-// * Panther Compiler in Panther
-// */
-//object pnc extends TaskModule with RunModule {
-//
-////  def sources = T(pncs.transpile())
-//
-////  def allSourceFiles: T[Seq[PathRef]] = T.sources {
-////    Seq(PathRef(pncs.transpile()().path))
-////  }
-//
-//  override def mainClass = T { Some("Program") }
-//
-//  def compileArgs = pncs.transpile().zip(T{T.dest}).map { case (transpileOutput, dest) =>
-//    val args = os.list(transpileOutput.path)
-//      .map(_.toString())
-//      .toList
-//    println("tacooooossss")
-//    println(transpileOutput.path)
-//    println(dest.toString())
-//    args.foreach(println)
-//    println("tacooooossss")
-//
-//    Args(Seq(dest.toString() :: args))
-//  }
-//
-//
-//  // compile pnc with pncs
-//  def compile = T {
-//    pncs.run(compileArgs)()
-//
-//    PathRef(T.dest)
-//  }
-//
-//  override def defaultCommandName() = "run"
-//}
+/**
+ * Panther Compiler in Panther
+ */
+object pnc extends TaskModule with Module {
+
+  def sources = pncs.transpile.map(path =>
+    os.walk(path.path).filter(_.ext == "pn").map(_.toString).toList)
+
+  def compile(): Command[Unit] = T.command {
+    pncs.run(T.task {
+      Args(Seq(T.dest.toString() :: sources()))
+    })()
+  }
+
+  override def defaultCommandName() = "compile"
+}
 
 /**
  * Panther IR shared code in Scala

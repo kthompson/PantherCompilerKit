@@ -143,7 +143,8 @@ class MatchCaseSyntax(
 
 enum PatternSyntax {
     case ExtractPattern(value: NameSyntax, openParenToken: SyntaxToken, patterns: Array<PatternItemSyntax>, closeParenToken: SyntaxToken)
-    case TypePattern(value: SyntaxToken, typeAnnotation: Option<TypeAnnotationSyntax>)
+    case IdentifierPattern(value: SyntaxToken, typeAnnotation: TypeAnnotationSyntax)
+    case TypePattern(typ: NameSyntax)
     case LiteralPattern(value: SyntaxToken)
     case DiscardPattern(value: SyntaxToken)
 }

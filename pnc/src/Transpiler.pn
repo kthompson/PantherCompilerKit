@@ -248,12 +248,11 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
 
   def transpilePattern(pattern: PatternSyntax, context: TranspilerContext) = {
     pattern match {
-      case TypePattern(value, typeAnnotation) =>
-        transpileToken(value, context)
-        typeAnnotation match {
-          case Some(value) => transpileTypeAnnotation(value, context)
-          case None => ()
-        }
+      case IdentifierPattern(identifier, typeAnnotation) =>
+        transpileToken(identifier, context)
+        transpileTypeAnnotation(typeAnnotation, context)
+      case TypePattern(value) =>
+        transpileName(value, context)
       case LiteralPattern(value) => transpileToken(value, context)
       case DiscardPattern(value) => transpileToken(value, context)
       case ExtractPattern(name, open, patterns, close) =>

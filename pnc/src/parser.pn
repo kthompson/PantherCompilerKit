@@ -813,32 +813,52 @@ class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
     def parse_pattern(): PatternSyntax = {
         debugPrint("parse_pattern")
 
+        /**
+         * Patterns are a bit tricky to parse because they can be either a type pattern or an extract pattern.
+         * The difference is that a type pattern is just a type name, while an extract pattern is a type name
+         * followed by a list of patterns in parens.
+         *
+         * There are a few different forms of patterns:
+         * case x: int => ...
+         * case Type.Any => ...
+         * case Type.Some(x) => ...
+         * case Any => ...
+         * case Some(x) => ...
+         */
         // Patterns have a few main forms:
         // 1. Type pattern: an identifier with an optional type annotation
+        //
         // 2. Extract pattern: a type name with a list of patterns in parens
 
         val name = parseName()
+        if(current_kind() == SyntaxKind.ColonToken) {
+            // must be type pattern
+            val typeAnnotation = parseTypeAnnotation()
+            identFromName(name) match {
+                case Some(identifier) =>
+                    PatternSyntax.IdentifierPattern(identifier, typeAnnotation)
+                case None =>
+                    diagnostics.reportUnexpectedToken(current().location, current_kind(), SyntaxKind.IdentifierToken)
+                    PatternSyntax.TypePattern(typeAnnotation.typ)
+            }
 
+        } else if (current_kind() == SyntaxKind.OpenParenToken) {
+            // must be extract pattern
+            parseExtractPattern(name)
+        } else {
+            PatternSyntax.TypePattern(name)
+        }
+    }
+
+    def identFromName(name: NameSyntax): Option<SyntaxToken> = {
         name match {
-            case NameSyntax.QualifiedNameSyntax(left, dotToken, right) =>
-                // must be extract pattern
-                parseExtractPattern(name)
+            case _: QualifiedNameSyntax => None
             case NameSyntax.SimpleName(simpleName) =>
                 simpleName match {
                     case value: SimpleNameSyntax.GenericNameSyntax =>
-                        // must be extract pattern
-                        parseExtractPattern(name)
-
+                        None
                     case SimpleNameSyntax.IdentifierNameSyntax(identifier) =>
-                        // simple identifier, could be type pattern or extract pattern
-                        if (current_kind() == SyntaxKind.ColonToken) {
-                            val typeAnnotation = parseTypeAnnotation()
-                            PatternSyntax.TypePattern(identifier, Some(typeAnnotation))
-                        } else if (current_kind() == SyntaxKind.OpenParenToken) {
-                            parseExtractPattern(name)
-                        } else {
-                            PatternSyntax.TypePattern(identifier, None)
-                        }
+                        Some(identifier)
                 }
         }
     }

@@ -1,8 +1,6 @@
 using panther
 using system.io
 
-
-
 class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, /*checker: Checker,*/ outputFile: string) {
 
   var indent = ""

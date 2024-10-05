@@ -212,7 +212,7 @@ object AstPrinter {
         printBlockExpressionList(node.block)
         printToken(node.closeBrace)
     }
-    
+
     def printBlockExpressionList(node: BlockExpressionListSyntax): unit = {
         printStatments(node.statements)
         printOptionalExpression(node.expression)
@@ -452,41 +452,60 @@ object AstPrinter {
 
 
     def _printType(typ: Type, clear: bool): unit = {
-        if (typ.kind == TypeKind.Primitive) {
-            printColor(ColorPalette.Keyword)
-            print(typ.primitive.get.name)
-        } else if (typ.kind == TypeKind.TypeConstructor) {
-            printColor(ColorPalette.Identifier)
-            print(typ.typeConstructor.get.name)
-        } else if (typ.kind == TypeKind.Array) {
-            printColor(ColorPalette.Identifier)
-            print("Array")
-            printColor(ColorPalette.Punctuation)
-            print("<")
-            _printType(typ.array.get.inner, false)
-            printColor(ColorPalette.Punctuation)
-            print(">")
-        } else if (typ.kind == TypeKind.Option) {
-            printColor(ColorPalette.Identifier)
-            print("Option")
-            printColor(ColorPalette.Punctuation)
-            print("<")
-            _printType(typ.option.get.inner, false)
-            printColor(ColorPalette.Punctuation)
-            print(">")
-        } else if (typ.kind == TypeKind.Function) {
-            for(i <- 0 to (typ.function.get.parameters.length-1)) {
-                _printType(typ.function.get.parameters(i), false)
-                if(i < typ.function.get.parameters.length - 1) {
-                    printColor(ColorPalette.Punctuation)
-                    print(", ")
-                } else ()
-            }
-            printColor(ColorPalette.Punctuation)
-            print(" -> ")
-            _printType(typ.function.get.returnType, false)
-        } else {
-            panic("getTypeName: " + typ.kind)
+        typ match {
+            case Type.Function(parameters, returnType) =>
+                val lastIndex = parameters.length - 1
+                for(i <- 0 to (lastIndex)) {
+                    _printType(parameters(i).typ, false)
+                    if(i < lastIndex) {
+                        printColor(ColorPalette.Punctuation)
+                        print(", ")
+                    } else ()
+                }
+                printColor(ColorPalette.Punctuation)
+                print(" -> ")
+                _printType(returnType, false)
+            case Type.Array(inner) =>
+                printColor(ColorPalette.Identifier)
+                print("Array")
+                printColor(ColorPalette.Punctuation)
+                print("<")
+                _printType(inner, false)
+                printColor(ColorPalette.Punctuation)
+                print(">")
+
+            case Type.Named(symbol) =>
+                printColor(ColorPalette.Identifier)
+                print(symbol.name)
+            case Type.Option(inner) =>
+                printColor(ColorPalette.Identifier)
+                print("Option")
+                printColor(ColorPalette.Punctuation)
+                print("<")
+                _printType(inner, false)
+                printColor(ColorPalette.Punctuation)
+                print(">")
+            case Type.Any =>
+                printColor(ColorPalette.Keyword)
+                print("any")
+            case Type.Boolean =>
+                printColor(ColorPalette.Keyword)
+                print("bool")
+            case Type.Int =>
+                printColor(ColorPalette.Keyword)
+                print("int")
+            case Type.Never =>
+                printColor(ColorPalette.Keyword)
+                print("never")
+            case Type.String =>
+                printColor(ColorPalette.Keyword)
+                print("string")
+            case Type.Unit =>
+                printColor(ColorPalette.Keyword)
+                print("unit")
+            case Type.Error =>
+                printColor(ColorPalette.Error)
+                print("error")
         }
 
         if(clear) printClear() else ()
