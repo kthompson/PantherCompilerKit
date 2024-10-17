@@ -13,7 +13,7 @@
                 <plugin path="/Users/kevin/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/lihaoyi/scalac-mill-moduledefs-plugin_2.13.14/0.10.9/scalac-mill-moduledefs-plugin_2.13.14-0.10.9.jar"/>
             </plugins>
         </profile>
-        <profile name="mill 2" modules="metadata,runtime,panthers,pncs">
+        <profile name="mill 2" modules="metadata,metadata.test,runtime,runtime.test,mvu,mvu.test,panthers,panthers.test,pncs,pncs.test">
             <parameters>
                 <parameter value="-deprecation"/>
                 <parameter value="-Xfatal-warnings"/>

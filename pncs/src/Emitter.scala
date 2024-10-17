@@ -208,38 +208,38 @@ case class Emitter(syntaxTrees: Array[SyntaxTree], root: Symbol, /*checker: Chec
       simpleInstruction("ret", offset)
     } else if (opcode == Opcode.Nop) {
       simpleInstruction("nop", offset)
-    } else if (opcode == Opcode.Ldarg0) {
-      simpleInstruction("ldarg.0", offset)
-    } else if (opcode == Opcode.Ldarg1) {
-      simpleInstruction("ldarg.1", offset)
-    } else if (opcode == Opcode.Ldarg2) {
-      simpleInstruction("ldarg.2", offset)
-    } else if (opcode == Opcode.Ldarg3) {
-      simpleInstruction("ldarg.3", offset)
-    } else if (opcode == Opcode.Ldloc0) {
-      simpleInstruction("ldloc.0", offset)
-    } else if (opcode == Opcode.Ldloc1) {
-      simpleInstruction("ldloc.1", offset)
-    } else if (opcode == Opcode.Ldloc2) {
-      simpleInstruction("ldloc.2", offset)
-    } else if (opcode == Opcode.Ldloc3) {
-      simpleInstruction("ldloc.3", offset)
-    } else if (opcode == Opcode.Stloc0) {
-      simpleInstruction("stloc.0", offset)
-    } else if (opcode == Opcode.Stloc1) {
-      simpleInstruction("stloc.1", offset)
-    } else if (opcode == Opcode.Stloc2) {
-      simpleInstruction("stloc.2", offset)
-    } else if (opcode == Opcode.Stloc3) {
+//    } else if (opcode == Opcode.Ldarg0) {
+//      simpleInstruction("ldarg.0", offset)
+//    } else if (opcode == Opcode.Ldarg1) {
+//      simpleInstruction("ldarg.1", offset)
+//    } else if (opcode == Opcode.Ldarg2) {
+//      simpleInstruction("ldarg.2", offset)
+//    } else if (opcode == Opcode.Ldarg3) {
+//      simpleInstruction("ldarg.3", offset)
+//    } else if (opcode == Opcode.Ldloc0) {
+//      simpleInstruction("ldloc.0", offset)
+//    } else if (opcode == Opcode.Ldloc1) {
+//      simpleInstruction("ldloc.1", offset)
+//    } else if (opcode == Opcode.Ldloc2) {
+//      simpleInstruction("ldloc.2", offset)
+//    } else if (opcode == Opcode.Ldloc3) {
+//      simpleInstruction("ldloc.3", offset)
+//    } else if (opcode == Opcode.Stloc0) {
+//      simpleInstruction("stloc.0", offset)
+//    } else if (opcode == Opcode.Stloc1) {
+//      simpleInstruction("stloc.1", offset)
+//    } else if (opcode == Opcode.Stloc2) {
+//      simpleInstruction("stloc.2", offset)
+//    } else if (opcode == Opcode.Stloc3) {
       simpleInstruction("stloc.3", offset)
     } else if (opcode == Opcode.LdcI4) {
       i4Instruction(chunk, offset, "ldc.i4")
-    } else if (opcode == Opcode.Ldargn) {
-      i4Instruction(chunk, offset, "ldarg")
-    } else if (opcode == Opcode.Ldlocn) {
-      i4Instruction(chunk, offset, "ldloc")
-    } else if (opcode == Opcode.Stlocn) {
-      i4Instruction(chunk, offset, "stloc")
+//    } else if (opcode == Opcode.Ldargn) {
+//      i4Instruction(chunk, offset, "ldarg")
+//    } else if (opcode == Opcode.Ldlocn) {
+//      i4Instruction(chunk, offset, "ldloc")
+//    } else if (opcode == Opcode.Stlocn) {
+//      i4Instruction(chunk, offset, "stloc")
     } else {
       println("Unknown opcode " + string(opcode))
       offset + 1

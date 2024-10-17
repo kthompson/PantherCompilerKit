@@ -5,7 +5,16 @@ import scalalib._
 trait PantherCompilerKitModule extends ScalaModule {
   def scalaVersion = "3.3.3"
 
+  object test extends ScalaTests {
+    override def ivyDeps = Agg(ivy"com.lihaoyi::utest:0.8.4")
+    def testFramework = "utest.runner.Framework"
+  }
+
   override def scalacOptions: T[Seq[String]] = Seq("-deprecation", "-Xfatal-warnings")
+}
+
+object mvu extends PantherCompilerKitModule {
+  override def moduleDeps: Seq[JavaModule] = Seq(runtime)
 }
 
 object runtime extends PantherCompilerKitModule {
@@ -46,6 +55,8 @@ object pncs extends PantherCompilerKitModule {
 
 /**
  * Panther Compiler in Panther
+ * 
+ * Compiles to PVM bytecode
  */
 object pnc extends TaskModule with Module {
 

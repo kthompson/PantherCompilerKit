@@ -2,10 +2,16 @@
     <component name="ProjectModuleManager">
         <modules>
             <module fileurl="file://$PROJECT_DIR$/.idea/mill_modules/metadata.iml" filepath="$PROJECT_DIR$/.idea/mill_modules/metadata.iml"/>
+            <module fileurl="file://$PROJECT_DIR$/.idea/mill_modules/metadata.test.iml" filepath="$PROJECT_DIR$/.idea/mill_modules/metadata.test.iml"/>
             <module fileurl="file://$PROJECT_DIR$/.idea/mill_modules/mill-build.iml" filepath="$PROJECT_DIR$/.idea/mill_modules/mill-build.iml"/>
+            <module fileurl="file://$PROJECT_DIR$/.idea/mill_modules/mvu.iml" filepath="$PROJECT_DIR$/.idea/mill_modules/mvu.iml"/>
+            <module fileurl="file://$PROJECT_DIR$/.idea/mill_modules/mvu.test.iml" filepath="$PROJECT_DIR$/.idea/mill_modules/mvu.test.iml"/>
             <module fileurl="file://$PROJECT_DIR$/.idea/mill_modules/panthers.iml" filepath="$PROJECT_DIR$/.idea/mill_modules/panthers.iml"/>
+            <module fileurl="file://$PROJECT_DIR$/.idea/mill_modules/panthers.test.iml" filepath="$PROJECT_DIR$/.idea/mill_modules/panthers.test.iml"/>
             <module fileurl="file://$PROJECT_DIR$/.idea/mill_modules/pncs.iml" filepath="$PROJECT_DIR$/.idea/mill_modules/pncs.iml"/>
+            <module fileurl="file://$PROJECT_DIR$/.idea/mill_modules/pncs.test.iml" filepath="$PROJECT_DIR$/.idea/mill_modules/pncs.test.iml"/>
             <module fileurl="file://$PROJECT_DIR$/.idea/mill_modules/runtime.iml" filepath="$PROJECT_DIR$/.idea/mill_modules/runtime.iml"/>
+            <module fileurl="file://$PROJECT_DIR$/.idea/mill_modules/runtime.test.iml" filepath="$PROJECT_DIR$/.idea/mill_modules/runtime.test.iml"/>
         </modules>
     </component>
 </project>
