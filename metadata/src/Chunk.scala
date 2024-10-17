@@ -38,7 +38,7 @@ case class Chunk() {
 
   def emitI4(value: int, line: int): unit = {
     ensureSpace(1)
-    content(size) = (value)
+    content(size) = value
     lines(size) = line
     size = size + 1
   }

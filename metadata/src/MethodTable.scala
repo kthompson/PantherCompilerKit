@@ -21,23 +21,27 @@ case class MethodTable() {
     } else ()
   }
 
-  def addMethod(name: int, flags: int, methodSig: int, paramList: int): int = {
+  def get(method: MethodToken): MethodMetadata = methods(method.token)
+
+  def addMethod(name: StringToken, flags: int, methodSig: int, paramList: int, locals: int, address: int): MethodToken = {
     // ensure methods capacity
     ensureCapacity(size + 1)
 
     // add MethodMetadata to methods
-    methods(size) = MethodMetadata(name, flags, methodSig, paramList)
+    methods(size) = MethodMetadata(name, flags, methodSig, paramList, locals, address)
     size = size + 1
-    size - 1
+    MethodToken(size - 1)
   }
 
   def write(buffer: IntList): unit = {
     buffer.add(size)
     for (i <- 0 to (size - 1)) {
-      buffer.add(methods(i).name)
+      buffer.add(methods(i).name.token)
       buffer.add(methods(i).flags)
       buffer.add(methods(i).methodSig)
       buffer.add(methods(i).paramList)
+      buffer.add(methods(i).locals)
+      buffer.add(methods(i).address)
     }
   }
 
@@ -51,11 +55,14 @@ case class MethodTable() {
 
     for (i <- 0 to (size - 1)) {
       val recordOffset = offset + 1 + i * recordSize
-      val name = buffer.read(recordOffset + 0)
+      val name = StringToken(buffer.read(recordOffset + 0))
       val flags = buffer.read(recordOffset + 1)
       val methodSig = buffer.read(recordOffset + 2)
       val paramList = buffer.read(recordOffset + 3)
-      methods(i) = MethodMetadata(name, flags, methodSig, paramList)
+      val locals = buffer.read(recordOffset + 4)
+      val address = buffer.read(recordOffset + 5)
+
+      methods(i) = MethodMetadata(name, flags, methodSig, paramList, locals, address)
     }
 
     // return offset after reading the table

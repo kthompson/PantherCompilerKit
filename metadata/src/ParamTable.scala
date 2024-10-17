@@ -21,7 +21,7 @@ case class ParamTable() {
     } else ()
   }
 
-  def addParam(name: int, flags: int, paramSig: int): int = {
+  def addParam(name: StringToken, flags: int, paramSig: int): int = {
     // ensure params capacity
     ensureCapacity(size + 1)
 
@@ -34,7 +34,7 @@ case class ParamTable() {
   def write(buffer: IntList): unit = {
     buffer.add(size)
     for (i <- 0 to (size - 1)) {
-      buffer.add(params(i).name)
+      buffer.add(params(i).name.token)
       buffer.add(params(i).flags)
       buffer.add(params(i).paramSig)
     }
@@ -50,7 +50,7 @@ case class ParamTable() {
 
     for (i <- 0 to (tableSize - 1)) {
       val recordOffset = offset + 1 + i * recordSize
-      val name = buffer.read(recordOffset + 0)
+      val name = StringToken(buffer.read(recordOffset + 0))
       val flags = buffer.read(recordOffset + 1)
       val paramSig = buffer.read(recordOffset + 2)
       params(i) = ParamMetadata(name, flags, paramSig)

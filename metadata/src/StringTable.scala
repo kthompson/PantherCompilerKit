@@ -21,13 +21,15 @@ case class StringTable() {
     } else ()
   }
 
-  def addBlob(value: string): int = {
+  def addBlob(value: string): StringToken = {
     // ensure strings capacity
     ensureSpace(1)
 
     // add string to strings
     strings(size) = value
     size = size + 1
-    size - 1
+    StringToken(size - 1)
   }
+
+  def get(token: StringToken): string = strings(token.token)
 }

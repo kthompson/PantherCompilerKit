@@ -1,5 +1,17 @@
 import panther._
 
+case class FieldToken(token: int)
+
+case class ParamToken(token: int)
+
+case class MethodToken(token: int)
+
+case class TypeDefToken(token: int)
+
+case class StringToken(token: int)
+
+case class SignatureToken(token: int)
+
 case class Metadata() {
   var fields = FieldTable()
   var params = ParamTable()
@@ -10,33 +22,58 @@ case class Metadata() {
 
   var lastField = 0
   var lastParam = 0
-  var lastMethod = 0
+  var lastMethod = MethodToken(0)
 
-  def addField(name: string, flags: int, sigId: int): int = {
+  def addString(value: string): StringToken =
+    strings.addBlob(value)
+
+  def getString(token: StringToken): string = {
+    strings.get(token)
+  }
+
+  def addField(name: string, flags: int, sigId: int): FieldToken = {
     val nameId = strings.addBlob(name)
     lastField = fields.addField(nameId, flags, sigId)
-    lastField
+    FieldToken(lastField)
   }
 
   def addSignature(signature: Signature): int =
     signatures.addBlob(signature.value, signature.value.length)
 
-  def addParam(name: string, flags: int, sigId: int): int = {
+  def addParam(name: string, flags: int, sigId: int): ParamToken = {
     val nameId = strings.addBlob(name)
     lastParam = params.addParam(nameId, flags, sigId)
-    lastParam
+    ParamToken(lastParam)
   }
 
-  def addMethod(name: string, flags: int, sigId: int): int = {
+  def addMethod(name: string, flags: int, sigId: int, locals: int, address: int): MethodToken = {
     val nameId = strings.addBlob(name)
-    lastMethod = methods.addMethod(nameId, flags, sigId, lastParam)
+    lastMethod = methods.addMethod(nameId, flags, sigId, lastParam, locals, address)
     lastMethod
   }
 
-  def addTypeDef(name: string, namespace: string, flags: int): int = {
+  def addTypeDef(name: string, namespace: string, flags: int): TypeDefToken = {
     val nameId = strings.addBlob(name)
     val namespaceId = strings.addBlob(namespace)
-    typeDefs.addTypeDef(nameId, namespaceId, flags, lastField, lastMethod)
+    val typeDef = typeDefs.addTypeDef(nameId, namespaceId, flags, lastField, lastMethod)
+    TypeDefToken(typeDef)
+  }
+
+  def getMethodAddress(method: MethodToken): int =
+    methods.get(method).address
+
+  def getMethodLocals(method: MethodToken): int =
+    methods.get(method).locals
+
+  def getMethodParameterCount(method: MethodToken): int = {
+    val methodId = method.token
+    val paramList = methods.get(method).paramList
+    if (methodId + 1 >= methods.size) {
+      params.size - paramList
+    } else {
+      val nextMethod = methods.methods(methodId + 1)
+      nextMethod.paramList - paramList
+    }
   }
 
   def write(buffer: IntList): unit = {
@@ -44,7 +81,7 @@ case class Metadata() {
     fields.write(buffer)
     methods.write(buffer)
     params.write(buffer)
-//    strings.write(buffer)
+    //    strings.write(buffer)
     signatures.write(buffer)
   }
 

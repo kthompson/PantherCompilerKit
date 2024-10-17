@@ -21,7 +21,7 @@ case class TypeDefTable() {
     } else ()
   }
 
-  def addTypeDef(name: int, namespace: int, flags: int, fieldList: int, methodList: int): int = {
+  def addTypeDef(name: StringToken, namespace: StringToken, flags: int, fieldList: int, methodList: MethodToken): int = {
     // ensure typeDefs capacity
     ensureCapacity(size + 1)
 
@@ -34,11 +34,11 @@ case class TypeDefTable() {
   def write(buffer: IntList): unit = {
     buffer.add(size)
     for (i <- 0 to (size - 1)) {
-      buffer.add(typeDefs(i).name)
-      buffer.add(typeDefs(i).namespace)
+      buffer.add(typeDefs(i).name.token)
+      buffer.add(typeDefs(i).namespace.token)
       buffer.add(typeDefs(i).flags)
       buffer.add(typeDefs(i).fieldList)
-      buffer.add(typeDefs(i).methodList)
+      buffer.add(typeDefs(i).methodList.token)
     }
   }
 
@@ -52,11 +52,11 @@ case class TypeDefTable() {
 
     for (i <- 0 to (size - 1)) {
       val recordOffset = offset + 1 + i * recordSize
-      val name = buffer.read(recordOffset + 0)
-      val namespace = buffer.read(recordOffset + 1)
+      val name = StringToken(buffer.read(recordOffset + 0))
+      val namespace = StringToken(buffer.read(recordOffset + 1))
       val flags = buffer.read(recordOffset + 2)
       val fieldList = buffer.read(recordOffset + 3)
-      val methodList = buffer.read(recordOffset + 4)
+      val methodList = MethodToken(buffer.read(recordOffset + 4))
       typeDefs(i) = TypeDefMetadata(name, namespace, flags, fieldList, methodList)
     }
 
