@@ -80,7 +80,7 @@ object Program {
             val suffix = source_file.to_string(suffix_span)
 
             print(prefix)
-            print(ANSI.foreground_color("e06c75"))
+            print(ANSI.foregroundColor("e06c75"))
             print(error)
             print(ANSI.Clear)
             println(suffix)

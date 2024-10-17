@@ -20,9 +20,9 @@ object Hex {
         else if (curr == 'f' || curr == 'F') 15
         else -1
 
-    def from_string(s: string): int = from_string(s, 0, s.length)
+    def fromString(s: string): int = fromString(s, 0, s.length)
 
-    def from_string(s: string, index: int, len: int): int = {
+    def fromString(s: string, index: int, len: int): int = {
         var value = fromChar(s(index))
         for (i <- (index + 1) to (index + len - 1)) {
             value = (value * 16) + fromChar(s(i))

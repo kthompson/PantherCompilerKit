@@ -83,7 +83,7 @@ case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
         val methodScope = symbol.members
 
         node.parameters match {
-            case Some(parameters) => bind_parameters(parameters.parameters, methodScope)
+            case Some(parameters) => bindParameters(parameters.parameters, methodScope)
             case None => ()
         }
 
@@ -175,7 +175,7 @@ case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
 
         val methodScope = symbol.members
 
-        bind_parameters(node.parameters, methodScope)
+        bindParameters(node.parameters, methodScope)
 
         _parent = saveParent
     }
@@ -196,7 +196,7 @@ case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
 
         val methodScope = symbol.members
 
-        bind_parameters(node.parameters, methodScope)
+        bindParameters(node.parameters, methodScope)
 //        bind_optional_function_body(node.body, methodScope)
 
         addBoundFunction(symbol, node)
@@ -460,7 +460,7 @@ case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
 //        }
 //    }
 
-    def bind_parameters(nodes: Array[ParameterSyntax], scope: Scope): unit = {
+    def bindParameters(nodes: Array[ParameterSyntax], scope: Scope): unit = {
         for (x <- 0 to (nodes.length-1)) {
             bind_parameter(nodes(x), scope)
         }
@@ -468,11 +468,11 @@ case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
 
     def bindFields(nodes: Array[ParameterSyntax], scope: Scope): unit = {
         for (x <- 0 to (nodes.length-1)) {
-            bind_field(nodes(x), scope)
+            bindField(nodes(x), scope)
         }
     }
 
-    def bind_field(node: ParameterSyntax, scope: Scope): unit =
+    def bindField(node: ParameterSyntax, scope: Scope): unit =
         declareSymbol(SymbolKind.Field, _parent.flags & SymbolFlags.Static, MakeDeclaration.parameter(node), scope, _parent)
 
     def get_name(name: NameSyntax): string = {

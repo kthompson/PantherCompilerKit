@@ -220,7 +220,7 @@ object SymbolTreePrinter {
         val marker = if (last) "└──" else "├──"
         var childIndent = indent
         if (scope.parent.kind == ScopeParentKind.Scope) {
-            print(ANSI.foreground_color(ColorPalette.Comments))
+            print(ANSI.foregroundColor(ColorPalette.Comments))
             print(indent)
             print(marker)
             print(ANSI.Clear)
@@ -255,33 +255,33 @@ object SymbolTreePrinter {
     def print_symbol(symbol: Symbol, indent: string, last: bool): unit = {
         val marker = if (last) "└──" else "├──"
 
-        print(ANSI.foreground_color(ColorPalette.Comments))
+        print(ANSI.foregroundColor(ColorPalette.Comments))
         print(indent)
         print(marker)
         print(ANSI.Clear)
 
         if (symbol.kind == SymbolKind.Root) {
-            print(ANSI.foreground_color(ColorPalette.Keyword))
+            print(ANSI.foregroundColor(ColorPalette.Keyword))
             print("Root")
             print(ANSI.Clear)
         } else if (symbol.kind == SymbolKind.Class) {
-            print(ANSI.foreground_color(ColorPalette.Literal1))
+            print(ANSI.foregroundColor(ColorPalette.Literal1))
             print("Type")
             print(ANSI.Clear)
         } else if (symbol.kind == SymbolKind.Field) {
-            print(ANSI.foreground_color(ColorPalette.Members))
+            print(ANSI.foregroundColor(ColorPalette.Members))
             print("Field")
             print(ANSI.Clear)
         } else if (symbol.kind == SymbolKind.Method) {
-            print(ANSI.foreground_color(ColorPalette.Members))
+            print(ANSI.foregroundColor(ColorPalette.Members))
             print("Method")
             print(ANSI.Clear)
         } else if (symbol.kind == SymbolKind.Constructor) {
-            print(ANSI.foreground_color(ColorPalette.Members))
+            print(ANSI.foregroundColor(ColorPalette.Members))
             print("Constructor")
             print(ANSI.Clear)
         } else if (symbol.kind == SymbolKind.Parameter) {
-            print(ANSI.foreground_color(ColorPalette.Identifier))
+            print(ANSI.foregroundColor(ColorPalette.Identifier))
             print("Parameter")
             print(ANSI.Clear)
         } else {
@@ -293,7 +293,7 @@ object SymbolTreePrinter {
         print(symbol.name)
         if (symbol.has_declaration()) {
         } else {
-            print(ANSI.foreground_color("e06c75"))
+            print(ANSI.foregroundColor("e06c75"))
             print(" [missing declaration]")
             print(ANSI.Clear)
         }
