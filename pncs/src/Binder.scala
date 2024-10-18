@@ -4,10 +4,6 @@ import MemberSyntax._
 import SimpleNameSyntax._
 import NameSyntax._
 
-case class BoundFunction(symbol: Symbol, function: FunctionDeclarationSyntax)
-
-case class BoundTree(root: Symbol, diagnostics: Array[Diagnostic], functions: Array[BoundFunction])
-
 case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
 
   var ns = "" // namespace
@@ -15,6 +11,8 @@ case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
 
   var _functionsSize = 0
   var functions = new Array[BoundFunction](0)
+  var _fieldsSize = 0
+  var fields = new Array[BoundField](0)
 
   def bind(trees: Array[SyntaxTree]): BoundTree = {
     var num_diags = 0
@@ -35,7 +33,7 @@ case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
       }
     }
 
-    BoundTree(root, allDiags, boundFunctions())
+    BoundTree(root, allDiags, boundFunctions(), boundFields())
   }
 
   def boundFunctions(): Array[BoundFunction] = {
@@ -62,6 +60,32 @@ case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
     ensureFunctionCapacity(1)
     functions(_functionsSize) = BoundFunction(symbol, function)
     _functionsSize = _functionsSize + 1
+  }
+
+  def boundFields(): Array[BoundField] = {
+    val newItems = new Array[BoundField](_fieldsSize)
+    for (i <- 0 to (_fieldsSize - 1)) {
+      newItems(i) = fields(i)
+    }
+    newItems
+  }
+
+  def ensureFieldCapacity(count: int): unit = {
+    if (_fieldsSize + count >= fields.length) {
+      val newItems = new Array[BoundField]((_fieldsSize + count) * 2)
+      for (i <- 0 to (_fieldsSize - 1)) {
+        newItems(i) = fields(i)
+      }
+      fields = newItems
+    } else {
+      ()
+    }
+  }
+
+  def addBoundField(symbol: Symbol, field: VariableDeclarationStatementSyntax): unit = {
+    ensureFieldCapacity(1)
+    fields(_fieldsSize) = BoundField(symbol, field)
+    _fieldsSize = _fieldsSize + 1
   }
 
   def bindCompilationUnit(compilationUnit: CompilationUnitSyntax): unit = {
@@ -105,8 +129,7 @@ case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
       case value: FunctionDeclarationSyntax => bindFunctionDeclaration(value, scope)
       case value: EnumDeclarationSyntax => bindEnumDeclaration(value, scope)
       case value: GlobalStatementSyntax =>
-      //                ??? // not supported yet
-      //                bind_global_statement(value, scope)
+        bindGlobalStatement(value, scope)
     }
   }
 
@@ -218,26 +241,30 @@ case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
   def program_scope(scope: Scope): Scope =
     program_symbol(scope).members
 
-  //    def bind_global_statement(node: GlobalStatementSyntax, scope: Scope): unit = {
-  //        val newScope = if (scope.isGlobalScope()) {
-  //            val program = program_symbol(scope)
-  //            val programScope = program.members
-  //            val maybeMain = programScope.get("main")
-  //            if (maybeMain.isEmpty) {
-  //                val parent = Some(program)
-  //                programScope.
-  //                    addSymbol(new Symbol(SymbolKind.Method, SymbolFlags.Static, "main", TextLocationFactory.empty(), parent)).
-  //                    members
-  //            } else {
-  //                // TODO: diagnostic cant have main and global statements
-  //                maybeMain.get.members
-  //            }
-  //        } else {
-  //            scope
-  //        }
-  //
-  //        bind_statment(node.statement, newScope)
-  //    }
+  def bindGlobalStatement(node: GlobalStatementSyntax, scope: Scope): unit = {
+    //        this is to handle creating a main method and class if it does not exist
+    //        but we can handle this later by lowering
+    //        val newScope = if (scope.isGlobalScope()) {
+    //            val program = program_symbol(scope)
+    //            val programScope = program.members
+    //            val maybeMain = programScope.get("main")
+    //            if (maybeMain.isEmpty) {
+    //                val parent = Some(program)
+    //                programScope.
+    //                    addSymbol(new Symbol(SymbolKind.Method, SymbolFlags.Static, "main", TextLocationFactory.empty(), parent)).
+    //                    members
+    //            } else {
+    //                // TODO: diagnostic cant have main and global statements
+    //                maybeMain.get.members
+    //            }
+    //        } else {
+    //            scope
+    //        }
+    //
+    //        bind_statment(node.statement, newScope)
+
+    bindStatement(node.statement, scope)
+  }
 
   def bind_parameter(node: ParameterSyntax, scope: Scope): unit =
     declareSymbol(SymbolKind.Parameter, SymbolFlags.None, MakeDeclaration.parameter(node), scope, _parent)
@@ -412,30 +439,38 @@ case class Binder(root: Symbol, diagnostics: DiagnosticBag) {
   //    def bind_expression_item(node: ExpressionItemSyntax, scope: Scope): unit =
   //        bindExpression(node.expression, scope)
 
-  //    def bind_statment(node: StatementSyntax, scope: Scope): unit = {
-  //        node match {
-  //            case StatementSyntax.VariableDeclarationStatement(value) => bind_variable_declaration_statement(value, scope)
-  //            case StatementSyntax.BreakStatement(value) => bind_break_statement(value, scope)
-  //            case StatementSyntax.ContinueStatement(value) => bind_continue_statement(value, scope)
-  //            case StatementSyntax.ExpressionStatement(value) => bind_expression_statement(value, scope)
-  //        }
-  //    }
-  //
-  //    def bind_variable_declaration_statement(node: VariableDeclarationStatementSyntax, scope: Scope): unit = {
-  //        val parent = scope.getParentSymbol()
-  //
-  //        if (parent.kind == SymbolKind.Class) {
-  //            declareSymbol(SymbolKind.Field, parent.flags & SymbolFlags.Static, MakeDeclaration.local(node), scope, _parent)
-  //            ()
-  //        } else if (parent.kind == SymbolKind.Method) {
-  //            declareSymbol(SymbolKind.Local, SymbolFlags.None, MakeDeclaration.local(node), scope, _parent)
-  //            ()
-  //        } else {
-  //            panic("bind_variable_declaration_statement")
-  //        }
-  //
-  //        bindExpression(node.expression, scope)
-  //    }
+  def bindStatement(node: StatementSyntax, scope: Scope): unit = {
+    node match {
+      case StatementSyntax.VariableDeclarationStatement(value) => bindVariableDeclarationStatement(value, scope)
+      //            case StatementSyntax.BreakStatement(value) => bind_break_statement(value, scope)
+      //            case StatementSyntax.ContinueStatement(value) => bind_continue_statement(value, scope)
+      //            case StatementSyntax.ExpressionStatement(value) => bind_expression_statement(value, scope)
+      case _ =>
+        // wont do anything with other statements yet
+        ()
+    }
+  }
+
+  def bindVariableDeclarationStatement(node: VariableDeclarationStatementSyntax, scope: Scope): unit = {
+    val parent = scope.getParentSymbol()
+
+    if (parent.kind == SymbolKind.Class) {
+      addBoundField(
+        declareSymbol(SymbolKind.Field, parent.flags & SymbolFlags.Static, MakeDeclaration.local(node), scope, _parent),
+        node
+      )
+    } else if (parent.kind == SymbolKind.Method) {
+      addBoundField(
+        declareSymbol(SymbolKind.Local, SymbolFlags.None, MakeDeclaration.local(node), scope, _parent),
+        node
+      )
+    } else {
+      panic("bind_variable_declaration_statement")
+    }
+  }
+
+    //          bindExpression(node.expression, scope)
+//  }
   //
   //    def bind_break_statement(node: BreakStatementSyntax, scope: Scope): unit = ()
   //    def bind_continue_statement(node: ContinueStatementSyntax, scope: Scope): unit = ()

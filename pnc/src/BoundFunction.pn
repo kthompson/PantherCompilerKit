@@ -1,0 +1,3 @@
+using MemberSyntax.FunctionDeclarationSyntax
+
+class BoundFunction(symbol: Symbol, function: FunctionDeclarationSyntax)

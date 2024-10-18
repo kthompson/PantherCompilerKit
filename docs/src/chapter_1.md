@@ -14,7 +14,7 @@
 1. Panther to PVM compiler (in Scala)
    - using only a subset of scala that is also panther
    - `pncs`
-   - panther -> pvm on Scala
+   - panther -> pvm in Scala
    - also support transpiling `pncs` to panther (`pnc`)
 2. Write the PVM interpreter in Scala
    - using only a subset of scala that is also panther
