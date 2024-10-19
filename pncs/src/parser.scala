@@ -163,7 +163,7 @@ case class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
     }
   }
 
-  def parse_identifier_name(): IdentifierNameSyntax = {
+  def parse_identifier_name(): SimpleNameSyntax.IdentifierNameSyntax = {
     debugPrint("parse_identifier_name")
     val identifier = accept(SyntaxKind.IdentifierToken)
 
@@ -880,7 +880,7 @@ case class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
     _parsePatternList(patterns, 1)
   }
 
-  def _parsePatternList(array: Array[PatternItemSyntax], i: Int): Array[PatternItemSyntax] = {
+  def _parsePatternList(array: Array[PatternItemSyntax], i: int): Array[PatternItemSyntax] = {
     val pattern = parse_pattern()
 
     if (current_kind() == SyntaxKind.CommaToken) {
@@ -1049,7 +1049,7 @@ case class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
     }
   }
 
-  def parse_global_statement(): GlobalStatementSyntax = {
+  def parse_global_statement(): MemberSyntax.GlobalStatementSyntax = {
     debugPrint("parse_global_statement")
     new GlobalStatementSyntax(parse_statement())
   }

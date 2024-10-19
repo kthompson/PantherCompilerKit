@@ -1,7 +1,7 @@
-import panther._
+using panther
 
-case class TypeDefTable() {
-  var typeDefs = new Array[TypeDefMetadata](0)
+class TypeDefTable() {
+  var typeDefs = new Array<TypeDefMetadata>(0)
   var capacity = 0
   var size = 0
 
@@ -11,7 +11,7 @@ case class TypeDefTable() {
       while (n > newCapacity) {
         newCapacity = newCapacity * 2
       }
-      val newTypeDefs = new Array[TypeDefMetadata](newCapacity)
+      val newTypeDefs = new Array<TypeDefMetadata>(newCapacity)
       for (i <- 0 to (size - 1)) {
         newTypeDefs(i) = typeDefs(i)
       }

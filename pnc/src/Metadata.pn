@@ -1,18 +1,18 @@
-import panther._
+using panther
 
-case class FieldToken(token: int)
+class FieldToken(token: int)
 
-case class ParamToken(token: int)
+class ParamToken(token: int)
 
-case class MethodToken(token: int)
+class MethodToken(token: int)
 
-case class TypeDefToken(token: int)
+class TypeDefToken(token: int)
 
-case class StringToken(token: int)
+class StringToken(token: int)
 
-case class SignatureToken(token: int)
+class SignatureToken(token: int)
 
-case class Metadata() {
+class Metadata() {
   var fields = FieldTable()
   var params = ParamTable()
   var methods = MethodTable()

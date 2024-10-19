@@ -7,6 +7,7 @@ trait PantherCompilerKitModule extends ScalaModule {
 
   object test extends ScalaTests {
     override def ivyDeps = Agg(ivy"com.lihaoyi::utest:0.8.4")
+
     def testFramework = "utest.runner.Framework"
   }
 
@@ -34,8 +35,8 @@ object pncs extends PantherCompilerKitModule {
   def transpileOutputPath = T.source(pnc.millSourcePath / "src")
 
   def transpileSources = T {
-    super
-      .sources()
+    (super
+      .sources() ++ metadata.sources())
       .map(_.path)
       .flatMap(os.list(_))
       .filterNot(_.endsWith(RelPath("SyntaxVisitor.scala")))
@@ -44,18 +45,16 @@ object pncs extends PantherCompilerKitModule {
 
   def transpile = T {
     run(T.task {
-      println("transpile0: " + transpileOutputPath().path.toString)
       Args(Seq("-t" :: transpileOutputPath().path.toString() :: transpileSources().map(_.toString)))
     })()
 
-    println("transpile1: " + transpileOutputPath().path.toString)
     transpileOutputPath()
   }
 }
 
 /**
  * Panther Compiler in Panther
- * 
+ *
  * Compiles to PVM bytecode
  */
 object pnc extends TaskModule with Module {

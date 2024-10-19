@@ -1,0 +1,3 @@
+using panther
+
+class TypeDefMetadata(name: StringToken, ns: StringToken, flags: int, fieldList: int, methodList: MethodToken)

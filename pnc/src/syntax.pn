@@ -37,8 +37,8 @@ class SyntaxTriviaList() {
 
 object SyntaxTokenValueKind {
     val None = 0
-    val Boolean = 1
-    val String = 2
+    val bool = 1
+    val string = 2
     val Character = 3
     val Number = 4
 }
@@ -46,8 +46,8 @@ class SyntaxTokenValue(kind: int, boolValue: Option<bool>, stringValue: Option<s
 
 object MakeSyntaxTokenValue {
     def none() = new SyntaxTokenValue(SyntaxTokenValueKind.None, None, None, None, None)
-    def bool(value: bool) = new SyntaxTokenValue(SyntaxTokenValueKind.Boolean, Some(value), None, None, None)
-    def string(value: string) = new SyntaxTokenValue(SyntaxTokenValueKind.String, None, Some(value), None, None)
+    def bool(value: bool) = new SyntaxTokenValue(SyntaxTokenValueKind.bool, Some(value), None, None, None)
+    def string(value: string) = new SyntaxTokenValue(SyntaxTokenValueKind.string, None, Some(value), None, None)
     def char(value: char) = new SyntaxTokenValue(SyntaxTokenValueKind.Character, None, None, Some(value), None)
     def number(value: int) = new SyntaxTokenValue(SyntaxTokenValueKind.Number, None, None, None, Some(value))
 }

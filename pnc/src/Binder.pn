@@ -1,10 +1,6 @@
 using panther
-using ExpressionSyntax
-using MemberSyntax
-using SimpleNameSyntax
-using NameSyntax
 
-class Binder(root: Symbol, diagnostics: DiagnosticBag) {
+class Binder(diagnostics: DiagnosticBag, root: Symbol) {
 
   var ns = "" // namespace
   var _parent = root
@@ -56,9 +52,9 @@ class Binder(root: Symbol, diagnostics: DiagnosticBag) {
     }
   }
 
-  def addBoundFunction(symbol: Symbol, function: FunctionDeclarationSyntax): unit = {
+  def addBoundFunction(symbol: Symbol, function: MemberSyntax.FunctionDeclarationSyntax, params: Array<BoundParameter>): unit = {
     ensureFunctionCapacity(1)
-    functions(_functionsSize) = BoundFunction(symbol, function)
+    functions(_functionsSize) = BoundFunction(symbol, function, params)
     _functionsSize = _functionsSize + 1
   }
 
@@ -124,11 +120,11 @@ class Binder(root: Symbol, diagnostics: DiagnosticBag) {
 
   def bindMember(member: MemberSyntax, scope: Scope): unit = {
     member match {
-      case value: ObjectDeclarationSyntax => bindObjectDeclaration(value, scope)
-      case value: ClassDeclarationSyntax => bindClassDeclaration(value, scope)
-      case value: FunctionDeclarationSyntax => bindFunctionDeclaration(value, scope)
-      case value: EnumDeclarationSyntax => bindEnumDeclaration(value, scope)
-      case value: GlobalStatementSyntax =>
+      case value: MemberSyntax.ObjectDeclarationSyntax => bindObjectDeclaration(value, scope)
+      case value: MemberSyntax.ClassDeclarationSyntax => bindClassDeclaration(value, scope)
+      case value: MemberSyntax.FunctionDeclarationSyntax => bindFunctionDeclaration(value, scope)
+      case value: MemberSyntax.EnumDeclarationSyntax => bindEnumDeclaration(value, scope)
+      case value: MemberSyntax.GlobalStatementSyntax =>
         bindGlobalStatement(value, scope)
     }
   }
@@ -149,7 +145,7 @@ class Binder(root: Symbol, diagnostics: DiagnosticBag) {
     }
   }
 
-  def bindObjectDeclaration(node: ObjectDeclarationSyntax, scope: Scope): unit = {
+  def bindObjectDeclaration(node: MemberSyntax.ObjectDeclarationSyntax, scope: Scope): unit = {
     val saveParent = _parent
     val symbol = declareSymbol(SymbolKind.Class, SymbolFlags.Static, MakeDeclaration.member(node.identifier, node), scope, _parent)
     _parent = symbol
@@ -159,7 +155,7 @@ class Binder(root: Symbol, diagnostics: DiagnosticBag) {
     _parent = saveParent
   }
 
-  def bindEnumDeclaration(node: EnumDeclarationSyntax, scope: Scope): unit = {
+  def bindEnumDeclaration(node: MemberSyntax.EnumDeclarationSyntax, scope: Scope): unit = {
     val saveParent = _parent
     val symbol = declareSymbol(SymbolKind.Class, SymbolFlags.None, MakeDeclaration.member(node.identifier, node), scope, _parent)
     _parent = symbol
@@ -178,7 +174,7 @@ class Binder(root: Symbol, diagnostics: DiagnosticBag) {
     bindMembers(node.members, scope)
   }
 
-  def bindClassDeclaration(node: ClassDeclarationSyntax, scope: Scope): unit = {
+  def bindClassDeclaration(node: MemberSyntax.ClassDeclarationSyntax, scope: Scope): unit = {
     val saveParent = _parent
     val symbol = declareSymbol(SymbolKind.Class, SymbolFlags.None, MakeDeclaration.member(node.identifier, node), scope, _parent)
     _parent = symbol
@@ -192,19 +188,21 @@ class Binder(root: Symbol, diagnostics: DiagnosticBag) {
     _parent = saveParent
   }
 
-  def bindConstructor(node: ClassDeclarationSyntax, scope: Scope): unit = {
+  def bindConstructor(node: MemberSyntax.ClassDeclarationSyntax, scope: Scope): unit = {
     val saveParent = _parent
     val symbol = declareSymbol(SymbolKind.Constructor, SymbolFlags.None, MakeDeclaration.member(node.identifier, node), scope, _parent)
     _parent = symbol
 
     val methodScope = symbol.members
 
-    bindParameters(node.parameters, methodScope)
+    val params = bindParameters(node.parameters, methodScope)
+    // TODO: need to add constructors to the BoundTree
+//    addBoundFunction(symbol, node, params)
 
     _parent = saveParent
   }
 
-  def bindFunctionDeclaration(node: FunctionDeclarationSyntax, scope: Scope): unit = {
+  def bindFunctionDeclaration(node: MemberSyntax.FunctionDeclarationSyntax, scope: Scope): unit = {
     val newScope = if (scope.isGlobalScope()) {
       // TODO: need to adjust parent here as we are moving our parent symbol
       program_scope(scope)
@@ -220,10 +218,10 @@ class Binder(root: Symbol, diagnostics: DiagnosticBag) {
 
     val methodScope = symbol.members
 
-    bindParameters(node.parameters, methodScope)
+    val params = bindParameters(node.parameters, methodScope)
     //        bind_optional_function_body(node.body, methodScope)
 
-    addBoundFunction(symbol, node)
+    addBoundFunction(symbol, node, params)
 
     _parent = saveParent
   }
@@ -241,7 +239,7 @@ class Binder(root: Symbol, diagnostics: DiagnosticBag) {
   def program_scope(scope: Scope): Scope =
     program_symbol(scope).members
 
-  def bindGlobalStatement(node: GlobalStatementSyntax, scope: Scope): unit = {
+  def bindGlobalStatement(node: MemberSyntax.GlobalStatementSyntax, scope: Scope): unit = {
     //        this is to handle creating a main method and class if it does not exist
     //        but we can handle this later by lowering
     //        val newScope = if (scope.isGlobalScope()) {
@@ -266,8 +264,11 @@ class Binder(root: Symbol, diagnostics: DiagnosticBag) {
     bindStatement(node.statement, scope)
   }
 
-  def bind_parameter(node: ParameterSyntax, scope: Scope): unit =
-    declareSymbol(SymbolKind.Parameter, SymbolFlags.None, MakeDeclaration.parameter(node), scope, _parent)
+  def bindParameter(node: ParameterSyntax, scope: Scope): BoundParameter =
+    BoundParameter(
+      declareSymbol(SymbolKind.Parameter, SymbolFlags.None, MakeDeclaration.parameter(node), scope, _parent),
+      node
+    )
 
   //    def bind_optional_function_body(node: Option[FunctionBodySyntax], scope: Scope): unit =
   //        if (node.isDefined) bind_function_body(node.get, scope) else ()
@@ -335,7 +336,7 @@ class Binder(root: Symbol, diagnostics: DiagnosticBag) {
   //        }
   //    }
 
-  def bind_identifier_name(node: IdentifierNameSyntax, scope: Scope): unit = {
+  def bind_identifier_name(node: SimpleNameSyntax.IdentifierNameSyntax, scope: Scope): unit = {
     // TODO: ensure symbol exists
   }
 
@@ -469,8 +470,8 @@ class Binder(root: Symbol, diagnostics: DiagnosticBag) {
     }
   }
 
-    //          bindExpression(node.expression, scope)
-//  }
+  //          bindExpression(node.expression, scope)
+  //  }
   //
   //    def bind_break_statement(node: BreakStatementSyntax, scope: Scope): unit = ()
   //    def bind_continue_statement(node: ContinueStatementSyntax, scope: Scope): unit = ()
@@ -496,10 +497,12 @@ class Binder(root: Symbol, diagnostics: DiagnosticBag) {
   //        }
   //    }
 
-  def bindParameters(nodes: Array<ParameterSyntax>, scope: Scope): unit = {
+  def bindParameters(nodes: Array<ParameterSyntax>, scope: Scope): Array<BoundParameter> = {
+    val params = new Array<BoundParameter>(nodes.length)
     for (x <- 0 to (nodes.length - 1)) {
-      bind_parameter(nodes(x), scope)
+      params(x) = bindParameter(nodes(x), scope)
     }
+    params
   }
 
   def bindFields(nodes: Array<ParameterSyntax>, scope: Scope): unit = {
@@ -520,10 +523,10 @@ class Binder(root: Symbol, diagnostics: DiagnosticBag) {
     }
   }
 
-  def get_qualified_name(node: QualifiedNameSyntax): string =
+  def get_qualified_name(node: NameSyntax.QualifiedNameSyntax): string =
     get_name(node.left) + "." + get_simple_name(node.right)
 
-  def get_generic_name(node: GenericNameSyntax): string =
+  def get_generic_name(node: SimpleNameSyntax.GenericNameSyntax): string =
     node.identifier.text + get_type_argument_list(node.typeArgumentlist)
 
   def get_simple_name(node: SimpleNameSyntax): string = {
@@ -559,12 +562,12 @@ class Binder(root: Symbol, diagnostics: DiagnosticBag) {
     get_name(node.name) + sep
   }
 
-  def bind_identifier_names(nodes: Array<IdentifierNameSyntax>, scope: Scope): unit = {
+  def bind_identifier_names(nodes: Array<SimpleNameSyntax.IdentifierNameSyntax>, scope: Scope): unit = {
     for (x <- 0 to (nodes.length - 1)) {
       bind_identifier_name(nodes(x), scope)
     }
   }
 
-  def get_identifier_name(node: IdentifierNameSyntax): string =
+  def get_identifier_name(node: SimpleNameSyntax.IdentifierNameSyntax): string =
     node.identifier.text
 }

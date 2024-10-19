@@ -5,21 +5,23 @@ object MakeCompilation {
     val diagnosticBag = new DiagnosticBag()
     val root = new Symbol(SymbolKind.Root, SymbolFlags.None, "", TextLocationFactory.empty(), None)
 
-    val binder = new Binder(root, diagnosticBag)
-    val boundTree = binder.bind(trees)
+    // TODO: add default symbols to root
+    // int, string, char, bool, unit, any, nothing
 
+    val binder = new Binder(diagnosticBag, root)
+    val boundTree = binder.bind(trees)
 
     // all the type inference data is in the checker so we cant
     // expose it to the compilation here
-    //         val checker = new Checker(root)
-    //         checker.initBuiltins()
+    val checker = new Checker(diagnosticBag, root, boundTree.functions, boundTree.fields)
+    checker.check()
 
-    new Compilation(trees, root, /* checker, */ boundTree.diagnostics)
+    new Compilation(trees, root, checker, diagnosticBag.diagnostics())
   }
 }
 
-class Compilation(syntaxTrees: Array<SyntaxTree>, root: Symbol, /*checker: Checker,*/ diagnostics: Array<Diagnostic>) {
-  def print_symbols(): unit = SymbolTreePrinter.print_symbol(root)
+class Compilation(syntaxTrees: Array<SyntaxTree>, root: Symbol, checker: Checker, diagnostics: Array<Diagnostic>) {
+  def print_symbols(): unit = SymbolTreePrinter(checker).print_symbol(root)
 
   def emit(output: string): unit = {
     val emitter = new Emitter(syntaxTrees, root, /* checker, */ output)

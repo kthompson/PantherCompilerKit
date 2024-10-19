@@ -1,10 +1,13 @@
+import scala.{Array => SArray}
+
 enum Type {
-  case Function(parameters: List[TypedParameter], returnType: Type)
+  case Function(parameters: SArray[TypedParameter], returnType: Type)
   case Array(inner: Type)
-  case Named(symbol: Symbol)
+  case Reference(symbol: Symbol)
   case Option(inner: Type)
   case Any
   case Boolean
+  case Char
   case Int
   case Never
   case String
@@ -48,8 +51,8 @@ enum TypedExpression {
 case class TypedParameter(name: String, typ: Type)
 
 enum TypedMember {
-  case TypedField(name: String, typeStr: String)
-  case TypedMethod(name: String, returnType: String, args: List[TypedParameter])
+  case TypedField(name: String, typeStr: Type)
+  case TypedMethod(name: String, returnType: Type, args: List[TypedParameter])
 }
 
 enum TypedDefinition {

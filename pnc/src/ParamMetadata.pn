@@ -1,0 +1,3 @@
+using panther
+
+class ParamMetadata(name: StringToken, flags: int, var paramSig: int)

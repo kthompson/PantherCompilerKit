@@ -10,6 +10,8 @@ case class DiagnosticBag() {
 
   def report(location: TextLocation, message: string): unit = add(new Diagnostic(location, message))
 
+  def reportTypeNotDefined(location: TextLocation, name: string): unit = report(location, "Type " + name + " not defined")
+  
   def reportBadCharacter(location: TextLocation, value: char): unit = report(location, "Invalid character in input: " + string(value))
 
   def reportEmptyCharLiteral(location: TextLocation): unit = report(location, "Empty character literal")

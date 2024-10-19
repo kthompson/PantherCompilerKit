@@ -1,14 +1,17 @@
+using scala.{Array => SArray}
+
 enum Type {
-  case Function(parameters: List<TypedParameter>, returnType: Type)
+  case Function(parameters: SArray<TypedParameter>, returnType: Type)
   case Array(inner: Type)
-  case Named(symbol: Symbol)
+  case Reference(symbol: Symbol)
   case Option(inner: Type)
   case Any
-  case Boolean
-  case Int
+  case bool
+  case Char
+  case int
   case Never
-  case String
-  case Unit
+  case string
+  case unit
   
   case Error
 }
@@ -34,9 +37,9 @@ enum TypedBinaryOperator {
 }
 
 enum TypedExpression {
-  case TypedLiteral(typ: Type, value: String)
-  case TypedVariable(typ: Type, name: String)
-  case TypedAssignment(name: String, value: TypedExpression)
+  case TypedLiteral(typ: Type, value: string)
+  case TypedVariable(typ: Type, name: string)
+  case TypedAssignment(name: string, value: TypedExpression)
   case TypedBinary(typ: Type, left: TypedExpression, op: TypedBinaryOperator, right: TypedExpression)
   case TypedCall(typ: Type, callee: TypedExpression, args: List<TypedExpression>)
   case TypedIf(typ: Type, condition: TypedExpression, thenBranch: TypedExpression, elseBranch: TypedExpression)
@@ -45,16 +48,16 @@ enum TypedExpression {
   case TypedUnary(typ: Type, op: TypedUnaryOperator, operand: TypedExpression)
 }
 
-class TypedParameter(name: String, typ: Type)
+class TypedParameter(name: string, typ: Type)
 
 enum TypedMember {
-  case TypedField(name: String, typeStr: String)
-  case TypedMethod(name: String, returnType: String, args: List<TypedParameter>)
+  case TypedField(name: string, typeStr: Type)
+  case TypedMethod(name: string, returnType: Type, args: List<TypedParameter>)
 }
 
 enum TypedDefinition {
-  case TypedClass(namespace: String, name: String, members: List<TypedMember>)
-  case TypedEnum(namespace: String, name: String, members: List<String>)
+  case TypedClass(namespace: string, name: string, members: List<TypedMember>)
+  case TypedEnum(namespace: string, name: string, members: List<string>)
 }
 
 class TypedAssembly(classes: List<TypedDefinition>)
