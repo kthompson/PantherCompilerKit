@@ -90,6 +90,8 @@ object SyntaxKind {
     val AnnotationToken         = 11
 
     // Keywords
+    val FirstKeyword            = 14 // this is a marker and should be set to the first keyword
+    val AsKeyword               = 14
     val BreakKeyword            = 15
     val CaseKeyword             = 16
     val ClassKeyword            = 17
@@ -114,6 +116,7 @@ object SyntaxKind {
     val ValKeyword              = 36
     val VarKeyword              = 37
     val WhileKeyword            = 38
+    val LastKeyword             = 38 // this is a marker and should be set to the last keyword
 
     // Operators
     val AmpersandAmpersandToken = 41
@@ -204,7 +207,8 @@ object OperatorPrecedence {
 
 object SyntaxFacts {
     def getKindName(kind: int): string = {
-        if (kind == SyntaxKind.AmpersandAmpersandToken) "AmpersandAmpersandToken"
+        if (kind == SyntaxKind.AsKeyword) "AsKeyword"
+        else if (kind == SyntaxKind.AmpersandAmpersandToken) "AmpersandAmpersandToken"
         else if (kind == SyntaxKind.AmpersandToken) "AmpersandToken"
         else if (kind == SyntaxKind.ArrayCreationExpression) "ArrayCreationExpression"
         else if (kind == SyntaxKind.ArrayInitializer) "ArrayInitializer"
@@ -306,10 +310,11 @@ object SyntaxFacts {
     }
 
     def isKeywordKind(kind: int): bool =
-        kind >= SyntaxKind.BreakKeyword && kind <= SyntaxKind.WhileKeyword
+        kind >= SyntaxKind.FirstKeyword && kind <= SyntaxKind.LastKeyword
 
-    def get_keyword_kind(span: string): int = {
-        if (span == "break") SyntaxKind.BreakKeyword
+    def getKeywordKind(span: string): int = {
+        if (span == "as") SyntaxKind.AsKeyword
+        else if (span == "break") SyntaxKind.BreakKeyword
         else if (span == "case") SyntaxKind.CaseKeyword
         else if (span == "class") SyntaxKind.ClassKeyword
         else if (span == "continue") SyntaxKind.ContinueKeyword

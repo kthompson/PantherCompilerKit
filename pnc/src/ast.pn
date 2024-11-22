@@ -28,6 +28,9 @@ enum SimpleNameSyntax {
     case GenericNameSyntax(identifier: SyntaxToken,
                            typeArgumentlist: TypeArgumentListSyntax)
     case IdentifierNameSyntax(identifier: SyntaxToken)
+
+    case ScalaAliasSyntax(open: SyntaxToken, name: SyntaxToken, arrow: SyntaxToken, alias: SyntaxToken, close: SyntaxToken)
+    case AliasSyntax(name: SyntaxToken, asKeyword: SyntaxToken, alias: SyntaxToken)
 }
 enum NameSyntax {
     case QualifiedNameSyntax(left: NameSyntax, dotToken: SyntaxToken, right: SimpleNameSyntax)
@@ -327,29 +330,3 @@ object MakeDeclaration {
         )
 }
 
-//
-//// A Node represents any piece of the AST
-//case class Node(
-//    declaration: Option[Declaration],
-//    expression: Option[ExpressionSyntax]
-//) {
-//
-//    def is_decl(): bool = declaration.isDefined
-//
-//    def id(): int =
-//        if (is_decl()) declaration.get.id
-//        else expression.get.id
-//
-//    def set_id(value: int): unit = {
-//        if (is_decl()) {
-//            declaration.get.id = value
-//        } else {
-//            expression.get.id = value
-//        }
-//    }
-//}
-
-//object MakeNode {
-//    def decl(declaration: Declaration): Node = new Node(Some(declaration), None)
-//    def expr(expression: ExpressionSyntax): Node = new Node(None, Some(expression))
-//}

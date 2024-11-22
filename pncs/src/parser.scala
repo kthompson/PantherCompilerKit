@@ -75,8 +75,43 @@ case class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
       if (!source_file.isScala()) {
         diagnostics.reportUnexpectedToken(curr.location, curr.kind, kind)
       } else ()
+
+      if (!curr.is_statement_terminator()) prependTrivia()
+      else ()
+
       next()
     } else ()
+  }
+
+  def prependTrivia(): unit = {
+    // this is a little hacky but basically we are taking any leading trivia from tokens
+    // that we are throwing away and prepending it to the next token
+    val len = _tokens.length
+    val currP = if (_position >= len) len - 1 else _position
+    val nextP = if (_position + 1 >= len) len - 1 else _position + 1
+    if (currP == nextP) ()
+    else {
+      val next = _tokens(nextP)
+      val curr = _tokens(currP)
+
+      val newLeading = new Array[SyntaxTrivia](curr.leading.length + next.leading.length)
+      for (i <- 0 to (curr.leading.length - 1)) {
+        newLeading(i) = curr.leading(i)
+      }
+      for (i <- 0 to (next.leading.length - 1)) {
+        newLeading(curr.leading.length + i) = next.leading(i)
+      }
+
+      _tokens(nextP) = new SyntaxToken(
+        next.source_file,
+        next.kind,
+        next.start,
+        next.text,
+        next.value,
+        newLeading,
+        next.trailing
+      )
+    }
   }
 
   def debugPrint(note: string): unit = {
@@ -198,18 +233,30 @@ case class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
 
   def parse_simple_name(): SimpleNameSyntax = {
     debugPrint("parse_simple_name")
-    val ident = accept(SyntaxKind.IdentifierToken)
+    if (current_kind() == SyntaxKind.IdentifierToken) {
+      val ident = accept()
 
-    if (current_kind() == SyntaxKind.LessThanToken) {
-      val typeArgumentlist = parse_type_argument_list(false)
-      new GenericNameSyntax(ident, typeArgumentlist)
+      if (current_kind() == SyntaxKind.LessThanToken) {
+        val typeArgumentlist = parse_type_argument_list(false)
+        new GenericNameSyntax(ident, typeArgumentlist)
 
-    } else if (source_file.isScala() && current_kind() == SyntaxKind.OpenBracketToken) {
-      val typeArgumentlist = parse_type_argument_list(true)
+      } else if (source_file.isScala() && current_kind() == SyntaxKind.OpenBracketToken) {
+        val typeArgumentlist = parse_type_argument_list(true)
 
-      new GenericNameSyntax(ident, typeArgumentlist)
+        new GenericNameSyntax(ident, typeArgumentlist)
+      } else {
+        new IdentifierNameSyntax(ident)
+      }
+    } else if (source_file.isScala() && current_kind() == SyntaxKind.OpenBraceToken) {
+      val openBrace = accept()
+      val name = accept(SyntaxKind.IdentifierToken)
+      val arrow = accept(SyntaxKind.EqualsGreaterThanToken)
+      val alias = accept(SyntaxKind.IdentifierToken)
+      val closeBrace = accept(SyntaxKind.CloseBraceToken)
+
+      new ScalaAliasSyntax(openBrace, name, arrow, alias, closeBrace)
     } else {
-      new IdentifierNameSyntax(ident)
+      new IdentifierNameSyntax(accept(SyntaxKind.IdentifierToken))
     }
   }
 
@@ -859,6 +906,10 @@ case class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
         simpleName match {
           case value: SimpleNameSyntax.GenericNameSyntax =>
             None
+          case SimpleNameSyntax.ScalaAliasSyntax(_, identifier, _, _, _) =>
+            Some(identifier)
+          case SimpleNameSyntax.AliasSyntax(identifier, _, _) =>
+            Some(identifier)
           case SimpleNameSyntax.IdentifierNameSyntax(identifier) =>
             Some(identifier)
         }
@@ -1097,22 +1148,6 @@ case class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
     val endToken = accept(SyntaxKind.EndOfInputToken)
     new CompilationUnitSyntax(namespaceDeclaration, usingDirectives, members, endToken)
   }
-}
-
-object MakeSyntaxTree {
-  def parse_source_file(file: SourceFile): SyntaxTree = {
-    val diagnosticBag = new DiagnosticBag()
-    val parser = new Parser(file, diagnosticBag)
-    val root = parser.parse_compilation_unit()
-
-    new SyntaxTree(file, root, diagnosticBag.diagnostics())
-  }
-
-  def parse_file(filename: string): SyntaxTree =
-    parse_source_file(MakeSourceFile.from_file(filename))
-
-  def parse_content(content: string): SyntaxTree =
-    parse_source_file(MakeSourceFile.from_content(content))
 }
 
 case class SyntaxTree(file: SourceFile, root: CompilationUnitSyntax, diagnostics: Array[Diagnostic])

@@ -473,6 +473,10 @@ case class Transpiler(syntaxTrees: Array[SyntaxTree], root: Symbol, outputPath: 
         transpileGenericName(value, context)
       case value: SimpleNameSyntax.IdentifierNameSyntax =>
         transpileIdentifierName(value, context)
+      case value: SimpleNameSyntax.AliasSyntax =>
+        ??? // todo
+      case value: SimpleNameSyntax.ScalaAliasSyntax =>
+        ??? // todo
     }
   }
 
@@ -509,6 +513,15 @@ case class Transpiler(syntaxTrees: Array[SyntaxTree], root: Symbol, outputPath: 
           transpileToken(name.dotToken, context)
           transpileSimpleName(name.right, context)
         }
+      case alias: SimpleNameSyntax.AliasSyntax =>
+        ???
+      case alias: SimpleNameSyntax.ScalaAliasSyntax =>
+        transpileToken(name.dotToken, context)
+        transpileTokenWithText(alias.open, "", context)
+        transpileToken(alias.name, context)
+        transpileTokenWithText(alias.arrow, "as", context)
+        transpileToken(alias.alias, context)
+        transpileTokenWithText(alias.close, "", context)
     }
   }
 

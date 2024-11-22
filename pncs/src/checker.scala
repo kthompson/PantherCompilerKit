@@ -140,8 +140,16 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array[
     println("checking function parameter types and annotated return types")
     checkFunctionParameterTypes()
     // determine types for functions return types & fields without type annotations
+    checkFields()
   }
-  
+
+  def checkFields(): unit = {
+    for (i <- 0 to (fields.length - 1)) {
+      val field = fields(i)
+      checkField(field)
+    }
+  }
+
   def getSymbolType(symbol: Symbol): Option[Type] = {
     val links = getSymbolLinks(symbol)
     if (links.has_type()) {
@@ -161,7 +169,6 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array[
 
           val typ = getTypeOfName(typeAnnotation.typ, symbol.members)
           links.set_type(typ)
-        //          resolveType(typ)
         case None => ()
       }
     }
@@ -186,12 +193,32 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array[
           val symbol = func.symbol
           val links = getSymbolLinks(symbol)
           val typ = getTypeOfName(typeAnnotation.typ, symbol.members)
-          
+
           links.set_type(Type.Function(typedParameters, typ))
-          
+
         case None => ()
       }
     }
+  }
+
+  def checkField(field: BoundField): unit = {
+    val symbol = field.symbol
+    val links = getSymbolLinks(symbol)
+    val rhs = getTypeOfExpression(field.function.expression, symbol.members)
+    // if we already have a type here its because the first pass on fields found a type annotation
+    if (links.has_type()) {
+      val lhs = links.get_type()
+      checkAssignable(lhs, rhs)
+    } else {
+      links.set_type(rhs)
+    }
+  }
+
+  def checkAssignable(toType: Type, from: Type): Type = {
+    if (toType != from) {
+      panic("checkAssignable: " + toType + " != " + from)
+      toType
+    } else toType
   }
 
   //
@@ -426,60 +453,102 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array[
   //    def get_type_of_parameter_declaration(decl: ParameterSyntax, scope: Scope): Type =
   //        get_type_of_type_annotation(decl.typeAnnotation, scope)
   //
-  //    def get_type_of_local_declaration(decl: VariableDeclarationStatementSyntax, scope: Scope): Type = {
-  //        // check type annotation first
-  //        if (decl.typeAnnotation.isDefined) {
-  //            get_type_of_type_annotation(decl.typeAnnotation.get, scope)
-  //        } else {
-  //            getTypeOfExpression(decl.expression, scope)
-  //        }
-  //    }
-  //
-  //    def getTypeOfExpression(expr: ExpressionSyntax, scope: Scope): Type = {
-  //        val node = MakeNode.expr(expr)
-  //        val links = get_node_links(node)
-  //        if (links.has_type()) {
-  //            links.get_type()
-  //        } else {
-  //            val typ = if (expr.kind == SyntaxKind.ArrayCreationExpression) {
-  //                get_type_of_array_creation_expression(expr.arrayCreationExpression.get, scope)
-  //            } else if (expr.kind == SyntaxKind.AssignmentExpression) {
-  //                get_type_of_assignment_expression(expr.assignmentExpression.get, scope)
-  //            } else if (expr.kind == SyntaxKind.BinaryExpression) {
-  //                getTypeOfBinaryExpression(expr.binaryExpression.get, scope)
-  //            } else if (expr.kind == SyntaxKind.BlockExpression) {
-  //                getTypeOfBlockExpression(expr.blockExpression.get, scope)
-  //            } else if (expr.kind == SyntaxKind.CallExpression) {
-  //                getTypeOfCallExpression(expr.callExpression.get, scope)
-  //            } else if (expr.kind == SyntaxKind.ForExpression) {
-  //                getTypeOfForExpression(expr.forExpression.get, scope)
-  //            } else if (expr.kind == SyntaxKind.GroupExpression) {
-  //                get_type_of_group_expression(expr.groupExpression.get, scope)
-  //            } else if (expr.kind == SyntaxKind.IdentifierName) {
-  //                getTypeOfIdentifierName(expr.identifierName.get, scope)
-  //            } else if (expr.kind == SyntaxKind.IfExpression) {
-  //                getTypeOfIfExpression(expr.ifExpression.get, scope)
-  //            } else if (expr.kind == SyntaxKind.IndexExpression) {
-  //                get_type_of_index_expression(expr.indexExpression.get)
-  //            } else if (expr.kind == SyntaxKind.LiteralExpression) {
-  //                get_type_of_literal_expression(expr.literalExpression.get)
-  //            } else if (expr.kind == SyntaxKind.MemberAccessExpression) {
-  //                getTypeOfMemberAccessExpression(expr.memberAccessExpression.get, scope)
-  //            } else if (expr.kind == SyntaxKind.NewExpression) {
-  //                get_type_of_new_expression(expr.newExpression.get, scope)
-  //            } else if (expr.kind == SyntaxKind.UnaryExpression) {
-  //                get_type_of_unary_expression(expr.unaryExpression.get, scope)
-  //            } else if (expr.kind == SyntaxKind.UnitExpression) {
-  //                get_type_of_unit_expression(expr.unitExpression.get)
-  //            } else if (expr.kind == SyntaxKind.WhileExpression) {
-  //                get_type_of_while_expression(expr.whileExpression.get)
-  //            } else {
-  //                panic("get_type_of_expression: " + string(expr.kind))
-  //                Type.Error
-  //            }
-  //            links.set_type(typ)
-  //        }
-  //    }
+  //      def get_type_of_local_declaration(decl: VariableDeclarationStatementSyntax, scope: Scope): Type = {
+  //          // check type annotation first
+  //          if (decl.typeAnnotation.isDefined) {
+  //              get_type_of_type_annotation(decl.typeAnnotation.get, scope)
+  //          } else {
+  //              getTypeOfExpression(decl.expression, scope)
+  //          }
+  //      }
+
+  def getTypeOfExpression(expr: ExpressionSyntax, scope: Scope): Type = {
+    expr match {
+      case ExpressionSyntax.ArrayCreationExpression(value) => getTypeOfArrayCreationExpression(value, scope)
+      case ExpressionSyntax.AssignmentExpression(value) => getTypeOfAssignmentExpression(value, scope)
+      case ExpressionSyntax.BinaryExpression(value) => getTypeOfBinaryExpression(value, scope)
+      case ExpressionSyntax.BlockExpression(value) => getTypeOfBlockExpression(value, scope)
+      case ExpressionSyntax.CallExpression(value) => getTypeOfCallExpression(value, scope)
+      case ExpressionSyntax.ForExpression(value) => getTypeOfForExpression(value, scope)
+      case ExpressionSyntax.GroupExpression(value) => getTypeOfGroupExpression(value, scope)
+      case ExpressionSyntax.IdentifierName(value) => getTypeOfIdentifierName(value, scope)
+      case ExpressionSyntax.IfExpression(value) => getTypeOfIfExpression(value, scope)
+      case ExpressionSyntax.IndexExpression(value) => getTypeOfIndexExpression(value, scope)
+      case ExpressionSyntax.LiteralExpression(value) => getTypeOfLiteralExpression(value, scope)
+      case ExpressionSyntax.MemberAccessExpression(value) => getTypeOfMemberAccessExpression(value, scope)
+      case expr: ExpressionSyntax.MatchExpression => getTypeOfMatchExpression(expr, scope)
+      case ExpressionSyntax.NewExpression(value) => getTypeOfNewExpression(value, scope)
+      case ExpressionSyntax.UnaryExpression(value) => getTypeOfUnaryExpression(value, scope)
+      case ExpressionSyntax.UnitExpression(value) => getTypeOfUnitExpression(value, scope)
+      case ExpressionSyntax.WhileExpression(value) => getTypeOfWhileExpression(value, scope)
+    }
+  }
+
+  def getTypeOfArrayCreationExpression(value: ArrayCreationExpressionSyntax, scope: Scope): Type = panic("todo")
+
+  def getTypeOfAssignmentExpression(value: AssignmentExpressionSyntax, scope: Scope): Type = panic("todo")
+
+  def getTypeOfBinaryExpression(value: BinaryExpressionSyntax, scope: Scope): Type = panic("todo")
+
+  def getTypeOfBlockExpression(value: BlockExpressionSyntax, scope: Scope): Type = panic("todo")
+
+  def getTypeOfCallExpression(value: CallExpressionSyntax, scope: Scope): Type = panic("todo")
+
+  def getTypeOfForExpression(value: ForExpressionSyntax, scope: Scope): Type = panic("todo")
+
+  def getTypeOfGroupExpression(value: GroupExpressionSyntax, scope: Scope): Type = panic("todo")
+
+  def getTypeOfIdentifierName(value: SimpleNameSyntax.IdentifierNameSyntax, scope: Scope): Type = {
+    scope.get(value.identifier.text) match {
+      case Some(symbol) =>
+        val links = getSymbolLinks(symbol)
+        if (links.has_type()) {
+          links.get_type()
+        } else {
+          // TODO: need to resolve type manually
+
+          // maybe the binder should track all items that define a declaration rather than specific types
+          // we can build Nodes that represent the declaration and then we can track the type of the node
+          // as well as the symbol that the node is associated with
+
+
+          panic(symbol.location.to_string() + " getTypeOfIdentifierName: no type for symbol " + symbol.name)
+          Type.Error
+        }
+      case None =>
+        diagnosticBag.reportTypeNotDefined(value.identifier.location, value.identifier.text)
+        Type.Error
+    }
+    AstPrinter.printTokenInfo(value.identifier)
+    panic("todo")
+  }
+
+  def getTypeOfIfExpression(value: IfExpressionSyntax, scope: Scope): Type = panic("todo")
+
+  def getTypeOfIndexExpression(value: IndexExpressionSyntax, scope: Scope): Type = panic("todo")
+
+  def getTypeOfLiteralExpression(value: LiteralExpressionSyntax, scope: Scope): Type = {
+    value.value.kind match {
+      case SyntaxTokenValueKind.String => Type.String
+      case SyntaxTokenValueKind.Number => Type.Int
+      case SyntaxTokenValueKind.Boolean => Type.Boolean
+      case SyntaxTokenValueKind.Character => Type.Char
+      case _ => panic("getTypeOfLiteralExpression: " + value.value.kind)
+    }
+  }
+
+  def getTypeOfMemberAccessExpression(value: MemberAccessExpressionSyntax, scope: Scope): Type = panic("todo")
+
+  def getTypeOfMatchExpression(expression: ExpressionSyntax.MatchExpression, scope: Scope): Type = panic("todo")
+
+  def getTypeOfNewExpression(value: NewExpressionSyntax, scope: Scope): Type = panic("todo")
+
+  def getTypeOfUnaryExpression(value: UnaryExpressionSyntax, scope: Scope): Type = panic("todo")
+
+  def getTypeOfUnitExpression(value: UnitExpressionSyntax, scope: Scope): Type = panic("todo")
+
+  def getTypeOfWhileExpression(value: WhileExpressionSyntax, scope: Scope): Type = panic("todo")
+
   //
   //    def get_type_of_array_creation_expression(expr: ArrayCreationExpressionSyntax, scope: Scope): Type = {
   //        val inner = get_type_of_name(expr.name, scope)
@@ -794,6 +863,8 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array[
         getTypeOfGenericName(identifier, typeArgumentList, scope)
       case SimpleNameSyntax.IdentifierNameSyntax(identifier) =>
         getTypeOfToken(identifier, scope)
+      case _: SimpleNameSyntax.AliasSyntax => ???
+      case _: SimpleNameSyntax.ScalaAliasSyntax => ???
     }
   }
 

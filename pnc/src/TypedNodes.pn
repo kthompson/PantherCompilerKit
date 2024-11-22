@@ -1,4 +1,4 @@
-using scala.{Array => SArray}
+using scala.Array as SArray
 
 enum Type {
   case Function(parameters: SArray<TypedParameter>, returnType: Type)

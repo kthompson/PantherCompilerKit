@@ -362,7 +362,23 @@ object AstPrinter {
     node match {
       case value: SimpleNameSyntax.GenericNameSyntax => printGenericName(value)
       case value: SimpleNameSyntax.IdentifierNameSyntax => printIdentifierName(value, ColorPalette.Declarations)
+      case value: SimpleNameSyntax.ScalaAliasSyntax => printScalaAlias(value)
+      case value: SimpleNameSyntax.AliasSyntax => printAlias(value)
     }
+  }
+
+  def printAlias(node: SimpleNameSyntax.AliasSyntax): unit = {
+    printToken(node.name, ColorPalette.Identifier)
+    printToken(node.asKeyword, ColorPalette.Punctuation)
+    printToken(node.alias, ColorPalette.Identifier)
+  }
+
+  def printScalaAlias(node: SimpleNameSyntax.ScalaAliasSyntax): unit = {
+    printToken(node.open, ColorPalette.Punctuation)
+    printToken(node.name, ColorPalette.Identifier)
+    printToken(node.arrow, ColorPalette.Punctuation)
+    printToken(node.alias, ColorPalette.Identifier)
+    printToken(node.close, ColorPalette.Punctuation)
   }
 
   def printTypeArgumentLists(nodes: Array[TypeArgumentListSyntax]): unit = {

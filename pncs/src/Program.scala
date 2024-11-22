@@ -11,43 +11,53 @@ object Program {
     if (args.length < 2) {
       printHelp()
     } else if (args(0) == "-t") {
-      printLogo()
-      val trees = new Array[SyntaxTree](args.length - 2)
-      for (x <- 2 to (args.length - 1)) {
-        print("parsing " + args(x) + "...")
-        trees(x - 2) = MakeSyntaxTree.parse_file(args(x))
-        println("done")
-      }
+      run(true, args)
+    } else {
+      run(false, args)
+    }
+  }
 
-      val compilation = MakeCompilation.create(trees)
+  def countDiagnostics(trees: Array[SyntaxTree]): int = {
+    var count = 0
+    for (i <- 0 to (trees.length - 1)) {
+      count = count + trees(i).diagnostics.length
+    }
+    count
+  }
 
-      if (compilation.diagnostics.length > 0) {
-        for (i <- 0 to (compilation.diagnostics.length - 1)) {
-          printDiagnostic(compilation.diagnostics(i))
+  def run(transpile: bool, args: Array[string]): unit = {
+    val firstFile = if (transpile) 2 else 1
+    val numTrees = args.length - firstFile
+    val outputFile = args(firstFile - 1)
+    printLogo()
+    val trees = new Array[SyntaxTree](numTrees)
+    for (x <- firstFile to (args.length - 1)) {
+      print("parsing " + args(x) + "...")
+      trees(x - 2) = MakeSyntaxTree.parse_file(args(x))
+      println("done")
+    }
+
+    // verify no diagnostics from parse trees
+    val diagCount = countDiagnostics(trees)
+    if (diagCount > 0) {
+      for (i <- 0 to (trees.length - 1)) {
+        for (j <- 0 to (trees(i).diagnostics.length - 1)) {
+          printDiagnostic(trees(i).diagnostics(j))
         }
-      } else {
-        println("transpiling to " + args(1) + "...")
-        compilation.transpile(args(1))
       }
     } else {
-      printLogo()
-      val trees = new Array[SyntaxTree](args.length - 1)
-      for (x <- 1 to (args.length - 1)) {
-        print("parsing " + args(x) + "...")
-        trees(x - 1) = MakeSyntaxTree.parse_file(args(x))
-        println("done")
-      }
-
       val compilation = MakeCompilation.create(trees)
-
       if (compilation.diagnostics.length > 0) {
         for (i <- 0 to (compilation.diagnostics.length - 1)) {
           printDiagnostic(compilation.diagnostics(i))
         }
+      } else if (transpile) {
+        println("transpiling to " + outputFile + "...")
+        compilation.transpile(outputFile)
       } else {
         compilation.print_symbols()
-        println("emitting to " + args(0) + "...")
-        compilation.emit(args(0))
+        println("emitting to " + outputFile + "...")
+        compilation.emit(outputFile)
       }
     }
   }

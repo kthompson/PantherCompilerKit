@@ -28,6 +28,9 @@ enum SimpleNameSyntax {
     case GenericNameSyntax(identifier: SyntaxToken,
                            typeArgumentlist: TypeArgumentListSyntax)
     case IdentifierNameSyntax(identifier: SyntaxToken)
+
+    case ScalaAliasSyntax(open: SyntaxToken, name: SyntaxToken, arrow: SyntaxToken, alias: SyntaxToken, close: SyntaxToken)
+    case AliasSyntax(name: SyntaxToken, asKeyword: SyntaxToken, alias: SyntaxToken)
 }
 enum NameSyntax {
     case QualifiedNameSyntax(left: NameSyntax, dotToken: SyntaxToken, right: SimpleNameSyntax)

@@ -1,5 +1,5 @@
-import AstPrinter.{printColor, printType}
-import panther.*
+import AstPrinter._
+import panther._
 
 object ScopeParentKind {
   val Symbol = 0
