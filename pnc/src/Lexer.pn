@@ -3,9 +3,9 @@ using panther
 class Result(is_success: bool, value: any)
 
 object MakeResult {
-  val fail = new Result(false, 0)
+  val fail: Result = new Result(false, 0)
 
-  def success(value: any) = new Result(true, value)
+  def success(value: any): Result = new Result(true, value)
 }
 
 class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {

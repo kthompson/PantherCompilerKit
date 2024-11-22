@@ -176,7 +176,7 @@ case class Emitter(syntaxTrees: Array[SyntaxTree], root: Symbol, /*checker: Chec
 //    }
 //  }
 
-  private def emitPrimitiveTypeSignature(name: string, sig: SignatureBuilder) = {
+  private def emitPrimitiveTypeSignature(name: string, sig: SignatureBuilder):unit = {
     if (name == "int") {
       sig.writeInt()
     } else if (name == "bool") {
@@ -246,13 +246,13 @@ case class Emitter(syntaxTrees: Array[SyntaxTree], root: Symbol, /*checker: Chec
     }
   }
 
-  private def i4Instruction(chunk: Chunk, offset: int, name: string) = {
+  private def i4Instruction(chunk: Chunk, offset: int, name: string): int = {
     val value = chunk.readI4(offset + 1)
     println(name + " " + string(value))
     offset + 2
   }
 
-  private def simpleInstruction(name: string, offset: int) = {
+  private def simpleInstruction(name: string, offset: int): int = {
     println(name)
     offset + 1
   }

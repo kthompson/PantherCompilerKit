@@ -45,11 +45,11 @@ object SyntaxTokenValueKind {
 class SyntaxTokenValue(kind: int, boolValue: Option<bool>, stringValue: Option<string>, characterValue: Option<char>, numberValue: Option<int>)
 
 object MakeSyntaxTokenValue {
-    def none() = new SyntaxTokenValue(SyntaxTokenValueKind.None, None, None, None, None)
-    def bool(value: bool) = new SyntaxTokenValue(SyntaxTokenValueKind.bool, Some(value), None, None, None)
-    def string(value: string) = new SyntaxTokenValue(SyntaxTokenValueKind.string, None, Some(value), None, None)
-    def char(value: char) = new SyntaxTokenValue(SyntaxTokenValueKind.Character, None, None, Some(value), None)
-    def number(value: int) = new SyntaxTokenValue(SyntaxTokenValueKind.Number, None, None, None, Some(value))
+    def none(): SyntaxTokenValue = new SyntaxTokenValue(SyntaxTokenValueKind.None, None, None, None, None)
+    def bool(value: bool): SyntaxTokenValue = new SyntaxTokenValue(SyntaxTokenValueKind.bool, Some(value), None, None, None)
+    def string(value: string): SyntaxTokenValue = new SyntaxTokenValue(SyntaxTokenValueKind.string, None, Some(value), None, None)
+    def char(value: char): SyntaxTokenValue = new SyntaxTokenValue(SyntaxTokenValueKind.Character, None, None, Some(value), None)
+    def number(value: int): SyntaxTokenValue = new SyntaxTokenValue(SyntaxTokenValueKind.Number, None, None, None, Some(value))
 }
 
 class SyntaxToken(source_file: SourceFile, kind: int, start: int, text: string, value: SyntaxTokenValue, leading: Array<SyntaxTrivia>, trailing: Array<SyntaxTrivia>) {

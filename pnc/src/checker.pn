@@ -1,3 +1,4 @@
+using Type.Reference
 using panther
 
 // object TypeSchemeKind {
@@ -140,13 +141,13 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array<Bound
     println("checking function parameter types and annotated return types")
     checkFunctionParameterTypes()
     // determine types for functions return types & fields without type annotations
-    checkFields()
+    inferFieldTypes()
   }
 
-  def checkFields(): unit = {
+  def inferFieldTypes(): unit = {
     for (i <- 0 to (fields.length - 1)) {
       val field = fields(i)
-      checkField(field)
+      inferFieldType(field)
     }
   }
 
@@ -162,14 +163,17 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array<Bound
   def checkFieldTypeAnnotations(): unit = {
     for (i <- 0 to (fields.length - 1)) {
       val field = fields(i)
-      field.function.typeAnnotation match {
+      print("checking field type annotation " + field.symbol.fullName() + ": ")
+      field.typeAnnotation match {
         case Some(typeAnnotation) =>
           val symbol = field.symbol
           val links = getSymbolLinks(symbol)
 
           val typ = getTypeOfName(typeAnnotation.typ, symbol.members)
+          AstPrinter.printType(typ)
+          println()
           links.set_type(typ)
-        case None => ()
+        case None => println()
       }
     }
   }
@@ -177,6 +181,7 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array<Bound
   def checkFunctionParameterTypes(): unit = {
     for (i <- 0 to (functions.length - 1)) {
       val func = functions(i)
+      print("checking function parameter types: " + func.symbol.fullName())
       val parameters = func.parameters
       val typedParameters = new Array<TypedParameter>(parameters.length)
       for (j <- 0 to (parameters.length - 1)) {
@@ -192,25 +197,37 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array<Bound
         case Some(typeAnnotation) =>
           val symbol = func.symbol
           val links = getSymbolLinks(symbol)
-          val typ = getTypeOfName(typeAnnotation.typ, symbol.members)
+          val returnType = getTypeOfName(typeAnnotation.typ, symbol.members)
 
-          links.set_type(Type.Function(typedParameters, typ))
-
-        case None => ()
+          val typ = Type.Function(typedParameters, returnType)
+          links.set_type(typ)
+          AstPrinter.printType(typ)
+          println()
+        case None =>
+          panic(" - no type annotation for function " + func.symbol.fullName())
+          println()
       }
     }
   }
 
-  def checkField(field: BoundField): unit = {
+  def inferFieldType(field: BoundField): unit = {
     val symbol = field.symbol
     val links = getSymbolLinks(symbol)
-    val rhs = getTypeOfExpression(field.function.expression, symbol.members)
-    // if we already have a type here its because the first pass on fields found a type annotation
-    if (links.has_type()) {
-      val lhs = links.get_type()
-      checkAssignable(lhs, rhs)
-    } else {
-      links.set_type(rhs)
+    print("inferring type for field " + symbol.fullName() + ": ")
+    field.expression match {
+      case Some(expression) =>
+        val rhs = getTypeOfExpression(expression, symbol.members)
+        // if we already have a type here its because the first pass on fields found a type annotation
+        if (links.has_type()) {
+          val lhs = links.get_type()
+          checkAssignable(lhs, rhs)
+          AstPrinter.printType(lhs)
+        } else {
+          links.set_type(rhs)
+          AstPrinter.printType(rhs)
+        }
+        println()
+      case None => println()
     }
   }
 
@@ -512,15 +529,15 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array<Bound
           // as well as the symbol that the node is associated with
 
 
-          panic(symbol.location.to_string() + " getTypeOfIdentifierName: no type for symbol " + symbol.name)
+          panic(symbol.location.to_string() + " getTypeOfIdentifierName: no type for symbol " + symbol.fullName())
           Type.Error
         }
       case None =>
         diagnosticBag.reportTypeNotDefined(value.identifier.location, value.identifier.text)
         Type.Error
     }
-    AstPrinter.printTokenInfo(value.identifier)
-    panic("todo")
+    //    AstPrinter.printTokenInfo(value.identifier)
+    //    panic("todo")
   }
 
   def getTypeOfIfExpression(value: IfExpressionSyntax, scope: Scope): Type = panic("todo")
@@ -537,13 +554,36 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array<Bound
     }
   }
 
-  def getTypeOfMemberAccessExpression(value: MemberAccessExpressionSyntax, scope: Scope): Type = panic("todo")
+  def getTypeOfMemberAccessExpression(value: MemberAccessExpressionSyntax, scope: Scope): Type = {
+    val left = getTypeOfExpression(value.left, scope)
+    left match {
+      case Reference(symbol) =>
+        symbol.members.get(value.right.identifier.text) match {
+          case Some(member) =>
+            val links = getSymbolLinks(member)
+            if (links.has_type()) {
+              links.get_type()
+            } else {
+              panic("getTypeOfMemberAccessExpression: no type for member " + member.fullName())
+              Type.Error
+            }
+          case None =>
+            panic("todo")
+            Type.Error
+        }
+      case _ =>
+        panic("todo")
+    }
+  } 
+    
 
   def getTypeOfMatchExpression(expression: ExpressionSyntax.MatchExpression, scope: Scope): Type = panic("todo")
 
-  def getTypeOfNewExpression(value: NewExpressionSyntax, scope: Scope): Type = panic("todo")
+  def getTypeOfNewExpression(value: NewExpressionSyntax, scope: Scope): Type =
+    getTypeOfName(value.name, scope)
 
-  def getTypeOfUnaryExpression(value: UnaryExpressionSyntax, scope: Scope): Type = panic("todo")
+  def getTypeOfUnaryExpression(value: UnaryExpressionSyntax, scope: Scope): Type =
+    getTypeOfExpression(value.expression, scope)
 
   def getTypeOfUnitExpression(value: UnitExpressionSyntax, scope: Scope): Type = panic("todo")
 

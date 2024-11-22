@@ -62,7 +62,7 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
       transpileUsingDirective(usingDirective, context)
     }
 
-  def transpileUsingDirective(usingDirective: UsingDirectiveSyntax, context: TranspilerContext) = {
+  def transpileUsingDirective(usingDirective: UsingDirectiveSyntax, context: TranspilerContext): unit = {
     inUsing = true
     transpileTokenWithText(usingDirective.usingKeyword, "using", context)
     transpileName(usingDirective.name, context)
@@ -100,7 +100,7 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
     transpileTrivia(token.trailing, context)
   }
 
-  def transpileTrivia(leading: Array<SyntaxTrivia>, context: TranspilerContext) = {
+  def transpileTrivia(leading: Array<SyntaxTrivia>, context: TranspilerContext): unit = {
     for (x <- 0 to (leading.length - 1)) {
       val trivia = leading(x)
       context.sb.append(trivia.text)
@@ -114,7 +114,7 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
       transpileMember(member, context)
     }
 
-  def transpileMember(member: MemberSyntax, context: TranspilerContext) = {
+  def transpileMember(member: MemberSyntax, context: TranspilerContext): unit = {
     member match {
       case value: ObjectDeclarationSyntax => transpileObjectDeclaration(value, context)
       case value: ClassDeclarationSyntax => transpileClassDeclaration(value, context)
@@ -161,17 +161,17 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
     transpileTemplate(decl.template, context)
   }
 
-  def transpileOptionalTemplate(template: Option<TemplateSyntax>, context: TranspilerContext) =
+  def transpileOptionalTemplate(template: Option<TemplateSyntax>, context: TranspilerContext): unit =
     if (template.isEmpty) ()
     else transpileTemplate(template.get, context)
 
-  def transpileTemplate(template: TemplateSyntax, context: TranspilerContext) = {
+  def transpileTemplate(template: TemplateSyntax, context: TranspilerContext): unit = {
     transpileToken(template.openBrace, context)
     transpileMembers(template.members, context)
     transpileToken(template.closeBrace, context)
   }
 
-  def transpileClassDeclaration(decl: MemberSyntax.ClassDeclarationSyntax, context: TranspilerContext) = {
+  def transpileClassDeclaration(decl: MemberSyntax.ClassDeclarationSyntax, context: TranspilerContext): unit = {
     if (decl.caseKeyword.isDefined) {
       transpileTrivia(decl.caseKeyword.get.leading, context)
     } else ()
@@ -183,10 +183,10 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
     transpileOptionalTemplate(decl.template, context)
   }
 
-  def transpileGlobalStatement(stmt: MemberSyntax.GlobalStatementSyntax, context: TranspilerContext) =
+  def transpileGlobalStatement(stmt: MemberSyntax.GlobalStatementSyntax, context: TranspilerContext): unit =
     transpileStatement(stmt.statement, context)
 
-  def transpileStatement(statement: StatementSyntax, context: TranspilerContext) = {
+  def transpileStatement(statement: StatementSyntax, context: TranspilerContext): unit = {
     statement match {
       case StatementSyntax.VariableDeclarationStatement(value) => transpileVariableDeclarationStatement(value, context)
       case StatementSyntax.BreakStatement(value) => transpileBreakStatement(value, context)
@@ -195,7 +195,7 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
     }
   }
 
-  def transpileVariableDeclarationStatement(get: VariableDeclarationStatementSyntax, context: TranspilerContext) = {
+  def transpileVariableDeclarationStatement(get: VariableDeclarationStatementSyntax, context: TranspilerContext): unit = {
     transpileToken(get.valOrVarKeyword, context)
     transpileToken(get.identifier, context)
     transpileOptionalTypeAnnotation(get.typeAnnotation, context)
@@ -232,7 +232,7 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
     }
   }
 
-  def transpileMatchExpression(expr: ExpressionSyntax.MatchExpression, context: TranspilerContext) = {
+  def transpileMatchExpression(expr: ExpressionSyntax.MatchExpression, context: TranspilerContext): unit = {
     transpileExpression(expr.expression, context)
     transpileToken(expr.matchKeyword, context)
     transpileToken(expr.openBrace, context)
@@ -240,21 +240,21 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
     transpileToken(expr.closeBrace, context)
   }
 
-  def transpileMatchCases(cases: Array<MatchCaseSyntax>, context: TranspilerContext) = {
+  def transpileMatchCases(cases: Array<MatchCaseSyntax>, context: TranspilerContext): unit = {
     for (x <- 0 to (cases.length - 1)) {
       val case_ = cases(x)
       transpileMatchCase(case_, context)
     }
   }
 
-  def transpileMatchCase(matchCase: MatchCaseSyntax, context: TranspilerContext) = {
+  def transpileMatchCase(matchCase: MatchCaseSyntax, context: TranspilerContext): unit = {
     transpileToken(matchCase.caseKeyword, context)
     transpilePattern(matchCase.pattern, context)
     transpileToken(matchCase.arrow, context)
     transpileBlockExpressionList(matchCase.block, context)
   }
 
-  def transpilePattern(pattern: PatternSyntax, context: TranspilerContext) = {
+  def transpilePattern(pattern: PatternSyntax, context: TranspilerContext): unit = {
     pattern match {
       case IdentifierPattern(identifier, typeAnnotation) =>
         transpileToken(identifier, context)
@@ -282,12 +282,12 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
     }
   }
 
-  def transpileIdentifierName(name: SimpleNameSyntax.IdentifierNameSyntax, context: TranspilerContext) =
+  def transpileIdentifierName(name: SimpleNameSyntax.IdentifierNameSyntax, context: TranspilerContext): unit =
     transpileToken(name.identifier, context)
 
-  def transpileArrayCreationExpression(expr: ArrayCreationExpressionSyntax, context: TranspilerContext) = panic("todo")
+  def transpileArrayCreationExpression(expr: ArrayCreationExpressionSyntax, context: TranspilerContext): unit = panic("todo")
 
-  def transpileBinaryExpression(expr: BinaryExpressionSyntax, context: TranspilerContext) = {
+  def transpileBinaryExpression(expr: BinaryExpressionSyntax, context: TranspilerContext): unit = {
     transpileExpression(expr.left, context)
     transpileToken(expr.operator, context)
     transpileExpression(expr.right, context)
@@ -341,7 +341,7 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
     transpileExpression(expr.body, context)
   }
 
-  def transpileGroupExpression(expr: GroupExpressionSyntax, context: TranspilerContext) = {
+  def transpileGroupExpression(expr: GroupExpressionSyntax, context: TranspilerContext): unit = {
     transpileToken(expr.openParen, context)
     transpileExpression(expr.expression, context)
     transpileToken(expr.closeParen, context)
@@ -357,9 +357,9 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
     transpileExpression(expr.elseExpr, context)
   }
 
-  def transpileIndexExpression(expr: IndexExpressionSyntax, context: TranspilerContext) = panic("todo")
+  def transpileIndexExpression(expr: IndexExpressionSyntax, context: TranspilerContext): unit = panic("todo")
 
-  def transpileLiteralExpression(expr: LiteralExpressionSyntax, context: TranspilerContext) =
+  def transpileLiteralExpression(expr: LiteralExpressionSyntax, context: TranspilerContext): unit =
     transpileToken(expr.token, context)
 
   def transpileMemberAccessExpression(expr: MemberAccessExpressionSyntax, context: TranspilerContext): unit = {
@@ -368,7 +368,7 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
     transpileIdentifierName(expr.right, context)
   }
 
-  def transpileNewExpression(expr: NewExpressionSyntax, context: TranspilerContext) = {
+  def transpileNewExpression(expr: NewExpressionSyntax, context: TranspilerContext): unit = {
     transpileToken(expr.newKeyword, context)
     transpileName(expr.name, context)
     transpileToken(expr.openParen, context)
@@ -376,17 +376,17 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
     transpileToken(expr.closeParen, context)
   }
 
-  def transpileUnaryExpression(expr: UnaryExpressionSyntax, context: TranspilerContext) = {
+  def transpileUnaryExpression(expr: UnaryExpressionSyntax, context: TranspilerContext): unit = {
     transpileToken(expr.operator, context)
     transpileExpression(expr.expression, context)
   }
 
-  def transpileUnitExpression(expr: UnitExpressionSyntax, context: TranspilerContext) = {
+  def transpileUnitExpression(expr: UnitExpressionSyntax, context: TranspilerContext): unit = {
     transpileToken(expr.openParen, context)
     transpileToken(expr.closeParen, context)
   }
 
-  def transpileWhileExpression(expr: WhileExpressionSyntax, context: TranspilerContext) = {
+  def transpileWhileExpression(expr: WhileExpressionSyntax, context: TranspilerContext): unit = {
     transpileToken(expr.whileKeyword, context)
     transpileToken(expr.openParen, context)
     transpileExpression(expr.condition, context)
@@ -400,11 +400,11 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
     transpileExpression(expr.right, context)
   }
 
-  def transpileContinueStatement(stmt: ContinueStatementSyntax, context: TranspilerContext) = panic("todo")
+  def transpileContinueStatement(stmt: ContinueStatementSyntax, context: TranspilerContext): unit = panic("todo")
 
-  def transpileBreakStatement(stmt: BreakStatementSyntax, context: TranspilerContext) = panic("todo")
+  def transpileBreakStatement(stmt: BreakStatementSyntax, context: TranspilerContext): unit = panic("todo")
 
-  def transpileFunctionDeclaration(decl: MemberSyntax.FunctionDeclarationSyntax, context: TranspilerContext) = {
+  def transpileFunctionDeclaration(decl: MemberSyntax.FunctionDeclarationSyntax, context: TranspilerContext): unit = {
     transpileToken(decl.defKeyword, context)
     transpileToken(decl.identifier, context)
     transpileToken(decl.openParenToken, context)
@@ -419,34 +419,34 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
     else transpileOptionalFunctionBody(body.get, context)
 
 
-    def transpileOptionalFunctionBody(body: FunctionBodySyntax, context: TranspilerContext) = {
+    def transpileOptionalFunctionBody(body: FunctionBodySyntax, context: TranspilerContext): unit = {
       transpileToken(body.equalToken, context)
       transpileExpression(body.expression, context)
     }
 
-  def transpileTypeAnnotation(typeAnnotation: TypeAnnotationSyntax, context: TranspilerContext) = {
+  def transpileTypeAnnotation(typeAnnotation: TypeAnnotationSyntax, context: TranspilerContext): unit = {
     transpileToken(typeAnnotation.colonToken, context)
     transpileName(typeAnnotation.typ, context)
   }
 
-  def transpileOptionalTypeAnnotation(typeAnnotation: Option<TypeAnnotationSyntax>, context: TranspilerContext) =
+  def transpileOptionalTypeAnnotation(typeAnnotation: Option<TypeAnnotationSyntax>, context: TranspilerContext): unit =
     if (typeAnnotation.isDefined) transpileTypeAnnotation(typeAnnotation.get, context)
     else ()
 
-  def transpileParameters(parameters: Array<ParameterSyntax>, context: TranspilerContext) =
+  def transpileParameters(parameters: Array<ParameterSyntax>, context: TranspilerContext): unit =
     for (x <- 0 to (parameters.length - 1)) {
       val parameter = parameters(x)
       transpileParameter(parameter, context)
     }
 
-  def transpileParameter(parameter: ParameterSyntax, context: TranspilerContext) = {
+  def transpileParameter(parameter: ParameterSyntax, context: TranspilerContext): unit = {
     transpileOptionalToken(parameter.modifier, context)
     transpileToken(parameter.identifier, context)
     transpileTypeAnnotation(parameter.typeAnnotation, context)
     transpileOptionalToken(parameter.commaToken, context)
   }
 
-  def transpileOptionalToken(modifier: Option<SyntaxToken>, context: TranspilerContext) =
+  def transpileOptionalToken(modifier: Option<SyntaxToken>, context: TranspilerContext): unit =
     if (modifier.isEmpty) ()
     else transpileToken(modifier.get, context)
 
@@ -467,7 +467,7 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
     }
   }
 
-  def transpileSimpleName(name: SimpleNameSyntax, context: TranspilerContext) = {
+  def transpileSimpleName(name: SimpleNameSyntax, context: TranspilerContext): unit = {
     name match {
       case value: SimpleNameSyntax.GenericNameSyntax =>
         transpileGenericName(value, context)
@@ -480,12 +480,12 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
     }
   }
 
-  def transpileGenericName(get: SimpleNameSyntax.GenericNameSyntax, context: TranspilerContext) = {
+  def transpileGenericName(get: SimpleNameSyntax.GenericNameSyntax, context: TranspilerContext): unit = {
     transpileToken(get.identifier, context)
     transpileTypeArgumentList(get.typeArgumentlist, context)
   }
 
-  def transpileTypeArgumentList(typeArgumentlist: TypeArgumentListSyntax, context: TranspilerContext) = {
+  def transpileTypeArgumentList(typeArgumentlist: TypeArgumentListSyntax, context: TranspilerContext): unit = {
     inGenericTypeArgumentList = true
     transpileTokenWithText(typeArgumentlist.lessThanToken, "<", context)
     for (x <- 0 to (typeArgumentlist.arguments.length - 1)) {
@@ -498,7 +498,7 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
   }
 
 
-  def transpileQualifiedName(name: NameSyntax.QualifiedNameSyntax, context: TranspilerContext) = {
+  def transpileQualifiedName(name: NameSyntax.QualifiedNameSyntax, context: TranspilerContext): unit = {
     transpileName(name.left, context)
     name.right match {
       case _: SimpleNameSyntax.GenericNameSyntax =>
@@ -516,6 +516,7 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
       case alias: SimpleNameSyntax.AliasSyntax =>
         ???
       case alias: SimpleNameSyntax.ScalaAliasSyntax =>
+        transpileToken(name.dotToken, context)
         transpileTokenWithText(alias.open, "", context)
         transpileToken(alias.name, context)
         transpileTokenWithText(alias.arrow, "as", context)

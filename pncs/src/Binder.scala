@@ -78,9 +78,9 @@ case class Binder(diagnostics: DiagnosticBag, root: Symbol) {
     }
   }
 
-  def addBoundField(symbol: Symbol, field: VariableDeclarationStatementSyntax): unit = {
+  def addBoundField(symbol: Symbol, typeAnnotation: Option[TypeAnnotationSyntax], expression: Option[ExpressionSyntax]): unit = {
     ensureFieldCapacity(1)
-    fields(_fieldsSize) = BoundField(symbol, field)
+    fields(_fieldsSize) = BoundField(symbol, typeAnnotation, expression)
     _fieldsSize = _fieldsSize + 1
   }
 
@@ -195,7 +195,8 @@ case class Binder(diagnostics: DiagnosticBag, root: Symbol) {
 
     val methodScope = symbol.members
 
-    val params = bindParameters(node.parameters, methodScope)
+//    val params = bindParameters(node.parameters, methodScope)
+    
     // TODO: need to add constructors to the BoundTree
 //    addBoundFunction(symbol, node, params)
 
@@ -458,12 +459,14 @@ case class Binder(diagnostics: DiagnosticBag, root: Symbol) {
     if (parent.kind == SymbolKind.Class) {
       addBoundField(
         declareSymbol(SymbolKind.Field, parent.flags & SymbolFlags.Static, MakeDeclaration.local(node), scope, _parent),
-        node
+        node.typeAnnotation,
+        Some(node.expression)
       )
     } else if (parent.kind == SymbolKind.Method) {
       addBoundField(
         declareSymbol(SymbolKind.Local, SymbolFlags.None, MakeDeclaration.local(node), scope, _parent),
-        node
+        node.typeAnnotation,
+        Some(node.expression)
       )
     } else {
       panic("bind_variable_declaration_statement")
@@ -512,9 +515,14 @@ case class Binder(diagnostics: DiagnosticBag, root: Symbol) {
   }
 
   def bindField(node: ParameterSyntax, scope: Scope): unit =
-    declareSymbol(SymbolKind.Field, _parent.flags & SymbolFlags.Static, MakeDeclaration.parameter(node), scope, _parent)
+    addBoundField(
+      declareSymbol(SymbolKind.Field, _parent.flags & SymbolFlags.Static, MakeDeclaration.parameter(node), scope, _parent),
+      Some(node.typeAnnotation),
+      None
+    )
+  
 
-//  def get_name(name: NameSyntax): string = {
+  //  def get_name(name: NameSyntax): string = {
 //    name match {
 //      case value: NameSyntax.QualifiedNameSyntax =>
 //        get_qualified_name(value)

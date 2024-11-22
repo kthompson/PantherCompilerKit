@@ -41,10 +41,10 @@ enum TypedExpression {
   case TypedVariable(typ: Type, name: string)
   case TypedAssignment(name: string, value: TypedExpression)
   case TypedBinary(typ: Type, left: TypedExpression, op: TypedBinaryOperator, right: TypedExpression)
-  case TypedCall(typ: Type, callee: TypedExpression, args: List<TypedExpression>)
+  case TypedCall(typ: Type, callee: TypedExpression, args: Array<TypedExpression>)
   case TypedIf(typ: Type, condition: TypedExpression, thenBranch: TypedExpression, elseBranch: TypedExpression)
   case TypedIndex(typ: Type, array: TypedExpression, index: TypedExpression)
-  case TypedBlock(typ: Type, statements: List<TypedExpression>)
+  case TypedBlock(typ: Type, statements: Array<TypedExpression>)
   case TypedUnary(typ: Type, op: TypedUnaryOperator, operand: TypedExpression)
 }
 
@@ -52,12 +52,12 @@ class TypedParameter(name: string, typ: Type)
 
 enum TypedMember {
   case TypedField(name: string, typeStr: Type)
-  case TypedMethod(name: string, returnType: Type, args: List<TypedParameter>)
+  case TypedMethod(name: string, returnType: Type, args: Array<TypedParameter>)
 }
 
 enum TypedDefinition {
-  case TypedClass(namespace: string, name: string, members: List<TypedMember>)
-  case TypedEnum(namespace: string, name: string, members: List<string>)
+  case TypedClass(namespace: string, name: string, members: Array<TypedMember>)
+  case TypedEnum(namespace: string, name: string, members: Array<string>)
 }
 
-class TypedAssembly(classes: List<TypedDefinition>)
+class TypedAssembly(classes: Array<TypedDefinition>)
