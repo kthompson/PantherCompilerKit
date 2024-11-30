@@ -1120,4 +1120,4 @@ class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
   }
 }
 
-class SyntaxTree(file: SourceFile, root: CompilationUnitSyntax, diagnostics: Array<Diagnostic>)
+class SyntaxTree(file: SourceFile, root: CompilationUnitSyntax, diagnostics: Diagnostics)

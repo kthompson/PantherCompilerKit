@@ -4,14 +4,19 @@ case class Diagnostic(location: TextLocation, message: string) {
     override def toString(): string = location.to_string() + ": " + message
 }
 
+enum Diagnostics {
+  case Empty
+  case Cons(head: Diagnostic, tail: Diagnostics)
+}
+
 case class DiagnosticBag() {
-  var _size: int = 0
-  var _items: Array[Diagnostic] = new Array[Diagnostic](0)
+  var count: int = 0
+  var diagnostics: Diagnostics = Diagnostics.Empty
 
   def report(location: TextLocation, message: string): unit = add(new Diagnostic(location, message))
 
   def reportTypeNotDefined(location: TextLocation, name: string): unit = report(location, "Type " + name + " not defined")
-  
+
   def reportBadCharacter(location: TextLocation, value: char): unit = report(location, "Invalid character in input: " + string(value))
 
   def reportEmptyCharLiteral(location: TextLocation): unit = report(location, "Empty character literal")
@@ -33,30 +38,18 @@ case class DiagnosticBag() {
 
   def reportExpectedPattern(location: TextLocation, currentKind: int): unit =
     report(location, "Unexpected token " + SyntaxFacts.getKindName(currentKind) + ", expected pattern")
-  
-  def ensureCapacity(count: int): unit = {
-    if (_size + count >= _items.length) {
-      val newItems = new Array[Diagnostic]((_size + count) * 2)
-      for (i <- 0 to (_size - 1)) {
-        newItems(i) = _items(i)
-      }
-      _items = newItems
-    } else {
-      ()
-    }
-  }
 
   def add(diagnostic: Diagnostic): unit = {
-    ensureCapacity(1)
-    _items(_size) = diagnostic
-    _size = _size + 1
+    count = count + 1
+    diagnostics = Diagnostics.Cons(diagnostic, diagnostics)
   }
-
-  def diagnostics(): Array[Diagnostic] = {
-    val newItems = new Array[Diagnostic](_size)
-    for (i <- 0 to (_size - 1)) {
-      newItems(i) = _items(i)
+  
+  def addDiagnostics(more: Diagnostics): unit = {
+    more match {
+      case Diagnostics.Empty => ()
+      case Diagnostics.Cons(head, tail) =>
+        add(head)
+        addDiagnostics(tail)
     }
-    newItems
   }
 }

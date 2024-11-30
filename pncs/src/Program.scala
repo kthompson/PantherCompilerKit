@@ -17,12 +17,15 @@ object Program {
     }
   }
 
-  def countDiagnostics(trees: Array[SyntaxTree]): int = {
-    var count = 0
+  def hasDiagnostics(trees: Array[SyntaxTree]): bool = {
+    var diags = false
     for (i <- 0 to (trees.length - 1)) {
-      count = count + trees(i).diagnostics.length
+      trees(i).diagnostics match {
+        case Diagnostics.Empty => ()
+        case _ => diags = true
+      }
     }
-    count
+    diags
   }
 
   def run(transpile: bool, args: Array[string]): unit = {
@@ -38,27 +41,34 @@ object Program {
     }
 
     // verify no diagnostics from parse trees
-    val diagCount = countDiagnostics(trees)
-    if (diagCount > 0) {
+    if (hasDiagnostics(trees)) {
       for (i <- 0 to (trees.length - 1)) {
-        for (j <- 0 to (trees(i).diagnostics.length - 1)) {
-          printDiagnostic(trees(i).diagnostics(j))
-        }
+        printDiagnostics(trees(i).diagnostics)
       }
     } else {
       val compilation = MakeCompilation.create(trees)
-      if (compilation.diagnostics.length > 0) {
-        for (i <- 0 to (compilation.diagnostics.length - 1)) {
-          printDiagnostic(compilation.diagnostics(i))
-        }
-      } else if (transpile) {
-        println("transpiling to " + outputFile + "...")
-        compilation.transpile(outputFile)
-      } else {
-        compilation.print_symbols()
-        println("emitting to " + outputFile + "...")
-        compilation.emit(outputFile)
+      compilation.diagnostics match {
+        case diags: Diagnostics.Cons => 
+          printDiagnostics(diags)
+        case Diagnostics.Empty =>
+          if (transpile) {
+            println("transpiling to " + outputFile + "...")
+            compilation.transpile(outputFile)
+          } else {
+            compilation.print_symbols()
+            println("emitting to " + outputFile + "...")
+            compilation.emit(outputFile)
+          }
       }
+    }
+  }
+  
+  def printDiagnostics(diagnostics: Diagnostics): unit = {
+    diagnostics match {
+      case Diagnostics.Empty => ()
+      case Diagnostics.Cons(head, tail) =>
+        printDiagnostic(head)
+        printDiagnostics(tail)
     }
   }
 

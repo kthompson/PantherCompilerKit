@@ -6,7 +6,7 @@ object MakeSyntaxTree {
     val parser = new Parser(file, diagnosticBag)
     val root = parser.parse_compilation_unit()
 
-    new SyntaxTree(file, root, diagnosticBag.diagnostics())
+    new SyntaxTree(file, root, diagnosticBag.diagnostics)
   }
 
   def parse_file(filename: string): SyntaxTree =

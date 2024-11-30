@@ -1121,4 +1121,4 @@ case class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
   }
 }
 
-case class SyntaxTree(file: SourceFile, root: CompilationUnitSyntax, diagnostics: Array[Diagnostic])
+case class SyntaxTree(file: SourceFile, root: CompilationUnitSyntax, diagnostics: Diagnostics)

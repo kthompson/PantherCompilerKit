@@ -1,4 +1,4 @@
 case class BoundTree(root: Symbol,
-                     diagnostics: Array[Diagnostic],
+                     diagnostics: Diagnostics,
                      functions: Array[BoundFunction],
                      fields: Array[BoundField])

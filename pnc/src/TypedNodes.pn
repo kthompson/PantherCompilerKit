@@ -43,11 +43,29 @@ class ClassName(name: string)
 class FieldName(name: string)
 
 class MethodName(name: string)
+
 class FunctionName(name: string)
 
 class TypeBinding(name: VariableName, typ: Type)
 
-class TypeEnvironment(bindings: Array<TypeBinding>)
+enum TypeEnvironment {
+  case Empty
+  case Cons(binding: TypeBinding, tail: TypeEnvironment)
+}
+
+object Environment {
+  def getVarType(variable: VariableName, env: TypeEnvironment): SOption<Type> = {
+    env match {
+      case TypeEnvironment.Empty => None
+      case TypeEnvironment.Cons(binding, tail) =>
+        if (binding.name == variable) {
+          Some(binding.typ)
+        } else {
+          getVarType(variable, tail)
+        }
+    }
+  }
+}
 
 enum TypedExpression {
   case ArrayCreationExpression(typ: Type, expression: Expression.ArrayCreationExpression)
@@ -71,13 +89,13 @@ enum TypedExpression {
 
 class TypedParameter(name: string, typ: Type)
 
-enum TypedMember {
-  case TypedField(name: string, typeStr: Type)
-  case TypedMethod(name: string, returnType: Type, args: Array<TypedParameter>)
-}
+class TypedField(name: FieldName, typ: Type)
+
+class TypedMethod(name: MethodName, returnType: Type, args: Array<TypedParameter>)
+
 
 enum TypedDefinition {
-  case TypedClass(namespace: string, name: string, members: Array<TypedMember>)
+  case TypedClass(namespace: string, name: string, fields: Array<TypedField>, members: Array<TypedMethod>)
   case TypedEnum(namespace: string, name: string, members: Array<string>)
 }
 

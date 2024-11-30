@@ -11,25 +11,16 @@ case class Binder(diagnostics: DiagnosticBag, root: Symbol) {
   var fields = new Array[BoundField](0)
 
   def bind(trees: Array[SyntaxTree]): BoundTree = {
-    var num_diags = 0
     for (x <- 0 to (trees.length - 1)) {
-      num_diags = num_diags + trees(x).diagnostics.length
       bindCompilationUnit(trees(x).root)
     }
 
-    val diags = diagnostics.diagnostics()
-    num_diags = num_diags + diags.length
-
-    val allDiags = new Array[Diagnostic](num_diags)
-    var diag = 0
+    val bag = new DiagnosticBag()
     for (i <- 0 to (trees.length - 1)) {
-      for (d <- 0 to (trees(i).diagnostics.length - 1)) {
-        allDiags(diag) = trees(i).diagnostics(d)
-        diag = diag + 1
-      }
+      bag.addDiagnostics(trees(i).diagnostics)
     }
 
-    BoundTree(root, allDiags, boundFunctions(), boundFields())
+    BoundTree(root, bag.diagnostics, boundFunctions(), boundFields())
   }
 
   def boundFunctions(): Array[BoundFunction] = {
