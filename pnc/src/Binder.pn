@@ -78,7 +78,7 @@ class Binder(diagnostics: DiagnosticBag, root: Symbol) {
     }
   }
 
-  def addBoundField(symbol: Symbol, typeAnnotation: Option<TypeAnnotationSyntax>, expression: Option<ExpressionSyntax>): unit = {
+  def addBoundField(symbol: Symbol, typeAnnotation: Option<TypeAnnotationSyntax>, expression: Option<Expression>): unit = {
     ensureFieldCapacity(1)
     fields(_fieldsSize) = BoundField(symbol, typeAnnotation, expression)
     _fieldsSize = _fieldsSize + 1
@@ -497,7 +497,7 @@ class Binder(diagnostics: DiagnosticBag, root: Symbol) {
 
   def bindStatement(node: StatementSyntax, scope: Scope): unit = {
     node match {
-      case StatementSyntax.VariableDeclarationStatement(value) => bindVariableDeclarationStatement(value, scope)
+      case value: StatementSyntax.VariableDeclarationStatement => bindVariableDeclarationStatement(value, scope)
       //            case StatementSyntax.BreakStatement(value) => bind_break_statement(value, scope)
       //            case StatementSyntax.ContinueStatement(value) => bind_continue_statement(value, scope)
       //            case StatementSyntax.ExpressionStatement(value) => bind_expression_statement(value, scope)
@@ -507,7 +507,7 @@ class Binder(diagnostics: DiagnosticBag, root: Symbol) {
     }
   }
 
-  def bindVariableDeclarationStatement(node: VariableDeclarationStatementSyntax, scope: Scope): unit = {
+  def bindVariableDeclarationStatement(node: StatementSyntax.VariableDeclarationStatement, scope: Scope): unit = {
     val parent = scope.getParentSymbol()
 
     if (parent.kind == SymbolKind.Class) {

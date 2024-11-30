@@ -15,15 +15,6 @@ case class ArrayInitializerExpressionSyntax(
     closeBrace: SyntaxToken
 )
 
-case class ArrayCreationExpressionSyntax(
-    newKeyword: SyntaxToken,
-    name: NameSyntax,
-    openBracket: SyntaxToken,
-    arrayRank: Option[ExpressionSyntax],
-    closeBracket: SyntaxToken,
-    initializer: Option[ArrayInitializerExpressionSyntax]
-)
-
 enum SimpleNameSyntax {
     case GenericNameSyntax(identifier: SyntaxToken,
                            typeArgumentlist: TypeArgumentListSyntax)
@@ -36,105 +27,82 @@ enum NameSyntax {
     case QualifiedNameSyntax(left: NameSyntax, dotToken: SyntaxToken, right: SimpleNameSyntax)
     case SimpleName(name: SimpleNameSyntax)
 }
-case class ExpressionItemSyntax(expression: ExpressionSyntax, separatorToken: Option[SyntaxToken])
+case class ExpressionItemSyntax(expression: Expression, separatorToken: Option[SyntaxToken])
 case class ExpressionListSyntax(expressions: Array[ExpressionItemSyntax])
 
-case class AssignmentExpressionSyntax(
-    left: ExpressionSyntax,
-    equals: SyntaxToken,
-    right: ExpressionSyntax
-)
-case class BinaryExpressionSyntax(left: ExpressionSyntax, operator: SyntaxToken, right: ExpressionSyntax)
-case class BlockExpressionSyntax(
-    openBrace: SyntaxToken,
-    block: BlockExpressionListSyntax,
-    closeBrace: SyntaxToken
-) {
-    var id = -1 // used in type checker, set in binder
-}
 case class BlockExpressionListSyntax(
                                       statements: Array[StatementSyntax],
-                                      expression: Option[ExpressionSyntax])
-case class CallExpressionSyntax(
-    name: ExpressionSyntax,
-    openParen: SyntaxToken,
-    arguments: ExpressionListSyntax,
-    closeParen: SyntaxToken
-)
-case class ForExpressionSyntax(
-    forKeyword: SyntaxToken,
-    openParen: SyntaxToken,
-    identifier: SyntaxToken,
-    arrow: SyntaxToken,
-    fromExpr: ExpressionSyntax,
-    toKeyword: SyntaxToken,
-    toExpr: ExpressionSyntax,
-    closeParen: SyntaxToken,
-    body: ExpressionSyntax
-) {
-    var id = -1 // used in type checker, set in binder
-}
-case class GroupExpressionSyntax(
-    openParen: SyntaxToken,
-    expression: ExpressionSyntax,
-    closeParen: SyntaxToken
-)
-case class IfExpressionSyntax(
-                               ifKeyword: SyntaxToken,
-                               openParen: SyntaxToken,
-                               condition: ExpressionSyntax,
-                               closeParen: SyntaxToken,
-                               thenExpr: ExpressionSyntax,
-                               elseKeyword: SyntaxToken,
-                               elseExpr: ExpressionSyntax
-)
-case class IndexExpressionSyntax(
-    left: ExpressionSyntax,
-    openBracket: SyntaxToken,
-    index: ExpressionSyntax,
-    closeBracket: SyntaxToken
-)
-case class LiteralExpressionSyntax(token: SyntaxToken, value: SyntaxTokenValue)
-case class MemberAccessExpressionSyntax(
-    left: ExpressionSyntax,
-    dotToken: SyntaxToken,
-    right: SimpleNameSyntax.IdentifierNameSyntax
-)
-case class NewExpressionSyntax(
-                                newKeyword: SyntaxToken,
-                                name: NameSyntax,
-                                openParen: SyntaxToken,
-                                arguments: ExpressionListSyntax,
-                                closeParen: SyntaxToken
-)
-case class UnaryExpressionSyntax(operator: SyntaxToken, expression: ExpressionSyntax)
-case class UnitExpressionSyntax(openParen: SyntaxToken, closeParen: SyntaxToken)
-case class WhileExpressionSyntax(
-                                  whileKeyword: SyntaxToken,
-                                  openParen: SyntaxToken,
-                                  condition: ExpressionSyntax,
-                                  closeParen: SyntaxToken,
-                                  body: ExpressionSyntax
-)
+                                      expression: Option[Expression])
 
-enum ExpressionSyntax {
-    case ArrayCreationExpression(value: ArrayCreationExpressionSyntax)
-    case AssignmentExpression(value: AssignmentExpressionSyntax)
-    case BinaryExpression(value: BinaryExpressionSyntax)
-    case BlockExpression(value: BlockExpressionSyntax)
-    case CallExpression(value: CallExpressionSyntax)
-    case ForExpression(value: ForExpressionSyntax)
-    case GroupExpression(value: GroupExpressionSyntax)
+
+enum Expression {
+    case ArrayCreationExpression(newKeyword: SyntaxToken,
+                                 name: NameSyntax,
+                                 openBracket: SyntaxToken,
+                                 arrayRank: Option[Expression],
+                                 closeBracket: SyntaxToken,
+                                 initializer: Option[ArrayInitializerExpressionSyntax])
+    case AssignmentExpression(
+                               left: Expression,
+                               equals: SyntaxToken,
+                               right: Expression)
+    case BinaryExpression(left: Expression, operator: SyntaxToken, right: Expression)
+    case BlockExpression(
+                          openBrace: SyntaxToken,
+                          block: BlockExpressionListSyntax,
+                          closeBrace: SyntaxToken)
+    case CallExpression(
+                         name: Expression,
+                         openParen: SyntaxToken,
+                         arguments: ExpressionListSyntax,
+                         closeParen: SyntaxToken)
+    case ForExpression(
+                        forKeyword: SyntaxToken,
+                        openParen: SyntaxToken,
+                        identifier: SyntaxToken,
+                        arrow: SyntaxToken,
+                        fromExpr: Expression,
+                        toKeyword: SyntaxToken,
+                        toExpr: Expression,
+                        closeParen: SyntaxToken,
+                        body: Expression)
+    case GroupExpression(
+                          openParen: SyntaxToken,
+                          expression: Expression,
+                          closeParen: SyntaxToken)
     case IdentifierName(value: SimpleNameSyntax.IdentifierNameSyntax)
-    case IfExpression(value: IfExpressionSyntax)
-    case IndexExpression(value: IndexExpressionSyntax)
-    case LiteralExpression(value: LiteralExpressionSyntax)
-    case MemberAccessExpression(value: MemberAccessExpressionSyntax)
-    case MatchExpression(expression: ExpressionSyntax, matchKeyword: SyntaxToken, openBrace: SyntaxToken, cases : Array[MatchCaseSyntax], closeBrace: SyntaxToken)
-    case NewExpression(value: NewExpressionSyntax)
-    case UnaryExpression(value: UnaryExpressionSyntax)
-    case UnitExpression(value: UnitExpressionSyntax)
-    case WhileExpression(value: WhileExpressionSyntax)
+    case IfExpression(
+                       ifKeyword: SyntaxToken,
+                       openParen: SyntaxToken,
+                       condition: Expression,
+                       closeParen: SyntaxToken,
+                       thenExpr: Expression,
+                       elseKeyword: SyntaxToken,
+                       elseExpr: Expression)
+    case IndexExpression(
+                          left: Expression,
+                          openBracket: SyntaxToken,
+                          index: Expression,
+                          closeBracket: SyntaxToken)
+    case LiteralExpression(token: SyntaxToken, value: SyntaxTokenValue)
+    case MemberAccessExpression(
+                                 left: Expression,
+                                 dotToken: SyntaxToken,
+                                 right: SimpleNameSyntax.IdentifierNameSyntax)
+    case MatchExpression(expression: Expression, matchKeyword: SyntaxToken, openBrace: SyntaxToken, cases : Array[MatchCaseSyntax], closeBrace: SyntaxToken)
+    case NewExpression(
+                        newKeyword: SyntaxToken,
+                        name: NameSyntax,
+                        openParen: SyntaxToken,
+                        arguments: ExpressionListSyntax,
+                        closeParen: SyntaxToken)
+    case UnaryExpression(operator: SyntaxToken, expression: Expression)
+    case UnitExpression(openParen: SyntaxToken, closeParen: SyntaxToken)
+    case WhileExpression(whileKeyword: SyntaxToken,
+                         openParen: SyntaxToken,
+                         condition: Expression,
+                         closeParen: SyntaxToken,
+                         body: Expression)
 }
 
 case class MatchCaseSyntax(
@@ -154,7 +122,7 @@ enum PatternSyntax {
 
 case class PatternItemSyntax(pattern: PatternSyntax, separatorToken: Option[SyntaxToken])
 
-case class FunctionBodySyntax(equalToken: SyntaxToken, expression: ExpressionSyntax)
+case class FunctionBodySyntax(equalToken: SyntaxToken, expression: Expression)
 case class ParameterSyntax(
     modifier: Option[SyntaxToken],
     identifier: SyntaxToken,
@@ -178,22 +146,16 @@ case class TemplateSyntax(
     closeBrace: SyntaxToken
 )
 
-case class VariableDeclarationStatementSyntax(
-    valOrVarKeyword: SyntaxToken,
-    identifier: SyntaxToken,
-    typeAnnotation: Option[TypeAnnotationSyntax],
-    equalToken: SyntaxToken,
-    expression: ExpressionSyntax
-)
-case class BreakStatementSyntax(breakKeyword: SyntaxToken)
-case class ContinueStatementSyntax(continueKeyword: SyntaxToken)
-case class ExpressionStatementSyntax(expression: ExpressionSyntax)
-
 enum StatementSyntax {
-    case VariableDeclarationStatement(value: VariableDeclarationStatementSyntax)
-    case BreakStatement(value: BreakStatementSyntax)
-    case ContinueStatement(value: ContinueStatementSyntax)
-    case ExpressionStatement(value: ExpressionStatementSyntax)
+    case VariableDeclarationStatement(
+                                       valOrVarKeyword: SyntaxToken,
+                                       identifier: SyntaxToken,
+                                       typeAnnotation: Option[TypeAnnotationSyntax],
+                                       equalToken: SyntaxToken,
+                                       expression: Expression)
+    case BreakStatement(breakKeyword: SyntaxToken)
+    case ContinueStatement(continueKeyword: SyntaxToken)
+    case ExpressionStatement(expression: Expression)
 }
 
 case class EnumCaseParametersSyntax(openParenToken: SyntaxToken, parameters: Array[ParameterSyntax], closeParenToken: SyntaxToken)
@@ -262,14 +224,14 @@ enum Declaration {
     case ClassFromEnumCase(name: string, location: TextLocation, value: EnumCaseSyntax)
 
     case Constructor(name: string, location: TextLocation, value: Array[ParameterSyntax])
-    
+
     case Method(name: string, location: TextLocation, value: MemberSyntax.FunctionDeclarationSyntax)
-    
+
     case FieldFromParameter(name: string, location: TextLocation, value: ParameterSyntax)
-    case FieldFromVariable(name: string, location: TextLocation, value: VariableDeclarationStatementSyntax)
-    
+    case FieldFromVariable(name: string, location: TextLocation, value: StatementSyntax.VariableDeclarationStatement)
+
     case Parameter(name: string, location: TextLocation, value: ParameterSyntax)
-    case Local(name: string, location: TextLocation, value: VariableDeclarationStatementSyntax)
+    case Local(name: string, location: TextLocation, value: StatementSyntax.VariableDeclarationStatement)
 }
 //case class Declaration(
 //    kind: int,
@@ -296,7 +258,7 @@ enum Declaration {
 //            None,
 //            None
 //        )
-//        
+//
 //    def enumCaseSyntax(node: EnumCaseSyntax): Declaration = {
 //        new Declaration(
 //            DeclarationKind.Member,

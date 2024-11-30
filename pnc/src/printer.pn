@@ -1,5 +1,5 @@
 using panther
-using ExpressionSyntax
+using Expression
 using MemberSyntax
 using StatementSyntax
 using SimpleNameSyntax
@@ -121,29 +121,29 @@ object AstPrinter {
     printExpression(node.expression)
   }
 
-  def printExpression(node: ExpressionSyntax): unit = {
+  def printExpression(node: Expression): unit = {
     node match {
-      case ArrayCreationExpression(value) => printArrayCreationExpression(value)
-      case AssignmentExpression(value) => printAssignmentExpression(value)
-      case BinaryExpression(value) => printBinaryExpression(value)
-      case BlockExpression(value) => printBlockExpression(value)
-      case CallExpression(value) => printCallExpression(value)
-      case ForExpression(value) => printForExpression(value)
-      case GroupExpression(value) => printGroupExpression(value)
+      case value: Expression.ArrayCreationExpression => printArrayCreationExpression(value)
+      case value: Expression.AssignmentExpression => printAssignmentExpression(value)
+      case value: Expression.BinaryExpression => printBinaryExpression(value)
+      case value: Expression.BlockExpression => printBlockExpression(value)
+      case value: Expression.CallExpression => printCallExpression(value)
+      case value: Expression.ForExpression => printForExpression(value)
+      case value: Expression.GroupExpression => printGroupExpression(value)
       case IdentifierName(value) => printIdentifierName(value, ColorPalette.Identifier)
-      case IfExpression(value) => printIfExpression(value)
-      case IndexExpression(value) => printIndexExpression(value)
-      case LiteralExpression(value) => printLiteralExpression(value)
+      case value: Expression.IfExpression => printIfExpression(value)
+      case value: Expression.IndexExpression => printIndexExpression(value)
+      case value: Expression.LiteralExpression => printLiteralExpression(value)
       case value: MatchExpression => panic("MatchExpression not implemented")
-      case MemberAccessExpression(value) => printMemberAccessExpression(value)
-      case NewExpression(value) => printNewExpression(value)
-      case UnaryExpression(value) => printUnaryExpression(value)
-      case UnitExpression(value) => printUnitExpression(value)
-      case WhileExpression(value) => printWhileExpression(value)
+      case value: Expression.MemberAccessExpression => printMemberAccessExpression(value)
+      case value: Expression.NewExpression => printNewExpression(value)
+      case value: Expression.UnaryExpression => printUnaryExpression(value)
+      case value: Expression.UnitExpression => printUnitExpression(value)
+      case value: Expression.WhileExpression => printWhileExpression(value)
     }
   }
 
-  def printOptionalExpression(node: Option<ExpressionSyntax>): unit = {
+  def printOptionalExpression(node: Option<Expression>): unit = {
     if (node.isDefined) {
       printExpression(node.get)
     } else {
@@ -151,7 +151,7 @@ object AstPrinter {
     }
   }
 
-  def printArrayCreationExpression(node: ArrayCreationExpressionSyntax): unit = {
+  def printArrayCreationExpression(node: Expression.ArrayCreationExpression): unit = {
     printToken(node.newKeyword)
     printName(node.name)
     printToken(node.openBracket)
@@ -174,19 +174,19 @@ object AstPrinter {
     printToken(node.closeBrace)
   }
 
-  def printAssignmentExpression(node: AssignmentExpressionSyntax): unit = {
+  def printAssignmentExpression(node: Expression.AssignmentExpression): unit = {
     printExpression(node.left)
     printToken(node.equals)
     printExpression(node.right)
   }
 
-  def printBinaryExpression(node: BinaryExpressionSyntax): unit = {
+  def printBinaryExpression(node: Expression.BinaryExpression): unit = {
     printExpression(node.left)
     printToken(node.operator)
     printExpression(node.right)
   }
 
-  def printBlockExpression(node: BlockExpressionSyntax): unit = {
+  def printBlockExpression(node: Expression.BlockExpression): unit = {
     printToken(node.openBrace)
     printBlockExpressionList(node.block)
     printToken(node.closeBrace)
@@ -197,14 +197,14 @@ object AstPrinter {
     printOptionalExpression(node.expression)
   }
 
-  def printCallExpression(node: CallExpressionSyntax): unit = {
+  def printCallExpression(node: Expression.CallExpression): unit = {
     printExpression(node.name)
     printToken(node.openParen)
     printExpressionList(node.arguments)
     printToken(node.closeParen)
   }
 
-  def printForExpression(node: ForExpressionSyntax): unit = {
+  def printForExpression(node: Expression.ForExpression): unit = {
     printToken(node.forKeyword)
     printToken(node.openParen)
     printToken(node.identifier)
@@ -216,13 +216,13 @@ object AstPrinter {
     printExpression(node.body)
   }
 
-  def printGroupExpression(node: GroupExpressionSyntax): unit = {
+  def printGroupExpression(node: Expression.GroupExpression): unit = {
     printToken(node.openParen)
     printExpression(node.expression)
     printToken(node.closeParen)
   }
 
-  def printIfExpression(node: IfExpressionSyntax): unit = {
+  def printIfExpression(node: Expression.IfExpression): unit = {
     printToken(node.ifKeyword)
     printToken(node.openParen)
     printExpression(node.condition)
@@ -232,24 +232,24 @@ object AstPrinter {
     printExpression(node.elseExpr)
   }
 
-  def printIndexExpression(node: IndexExpressionSyntax): unit = {
+  def printIndexExpression(node: Expression.IndexExpression): unit = {
     printExpression(node.left)
     printToken(node.openBracket)
     printExpression(node.index)
     printToken(node.closeBracket)
   }
 
-  def printLiteralExpression(node: LiteralExpressionSyntax): unit = {
+  def printLiteralExpression(node: Expression.LiteralExpression): unit = {
     printToken(node.token)
   }
 
-  def printMemberAccessExpression(node: MemberAccessExpressionSyntax): unit = {
+  def printMemberAccessExpression(node: Expression.MemberAccessExpression): unit = {
     printExpression(node.left)
     printToken(node.dotToken)
     printIdentifierName(node.right, ColorPalette.Identifier)
   }
 
-  def printNewExpression(node: NewExpressionSyntax): unit = {
+  def printNewExpression(node: Expression.NewExpression): unit = {
     printToken(node.newKeyword)
     printName(node.name)
     printToken(node.openParen)
@@ -257,17 +257,17 @@ object AstPrinter {
     printToken(node.closeParen)
   }
 
-  def printUnaryExpression(node: UnaryExpressionSyntax): unit = {
+  def printUnaryExpression(node: Expression.UnaryExpression): unit = {
     printToken(node.operator)
     printExpression(node.expression)
   }
 
-  def printUnitExpression(node: UnitExpressionSyntax): unit = {
+  def printUnitExpression(node: Expression.UnitExpression): unit = {
     printToken(node.openParen)
     printToken(node.closeParen)
   }
 
-  def printWhileExpression(node: WhileExpressionSyntax): unit = {
+  def printWhileExpression(node: Expression.WhileExpression): unit = {
     printToken(node.whileKeyword)
     printToken(node.openParen)
     printExpression(node.condition)
@@ -292,14 +292,14 @@ object AstPrinter {
 
   def printStatment(node: StatementSyntax): unit = {
     node match {
-      case VariableDeclarationStatement(value) => printVariableDeclarationStatement(value)
-      case BreakStatement(value) => printBreakStatement(value)
-      case ContinueStatement(value) => printContinueStatement(value)
-      case ExpressionStatement(value) => printExpressionStatement(value)
+      case value: VariableDeclarationStatement => printVariableDeclarationStatement(value)
+      case value: BreakStatement => printBreakStatement(value)
+      case value: ContinueStatement => printContinueStatement(value)
+      case value: ExpressionStatement => printExpressionStatement(value)
     }
   }
 
-  def printVariableDeclarationStatement(node: VariableDeclarationStatementSyntax): unit = {
+  def printVariableDeclarationStatement(node: StatementSyntax.VariableDeclarationStatement): unit = {
     printToken(node.valOrVarKeyword)
     printToken(node.identifier)
     printOptionalTypeAnnotation(node.typeAnnotation)
@@ -307,11 +307,11 @@ object AstPrinter {
     printExpression(node.expression)
   }
 
-  def printBreakStatement(node: BreakStatementSyntax): unit = printToken(node.breakKeyword)
+  def printBreakStatement(node: StatementSyntax.BreakStatement): unit = printToken(node.breakKeyword)
 
-  def printContinueStatement(node: ContinueStatementSyntax): unit = printToken(node.continueKeyword)
+  def printContinueStatement(node: StatementSyntax.ContinueStatement): unit = printToken(node.continueKeyword)
 
-  def printExpressionStatement(node: ExpressionStatementSyntax): unit = {
+  def printExpressionStatement(node: StatementSyntax.ExpressionStatement): unit = {
     printExpression(node.expression)
   }
 
@@ -321,7 +321,7 @@ object AstPrinter {
     }
   }
 
-  def printExpressions(nodes: Array<ExpressionSyntax>): unit = {
+  def printExpressions(nodes: Array<Expression>): unit = {
     for (x <- 0 to (nodes.length - 1)) {
       printExpression(nodes(x))
     }
@@ -510,6 +510,15 @@ object AstPrinter {
       case Type.Error =>
         printColor(ColorPalette.Error)
         print("error")
+      case Type.int =>
+        printColor(ColorPalette.Keyword)
+        print("int")
+      case Type.Bool =>
+        printColor(ColorPalette.Keyword)
+        print("bool")
+      case Type.Class(ClassName(name)) => 
+        printColor(ColorPalette.Identifier)
+        print(name)
     }
 
     if (clear) printClear() else ()
