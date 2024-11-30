@@ -98,7 +98,7 @@ class LiteralExpressionSyntax(token: SyntaxToken, value: SyntaxTokenValue)
 class MemberAccessExpressionSyntax(
     left: ExpressionSyntax,
     dotToken: SyntaxToken,
-    right: IdentifierNameSyntax
+    right: SimpleNameSyntax.IdentifierNameSyntax
 )
 class NewExpressionSyntax(
                                 newKeyword: SyntaxToken,
@@ -125,7 +125,7 @@ enum ExpressionSyntax {
     case CallExpression(value: CallExpressionSyntax)
     case ForExpression(value: ForExpressionSyntax)
     case GroupExpression(value: GroupExpressionSyntax)
-    case IdentifierName(value: IdentifierNameSyntax)
+    case IdentifierName(value: SimpleNameSyntax.IdentifierNameSyntax)
     case IfExpression(value: IfExpressionSyntax)
     case IndexExpression(value: IndexExpressionSyntax)
     case LiteralExpression(value: LiteralExpressionSyntax)
@@ -247,86 +247,27 @@ object DeclarationKind {
     val Parameter = 2
     val Local = 3
     val Token = 4
+    val Builtin = 5
 }
 
 // A declaration is any syntax that defines a binding, the type of the
 // symbol will not always match the declarations.
 // For example, a constructor symbol will usually have a Class declaration
 // and field symbols can either be Local declarations or Parameter declarations
-class Declaration(
-    kind: int,
-    name: string,
-    location: TextLocation,
-    memberDeclaration: Option<MemberSyntax>,
-    enumCaseSyntax: Option<EnumCaseSyntax>,
-    parameter_declaration: Option<ParameterSyntax>,
-    local_declaration: Option<VariableDeclarationStatementSyntax>,
-    token_declaration: Option<SyntaxToken>
-) {
-    var id = -1 // used in type checker
+
+enum Declaration {
+    case Class(name: string, location: TextLocation, value: MemberSyntax.ClassDeclarationSyntax)
+    case ClassFromObject(name: string, location: TextLocation, value: MemberSyntax.ObjectDeclarationSyntax)
+    case ClassFromEnum(name: string, location: TextLocation, value: MemberSyntax.EnumDeclarationSyntax)
+    case ClassFromEnumCase(name: string, location: TextLocation, value: EnumCaseSyntax)
+
+    case Constructor(name: string, location: TextLocation, value: Array<ParameterSyntax>)
+    
+    case Method(name: string, location: TextLocation, value: MemberSyntax.FunctionDeclarationSyntax)
+    
+    case FieldFromParameter(name: string, location: TextLocation, value: ParameterSyntax)
+    case FieldFromVariable(name: string, location: TextLocation, value: VariableDeclarationStatementSyntax)
+    
+    case Parameter(name: string, location: TextLocation, value: ParameterSyntax)
+    case Local(name: string, location: TextLocation, value: VariableDeclarationStatementSyntax)
 }
-
-object MakeDeclaration {
-    def enumCaseSyntax(node: EnumCaseSyntax): Declaration = {
-        new Declaration(
-            DeclarationKind.Member,
-            node.identifier.text,
-            node.identifier.location,
-            None,
-            Some(node),
-            None,
-            None,
-            None
-        )
-    }
-
-    def member(identifier: SyntaxToken, node: MemberSyntax): Declaration = {
-        new Declaration(
-            DeclarationKind.Member,
-            identifier.text,
-            identifier.location,
-            Some(node),
-            None,
-            None,
-            None,
-            None
-        )
-    }
-
-    def parameter(node: ParameterSyntax): Declaration =
-        new Declaration(
-            DeclarationKind.Parameter,
-            node.identifier.text,
-            node.identifier.location,
-            None,
-            None,
-            Some(node),
-            None,
-            None
-        )
-
-    def local(node: VariableDeclarationStatementSyntax): Declaration =
-        new Declaration(
-            DeclarationKind.Local,
-            node.identifier.text,
-            node.identifier.location,
-            None,
-            None,
-            None,
-            Some(node),
-            None
-        )
-
-    def token(node: SyntaxToken): Declaration =
-        new Declaration(
-            DeclarationKind.Local,
-            node.text,
-            node.location,
-            None,
-            None,
-            None,
-            None,
-            Some(node)
-        )
-}
-

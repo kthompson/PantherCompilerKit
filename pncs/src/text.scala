@@ -103,11 +103,11 @@ case class SourceFile(content: string, fileName: string) {
 
     // get the line index from a position
     def get_line_index(position: int): int =
-        get_line_index(position, 0, line_count - 1)
+        _get_line_index(position, 0, line_count - 1)
     
     def isScala(): bool = fileName.endsWith(".scala")
 
-    def get_line_index(position: int, lower: int, upper: int): int =
+    def _get_line_index(position: int, lower: int, upper: int): int =
         if (lower <= upper ) {
             val index = lower + (upper - lower) / 2
             val mid = _lines(index)
@@ -115,9 +115,9 @@ case class SourceFile(content: string, fileName: string) {
             val end = mid.end
 
             if (position > end) {
-                get_line_index(position, index + 1, upper)
+                _get_line_index(position, index + 1, upper)
             } else if (position < start) {
-                get_line_index(position, lower, index - 1)
+                _get_line_index(position, lower, index - 1)
             } else {
                 index
             }

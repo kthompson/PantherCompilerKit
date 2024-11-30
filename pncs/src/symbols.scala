@@ -218,7 +218,6 @@ case class Symbol(kind: int, flags: int, name: string, location: TextLocation, _
   }
 }
 
-
 case class SymbolTreePrinter(checker: Checker) {
   def print_scope(scope: Scope, indent: string, last: bool): unit = {
     val symbols = scope.symbols()
@@ -269,34 +268,8 @@ case class SymbolTreePrinter(checker: Checker) {
     print(marker)
     print(ANSI.Clear)
 
-    if (symbol.kind == SymbolKind.Root) {
-      printColor(ColorPalette.Keyword)
-      print("Root")
-      print(ANSI.Clear)
-    } else if (symbol.kind == SymbolKind.Class) {
-      printColor(ColorPalette.Literal1)
-      print("Type")
-      print(ANSI.Clear)
-    } else if (symbol.kind == SymbolKind.Field) {
-      printColor(ColorPalette.Members)
-      print("Field")
-      print(ANSI.Clear)
-    } else if (symbol.kind == SymbolKind.Method) {
-      printColor(ColorPalette.Members)
-      print("Method")
-      print(ANSI.Clear)
-    } else if (symbol.kind == SymbolKind.Constructor) {
-      printColor(ColorPalette.Members)
-      print("Constructor")
-      print(ANSI.Clear)
-    } else if (symbol.kind == SymbolKind.Parameter) {
-      printColor(ColorPalette.Identifier)
-      print("Parameter")
-      print(ANSI.Clear)
-    } else {
-      print("Local")
-    }
-    print(ANSI.Clear)
+    val kind = symbol.kind
+    AstPrinter.printSymbolKind(kind)
     print(" ")
 
     print(symbol.name)

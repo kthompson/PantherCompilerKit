@@ -1,16 +1,13 @@
 using scala.Array as SArray
+using scala.Option as SOption
 
 enum Type {
   case Function(parameters: SArray<TypedParameter>, returnType: Type)
   case Array(inner: Type)
-  case Reference(symbol: Symbol)
+  case Reference(symbol: Symbol, baseType: SOption<Type>)
   case Option(inner: Type)
   case Any
-  case bool
-  case Char
-  case int
   case Never
-  case string
   case unit
   
   case Error

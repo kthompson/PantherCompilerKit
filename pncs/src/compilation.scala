@@ -2,7 +2,6 @@ import panther._
 
 object MakeCompilation {
   def create(trees: Array[SyntaxTree]): Compilation = {
-
     val diagnosticBag = new DiagnosticBag()
     for (i <- 0 to (trees.length - 1)) {
       for (d <- 0 to (trees(i).diagnostics.length - 1)) {
@@ -10,18 +9,15 @@ object MakeCompilation {
       }
     }
     val root = new Symbol(SymbolKind.Root, SymbolFlags.None, "", TextLocationFactory.empty(), None)
-
-    // TODO: add default symbols to root
-    // int, string, char, bool, unit, any, nothing
-
     val binder = new Binder(diagnosticBag, root)
+    
+    // creation of the checker will initialize all of the builtin symbols and their types into the
+    // root symbol table
+    val checker = new Checker(diagnosticBag, root)
+    
     val boundTree = binder.bind(trees)
 
-    // all the type inference data is in the checker so we cant
-    // expose it to the compilation here
-    val checker = new Checker(diagnosticBag, root, boundTree.functions, boundTree.fields)
-
-  //    checker.check()
+    checker.check(boundTree.functions, boundTree.fields)
 
     new Compilation(trees, root, checker, diagnosticBag.diagnostics())
   }

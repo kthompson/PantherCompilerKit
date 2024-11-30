@@ -873,29 +873,34 @@ case class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
      * case Type.Some(x) => ...
      * case Any => ...
      * case Some(x) => ...
+     * case "taco" =>
      */
     // Patterns have a few main forms:
     // 1. Type pattern: an identifier with an optional type annotation
     //
     // 2. Extract pattern: a type name with a list of patterns in parens
-
-    val name = parseName()
-    if (current_kind() == SyntaxKind.ColonToken) {
-      // must be type pattern
-      val typeAnnotation = parseTypeAnnotation()
-      identFromName(name) match {
-        case Some(identifier) =>
-          PatternSyntax.IdentifierPattern(identifier, typeAnnotation)
-        case None =>
-          diagnostics.reportUnexpectedToken(current().location, current_kind(), SyntaxKind.IdentifierToken)
-          PatternSyntax.TypePattern(typeAnnotation.typ)
-      }
-
-    } else if (current_kind() == SyntaxKind.OpenParenToken) {
-      // must be extract pattern
-      parseExtractPattern(name)
+    if (current_kind() == SyntaxKind.NumberToken || current_kind() == SyntaxKind.StringToken) {
+      val token = accept()
+      PatternSyntax.LiteralPattern(token)
     } else {
-      PatternSyntax.TypePattern(name)
+      val name = parseName()
+      if (current_kind() == SyntaxKind.ColonToken) {
+        // must be type pattern
+        val typeAnnotation = parseTypeAnnotation()
+        identFromName(name) match {
+          case Some(identifier) =>
+            PatternSyntax.IdentifierPattern(identifier, typeAnnotation)
+          case None =>
+            diagnostics.reportUnexpectedToken(current().location, current_kind(), SyntaxKind.IdentifierToken)
+            PatternSyntax.TypePattern(typeAnnotation.typ)
+        }
+
+      } else if (current_kind() == SyntaxKind.OpenParenToken) {
+        // must be extract pattern
+        parseExtractPattern(name)
+      } else {
+        PatternSyntax.TypePattern(name)
+      }
     }
   }
 

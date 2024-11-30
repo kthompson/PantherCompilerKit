@@ -486,8 +486,9 @@ object AstPrinter {
         printColor(ColorPalette.Punctuation)
         print(">")
 
-      case Type.Reference(symbol) =>
-        printColor(ColorPalette.Identifier)
+      case Type.Reference(symbol, _) =>
+        val color = if (SyntaxFacts.isBuiltin(symbol.name)) ColorPalette.Keyword else ColorPalette.Identifier
+        printColor(color)
         print(symbol.name)
       case Type.Option(inner) =>
         printColor(ColorPalette.Keyword)
@@ -500,21 +501,9 @@ object AstPrinter {
       case Type.Any =>
         printColor(ColorPalette.Keyword)
         print("any")
-      case Type.Char =>
-        printColor(ColorPalette.Keyword)
-        print("char")
-      case Type.bool =>
-        printColor(ColorPalette.Keyword)
-        print("bool")
-      case Type.int =>
-        printColor(ColorPalette.Keyword)
-        print("int")
       case Type.Never =>
         printColor(ColorPalette.Keyword)
         print("never")
-      case Type.string =>
-        printColor(ColorPalette.Keyword)
-        print("string")
       case Type.unit =>
         printColor(ColorPalette.Keyword)
         print("unit")
@@ -524,6 +513,31 @@ object AstPrinter {
     }
 
     if (clear) printClear() else ()
+  }
+
+  def printSymbolKind(kind: int): unit = {
+    if (kind == SymbolKind.Root) {
+      printColor(ColorPalette.Keyword)
+      print("Root")
+    } else if (kind == SymbolKind.Class) {
+      printColor(ColorPalette.Literal1)
+      print("Type")
+    } else if (kind == SymbolKind.Field) {
+      printColor(ColorPalette.Members)
+      print("Field")
+    } else if (kind == SymbolKind.Method) {
+      printColor(ColorPalette.Members)
+      print("Method")
+    } else if (kind == SymbolKind.Constructor) {
+      printColor(ColorPalette.Members)
+      print("Constructor")
+    } else if (kind == SymbolKind.Parameter) {
+      printColor(ColorPalette.Identifier)
+      print("Parameter")
+    } else {
+      print("Local")
+    }
+    print(ANSI.Clear)
   }
 
   def printKindColor(kind: int): unit = {

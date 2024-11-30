@@ -1,3 +1,1 @@
-using MemberSyntax.FunctionDeclarationSyntax
-
-class BoundFunction(symbol: Symbol, function: FunctionDeclarationSyntax, parameters: Array<BoundParameter>)
+class BoundFunction(symbol: Symbol, function: MemberSyntax.FunctionDeclarationSyntax, parameters: Array<BoundParameter>)

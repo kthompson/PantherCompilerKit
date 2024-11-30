@@ -21,12 +21,12 @@ class TypeDefTable() {
     } else ()
   }
 
-  def addTypeDef(name: StringToken, namespace: StringToken, flags: int, fieldList: int, methodList: MethodToken): int = {
+  def addTypeDef(name: StringToken, ns: StringToken, flags: int, fieldList: int, methodList: MethodToken): int = {
     // ensure typeDefs capacity
     ensureCapacity(size + 1)
 
     // add TypeDefMetadata to typeDefs
-    typeDefs(size) = TypeDefMetadata(name, namespace, flags, fieldList, methodList)
+    typeDefs(size) = TypeDefMetadata(name, ns, flags, fieldList, methodList)
     size = size + 1
     size - 1
   }

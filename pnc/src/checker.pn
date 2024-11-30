@@ -71,24 +71,6 @@ using panther
 // then simplify variables
 // f: A ∩ int -> A ∩ int -> A
 
-class SymbolLinks() {
-  var typing = false
-  var _type: Option<Type> = None
-  //    var classId: int = -1
-  //    var fieldId: int = -1
-  //    var methodId: int = -1
-  //    var paramId: int = -1
-
-  def set_type(typ: Type): Type = {
-    _type = Some(typ)
-    typ
-  }
-
-  def has_type(): bool = _type.isDefined
-
-  def get_type(): Type = _type.get
-}
-
 
 // will be connected to a Declaration or an Expression
 class NodeLinks() {
@@ -120,34 +102,149 @@ class TypeLinks() {
   var resolving: bool = false
 }
 
-//
-class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array<BoundFunction>, fields: Array<BoundField>) {
+
+class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
+
   var last_symbol_id = 0
   var symbol_links = new Array<SymbolLinks>(10)
   var last_node_id = 0
   var node_links = new Array<NodeLinks>(10)
   var last_type_id = 0
   var type_links = new Array<TypeLinks>(10)
-  //
-  //    def inferTypes(): unit = {
-  //
-  //    }
+  val binaryOperators = new BinaryOperators()
 
-  def check(): unit = {
+  // string
+  val stringSymbol = new Symbol(SymbolKind.Class, SymbolFlags.None, "string", TextLocationFactory.empty(), Some(root))
+  val stringType = Type.Reference(stringSymbol, None)
+  root.members.addSymbol(stringSymbol)
+  setSymbolType(stringSymbol, stringType)
+
+  // int
+  val intSymbol = new Symbol(SymbolKind.Class, SymbolFlags.None, "int", TextLocationFactory.empty(), Some(root))
+  val intType = Type.Reference(intSymbol, None)
+  root.members.addSymbol(intSymbol)
+  setSymbolType(intSymbol, intType)
+
+  // char
+  val charSymbol = new Symbol(SymbolKind.Class, SymbolFlags.None, "char", TextLocationFactory.empty(), Some(root))
+  val charType = Type.Reference(charSymbol, None)
+  root.members.addSymbol(charSymbol)
+  setSymbolType(charSymbol, charType)
+
+  // bool
+  val boolSymbol = new Symbol(SymbolKind.Class, SymbolFlags.None, "bool", TextLocationFactory.empty(), Some(root))
+  val boolType = Type.Reference(boolSymbol, None)
+  root.members.addSymbol(boolSymbol)
+  setSymbolType(boolSymbol, boolType)
+  
+  // None
+  val noneSymbol = new Symbol(SymbolKind.Class, SymbolFlags.None, "None", TextLocationFactory.empty(), Some(root))
+  val noneType = Type.Option(Type.Never)
+  root.members.addSymbol(noneSymbol)
+  setSymbolType(noneSymbol, noneType)
+
+  // string.length: int
+  val length = new Symbol(SymbolKind.Field, SymbolFlags.None, "length", TextLocationFactory.empty(), Some(stringSymbol))
+  stringSymbol.members.addSymbol(length)
+  setSymbolType(length, intType)
+
+  val args = new Array<TypedParameter>(1)
+  args(0) = TypedParameter("message", stringType)
+
+  // println(message: string): unit
+  val printlnSymbol = new Symbol(SymbolKind.Method, SymbolFlags.Static, "println", TextLocationFactory.empty(), Some(root))
+  val printlnMessage = new Symbol(SymbolKind.Parameter, SymbolFlags.None, "message", TextLocationFactory.empty(), Some(printlnSymbol))
+  printlnSymbol.members.addSymbol(printlnMessage)
+  root.members.addSymbol(printlnSymbol)
+
+  setSymbolType(printlnMessage, stringType)
+  setSymbolType(printlnSymbol, Type.Function(args, Type.unit))
+
+  // print(message: string): unit
+  val printSymbol = new Symbol(SymbolKind.Method, SymbolFlags.Static, "print", TextLocationFactory.empty(), Some(root))
+  val printMessage = new Symbol(SymbolKind.Parameter, SymbolFlags.None, "message", TextLocationFactory.empty(), Some(printSymbol))
+  printSymbol.members.addSymbol(printMessage)
+  root.members.addSymbol(printSymbol)
+  setSymbolType(printMessage, stringType)
+  setSymbolType(printSymbol, Type.Function(args, Type.unit))
+  
+
+  // initialize binary operators
+  simpleOp(intType, BinaryOperatorKind.Plus)
+  simpleOp(intType, BinaryOperatorKind.Minus)
+  simpleOp(intType, BinaryOperatorKind.Multiply)
+  simpleOp(intType, BinaryOperatorKind.Divide)
+  simpleOp(intType, BinaryOperatorKind.Modulus)
+  equalityOp(intType, BinaryOperatorKind.Equals)
+  equalityOp(intType, BinaryOperatorKind.NotEquals)
+  equalityOp(intType, BinaryOperatorKind.LessThan)
+  equalityOp(intType, BinaryOperatorKind.LessThanOrEqual)
+  equalityOp(intType, BinaryOperatorKind.GreaterThan)
+  equalityOp(intType, BinaryOperatorKind.GreaterThanOrEqual)
+  equalityOp(boolType, BinaryOperatorKind.Equals)
+  equalityOp(boolType, BinaryOperatorKind.NotEquals)
+  equalityOp(stringType, BinaryOperatorKind.Equals)
+  equalityOp(stringType, BinaryOperatorKind.NotEquals)
+  
+  def simpleOp(typ: Type, operator: BinaryOperatorKind): unit = binaryOperators.addOperator(BinaryOperator(typ, typ, operator, typ))
+
+  def equalityOp(typ: Type, operator: BinaryOperatorKind): unit = binaryOperators.addOperator(BinaryOperator(typ, typ, operator, boolType))
+
+  def check(functions: Array<BoundFunction>, fields: Array<BoundField>): unit = {
+    checkClasses(root)
     // determine types for fields with type annotations
     println("checking field type annotations")
-    checkFieldTypeAnnotations()
+//    checkFields(fields)
     // determine types for functions parameters
-    println("checking function parameter types and annotated return types")
-    checkFunctionParameterTypes()
+    //    println("checking function parameter types and annotated return types")
+    //    checkFunctionParameterTypes()
     // determine types for functions return types & fields without type annotations
-    inferFieldTypes()
+    //    inferFieldTypes()
+  }
+  
+  def checkClasses(symbol: Symbol): unit = {
+    if(symbol.kind == SymbolKind.Class) {
+      val links = getSymbolLinks(symbol)
+      if(!links.has_type()) {
+        links.set_type(Type.Reference(symbol, None))
+      } else ()
+    } else ()
+    val symbols = symbol.members.symbols()
+    for (i <- 0 to (symbols.length - 1)) {
+      val symbol = symbols(i)
+      
+      checkClasses(symbol)
+    }
   }
 
-  def inferFieldTypes(): unit = {
+
+  def get_symbol_id(symbol: Symbol): int = {
+    if (symbol.id != -1) {
+      symbol.id
+    } else {
+      if (last_symbol_id + 1 >= symbol_links.length) {
+        val newItems = new Array<SymbolLinks>((last_symbol_id + 1) * 2)
+        for (i <- 0 to (last_symbol_id - 1)) {
+          newItems(i) = symbol_links(i)
+        }
+        symbol_links = newItems
+      } else {}
+
+      symbol_links(last_symbol_id) = new SymbolLinks()
+      symbol.id = last_symbol_id
+      last_symbol_id = last_symbol_id + 1
+      symbol.id
+    }
+  }
+
+  def getSymbolLinks(symbol: Symbol): SymbolLinks = {
+    val id = get_symbol_id(symbol)
+    symbol_links(id)
+  }
+
+  def checkFields(fields: Array<BoundField>): unit = {
     for (i <- 0 to (fields.length - 1)) {
-      val field = fields(i)
-      inferFieldType(field)
+      inferSymbolType(fields(i).symbol)
     }
   }
 
@@ -160,83 +257,60 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array<Bound
     }
   }
 
-  def checkFieldTypeAnnotations(): unit = {
-    for (i <- 0 to (fields.length - 1)) {
-      val field = fields(i)
-      print("checking field type annotation " + field.symbol.fullName() + ": ")
-      field.typeAnnotation match {
-        case Some(typeAnnotation) =>
-          val symbol = field.symbol
-          val links = getSymbolLinks(symbol)
-
-          val typ = getTypeOfName(typeAnnotation.typ, symbol.members)
-          AstPrinter.printType(typ)
-          println()
-          links.set_type(typ)
-        case None => println()
-      }
-    }
-  }
-
-  def checkFunctionParameterTypes(): unit = {
-    for (i <- 0 to (functions.length - 1)) {
-      val func = functions(i)
-      print("checking function parameter types: " + func.symbol.fullName())
-      val parameters = func.parameters
-      val typedParameters = new Array<TypedParameter>(parameters.length)
-      for (j <- 0 to (parameters.length - 1)) {
-        val param = parameters(j)
-        val symbol = param.symbol
-        val links = getSymbolLinks(symbol)
-        val typ = getTypeOfName(param.parameter.typeAnnotation.typ, symbol.members)
-        typedParameters(j) = TypedParameter(symbol.name, typ)
-        links.set_type(typ)
-      }
-
-      func.function.typeAnnotation match {
-        case Some(typeAnnotation) =>
-          val symbol = func.symbol
-          val links = getSymbolLinks(symbol)
-          val returnType = getTypeOfName(typeAnnotation.typ, symbol.members)
-
-          val typ = Type.Function(typedParameters, returnType)
-          links.set_type(typ)
-          AstPrinter.printType(typ)
-          println()
-        case None =>
-          panic(" - no type annotation for function " + func.symbol.fullName())
-          println()
-      }
-    }
-  }
-
-  def inferFieldType(field: BoundField): unit = {
-    val symbol = field.symbol
-    val links = getSymbolLinks(symbol)
-    print("inferring type for field " + symbol.fullName() + ": ")
-    field.expression match {
-      case Some(expression) =>
-        val rhs = getTypeOfExpression(expression, symbol.members)
-        // if we already have a type here its because the first pass on fields found a type annotation
-        if (links.has_type()) {
-          val lhs = links.get_type()
-          checkAssignable(lhs, rhs)
-          AstPrinter.printType(lhs)
-        } else {
-          links.set_type(rhs)
-          AstPrinter.printType(rhs)
-        }
-        println()
-      case None => println()
-    }
-  }
-
   def checkAssignable(toType: Type, from: Type): Type = {
-    if (toType != from) {
-      panic("checkAssignable: " + toType + " != " + from)
-      toType
-    } else toType
+    if (toType == Type.Error || from == Type.Error) {
+      Type.Error
+    } else {
+      toType match {
+        case Type.Option(innerTo) =>
+          from match {
+            case Type.Option(innerFrom) =>
+              checkAssignable(innerTo, innerFrom)
+            case _ =>
+              Type.Error
+          }
+        case Type.Array(innerTo) =>
+          from match {
+            case Type.Array(innerFrom) =>
+              checkAssignable(innerTo, innerFrom)
+            case _ =>
+              Type.Error
+          }
+        case toType =>
+          if(from == Type.Never) {
+            toType
+          } else if (toType != from) {
+//            TODO: current issue is that we need to be able to assign an enum case to the base case
+//    ie Type.Any to Type for example.
+// one shortcut could be that we assign Type.Any the type `Type` instead of it having `Type.Any`
+            print("checkAssignable ")
+            AstPrinter.printType(toType)
+            print(" != ")
+            AstPrinter.printType(from)
+            println()
+            panic("")
+            toType
+          } else {
+            toType
+          }
+      }
+    }
   }
+
+  def checkBinaryOperator(left: Type, right: Type, operator: BinaryOperatorKind): Type = {
+    _checkBinaryOperator(0, left, right, operator)
+  }
+
+  def _checkBinaryOperator(i: int, left: Type, right: Type, operator: BinaryOperatorKind): Type =
+    if (i >= binaryOperators.size) panic("todo")
+    else {
+      val op = binaryOperators.operators(i)
+      if (op.left == left && op.right == right && op.operator == operator) {
+        op.result
+      } else {
+        _checkBinaryOperator(i + 1, left, right, operator)
+      }
+    }
 
   //
   //    // def fresh_var(): Variable = new Variable(Nothing, Any)
@@ -505,11 +579,91 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array<Bound
 
   def getTypeOfAssignmentExpression(value: AssignmentExpressionSyntax, scope: Scope): Type = panic("todo")
 
-  def getTypeOfBinaryExpression(value: BinaryExpressionSyntax, scope: Scope): Type = panic("todo")
+  def getTypeOfBinaryExpression(value: BinaryExpressionSyntax, scope: Scope): Type = {
+    val left = getTypeOfExpression(value.left, scope)
+    val right = getTypeOfExpression(value.right, scope)
 
-  def getTypeOfBlockExpression(value: BlockExpressionSyntax, scope: Scope): Type = panic("todo")
+    val operator = getOperator(value.operator.text)
+    val result = checkBinaryOperator(left, right, operator)
 
-  def getTypeOfCallExpression(value: CallExpressionSyntax, scope: Scope): Type = panic("todo")
+    AstPrinter.printType(left)
+    print(" " + value.operator.text + " ")
+    AstPrinter.printType(right)
+    print(" -> ")
+    AstPrinter.printType(result)
+    println()
+    result
+  }
+
+  def getOperator(text: string): BinaryOperatorKind =
+    text match {
+      case "+" => BinaryOperatorKind.Plus
+      case "-" => BinaryOperatorKind.Minus
+      case "*" => BinaryOperatorKind.Multiply
+      case "/" => BinaryOperatorKind.Divide
+      case "%" => BinaryOperatorKind.Modulus
+      case "==" => BinaryOperatorKind.Equals
+      case "!=" => BinaryOperatorKind.NotEquals
+      case "<" => BinaryOperatorKind.LessThan
+      case "<=" => BinaryOperatorKind.LessThanOrEqual
+      case ">" => BinaryOperatorKind.GreaterThan
+      case ">=" => BinaryOperatorKind.GreaterThanOrEqual
+      case "&&" => BinaryOperatorKind.LogicalAnd
+      case "||" => BinaryOperatorKind.LogicalOr
+      case _ =>
+        panic("unexpected operator")
+        BinaryOperatorKind.Unknown
+    }
+
+  def getTypeOfBlockExpression(value: BlockExpressionSyntax, scope: Scope): Type = {
+    value.block.expression match {
+      case Some(value) => getTypeOfExpression(value, scope)
+      case None => Type.unit
+    }
+  }
+
+  def getTypeOfCallExpression(value: CallExpressionSyntax, scope: Scope): Type = {
+    val function = getTypeOfExpression(value.name, scope)
+    val arguments = value.arguments
+
+    applyCallExpression(function, arguments, scope)
+  }
+
+  private def applyCallExpression(function: Type, arguments: ExpressionListSyntax, scope: Scope): Type = {
+    function match {
+      case Type.Function(parameters, returnType) =>
+        val typedArguments = new Array<Type>(arguments.expressions.length)
+        for (i <- 0 to (arguments.expressions.length - 1)) {
+          typedArguments(i) = getTypeOfExpression(arguments.expressions(i).expression, scope)
+        }
+        if (parameters.length == typedArguments.length) {
+          for (i <- 0 to (parameters.length - 1)) {
+            checkAssignable(parameters(i).typ, typedArguments(i))
+          }
+          returnType
+        } else {
+          panic("getTypeOfCallExpression: parameter count mismatch")
+          Type.Error
+        }
+      case Type.Reference(symbol, _) =>
+        // this is a class so lets look for a ctor
+        val ctor = symbol.members.get(".ctor")
+        ctor match {
+          case Some(value) =>
+            val function = inferSymbolType(value)
+            applyCallExpression(function, arguments, scope)
+          case None =>
+            println("no ctor for type: " + symbol.fullName())
+            panic("applyCallExpression")
+        }
+      case Type.Error => Type.Error
+      case _ =>
+        print("unexpected type: ")
+        AstPrinter.printType(function)
+        println()
+        panic("applyCallExpression")
+    }
+  }
 
   def getTypeOfForExpression(value: ForExpressionSyntax, scope: Scope): Type = panic("todo")
 
@@ -522,15 +676,13 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array<Bound
         if (links.has_type()) {
           links.get_type()
         } else {
-          // TODO: need to resolve type manually
-
           // maybe the binder should track all items that define a declaration rather than specific types
           // we can build Nodes that represent the declaration and then we can track the type of the node
           // as well as the symbol that the node is associated with
 
-
-          panic(symbol.location.to_string() + " getTypeOfIdentifierName: no type for symbol " + symbol.fullName())
-          Type.Error
+          //          panic(symbol.location.to_string() + " getTypeOfIdentifierName: no type for symbol " + symbol.fullName())
+          //          Type.Error
+          Type.Reference(symbol, None)
         }
       case None =>
         diagnosticBag.reportTypeNotDefined(value.identifier.location, value.identifier.text)
@@ -540,16 +692,21 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array<Bound
     //    panic("todo")
   }
 
-  def getTypeOfIfExpression(value: IfExpressionSyntax, scope: Scope): Type = panic("todo")
+  def getTypeOfIfExpression(value: IfExpressionSyntax, scope: Scope): Type = {
+    checkAssignable(boolType, getTypeOfExpression(value.condition, scope))
+    val thenExpr = getTypeOfExpression(value.thenExpr, scope)
+    val elseExpr = getTypeOfExpression(value.elseExpr, scope)
+    checkAssignable(thenExpr, elseExpr)
+  }
 
   def getTypeOfIndexExpression(value: IndexExpressionSyntax, scope: Scope): Type = panic("todo")
 
   def getTypeOfLiteralExpression(value: LiteralExpressionSyntax, scope: Scope): Type = {
     value.value.kind match {
-      case SyntaxTokenValueKind.string => Type.string
-      case SyntaxTokenValueKind.Number => Type.int
-      case SyntaxTokenValueKind.bool => Type.bool
-      case SyntaxTokenValueKind.Character => Type.Char
+      case SyntaxTokenValueKind.string => stringType
+      case SyntaxTokenValueKind.Number => intType
+      case SyntaxTokenValueKind.bool => boolType
+      case SyntaxTokenValueKind.Character => charType
       case _ => panic("getTypeOfLiteralExpression: " + value.value.kind)
     }
   }
@@ -557,25 +714,167 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array<Bound
   def getTypeOfMemberAccessExpression(value: MemberAccessExpressionSyntax, scope: Scope): Type = {
     val left = getTypeOfExpression(value.left, scope)
     left match {
-      case Reference(symbol) =>
+      case Reference(symbol, _) =>
         symbol.members.get(value.right.identifier.text) match {
           case Some(member) =>
-            val links = getSymbolLinks(member)
-            if (links.has_type()) {
-              links.get_type()
-            } else {
-              panic("getTypeOfMemberAccessExpression: no type for member " + member.fullName())
-              Type.Error
-            }
+            inferSymbolType(member)
           case None =>
             panic("todo")
             Type.Error
         }
+      case option: Type.Option =>
+        getOptionMemberType(option, value.right.identifier.text)
+      case array: Type.Array =>
+        getArrayMemberType(array, value.right.identifier.text)
       case _ =>
+        print("unexpected type: ")
+        AstPrinter.printType(left)
         panic("todo")
     }
-  } 
-    
+  }
+
+  def getOptionMemberType(option: Type.Option, member: string): Type = {
+    member match {
+      case "isDefined" => boolType
+      case "get" => option.inner
+      case _ => panic("unknown option member: " + member)
+    }
+  }
+
+  def getArrayMemberType(option: Type.Array, member: string): Type =
+    member match {
+      case "length" => intType
+      case _ =>
+        panic("unknown array member: " + member)
+        Type.Error
+    }
+
+  def getStringMemberType(member: string): Type = {
+    member match {
+      case "length" => intType
+      case _ =>
+        panic("unknown string member: " + member)
+        Type.Error
+    }
+  }
+
+  def inferSymbolType(symbol: Symbol): Type = {
+    val links = getSymbolLinks(symbol)
+    if (links.has_type()) {
+      links.get_type()
+    } else {
+      if (symbol.kind == SymbolKind.Class) {
+        links.set_type(Type.Reference(symbol, None))
+      } else {
+        val typ = inferTypeOfDeclaration(symbol, links, symbol.declaration())
+        links.set_type(typ)
+
+        //        inferTypeAnnotation(symbol, links) match {
+        //          case Some(annotatedType) =>
+        //            links.set_type(annotatedType)
+        //            inferExpressionType(symbol, links) match {
+        //              case Some(value) => checkAssignable(annotatedType, value)
+        //              case None => annotatedType
+        //            }
+        //          case None =>
+        //            inferFunctionType(symbol, links) match {
+        //              case Some(value) => links.set_type(value)
+        //              case None =>
+        //                inferExpressionType(symbol, links) match {
+        //                  case Some(value) => links.set_type(value)
+        //                  case None =>
+        //                    // TODO handle constructors
+        //                    new SymbolTreePrinter(this).print_symbol(symbol)
+        //                    printLocation(symbol.location)
+        //                    panic("inferSymbolType: no type for symbol " + symbol.fullName())
+        //                }
+        //            }
+        //        }
+      }
+    }
+  }
+
+  def inferTypeOfDeclaration(symbol: Symbol, links: SymbolLinks, declaration: Declaration): Type =
+    declaration match {
+      case Declaration.Class(name, location, value) => inferTypeOfClass(symbol, links, value)
+      case Declaration.ClassFromObject(name, location, value) => inferTypeOfClassFromObject(symbol, links, value)
+      case Declaration.ClassFromEnum(name, location, value) => inferTypeOfClassFromEnum(symbol, links, value)
+      case Declaration.ClassFromEnumCase(name, location, value) => inferTypeOfClassFromEnumCase(symbol, links, value)
+      case Declaration.Constructor(name, location, value) => inferTypeOfConstructorFromParameters(symbol, links, value)
+      case Declaration.Method(name, location, value) => inferTypeOfMethod(symbol, links, value)
+      case Declaration.FieldFromParameter(name, location, value) => inferTypeOfFieldFromParameter(symbol, links, value)
+      case Declaration.FieldFromVariable(name, location, value) => inferTypeOfFieldFromVariable(symbol, links, value)
+      case Declaration.Parameter(name, location, value) => inferTypeOfParameter(symbol, links, value)
+      case Declaration.Local(name, location, value) => inferTypeOfLocal(symbol, links, value)
+    }
+
+  def inferTypeOfClass(symbol: Symbol, links: SymbolLinks, value: MemberSyntax.ClassDeclarationSyntax): Type = panic("todo")
+
+  def inferTypeOfClassFromObject(symbol: Symbol, links: SymbolLinks, value: MemberSyntax.ObjectDeclarationSyntax): Type = panic("todo")
+
+  def inferTypeOfClassFromEnum(symbol: Symbol, links: SymbolLinks, value: MemberSyntax.EnumDeclarationSyntax): Type = panic("todo")
+
+  def inferTypeOfClassFromEnumCase(symbol: Symbol, links: SymbolLinks, value: EnumCaseSyntax): Type = panic("todo")
+
+  def inferTypeOfConstructorFromParameters(symbol: Symbol, links: SymbolLinks, parameters: Array<ParameterSyntax>): Type = {
+    val typedParameters: Array<TypedParameter> = inferTypedParameters(symbol, parameters)
+    Type.Function(typedParameters, Type.Reference(symbol.parent(), None))
+  }
+
+  private def inferTypedParameters(symbol: Symbol, parameters: Array<ParameterSyntax>) = {
+    val typedParameters = new Array<TypedParameter>(parameters.length)
+    for (j <- 0 to (parameters.length - 1)) {
+      val param = parameters(j)
+      symbol.members.get(param.identifier.text) match {
+        case Some(paramSymbol) =>
+          val typ = inferSymbolType(paramSymbol)
+          typedParameters(j) = TypedParameter(paramSymbol.name, typ)
+        case None =>
+          panic(" - no symbol for parameter " + param.identifier.text)
+      }
+    }
+    typedParameters
+  }
+
+  def inferTypeOfMethod(symbol: Symbol, links: SymbolLinks, func: MemberSyntax.FunctionDeclarationSyntax): Type = {
+    val parameters = inferTypedParameters(symbol, func.parameters)
+
+    func.typeAnnotation match {
+      case Some(typeAnnotation) =>
+        val returnType = getTypeOfName(typeAnnotation.typ, symbol.members)
+        Type.Function(parameters, returnType)
+      case None =>
+        // get expr and type it 
+        panic("todo")
+        Type.Error
+    }
+  }
+
+  def inferTypeOfFieldFromParameter(symbol: Symbol, links: SymbolLinks, value: ParameterSyntax): Type =
+    getTypeOfName(value.typeAnnotation.typ, symbol.members)
+
+  def inferTypeOfFieldFromVariable(symbol: Symbol, links: SymbolLinks, value: VariableDeclarationStatementSyntax): Type = {
+    val typ = getTypeOfExpression(value.expression, symbol.members)
+    value.typeAnnotation match {
+      case Some(value) =>
+        val typeAnnotation = getTypeOfName(value.typ, symbol.members)
+        checkAssignable(typeAnnotation, typ)
+        typeAnnotation
+      case None =>
+        typ
+    }
+  }
+
+  def inferTypeOfParameter(symbol: Symbol, links: SymbolLinks, value: ParameterSyntax): Type =
+    getTypeOfName(value.typeAnnotation.typ, symbol.members)
+
+  def inferTypeOfLocal(symbol: Symbol, links: SymbolLinks, value: VariableDeclarationStatementSyntax): Type = panic("todo")
+
+  def printSymbolType(note: string, symbol: Symbol, typ: Type): unit = {
+    print(note + symbol.fullName() + ": ")
+    AstPrinter.printType(typ)
+    println()
+  }
 
   def getTypeOfMatchExpression(expression: ExpressionSyntax.MatchExpression, scope: Scope): Type = panic("todo")
 
@@ -849,13 +1148,13 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array<Bound
   def getTypeOfString(name: string, location: TextLocation, scope: Scope): Type = {
     val scalaType = if (location.source_file.isScala()) {
       if (name == "String") {
-        Type.string
+        stringType
       } else if (name == "Int") {
-        Type.int
+        intType
       } else if (name == "Char") {
-        Type.Char
+        charType
       } else if (name == "Boolean") {
-        Type.bool
+        boolType
       } else if (name == "Unit") {
         Type.unit
       } else {
@@ -866,13 +1165,13 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array<Bound
     if (scalaType != Type.Error) {
       scalaType
     } else if (name == "int") {
-      Type.int
+      intType
     } else if (name == "char") {
-      Type.Char
+      charType
     } else if (name == "string") {
-      Type.string
+      stringType
     } else if (name == "bool") {
-      Type.bool
+      boolType
     } else if (name == "any") {
       Type.Any
     } else if (name == "unit") {
@@ -880,8 +1179,9 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array<Bound
     } else {
       val result = scope.get(name)
       if (result.isDefined) {
-        Type.Reference(result.get)
+        Type.Reference(result.get, None)
       } else {
+        panic("getTypeOfString: " + name)
         diagnosticBag.reportTypeNotDefined(location, name)
         Type.Error
       }
@@ -910,7 +1210,8 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array<Bound
 
   def getTypeOfGenericName(identifier: SyntaxToken,
                            typeArgumentlist: TypeArgumentListSyntax, scope: Scope): Type = {
-    if (identifier.text == "Array") {
+    // HACK: the SArray is a hack until we can get using lookups in place
+    if (identifier.text == "Array" || identifier.text == "SArray") {
       if (typeArgumentlist.arguments.length == 1) {
         val inner = getTypeOfName(typeArgumentlist.arguments(0).name, scope)
         Type.Array(inner)
@@ -918,7 +1219,8 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array<Bound
         panic("Expected Array of rank 1, found rank " + string(typeArgumentlist.arguments.length))
         Type.Error
       }
-    } else if (identifier.text == "Option") {
+    // HACK: the SOption is a hack until we can get using lookups in place
+    } else if (identifier.text == "Option" || identifier.text == "SOption") {
       if (typeArgumentlist.arguments.length == 1) {
         val inner = getTypeOfName(typeArgumentlist.arguments(0).name, scope)
         Type.Option(inner)
@@ -927,7 +1229,8 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array<Bound
         Type.Error
       }
     } else {
-      panic("Expected Array, found: '" + identifier.text + "'")
+      printLocation(identifier.location)
+      panic("Expected Array or Option, found: '" + identifier.text + "'")
       Type.Error
     }
   }
@@ -935,7 +1238,7 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array<Bound
   def getTypeOfQualifiedName(left: NameSyntax, dotToken: SyntaxToken, right: SimpleNameSyntax, scope: Scope): Type = {
     val leftType = getTypeOfName(left, scope)
     leftType match {
-      case Type.Reference(symbol) =>
+      case Type.Reference(symbol, _) =>
         getTypeOfSimpleName(right, symbol.members)
       case Type.Error => Type.Error
       case _ => panic("Expected reference type, found: " + leftType)
@@ -1013,70 +1316,47 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array<Bound
   //    type_links(id)
   //  }
 
-  def get_symbol_id(symbol: Symbol): int = {
-    if (symbol.id != -1) {
-      symbol.id
-    } else {
-      if (last_symbol_id + 1 >= symbol_links.length) {
-        val newItems = new Array<SymbolLinks>((last_symbol_id + 1) * 2)
-        for (i <- 0 to (last_symbol_id - 1)) {
-          newItems(i) = symbol_links(i)
-        }
-        symbol_links = newItems
-      } else {}
+  //
 
-      symbol_links(last_symbol_id) = new SymbolLinks()
-      symbol.id = last_symbol_id
-      last_symbol_id = last_symbol_id + 1
-      symbol.id
+  def printLocation(location: TextLocation): unit = {
+    val span = location.span
+    val source_file = location.source_file
+
+    for (currrent_line <- location.start_line to location.end_line) {
+      val line = source_file.get_line(currrent_line)
+      val start_in_current = source_file.get_line_index(span.start) == currrent_line
+      val end_in_current = source_file.get_line_index(span.end) == currrent_line
+
+      val prefix_end =
+        if (start_in_current) span.start
+        else line.start
+
+      val suffix_start =
+        if (end_in_current) span.end
+        else line.end
+
+      val prefix_span = TextSpanFactory.from_bounds(line.start, prefix_end)
+      val error_span = TextSpanFactory.from_bounds(prefix_end, suffix_start)
+      val suffix_span = TextSpanFactory.from_bounds(suffix_start, line.end)
+
+      val prefix = source_file.to_string(prefix_span)
+      val error = source_file.to_string(error_span)
+      val suffix = source_file.to_string(suffix_span)
+
+      print(prefix)
+      print(ANSI.foregroundColor("e06c75"))
+      print(error)
+      print(ANSI.Clear)
+      println(suffix)
+
+      for (c <- 0 to (prefix_span.length - 1)) {
+        print('-')
+      }
+      println('^')
     }
-  }
 
-  def getSymbolLinks(symbol: Symbol): SymbolLinks = {
-    val id = get_symbol_id(symbol)
-    symbol_links(id)
+    println()
   }
-  //
-  //
-  //    def printLocation(location: TextLocation): unit = {
-  //        val span = location.span
-  //        val source_file = location.source_file
-  //
-  //        for (currrent_line <- location.start_line to location.end_line) {
-  //            val line = source_file.get_line(currrent_line)
-  //            val start_in_current = source_file.get_line_index(span.start) == currrent_line
-  //            val end_in_current = source_file.get_line_index(span.end) == currrent_line
-  //
-  //            val prefix_end =
-  //                if (start_in_current) span.start
-  //                else line.start
-  //
-  //            val suffix_start =
-  //                if (end_in_current) span.end
-  //                else line.end
-  //
-  //            val prefix_span = TextSpanFactory.from_bounds(line.start, prefix_end)
-  //            val error_span = TextSpanFactory.from_bounds(prefix_end, suffix_start)
-  //            val suffix_span = TextSpanFactory.from_bounds(suffix_start, line.end)
-  //
-  //            val prefix = source_file.to_string(prefix_span)
-  //            val error = source_file.to_string(error_span)
-  //            val suffix = source_file.to_string(suffix_span)
-  //
-  //            print(prefix)
-  //            print(ANSI.foreground_color("e06c75"))
-  //            print(error)
-  //            print(ANSI.Clear)
-  //            println(suffix)
-  //
-  //            for(c <- 0 to (prefix_span.length - 1)) {
-  //                print('-')
-  //            }
-  //            println('^')
-  //        }
-  //
-  //        println()
-  //    }
   //
   //    // // convert an inferred SimpleType into the immutable type representation
   //    // def coalesce_type(simple: SimpleType): Type =
@@ -1128,29 +1408,9 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol, functions: Array<Bound
   //    // def coalesce_record_field(field: RecordField, polarity: bool): RecordTypeField =
   //    //     new RecordTypeField(field.name, coalesce_type(field.type, polarity))
   //
-  //    def initBuiltins() = {
-  //        val args = new Array[Type](1)
-  //        args(0) = StringType
-  //
-  //        val println = new Symbol(SymbolKind.Method, SymbolFlags.Static, "println", TextLocationFactory.empty(), None)
-  //        val message = new Symbol(SymbolKind.Parameter, SymbolFlags.None, "message", TextLocationFactory.empty(), None)
-  //        println.members.addSymbol(message)
-  //        root.members.addSymbol(println)
-  //
-  //        setSymbolType(message, StringType)
-  //        setSymbolType(println, MakeType.function(println, args, UnitType))
-  //
-  //        val print = new Symbol(SymbolKind.Method, SymbolFlags.Static, "print", TextLocationFactory.empty(), None)
-  //        val message1 = new Symbol(SymbolKind.Parameter, SymbolFlags.None, "message", TextLocationFactory.empty(), None)
-  //        print.members.addSymbol(message1)
-  //        root.members.addSymbol(print)
-  //
-  //        setSymbolType(message1, StringType)
-  //        setSymbolType(print, MakeType.function(print, args, UnitType))
-  //    }
-  //
-  //    def setSymbolType(symbol: Symbol, value: Type) = {
-  //        val links = getSymbolLinks(symbol)
-  //        links.set_type(value)
-  //    }
+
+  def setSymbolType(symbol: Symbol, value: Type) = {
+    val links = getSymbolLinks(symbol)
+    links.set_type(value)
+  }
 }

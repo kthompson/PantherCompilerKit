@@ -206,6 +206,9 @@ object OperatorPrecedence {
 }
 
 object SyntaxFacts {
+    def isBuiltin(name: string): bool =
+        name == "bool" || name == "int" || name == "string" || name == "char" || name == "unit"
+    
     def getKindName(kind: int): string = {
         if (kind == SyntaxKind.AsKeyword) "AsKeyword"
         else if (kind == SyntaxKind.AmpersandAmpersandToken) "AmpersandAmpersandToken"
