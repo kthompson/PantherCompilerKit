@@ -1,14 +1,11 @@
-import scala.{Array => SArray}
-import scala.{Option => SOption}
-
 enum Type {
-  case Function(parameters: SArray[TypedParameter], returnType: Type)
-  case Array(inner: Type)
-  case Reference(symbol: Symbol, baseType: SOption[Type])
-  case Option(inner: Type)
+  case Function(parameters: Array[TypedParameter], returnType: Type)
+  case ArrayType(inner: Type)
+  case Reference(symbol: Symbol, baseType: Option[Type])
+  case OptionType(inner: Type)
+  case Class(name: ClassName)
   case Int
   case Bool
-  case Class(name: ClassName)
   case Any
   case Never
   case Unit
@@ -40,14 +37,32 @@ case class VariableName(name: String)
 
 case class ClassName(name: String)
 
-case class FieldName(name: String)
+case class MemberName(name: String)
 
-case class MethodName(name: String)
+case class NamespaceName(name: String)
+
 case class FunctionName(name: String)
 
 case class TypeBinding(name: VariableName, typ: Type)
 
-case class TypeEnvironment(bindings: Array[TypeBinding])
+enum TypeEnvironment {
+  case Empty
+  case Cons(binding: TypeBinding, tail: TypeEnvironment)
+}
+
+object Environment {
+  def getVarType(variable: VariableName, env: TypeEnvironment): Option[Type] = {
+    env match {
+      case TypeEnvironment.Empty => None
+      case TypeEnvironment.Cons(binding, tail) =>
+        if (binding.name == variable) {
+          Some(binding.typ)
+        } else {
+          getVarType(variable, tail)
+        }
+    }
+  }
+}
 
 enum TypedExpression {
   case ArrayCreationExpression(typ: Type, expression: Expression.ArrayCreationExpression)
@@ -57,11 +72,11 @@ enum TypedExpression {
   case CallExpression(typ: Type, expression: Expression.CallExpression)
   case ForExpression(typ: Type, expression: Expression.ForExpression)
   case GroupExpression(typ: Type, expression: Expression.GroupExpression)
-  case IdentifierName(typ: Type, expression: Expression.IdentifierName)
-  case IfExpression(typ: Type, expression: Expression.IfExpression)
+//  case IdentifierName(typ: Type, expression: Expression.IdentifierName)
+  case IfExpression(typ: Type, expression: Expression.If)
   case IndexExpression(typ: Type, expression: Expression.IndexExpression)
   case LiteralExpression(typ: Type, expression: Expression.LiteralExpression)
-  case MemberAccessExpression(typ: Type, expression: Expression.MemberAccessExpression)
+//  case MemberAccessExpression(typ: Type, expression: Expression.MemberAccessExpression)
   case MatchExpression(typ: Type, expression: Expression.MatchExpression)
   case NewExpression(typ: Type, expression: Expression.NewExpression)
   case UnaryExpression(typ: Type, expression: Expression.UnaryExpression)
@@ -71,17 +86,22 @@ enum TypedExpression {
 
 case class TypedParameter(name: String, typ: Type)
 
-enum TypedMember {
-  case TypedField(name: String, typeStr: Type)
-  case TypedMethod(name: String, returnType: Type, args: Array[TypedParameter])
-}
+case class TypedField(name: MemberName, typ: Type)
+
+case class TypedMethod(name: MemberName, returnType: Type, args: Array[TypedParameter])
 
 enum TypedDefinition {
-  case TypedClass(namespace: String, name: String, members: Array[TypedMember])
-  case TypedEnum(namespace: String, name: String, members: Array[String])
+  case TypedObject(namespace: NamespaceName, name: ClassName, fields: Array[TypedField], members: Array[TypedMethod])
+  case TypedClass(namespace: NamespaceName, name: ClassName, fields: Array[TypedField], members: Array[TypedMethod])
+  case TypedEnum(namespace: NamespaceName, name: ClassName, members: Array[String])
 }
 
-case class TypedAssembly(classes: Array[TypedDefinition])
+enum TypeDefinitions {
+  case Empty
+  case Cons(definition: TypedDefinition, tail: TypeDefinitions)
+}
+
+case class TypedAssembly(definitions: Array[TypedDefinition])
 
 //case class FunctionDefinition(name: FunctionName, )
 //(* Function defn consists of the function name, return type, the list of params, and the

@@ -5,132 +5,132 @@ case class Binder(diagnostics: DiagnosticBag, root: Symbol) {
   var ns = "" // namespace
   var _parent = root
 
-  var _functionsSize = 0
-  var functions = new Array[BoundFunction](0)
-  var _fieldsSize = 0
-  var fields = new Array[BoundField](0)
-
   def bind(trees: Array[SyntaxTree]): BoundTree = {
-    for (x <- 0 to (trees.length - 1)) {
-      bindCompilationUnit(trees(x).root)
-    }
-
     val bag = new DiagnosticBag()
     for (i <- 0 to (trees.length - 1)) {
       bag.addDiagnostics(trees(i).diagnostics)
     }
 
-    BoundTree(root, bag.diagnostics, boundFunctions(), boundFields())
-  }
-
-  def boundFunctions(): Array[BoundFunction] = {
-    val newItems = new Array[BoundFunction](_functionsSize)
-    for (i <- 0 to (_functionsSize - 1)) {
-      newItems(i) = functions(i)
+    var defns = BoundDefinitions.Empty
+    for (x <- 0 to (trees.length - 1)) {
+      defns = mergeDefinitions(defns, bindCompilationUnit(trees(x).root))
     }
-    newItems
+
+    BoundTree(root, bag.diagnostics, defns)
   }
 
-  def ensureFunctionCapacity(count: int): unit = {
-    if (_functionsSize + count >= functions.length) {
-      val newItems = new Array[BoundFunction]((_functionsSize + count) * 2)
-      for (i <- 0 to (_functionsSize - 1)) {
-        newItems(i) = functions(i)
-      }
-      functions = newItems
-    } else {
-      ()
+  def bindMethod(parent: Symbol, node: MemberSyntax.FunctionDeclarationSyntax): BoundDefinition.Method = {
+    // TODO: need to handle non-static methods
+    val functionSymbol = declareSymbol(SymbolKind.Method, SymbolFlags.Static, Declaration.Method(node.identifier.text, node.identifier.location, node), parent.members, parent)
+    val params = bindParameters(node.parameters, functionSymbol.members)
+    val body = node.body match {
+      case Some(value) => Some(value.expression)
+      case None => None
     }
+    new BoundDefinition.Method(functionSymbol, node, params, body)
   }
 
-  def addBoundFunction(symbol: Symbol, function: MemberSyntax.FunctionDeclarationSyntax, params: Array[BoundParameter]): unit = {
-    ensureFunctionCapacity(1)
-    functions(_functionsSize) = BoundFunction(symbol, function, params)
-    _functionsSize = _functionsSize + 1
+  def bindFieldFromParam(parent: Symbol, node: ParameterSyntax): BoundField = {
+    val fieldSymbol = declareSymbol(
+      SymbolKind.Field,
+      parent.flags & SymbolFlags.Static,
+      Declaration.FieldFromParameter(node.identifier.text, node.identifier.location, node),
+      parent.members,
+      parent
+    )
+
+    BoundField(fieldSymbol, Some(node.typeAnnotation), None)
   }
 
-  def boundFields(): Array[BoundField] = {
-    val newItems = new Array[BoundField](_fieldsSize)
-    for (i <- 0 to (_fieldsSize - 1)) {
-      newItems(i) = fields(i)
-    }
-    newItems
-  }
-
-  def ensureFieldCapacity(count: int): unit = {
-    if (_fieldsSize + count >= fields.length) {
-      val newItems = new Array[BoundField]((_fieldsSize + count) * 2)
-      for (i <- 0 to (_fieldsSize - 1)) {
-        newItems(i) = fields(i)
-      }
-      fields = newItems
-    } else {
-      ()
-    }
-  }
-
-  def addBoundField(symbol: Symbol, typeAnnotation: Option[TypeAnnotationSyntax], expression: Option[Expression]): unit = {
-    ensureFieldCapacity(1)
-    fields(_fieldsSize) = BoundField(symbol, typeAnnotation, expression)
-    _fieldsSize = _fieldsSize + 1
-  }
-
-  def bindCompilationUnit(compilationUnit: CompilationUnitSyntax): unit = {
+  def bindCompilationUnit(compilationUnit: CompilationUnitSyntax): BoundDefinitions = {
     // bind_namespace_declarations(compilationUnit.namespaceDeclaration)
     // bind_using_declarations(compilationUnit.usings)
     bindMembers(compilationUnit.members, root.members)
   }
 
-  def bindCases(nodes: Array[EnumCaseSyntax], scope: Scope): unit = {
+  def bindCases(nodes: Array[EnumCaseSyntax], scope: Scope): Array[BoundEnumCase] = {
+    val cases = new Array[BoundEnumCase](nodes.length)
     for (x <- 0 to (nodes.length - 1)) {
-      bindCase(nodes(x), scope)
+      cases(x) = bindCase(nodes(x), scope)
     }
+    cases
   }
 
-  def bindCase(node: EnumCaseSyntax, scope: Scope): unit = {
+  def bindCase(node: EnumCaseSyntax, scope: Scope): BoundEnumCase = {
     val saveParent = _parent
     val symbol = declareSymbol(SymbolKind.Class, SymbolFlags.None, Declaration.ClassFromEnumCase(node.identifier.text, node.identifier.location, node), scope, _parent)
 
     // todo bind fields
-    bindEnumConstructor(node, symbol.members)
+    val params = bindEnumConstructor(node, symbol.members)
 
     _parent = saveParent
+
+    new BoundEnumCase(symbol, params)
   }
 
-  def bindEnumConstructor(node: EnumCaseSyntax, scope: Scope): unit = {
-
+  def bindEnumConstructor(node: EnumCaseSyntax, scope: Scope): Array[BoundParameter] = {
     node.parameters match {
       case Some(EnumCaseParametersSyntax(_, parameters, _)) =>
         val saveParent = _parent
         val symbol = declareSymbol(SymbolKind.Constructor, SymbolFlags.None, Declaration.Constructor(node.identifier.text, node.identifier.location, parameters), scope, _parent)
         _parent = symbol
 
-        bindParameters(parameters, symbol.members)
+        val params = bindParameters(parameters, symbol.members)
         _parent = saveParent
-      case None => ()
+        params
+      case None =>
+        new Array[BoundParameter](0)
     }
   }
 
-  def bindMembers(nodes: Array[MemberSyntax], scope: Scope): unit = {
+  def bindMembers(nodes: Array[MemberSyntax], scope: Scope): BoundDefinitions = {
+    var defns = BoundDefinitions.Empty
     for (x <- 0 to (nodes.length - 1)) {
-      bindMember(nodes(x), scope)
+      defns = BoundDefinitions.Cons(bindMember(nodes(x), scope), defns)
+    }
+    defns
+  }
+  
+  def mergeDefinitions(a: BoundDefinitions, b: BoundDefinitions): BoundDefinitions = {
+    a match {
+      case BoundDefinitions.Empty => b
+      case BoundDefinitions.Cons(definition, tail) => 
+        mergeDefinitions(tail, BoundDefinitions.Cons(definition, b))
     }
   }
 
-  def bindMember(member: MemberSyntax, scope: Scope): unit = {
+  def bindMember(member: MemberSyntax, scope: Scope): BoundDefinition = {
     member match {
       case value: MemberSyntax.ObjectDeclarationSyntax => bindObjectDeclaration(value, scope)
       case value: MemberSyntax.ClassDeclarationSyntax => bindClassDeclaration(value, scope)
       case value: MemberSyntax.FunctionDeclarationSyntax => bindFunctionDeclaration(value, scope)
       case value: MemberSyntax.EnumDeclarationSyntax => bindEnumDeclaration(value, scope)
-      case value: MemberSyntax.GlobalStatementSyntax =>
-        bindGlobalStatement(value, scope)
+      case value: MemberSyntax.VariableDeclaration => bindVariableDeclaration(value, scope)
+      case value: MemberSyntax.GlobalStatementSyntax => bindGlobalStatement(value, scope)
     }
   }
 
-  def name_with_namespace(name: string): string =
-    if (ns == "") name
-    else ns + "." + name
+  def bindGlobalStatement(node: MemberSyntax.GlobalStatementSyntax, scope: Scope): BoundDefinition =
+    new BoundDefinition.GlobalStatement(node.statement)
+
+  def bindVariableDeclaration(node: MemberSyntax.VariableDeclaration, scope: Scope): BoundDefinition = {
+    val parent = scope.getParentSymbol()
+
+    val isClass = parent.kind == SymbolKind.Class
+
+    val symbol = declareSymbol(
+      SymbolKind.Field,
+      parent.flags & SymbolFlags.Static,
+      Declaration.FieldFromMember(node.identifier.text, node.identifier.location, node),
+      scope,
+      parent
+    )
+    new BoundDefinition.Field(symbol, node.typeAnnotation, Some(node.expression))
+  }
+
+//  def name_with_namespace(name: string): string =
+//    if (ns == "") name
+//    else ns + "." + name
 
   def declareSymbol(symbol_kind: int, flags: int, node: Declaration, scope: Scope, parent: Symbol): Symbol = {
     val name = if (symbol_kind == SymbolKind.Constructor) ".ctor" else node match {
@@ -139,8 +139,10 @@ case class Binder(diagnostics: DiagnosticBag, root: Symbol) {
       case Declaration.Constructor(name, _, _) => name
       case Declaration.FieldFromParameter(name, _, _) => name
       case Declaration.FieldFromVariable(name, _, _) => name
+      case Declaration.FieldFromMember(name, _, _) => name
       case Declaration.Parameter(name, _, _) => name
       case Declaration.Local(name, _, _) => name
+      case Declaration.LocalFromFor(name, _, _) => name
       case Declaration.ClassFromObject(name, _, _) => name
       case Declaration.ClassFromEnum(name, _, _) => name
       case Declaration.Method(name, _, _) => name
@@ -152,8 +154,10 @@ case class Binder(diagnostics: DiagnosticBag, root: Symbol) {
       case Declaration.Constructor(_, location, _) => location
       case Declaration.FieldFromParameter(_, location, _) => location
       case Declaration.FieldFromVariable(_, location, _) => location
+      case Declaration.FieldFromMember(_, location, _) => location
       case Declaration.Parameter(_, location, _) => location
       case Declaration.Local(_, location, _) => location
+      case Declaration.LocalFromFor(_, location, _) => location
       case Declaration.ClassFromObject(_, location, _) => location
       case Declaration.ClassFromEnum(_, location, _) => location
       case Declaration.Method(_, location, _) => location
@@ -170,130 +174,71 @@ case class Binder(diagnostics: DiagnosticBag, root: Symbol) {
     }
   }
 
-  def bindObjectDeclaration(node: MemberSyntax.ObjectDeclarationSyntax, scope: Scope): unit = {
+  def bindObjectDeclaration(node: MemberSyntax.ObjectDeclarationSyntax, scope: Scope): BoundDefinition = {
     val saveParent = _parent
     val symbol = declareSymbol(SymbolKind.Class, SymbolFlags.Static, Declaration.ClassFromObject(node.identifier.text, node.identifier.location, node), scope, _parent)
     _parent = symbol
 
-    bindTemplate(node.template, symbol.members)
+    val members = bindTemplate(node.template, symbol.members)
 
     _parent = saveParent
+
+    new BoundDefinition.Object(symbol, members)
   }
 
-  def bindEnumDeclaration(node: MemberSyntax.EnumDeclarationSyntax, scope: Scope): unit = {
+  def bindEnumDeclaration(node: MemberSyntax.EnumDeclarationSyntax, scope: Scope): BoundDefinition = {
     val saveParent = _parent
     val symbol = declareSymbol(SymbolKind.Class, SymbolFlags.None, Declaration.ClassFromEnum(node.identifier.text, node.identifier.location, node), scope, _parent)
     _parent = symbol
 
-    bindCases(node.cases, symbol.members)
+    val cases = bindCases(node.cases, symbol.members)
 
-    bindMembers(node.members, symbol.members)
+    val members = bindMembers(node.members, symbol.members)
 
     _parent = saveParent
+    new BoundDefinition.Enum(symbol, cases, members)
   }
 
-  def bindOptionalTemplate(node: Option[TemplateSyntax], scope: Scope): unit =
-    if (node.isDefined) bindTemplate(node.get, scope) else ()
+  def bindOptionalTemplate(node: Option[TemplateSyntax], scope: Scope): BoundDefinitions =
+    if (node.isDefined) bindTemplate(node.get, scope) else BoundDefinitions.Empty
 
-  def bindTemplate(node: TemplateSyntax, scope: Scope): unit = {
+  def bindTemplate(node: TemplateSyntax, scope: Scope): BoundDefinitions =
     bindMembers(node.members, scope)
-  }
 
-  def bindClassDeclaration(node: MemberSyntax.ClassDeclarationSyntax, scope: Scope): unit = {
+
+  def bindClassDeclaration(node: MemberSyntax.ClassDeclarationSyntax, scope: Scope): BoundDefinition = {
     val saveParent = _parent
     val symbol = declareSymbol(SymbolKind.Class, SymbolFlags.None, Declaration.Class(node.identifier.text, node.identifier.location, node), scope, _parent)
     _parent = symbol
 
     val newScope = symbol.members
 
-    bindConstructor(node, newScope)
-    bindFields(node.parameters, newScope)
-    bindOptionalTemplate(node.template, newScope)
+    //    bindConstructor(node, newScope)
+    val fields = bindFields(node.parameters, newScope)
+    val members = bindOptionalTemplate(node.template, newScope)
 
     _parent = saveParent
+    new BoundDefinition.Class(symbol, fields, members)
   }
 
-  def bindConstructor(node: MemberSyntax.ClassDeclarationSyntax, scope: Scope): unit = {
-    val saveParent = _parent
-    val symbol = declareSymbol(
-      SymbolKind.Constructor,
-      SymbolFlags.None,
-      Declaration.Constructor(node.identifier.text, node.identifier.location, node.parameters),
-      scope,
-      _parent
-    )
-    _parent = symbol
-
-    val methodScope = symbol.members
-
-    //    val params = bindParameters(node.parameters, methodScope)
-
-    // TODO: need to add constructors to the BoundTree
-    //    addBoundFunction(symbol, node, params)
-
-    _parent = saveParent
-  }
-
-  def bindFunctionDeclaration(node: MemberSyntax.FunctionDeclarationSyntax, scope: Scope): unit = {
-    val newScope = if (scope.isGlobalScope()) {
-      // TODO: need to adjust parent here as we are moving our parent symbol
-      program_scope(scope)
-    } else {
-      scope
-    }
-
+  def bindFunctionDeclaration(node: MemberSyntax.FunctionDeclarationSyntax, scope: Scope): BoundDefinition = {
     val saveParent = _parent
     val flags = _parent.flags & SymbolFlags.Static
-    val symbol = declareSymbol(SymbolKind.Method, flags, Declaration.Method(node.identifier.text, node.identifier.location, node), scope, _parent)
-
+    val isClass = _parent.kind == SymbolKind.Class
+    val kind = if (isClass) SymbolKind.Method else SymbolKind.Function
+    val symbol = declareSymbol(kind, flags, Declaration.Method(node.identifier.text, node.identifier.location, node), scope, _parent)
     _parent = symbol
-
     val methodScope = symbol.members
-
     val params = bindParameters(node.parameters, methodScope)
-    //        bind_optional_function_body(node.body, methodScope)
 
-    addBoundFunction(symbol, node, params)
+    val expr = node.body match {
+      case Some(value) => Some(value.expression)
+      case None => None
+    }
 
     _parent = saveParent
-  }
 
-
-  def program_symbol(scope: Scope): Symbol = {
-    val maybeProgram = scope.get("$Program")
-    if (maybeProgram.isEmpty) {
-      scope.addSymbol(new Symbol(SymbolKind.Class, SymbolFlags.Static, "$Program", TextLocationFactory.empty(), None))
-    } else {
-      maybeProgram.get
-    }
-  }
-
-  def program_scope(scope: Scope): Scope =
-    program_symbol(scope).members
-
-  def bindGlobalStatement(node: MemberSyntax.GlobalStatementSyntax, scope: Scope): unit = {
-    //        this is to handle creating a main method and class if it does not exist
-    //        but we can handle this later by lowering
-    //        val newScope = if (scope.isGlobalScope()) {
-    //            val program = program_symbol(scope)
-    //            val programScope = program.members
-    //            val maybeMain = programScope.get("main")
-    //            if (maybeMain.isEmpty) {
-    //                val parent = Some(program)
-    //                programScope.
-    //                    addSymbol(new Symbol(SymbolKind.Method, SymbolFlags.Static, "main", TextLocationFactory.empty(), parent)).
-    //                    members
-    //            } else {
-    //                // TODO: diagnostic cant have main and global statements
-    //                maybeMain.get.members
-    //            }
-    //        } else {
-    //            scope
-    //        }
-    //
-    //        bind_statment(node.statement, newScope)
-
-    bindStatement(node.statement, scope)
+    new BoundDefinition.Method(symbol, node, params, expr)
   }
 
   def bindParameter(node: ParameterSyntax, scope: Scope): BoundParameter = {
@@ -311,239 +256,8 @@ case class Binder(diagnostics: DiagnosticBag, root: Symbol) {
       panic("bindParameter")
     }
 
-    addBoundField(symbol, Some(node.typeAnnotation), None)
-
     BoundParameter(symbol, node)
   }
-
-  //    def bind_optional_function_body(node: Option[FunctionBodySyntax], scope: Scope): unit =
-  //        if (node.isDefined) bind_function_body(node.get, scope) else ()
-
-  //    def bind_function_body(node: FunctionBodySyntax, scope: Scope): unit = {
-  //        bindExpression(node.expression, scope)
-  //    }
-
-  //    def bindExpression(node: ExpressionSyntax, scope: Scope): unit = {
-  //      node match {
-  //        case ArrayCreationExpression(value) => bind_array_creation_expression(value, scope)
-  //        case AssignmentExpression(value) => bind_assignment_expression(value, scope)
-  //        case BinaryExpression(value) => bindBinaryExpression(value, scope)
-  //        case BlockExpression(value) => bindBlockExpression(value, scope)
-  //        case CallExpression(value) => bindCallExpression(value, scope)
-  //        case ForExpression(value) => bindForExpression(value, scope)
-  //        case GroupExpression(value) => bindGroupExpression(value, scope)
-  //        case IdentifierName(value) => bind_identifier_name(value, scope)
-  //        case IfExpression(value) => bindIfExpression(value, scope)
-  //        case IndexExpression(value) => bindIndexExpression(value, scope)
-  //        case LiteralExpression(value) => bind_literal_expression(value, scope)
-  //        case value: MatchExpression => bindMatchExpression(value, scope)
-  //        case MemberAccessExpression(value) => bind_member_access_expression(value, scope)
-  //        case NewExpression(value) => bind_new_expression(value, scope)
-  //        case UnaryExpression(value) => bind_unary_expression(value, scope)
-  //        case UnitExpression(value) => bind_unit_expression(value, scope)
-  //        case WhileExpression(value) => bind_while_expression(value, scope)
-  //      }
-  //    }
-
-  //    def bindMatchExpression(node: MatchExpression, scope: Scope): unit = {
-  //        bindExpression(node.expression, scope)
-  //        bindMatchCases(node.cases, scope)
-  //    }
-
-  //    def bindMatchCases(nodes: Array[MatchCaseSyntax], scope: Scope): unit = {
-  //        for (x <- 0 to (nodes.length-1)) {
-  //            bindMatchCase(nodes(x), x, scope)
-  //        }
-  //    }
-
-  //    def bindMatchCase(node: MatchCaseSyntax, index: int, scope: Scope): unit = {
-  //        val matchScope = scope.openScope("match" + string(index))
-  //        bindMatchPattern(node.pattern, matchScope)
-  //        bindBlockExpressionList(node.block, matchScope)
-  //    }
-
-  //    def bindMatchPattern(node: PatternSyntax, scope: Scope): unit = {
-  //        node match {
-  //            case PatternSyntax.DiscardPattern(value) => ()
-  //            case PatternSyntax.LiteralPattern(value) => ()
-  //            case PatternSyntax.TypePattern(value, annotation) =>
-  //                // TODO: need to provide the type annotation to the symbol so we can detect the type
-  //                // in the checker
-  //                declareSymbol(SymbolKind.Local, SymbolFlags.None, Declaration.token(value), scope, _parent)
-  //            case PatternSyntax.ExtractPattern(name, _, patterns, _) =>
-  //                // TODO: need to bind the name
-  //                bindMatchPatterns(patterns, scope)
-  //        }
-  //    }
-  //
-  //    def bindMatchPatterns(nodes: Array[PatternItemSyntax], scope: Scope): unit = {
-  //        for (x <- 0 to (nodes.length-1)) {
-  //            bindMatchPattern(nodes(x).pattern, scope)
-  //        }
-  //    }
-
-  def bind_identifier_name(node: SimpleNameSyntax.IdentifierNameSyntax, scope: Scope): unit = {
-    // TODO: ensure symbol exists
-  }
-
-  //    def bind_array_creation_expression(node: ArrayCreationExpressionSyntax, scope: Scope): unit = {
-  //        get_name(node.name)
-  //        bindOptionalExpression(node.arrayRank, scope)
-  //        bind_array_initializer_expressions(node.initializer, scope)
-  //    }
-  //
-  //    def bind_array_initializer_expressions(node: Option[ArrayInitializerExpressionSyntax], scope: Scope): unit = {
-  //        if (node.isDefined) {
-  //            bind_array_initializer_expression(node.get, scope)
-  //        } else ()
-  //    }
-  //    def bind_array_initializer_expression(node: ArrayInitializerExpressionSyntax, scope: Scope): unit = {
-  //        bindExpressionList(node.expressions, scope)
-  //    }
-
-  //    def bind_assignment_expression(node: AssignmentExpressionSyntax, scope: Scope): unit = {
-  //        bindExpression(node.left, scope)
-  //        bindExpression(node.right, scope)
-  //    }
-
-  //    def bindBinaryExpression(node: BinaryExpressionSyntax, scope: Scope): unit = {
-  //        bindExpression(node.left, scope)
-  //        bindExpression(node.right, scope)
-  //    }
-
-  //    def bindBlockExpression(node: BlockExpressionSyntax, scope: Scope): unit = {
-  //        val blockScope = scope.openScope("block")
-  //        bindBlockExpressionList(node.block, blockScope)
-  //    }
-
-  //    def bindBlockExpressionList(node: BlockExpressionListSyntax, blockScope: Scope): Unit = {
-  //        bindStatments(node.statements, blockScope)
-  //        bindOptionalExpression(node.expression, blockScope)
-  //    }
-
-  //    def bindCallExpression(node: CallExpressionSyntax, scope: Scope): unit = {
-  //        bindExpression(node.name, scope)
-  //        bindExpressionList(node.arguments, scope)
-  //    }
-
-  //    def bindForExpression(node: ForExpressionSyntax, scope: Scope): unit = {
-  //        val forScope = scope.openScope("for")
-  //
-  //        val saveParent = _parent
-  //        val symbol = declareSymbol(SymbolKind.Local, SymbolFlags.None, Declaration.token(node.identifier), forScope, _parent)
-  //        _parent = symbol
-  //
-  //        bindExpression(node.fromExpr, scope)
-  //        bindExpression(node.toExpr, scope)
-  //        bindExpression(node.body, forScope)
-  //
-  //        _parent = saveParent
-  //    }
-
-  //    def bindGroupExpression(node: GroupExpressionSyntax, scope: Scope): unit =
-  //        bindExpression(node.expression, scope)
-
-  //    def bindIfExpression(node: IfExpressionSyntax, scope: Scope): unit = {
-  //        bindExpression(node.condition, scope)
-  //        bindExpression(node.thenExpr, scope)
-  //        bindExpression(node.elseExpr, scope)
-  //    }
-
-  //    def bindIndexExpression(node: IndexExpressionSyntax, scope: Scope): unit = {
-  //        bindExpression(node.left, scope)
-  //        bindExpression(node.index, scope)
-  //    }
-  //    def bind_literal_expression(node: LiteralExpressionSyntax, scope: Scope): unit = {
-  //    }
-  //    def bind_member_access_expression(node: MemberAccessExpressionSyntax, scope: Scope): unit = {
-  //        bindExpression(node.left, scope)
-  //        // bind_expression(node.right, scope)
-  //    }
-  //    def bind_new_expression(node: NewExpressionSyntax, scope: Scope): unit = {
-  //        get_name(node.name)
-  //        bindExpressionList(node.arguments, scope)
-  //    }
-  //    def bind_unary_expression(node: UnaryExpressionSyntax, scope: Scope): unit = {
-  //        bindExpression(node.expression, scope)
-  //    }
-  //    def bind_unit_expression(node: UnitExpressionSyntax, scope: Scope): unit = {
-  //    }
-  //    def bind_while_expression(node: WhileExpressionSyntax, scope: Scope): unit = {
-  //        bindExpression(node.condition, scope)
-  //        bindExpression(node.body, scope)
-  //    }
-  //
-  //    def bindExpressionList(node: ExpressionListSyntax, scope: Scope): unit = {
-  //        bind_expression_items(node.expressions, scope)
-  //    }
-
-  //    def bind_expression_items(nodes: Array[ExpressionItemSyntax], scope: Scope): unit = {
-  //        for (x <- 0 to (nodes.length-1)) {
-  //            bind_expression_item(nodes(x), scope)
-  //        }
-  //    }
-
-  //    def bind_expression_item(node: ExpressionItemSyntax, scope: Scope): unit =
-  //        bindExpression(node.expression, scope)
-
-  def bindStatement(node: StatementSyntax, scope: Scope): unit = {
-    node match {
-      case value: StatementSyntax.VariableDeclarationStatement => bindVariableDeclarationStatement(value, scope)
-      //            case StatementSyntax.BreakStatement(value) => bind_break_statement(value, scope)
-      //            case StatementSyntax.ContinueStatement(value) => bind_continue_statement(value, scope)
-      //            case StatementSyntax.ExpressionStatement(value) => bind_expression_statement(value, scope)
-      case _ =>
-        // wont do anything with other statements yet
-        ()
-    }
-  }
-
-  def bindVariableDeclarationStatement(node: StatementSyntax.VariableDeclarationStatement, scope: Scope): unit = {
-    val parent = scope.getParentSymbol()
-
-    if (parent.kind == SymbolKind.Class) {
-      addBoundField(
-        declareSymbol(SymbolKind.Field, parent.flags & SymbolFlags.Static, Declaration.FieldFromVariable(node.identifier.text, node.identifier.location, node), scope, _parent),
-        node.typeAnnotation,
-        Some(node.expression)
-      )
-    } else if (parent.kind == SymbolKind.Method) {
-      addBoundField(
-        declareSymbol(SymbolKind.Local, SymbolFlags.None, Declaration.Local(node.identifier.text, node.identifier.location, node), scope, _parent),
-        node.typeAnnotation,
-        Some(node.expression)
-      )
-    } else {
-      panic("bind_variable_declaration_statement")
-    }
-  }
-
-  //          bindExpression(node.expression, scope)
-  //  }
-  //
-  //    def bind_break_statement(node: BreakStatementSyntax, scope: Scope): unit = ()
-  //    def bind_continue_statement(node: ContinueStatementSyntax, scope: Scope): unit = ()
-  //    def bind_expression_statement(node: ExpressionStatementSyntax, scope: Scope): unit = {
-  //        bindExpression(node.expression, scope)
-  //    }
-  //
-  //    def bindStatments(nodes: Array[StatementSyntax], scope: Scope): unit = {
-  //        for (x <- 0 to (nodes.length-1)) {
-  //            bind_statment(nodes(x), scope)
-  //        }
-  //    }
-
-  //    def bindOptionalExpression(node: Option[ExpressionSyntax], scope: Scope): unit = {
-  //        if (node.isDefined) {
-  //            bindExpression(node.get, scope)
-  //        } else ()
-  //    }
-  //
-  //    def bind_expressions(nodes: Array[ExpressionSyntax], scope: Scope): unit = {
-  //        for (x <- 0 to (nodes.length-1)) {
-  //            bindExpression(nodes(x), scope)
-  //        }
-  //    }
 
   def bindParameters(nodes: Array[ParameterSyntax], scope: Scope): Array[BoundParameter] = {
     val params = new Array[BoundParameter](nodes.length)
@@ -553,74 +267,11 @@ case class Binder(diagnostics: DiagnosticBag, root: Symbol) {
     params
   }
 
-  def bindFields(nodes: Array[ParameterSyntax], scope: Scope): unit = {
+  def bindFields(nodes: Array[ParameterSyntax], scope: Scope): Array[BoundField] = {
+    val fields = new Array[BoundField](nodes.length)
     for (x <- 0 to (nodes.length - 1)) {
-      bindField(nodes(x), scope)
+      fields(x) = bindFieldFromParam(scope.getParentSymbol(), nodes(x))
     }
+    fields
   }
-
-  def bindField(node: ParameterSyntax, scope: Scope): unit =
-    addBoundField(
-      declareSymbol(SymbolKind.Field, _parent.flags & SymbolFlags.Static, Declaration.FieldFromParameter(node.identifier.text, node.identifier.location, node), scope, _parent),
-      Some(node.typeAnnotation),
-      None
-    )
-
-
-  //  def get_name(name: NameSyntax): string = {
-  //    name match {
-  //      case value: NameSyntax.QualifiedNameSyntax =>
-  //        get_qualified_name(value)
-  //      case NameSyntax.SimpleName(value) =>
-  //        get_simple_name(value)
-  //    }
-  //  }
-  //
-  //  def get_qualified_name(node: NameSyntax.QualifiedNameSyntax): string =
-  //    get_name(node.left) + "." + get_simple_name(node.right)
-
-  //  def get_generic_name(node: SimpleNameSyntax.GenericNameSyntax): string =
-  //    node.identifier.text + get_type_argument_list(node.typeArgumentlist)
-
-  //  def get_simple_name(node: SimpleNameSyntax): string = {
-  //    node match {
-  //      case value: SimpleNameSyntax.GenericNameSyntax => get_generic_name(value)
-  //      case value: SimpleNameSyntax.IdentifierNameSyntax => get_identifier_name(value)
-  //    }
-  //  }
-
-  //  def get_type_argument_lists(nodes: Array[TypeArgumentListSyntax], scope: Scope): string = {
-  //    var res = "<"
-  //    for (x <- 0 to (nodes.length - 1)) {
-  //      res = res + get_type_argument_list(nodes(x))
-  //    }
-  //    res + ">"
-  //  }
-
-  //  def get_type_argument_list(node: TypeArgumentListSyntax): string =
-  //    get_type_argument_list_items(node.arguments)
-
-  //  def get_type_argument_list_items(nodes: Array[TypeArgumentItemSyntax]): string = {
-  //    var res = ""
-  //    for (x <- 0 to (nodes.length - 1)) {
-  //      res = res + bind_type_argument_list_item(nodes(x))
-  //    }
-  //    res
-  //  }
-
-  //  def bind_type_argument_list_item(node: TypeArgumentItemSyntax): string = {
-  //    val sep =
-  //      if (node.separator.isDefined) ","
-  //      else ""
-  //    get_name(node.name) + sep
-  //  }
-
-  def bind_identifier_names(nodes: Array[SimpleNameSyntax.IdentifierNameSyntax], scope: Scope): unit = {
-    for (x <- 0 to (nodes.length - 1)) {
-      bind_identifier_name(nodes(x), scope)
-    }
-  }
-  //
-  //  def get_identifier_name(node: SimpleNameSyntax.IdentifierNameSyntax): string =
-  //    node.identifier.text
 }

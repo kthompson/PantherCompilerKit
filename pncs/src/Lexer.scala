@@ -75,7 +75,7 @@ case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
     val curr = current()
     val look = lookahead()
     if (curr == '\u0000') {
-      new SimpleToken(SyntaxKind.EndOfInputToken, _position, "", MakeSyntaxTokenValue.none())
+      new SimpleToken(SyntaxKind.EndOfInputToken, _position, "", SyntaxTokenValue.None)
     } else if (curr == '.') {
       scanSimpleOne(SyntaxKind.DotToken)
     } else if (curr == '(') {
@@ -150,7 +150,7 @@ case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
   def scanInvalidToken(): SimpleToken = {
     val curr = current()
     diagnostics.reportBadCharacter(new TextLocation(source_file, new TextSpan(_position, 1)), curr)
-    val token = new SimpleToken(SyntaxKind.InvalidTokenTrivia, _position, string(curr), MakeSyntaxTokenValue.none())
+    val token = new SimpleToken(SyntaxKind.InvalidTokenTrivia, _position, string(curr), SyntaxTokenValue.Error)
     next()
     token
   }
@@ -249,7 +249,7 @@ case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
 
   def makeStringToken(start: int, value: string): SimpleToken = {
     val span = makeSpan(start)
-    new SimpleToken(SyntaxKind.StringToken, start, span, MakeSyntaxTokenValue.string(value))
+    new SimpleToken(SyntaxKind.StringToken, start, span, SyntaxTokenValue.String(value))
   }
 
   def scanChar(): SimpleToken = {
@@ -259,17 +259,17 @@ case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
     val curr = current()
     val value = if (curr == '\r' || curr == '\n' || curr == '\u0000') {
       diagnostics.reportUnterminatedChar(new TextLocation(source_file, new TextSpan(start, 1)))
-      MakeSyntaxTokenValue.none()
+      SyntaxTokenValue.Error
     } else if (curr == '\'') {
       diagnostics.reportEmptyCharLiteral(new TextLocation(source_file, new TextSpan(start, 2)))
-      MakeSyntaxTokenValue.none()
+      SyntaxTokenValue.Error
     } else if (curr == '\\') {
       val result = scanEscapeSequence()
-      if (result.is_success) MakeSyntaxTokenValue.char(string(result.value)(0))
-      else MakeSyntaxTokenValue.none()
+      if (result.is_success) SyntaxTokenValue.Character(string(result.value)(0))
+      else SyntaxTokenValue.None
     } else {
       next() // character
-      MakeSyntaxTokenValue.char(curr)
+      SyntaxTokenValue.Character(curr)
     }
 
     if (current() == '\'') {
@@ -293,14 +293,14 @@ case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
     }
     val span = makeSpan(start)
 
-    new SimpleToken(SyntaxKind.NumberToken, start, span, MakeSyntaxTokenValue.number(value))
+    new SimpleToken(SyntaxKind.NumberToken, start, span, SyntaxTokenValue.Number(value))
   }
 
   def scanSimpleOne(kind: int): SimpleToken = {
     val start = _position
     val span = source_file.to_string(_position, 1)
     next()
-    new SimpleToken(kind, start, span, MakeSyntaxTokenValue.none())
+    new SimpleToken(kind, start, span, SyntaxTokenValue.None)
   }
 
   def scanSimpleTwo(kind: int): SimpleToken = {
@@ -308,7 +308,7 @@ case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
     val span = source_file.to_string(_position, 2)
     next()
     next()
-    new SimpleToken(kind, start, span, MakeSyntaxTokenValue.none())
+    new SimpleToken(kind, start, span, SyntaxTokenValue.None)
   }
 
   def scanIdent(): SimpleToken = {
@@ -320,7 +320,7 @@ case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
     val span = makeSpan(start)
     val kind = SyntaxFacts.getKeywordKind(span)
 
-    new SimpleToken(kind, start, span, MakeSyntaxTokenValue.none())
+    new SimpleToken(kind, start, span, SyntaxTokenValue.None)
   }
 
   def scanOperator(): SimpleToken = {
@@ -330,7 +330,7 @@ case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
       next()
     }
     val span = makeSpan(start)
-    new SimpleToken(SyntaxKind.IdentifierToken, start, span, MakeSyntaxTokenValue.none())
+    new SimpleToken(SyntaxKind.IdentifierToken, start, span, SyntaxTokenValue.None)
   }
 
   def scanAnnotation(): SimpleToken = {
@@ -340,7 +340,7 @@ case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
       next()
     }
     val span = makeSpan(start)
-    new SimpleToken(SyntaxKind.AnnotationToken, start, span, MakeSyntaxTokenValue.none())
+    new SimpleToken(SyntaxKind.AnnotationToken, start, span, SyntaxTokenValue.None)
   }
 
   def scan_trivia(leading: bool): Array[SyntaxTrivia] = {

@@ -6,49 +6,38 @@ object ScopeParentKind {
   val Scope = 1
 }
 
-class ScopeParent(kind: int, symbol: Option<Symbol>, scope: Option<Scope>) {
-  def getScope(): Scope = {
-    if (kind == ScopeParentKind.Symbol) {
-      symbol.get.members
-    } else {
-      scope.get
-    }
+enum ScopeParent {
+  case OfSymbol(value: Symbol)
+  case OfScope(value: Scope)
+  
+  def getScope(): Scope = this match {
+    case ScopeParent.OfSymbol(value) => value.members
+    case ScopeParent.OfScope(value) => value
   }
 
-  def get(name: string): Option<Symbol> = {
-    scope match {
-      case Some(value) => value.get(name)
-      case None =>
-        symbol match {
-          case Some(value) =>
-            // if we are a Symbol, we already searched this symbols scope so go to our parent
-            if (value.has_parent()) {
-              val parent = value.parent()
-              parent.members.get(name)
-            } else {
-              None
-            }
-          case None => None
-        }
-    }
+  def get(name: string): Option<Symbol> = this match {
+    case ScopeParent.OfScope(value) => value.get(name)
+    case ScopeParent.OfSymbol(value) =>
+      // if we are a Symbol, we already searched this symbols scope so go to our parent
+      if (value.has_parent()) {
+        val parent = value.parent()
+        parent.members.get(name)
+      } else {
+        None
+      }
   }
-}
-
-object MakeScopeParent {
-  def symbol(value: Symbol): ScopeParent = new ScopeParent(ScopeParentKind.Symbol, Some(value), None)
-
-  def scope(value: Scope): ScopeParent = new ScopeParent(ScopeParentKind.Scope, None, Some(value))
 }
 
 object SymbolKind {
   val Root = 0 // maps to the SymbolTable
   val Class = 1 // maps to a specific TypeSymbol
   val Method = 2 // maps to a specific MethodSymbol (includes parameters)
-  val Constructor = 3
+  val Function = 3
+  val Constructor = 4
 
-  val Field = 4
-  val Parameter = 5
-  val Local = 6
+  val Field = 5
+  val Parameter = 6
+  val Local = 7
 }
 
 //object ScopeKind {
@@ -69,7 +58,7 @@ class Scope(parent: ScopeParent, note: string) {
   def empty(): bool = _symbolCount == 0 && _scopeCount == 0
 
   def openScope(note: string): Scope = {
-    val scope = new Scope(MakeScopeParent.scope(this), note)
+    val scope = new Scope(new ScopeParent.OfScope(this), note)
 
     if (_scopeCount + 1 >= _scopes.length) {
       val newItems = new Array<Scope>((_scopeCount + 1) * 2)
@@ -129,13 +118,11 @@ class Scope(parent: ScopeParent, note: string) {
     newItems
   }
 
-  def getParentSymbol(): Symbol = {
-    if (parent.kind == ScopeParentKind.Symbol) {
-      parent.symbol.get
-    } else {
-      parent.scope.get.getParentSymbol()
+  def getParentSymbol(): Symbol =
+    parent match {
+      case ScopeParent.OfSymbol(value) => value
+      case ScopeParent.OfScope(value) => value.getParentSymbol()
     }
-  }
 
   // returns true if we are not in a type or method
   def isGlobalScope(): bool = getParentSymbol().kind == SymbolKind.Root
@@ -179,7 +166,7 @@ class Symbol(kind: int, flags: int, name: string, location: TextLocation, _paren
   var _declaration_count = 0
   var id = -1 // used in type checking
   val ns = if (_parent.isDefined) _parent.get.fullName() else ""
-  val members: Scope = new Scope(MakeScopeParent.symbol(this), name)
+  val members: Scope = new Scope(ScopeParent.OfSymbol(this), name)
 
   def parent(): Symbol = _parent.get
 
@@ -227,20 +214,22 @@ class SymbolTreePrinter(checker: Checker) {
 
     val marker = if (last) "└──" else "├──"
     var childIndent = indent
-    if (scope.parent.kind == ScopeParentKind.Scope) {
-      printColor(ColorPalette.Comments)
-      print(indent)
-      print(marker)
-      print(ANSI.Clear)
-      if (scope.note == "") {
-        println("Scope")
-      } else {
-        println("Scope: " + scope.note)
-      }
+    scope.parent match {
+      case ScopeParent.OfSymbol(value) =>
+        printColor(ColorPalette.Comments)
+        print(indent)
+        print(marker)
+        print(ANSI.Clear)
+        if (scope.note == "") {
+          println("Scope")
+        } else {
+          println("Scope: " + scope.note)
+        }
 
-      val end = if (last) "    " else "│   "
-      childIndent = childIndent + end
-    } else {}
+        val end = if (last) "    " else "│   "
+        childIndent = childIndent + end
+      case ScopeParent.OfScope(value) => ()
+    }
 
 
     if (num_symbols > 0) {

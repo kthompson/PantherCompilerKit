@@ -6,7 +6,7 @@ case class TextSpan(start: int, length: int) {
 }
 
 object TextSpanFactory {
-    def from_bounds(start: int, end: int): TextSpan = new TextSpan(start, end - start)
+    def fromBounds(start: int, end: int): TextSpan = new TextSpan(start, end - start)
 }
 
 case class TextLine(start: int, length: int, length_with_line_breaks: int) {
@@ -104,7 +104,7 @@ case class SourceFile(content: string, fileName: string) {
     // get the line index from a position
     def get_line_index(position: int): int =
         _get_line_index(position, 0, line_count - 1)
-    
+
     def isScala(): bool = fileName.endsWith(".scala")
 
     def _get_line_index(position: int, lower: int, upper: int): int =
@@ -126,7 +126,12 @@ case class SourceFile(content: string, fileName: string) {
         }
 
     def to_string(span: TextSpan): string = to_string(span.start, span.length)
-    def to_string(start: int, length: int): string = content.substring(start, start + length)
+    def to_string(start: int, length: int): string =
+        if (start + length > content.length) {
+            content.substring(start)
+        } else {
+            content.substring(start, start + length)
+        }
 }
 
 object MakeSourceFile {
@@ -150,6 +155,16 @@ case class TextLocation(source_file: SourceFile, span: TextSpan) {
 
     def to_string(): string =
         file_name + "(" + string(start_line + 1) + "," + string(start_character + 1) + ")"
+        
+    def compareTo(other: TextLocation): int = {
+        val i = source_file.fileName.compareTo(other.source_file.fileName)
+        if (i != 0) i
+        else {
+            val j = span.start.compareTo(other.span.start)
+            if (j != 0) j
+            else span.end.compareTo(other.span.end)
+        }
+    }
 }
 
 object TextLocationFactory {

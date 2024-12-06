@@ -2,11 +2,16 @@ import panther._
 
 case class Diagnostic(location: TextLocation, message: string) {
     override def toString(): string = location.to_string() + ": " + message
+    def compareTo(other: Diagnostic): int = {
+      val i = location.compareTo(other.location)
+      if(i != 0) i
+      else message.compareTo(other.message)
+    }
 }
 
 enum Diagnostics {
   case Empty
-  case Cons(head: Diagnostic, tail: Diagnostics)
+  case Node(left: Diagnostics, head: Diagnostic, tail: Diagnostics)
 }
 
 case class DiagnosticBag() {
@@ -41,15 +46,29 @@ case class DiagnosticBag() {
 
   def add(diagnostic: Diagnostic): unit = {
     count = count + 1
-    diagnostics = Diagnostics.Cons(diagnostic, diagnostics)
+    diagnostics = _insert(diagnostics, diagnostic)
   }
-  
-  def addDiagnostics(more: Diagnostics): unit = {
-    more match {
-      case Diagnostics.Empty => ()
-      case Diagnostics.Cons(head, tail) =>
-        add(head)
-        addDiagnostics(tail)
+
+  def _insert(node: Diagnostics, diagnostic: Diagnostic): Diagnostics = {
+    node match {
+      case Diagnostics.Empty => Diagnostics.Node(Diagnostics.Empty, diagnostic, Diagnostics.Empty)
+      case Diagnostics.Node(left, head, tail) =>
+        val cmp = diagnostic.compareTo(head)
+        if (cmp == 0) {
+          node
+        } else if (diagnostic.compareTo(head) < 0) {
+          Diagnostics.Node(_insert(left, diagnostic), head, tail)
+        } else {
+          Diagnostics.Node(left, head, _insert(tail, diagnostic))
+        }
     }
+  }
+
+  def addDiagnostics(more: Diagnostics): unit = more match {
+    case Diagnostics.Empty => ()
+    case Diagnostics.Node(left, head, right) =>
+      add(head)
+      addDiagnostics(left)
+      addDiagnostics(right)
   }
 }

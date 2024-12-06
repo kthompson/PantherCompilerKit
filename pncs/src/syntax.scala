@@ -35,21 +35,14 @@ case class SyntaxTriviaList() {
     }
 }
 
-object SyntaxTokenValueKind {
-    val None = 0
-    val Boolean = 1
-    val String = 2
-    val Character = 3
-    val Number = 4
-}
-case class SyntaxTokenValue(kind: int, boolValue: Option[bool], stringValue: Option[string], characterValue: Option[char], numberValue: Option[int])
-
-object MakeSyntaxTokenValue {
-    def none(): SyntaxTokenValue = new SyntaxTokenValue(SyntaxTokenValueKind.None, None, None, None, None)
-    def bool(value: bool): SyntaxTokenValue = new SyntaxTokenValue(SyntaxTokenValueKind.Boolean, Some(value), None, None, None)
-    def string(value: string): SyntaxTokenValue = new SyntaxTokenValue(SyntaxTokenValueKind.String, None, Some(value), None, None)
-    def char(value: char): SyntaxTokenValue = new SyntaxTokenValue(SyntaxTokenValueKind.Character, None, None, Some(value), None)
-    def number(value: int): SyntaxTokenValue = new SyntaxTokenValue(SyntaxTokenValueKind.Number, None, None, None, Some(value))
+enum SyntaxTokenValue {
+    case Boolean(value: bool)
+    case String(value: string)
+    case Character(value: char)
+    case Number(value: int)
+    case None
+    
+    case Error
 }
 
 case class SyntaxToken(source_file: SourceFile, kind: int, start: int, text: string, value: SyntaxTokenValue, leading: Array[SyntaxTrivia], trailing: Array[SyntaxTrivia]) {

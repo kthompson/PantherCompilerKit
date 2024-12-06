@@ -139,7 +139,7 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
   
   // None
   val noneSymbol = new Symbol(SymbolKind.Class, SymbolFlags.None, "None", TextLocationFactory.empty(), Some(root))
-  val noneType = Type.Option(Type.Never)
+  val noneType = Type.OptionType(Type.Never)
   root.members.addSymbol(noneSymbol)
   setSymbolType(noneSymbol, noneType)
 
@@ -189,18 +189,18 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
   def simpleOp(typ: Type, operator: BinaryOperatorKind): unit = binaryOperators.addOperator(BinaryOperator(typ, typ, operator, typ))
 
   def equalityOp(typ: Type, operator: BinaryOperatorKind): unit = binaryOperators.addOperator(BinaryOperator(typ, typ, operator, boolType))
-
-  def check(functions: Array[BoundFunction], fields: Array[BoundField]): unit = {
-    checkClasses(root)
-    // determine types for fields with type annotations
-    println("checking field type annotations")
-//    checkFields(fields)
-    // determine types for functions parameters
-    //    println("checking function parameter types and annotated return types")
-    //    checkFunctionParameterTypes()
-    // determine types for functions return types & fields without type annotations
-    //    inferFieldTypes()
-  }
+//
+//  def check(functions: Array[BoundDefinition.Function], fields: Array[BoundField]): unit = {
+//    checkClasses(root)
+//    // determine types for fields with type annotations
+//    println("checking field type annotations")
+////    checkFields(fields)
+//    // determine types for functions parameters
+//    //    println("checking function parameter types and annotated return types")
+//    //    checkFunctionParameterTypes()
+//    // determine types for functions return types & fields without type annotations
+//    //    inferFieldTypes()
+//  }
   
   def checkClasses(symbol: Symbol): unit = {
     if(symbol.kind == SymbolKind.Class) {
@@ -216,8 +216,7 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
       checkClasses(symbol)
     }
   }
-
-
+  
   def get_symbol_id(symbol: Symbol): int = {
     if (symbol.id != -1) {
       symbol.id
@@ -262,16 +261,16 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
       Type.Error
     } else {
       toType match {
-        case Type.Option(innerTo) =>
+        case Type.OptionType(innerTo) =>
           from match {
-            case Type.Option(innerFrom) =>
+            case Type.OptionType(innerFrom) =>
               checkAssignable(innerTo, innerFrom)
             case _ =>
               Type.Error
           }
-        case Type.Array(innerTo) =>
+        case Type.ArrayType(innerTo) =>
           from match {
-            case Type.Array(innerFrom) =>
+            case Type.ArrayType(innerFrom) =>
               checkAssignable(innerTo, innerFrom)
             case _ =>
               Type.Error
@@ -563,7 +562,7 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
       case value: Expression.ForExpression => getTypeOfForExpression(value, scope)
       case value: Expression.GroupExpression => getTypeOfGroupExpression(value, scope)
       case Expression.IdentifierName(value) => getTypeOfIdentifierName(value, scope)
-      case value: Expression.IfExpression => getTypeOfIfExpression(value, scope)
+      case value: Expression.If => getTypeOfIfExpression(value, scope)
       case value: Expression.IndexExpression => getTypeOfIndexExpression(value, scope)
       case value: Expression.LiteralExpression => getTypeOfLiteralExpression(value, scope)
       case value: Expression.MemberAccessExpression => getTypeOfMemberAccessExpression(value, scope)
@@ -612,7 +611,7 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
       case "||" => BinaryOperatorKind.LogicalOr
       case _ =>
         panic("unexpected operator")
-        BinaryOperatorKind.Unknown
+        BinaryOperatorKind.Error
     }
 
   def getTypeOfBlockExpression(value: Expression.BlockExpression, scope: Scope): Type = {
@@ -629,7 +628,7 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
     applyCallExpression(function, arguments, scope)
   }
 
-  private def applyCallExpression(function: Type, arguments: ExpressionListSyntax, scope: Scope): Type = {
+  def applyCallExpression(function: Type, arguments: ExpressionListSyntax, scope: Scope): Type = {
     function match {
       case Type.Function(parameters, returnType) =>
         val typedArguments = new Array[Type](arguments.expressions.length)
@@ -692,7 +691,7 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
     //    panic("todo")
   }
 
-  def getTypeOfIfExpression(value: Expression.IfExpression, scope: Scope): Type = {
+  def getTypeOfIfExpression(value: Expression.If, scope: Scope): Type = {
     checkAssignable(boolType, getTypeOfExpression(value.condition, scope))
     val thenExpr = getTypeOfExpression(value.thenExpr, scope)
     val elseExpr = getTypeOfExpression(value.elseExpr, scope)
@@ -701,15 +700,16 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
 
   def getTypeOfIndexExpression(value: Expression.IndexExpression, scope: Scope): Type = panic("todo")
 
-  def getTypeOfLiteralExpression(value: Expression.LiteralExpression, scope: Scope): Type = {
-    value.value.kind match {
-      case SyntaxTokenValueKind.String => stringType
-      case SyntaxTokenValueKind.Number => intType
-      case SyntaxTokenValueKind.Boolean => boolType
-      case SyntaxTokenValueKind.Character => charType
-      case _ => panic("getTypeOfLiteralExpression: " + value.value.kind)
+  def getTypeOfLiteralExpression(value: Expression.LiteralExpression, scope: Scope): Type = 
+    value.value match {
+      case _: SyntaxTokenValue.Boolean => boolType
+      case _: SyntaxTokenValue.String => stringType
+      case _: SyntaxTokenValue.Character => charType
+      case _: SyntaxTokenValue.Number => intType
+      case _ =>
+        panic("getTypeOfLiteralExpression: ")
+        Type.Error
     }
-  }
 
   def getTypeOfMemberAccessExpression(value: Expression.MemberAccessExpression, scope: Scope): Type = {
     val left = getTypeOfExpression(value.left, scope)
@@ -722,9 +722,9 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
             panic("todo")
             Type.Error
         }
-      case option: Type.Option =>
+      case option: Type.OptionType =>
         getOptionMemberType(option, value.right.identifier.text)
-      case array: Type.Array =>
+      case array: Type.ArrayType =>
         getArrayMemberType(array, value.right.identifier.text)
       case _ =>
         print("unexpected type: ")
@@ -733,7 +733,7 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
     }
   }
 
-  def getOptionMemberType(option: Type.Option, member: string): Type = {
+  def getOptionMemberType(option: Type.OptionType, member: string): Type = {
     member match {
       case "isDefined" => boolType
       case "get" => option.inner
@@ -741,7 +741,7 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
     }
   }
 
-  def getArrayMemberType(option: Type.Array, member: string): Type =
+  def getArrayMemberType(option: Type.ArrayType, member: string): Type =
     member match {
       case "length" => intType
       case _ =>
@@ -804,7 +804,9 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
       case Declaration.Method(name, location, value) => inferTypeOfMethod(symbol, links, value)
       case Declaration.FieldFromParameter(name, location, value) => inferTypeOfFieldFromParameter(symbol, links, value)
       case Declaration.FieldFromVariable(name, location, value) => inferTypeOfFieldFromVariable(symbol, links, value)
+      case Declaration.FieldFromMember(name, location, value) => panic("todo")
       case Declaration.Parameter(name, location, value) => inferTypeOfParameter(symbol, links, value)
+      case Declaration.LocalFromFor(name, location, value) => panic("todo")
       case Declaration.Local(name, location, value) => inferTypeOfLocal(symbol, links, value)
     }
 
@@ -1214,7 +1216,7 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
     if (identifier.text == "Array" || identifier.text == "SArray") {
       if (typeArgumentlist.arguments.length == 1) {
         val inner = getTypeOfName(typeArgumentlist.arguments(0).name, scope)
-        Type.Array(inner)
+        Type.ArrayType(inner)
       } else {
         panic("Expected Array of rank 1, found rank " + string(typeArgumentlist.arguments.length))
         Type.Error
@@ -1223,7 +1225,7 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
     } else if (identifier.text == "Option" || identifier.text == "SOption") {
       if (typeArgumentlist.arguments.length == 1) {
         val inner = getTypeOfName(typeArgumentlist.arguments(0).name, scope)
-        Type.Option(inner)
+        Type.OptionType(inner)
       } else {
         panic("Expected Option with one type parameter, found " + string(typeArgumentlist.arguments.length))
         Type.Error
@@ -1322,10 +1324,10 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
     val span = location.span
     val source_file = location.source_file
 
-    for (currrent_line <- location.start_line to location.end_line) {
-      val line = source_file.get_line(currrent_line)
-      val start_in_current = source_file.get_line_index(span.start) == currrent_line
-      val end_in_current = source_file.get_line_index(span.end) == currrent_line
+    for (currentLine <- location.start_line to location.end_line) {
+      val line = source_file.get_line(currentLine)
+      val start_in_current = source_file.get_line_index(span.start) == currentLine
+      val end_in_current = source_file.get_line_index(span.end) == currentLine
 
       val prefix_end =
         if (start_in_current) span.start
@@ -1335,9 +1337,9 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
         if (end_in_current) span.end
         else line.end
 
-      val prefix_span = TextSpanFactory.from_bounds(line.start, prefix_end)
-      val error_span = TextSpanFactory.from_bounds(prefix_end, suffix_start)
-      val suffix_span = TextSpanFactory.from_bounds(suffix_start, line.end)
+      val prefix_span = TextSpanFactory.fromBounds(line.start, prefix_end)
+      val error_span = TextSpanFactory.fromBounds(prefix_end, suffix_start)
+      val suffix_span = TextSpanFactory.fromBounds(suffix_start, line.end)
 
       val prefix = source_file.to_string(prefix_span)
       val error = source_file.to_string(error_span)
@@ -1409,7 +1411,7 @@ case class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
   //    //     new RecordTypeField(field.name, coalesce_type(field.type, polarity))
   //
 
-  def setSymbolType(symbol: Symbol, value: Type) = {
+  def setSymbolType(symbol: Symbol, value: Type): Type = {
     val links = getSymbolLinks(symbol)
     links.set_type(value)
   }

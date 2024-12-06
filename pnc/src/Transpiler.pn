@@ -119,8 +119,9 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
       case value: ObjectDeclarationSyntax => transpileObjectDeclaration(value, context)
       case value: ClassDeclarationSyntax => transpileClassDeclaration(value, context)
       case value: FunctionDeclarationSyntax => transpileFunctionDeclaration(value, context)
-      case value: GlobalStatementSyntax => transpileGlobalStatement(value, context)
       case value: EnumDeclarationSyntax => transpileEnumDeclaration(value, context)
+      case value: VariableDeclaration => transpileVariableDeclaration(value, context)
+      case value: GlobalStatementSyntax => transpileGlobalStatement(value, context)
     }
   }
 
@@ -195,6 +196,14 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
     }
   }
 
+  def transpileVariableDeclaration(get: MemberSyntax.VariableDeclaration, context: TranspilerContext): unit = {
+    transpileToken(get.valOrVarKeyword, context)
+    transpileToken(get.identifier, context)
+    transpileOptionalTypeAnnotation(get.typeAnnotation, context)
+    transpileToken(get.equalToken, context)
+    transpileExpression(get.expression, context)
+  }
+
   def transpileVariableDeclarationStatement(get: StatementSyntax.VariableDeclarationStatement, context: TranspilerContext): unit = {
     transpileToken(get.valOrVarKeyword, context)
     transpileToken(get.identifier, context)
@@ -220,7 +229,7 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
       case value: Expression.ForExpression => transpileForExpression(value, context)
       case value: Expression.GroupExpression => transpileGroupExpression(value, context)
       case Expression.IdentifierName(value) => transpileIdentifierName(value, context)
-      case value: Expression.IfExpression => transpileIfExpression(value, context)
+      case value: Expression.If => transpileIfExpression(value, context)
       case value: Expression.IndexExpression => transpileIndexExpression(value, context)
       case value: Expression.LiteralExpression => transpileLiteralExpression(value, context)
       case value: Expression.MatchExpression => transpileMatchExpression(value, context)
@@ -347,7 +356,7 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
     transpileToken(expr.closeParen, context)
   }
 
-  def transpileIfExpression(expr: Expression.IfExpression, context: TranspilerContext): unit = {
+  def transpileIfExpression(expr: Expression.If, context: TranspilerContext): unit = {
     transpileToken(expr.ifKeyword, context)
     transpileToken(expr.openParen, context)
     transpileExpression(expr.condition, context)
@@ -440,7 +449,8 @@ class Transpiler(syntaxTrees: Array<SyntaxTree>, root: Symbol, outputPath: strin
     }
 
   def transpileParameter(parameter: ParameterSyntax, context: TranspilerContext): unit = {
-    transpileOptionalToken(parameter.modifier, context)
+//    the modifier is not currently supported
+//    transpileOptionalToken(parameter.modifier, context)
     transpileToken(parameter.identifier, context)
     transpileTypeAnnotation(parameter.typeAnnotation, context)
     transpileOptionalToken(parameter.commaToken, context)

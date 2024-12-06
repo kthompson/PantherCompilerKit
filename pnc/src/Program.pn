@@ -36,7 +36,7 @@ object Program {
     val trees = new Array<SyntaxTree>(numTrees)
     for (x <- firstFile to (args.length - 1)) {
       print("parsing " + args(x) + "...")
-      trees(x - 2) = MakeSyntaxTree.parse_file(args(x))
+      trees(x - firstFile) = MakeSyntaxTree.parse_file(args(x))
       println("done")
     }
 
@@ -48,8 +48,6 @@ object Program {
     } else {
       val compilation = MakeCompilation.create(trees)
       compilation.diagnostics match {
-        case diags: Diagnostics.Cons => 
-          printDiagnostics(diags)
         case Diagnostics.Empty =>
           if (transpile) {
             println("transpiling to " + outputFile + "...")
@@ -59,18 +57,22 @@ object Program {
             println("emitting to " + outputFile + "...")
             compilation.emit(outputFile)
           }
+
+        case diags =>
+          printDiagnostics(diags)
       }
     }
   }
   
-  def printDiagnostics(diagnostics: Diagnostics): unit = {
+  def printDiagnostics(diagnostics: Diagnostics): unit =
     diagnostics match {
       case Diagnostics.Empty => ()
-      case Diagnostics.Cons(head, tail) =>
+      case Diagnostics.Node(left, head, right) =>
+        printDiagnostics(left)
         printDiagnostic(head)
-        printDiagnostics(tail)
+        printDiagnostics(right)
     }
-  }
+  
 
   def printDiagnostic(diagnostic: Diagnostic): unit = {
     val location = diagnostic.location
@@ -79,10 +81,10 @@ object Program {
 
     println(diagnostic.toString())
 
-    for (currrent_line <- location.start_line to location.end_line) {
-      val line = source_file.get_line(currrent_line)
-      val start_in_current = source_file.get_line_index(span.start) == currrent_line
-      val end_in_current = source_file.get_line_index(span.end) == currrent_line
+    for (currentLine <- location.start_line to location.end_line) {
+      val line = source_file.get_line(currentLine)
+      val start_in_current = source_file.get_line_index(span.start) == currentLine
+      val end_in_current = source_file.get_line_index(span.end) == currentLine
 
       val prefix_end =
         if (start_in_current) span.start
@@ -92,9 +94,9 @@ object Program {
         if (end_in_current) span.end
         else line.end
 
-      val prefix_span = TextSpanFactory.from_bounds(line.start, prefix_end)
-      val error_span = TextSpanFactory.from_bounds(prefix_end, suffix_start)
-      val suffix_span = TextSpanFactory.from_bounds(suffix_start, line.end)
+      val prefix_span = TextSpanFactory.fromBounds(line.start, prefix_end)
+      val error_span = TextSpanFactory.fromBounds(prefix_end, suffix_start)
+      val suffix_span = TextSpanFactory.fromBounds(suffix_start, line.end)
 
       val prefix = source_file.to_string(prefix_span)
       val error = source_file.to_string(error_span)

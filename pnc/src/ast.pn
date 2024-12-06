@@ -24,8 +24,8 @@ enum SimpleNameSyntax {
     case AliasSyntax(name: SyntaxToken, asKeyword: SyntaxToken, alias: SyntaxToken)
 }
 enum NameSyntax {
-    case QualifiedNameSyntax(left: NameSyntax, dotToken: SyntaxToken, right: SimpleNameSyntax)
     case SimpleName(name: SimpleNameSyntax)
+    case QualifiedNameSyntax(left: NameSyntax, dotToken: SyntaxToken, right: SimpleNameSyntax)
 }
 class ExpressionItemSyntax(expression: Expression, separatorToken: Option<SyntaxToken>)
 class ExpressionListSyntax(expressions: Array<ExpressionItemSyntax>)
@@ -42,8 +42,7 @@ enum Expression {
                                  arrayRank: Option<Expression>,
                                  closeBracket: SyntaxToken,
                                  initializer: Option<ArrayInitializerExpressionSyntax>)
-    case AssignmentExpression(
-                               left: Expression,
+    case AssignmentExpression(left: Expression,
                                equals: SyntaxToken,
                                right: Expression)
     case BinaryExpression(left: Expression, operator: SyntaxToken, right: Expression)
@@ -71,7 +70,7 @@ enum Expression {
                           expression: Expression,
                           closeParen: SyntaxToken)
     case IdentifierName(value: SimpleNameSyntax.IdentifierNameSyntax)
-    case IfExpression(
+    case If(
                        ifKeyword: SyntaxToken,
                        openParen: SyntaxToken,
                        condition: Expression,
@@ -114,8 +113,9 @@ class MatchCaseSyntax(
 
 enum PatternSyntax {
     case ExtractPattern(value: NameSyntax, openParenToken: SyntaxToken, patterns: Array<PatternItemSyntax>, closeParenToken: SyntaxToken)
-    case IdentifierPattern(value: SyntaxToken, typeAnnotation: TypeAnnotationSyntax)
     case TypePattern(typ: NameSyntax)
+    
+    case IdentifierPattern(value: SyntaxToken, typeAnnotation: TypeAnnotationSyntax)
     case LiteralPattern(value: SyntaxToken)
     case DiscardPattern(value: SyntaxToken)
 }
@@ -186,6 +186,11 @@ enum MemberSyntax {
                                cases: Array<EnumCaseSyntax>,
                                members: Array<MemberSyntax>,
                                closeBraceToken: SyntaxToken)
+    case VariableDeclaration(valOrVarKeyword: SyntaxToken,
+                             identifier: SyntaxToken,
+                             typeAnnotation: Option<TypeAnnotationSyntax>,
+                             equalToken: SyntaxToken,
+                             expression: Expression)
 }
 
 /**
@@ -229,7 +234,9 @@ enum Declaration {
 
     case FieldFromParameter(name: string, location: TextLocation, value: ParameterSyntax)
     case FieldFromVariable(name: string, location: TextLocation, value: StatementSyntax.VariableDeclarationStatement)
+    case FieldFromMember(name: string, location: TextLocation, value: MemberSyntax.VariableDeclaration)
 
     case Parameter(name: string, location: TextLocation, value: ParameterSyntax)
     case Local(name: string, location: TextLocation, value: StatementSyntax.VariableDeclarationStatement)
+    case LocalFromFor(name: string, location: TextLocation, value: Expression.ForExpression)
 }

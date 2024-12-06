@@ -15,7 +15,7 @@ object MakeCompilation {
     
     val boundTree = binder.bind(trees)
 
-    checker.check(boundTree.functions, boundTree.fields)
+//    checker.check(boundTree.functions, boundTree.fields)
 
     new Compilation(trees, root, checker, diagnosticBag.diagnostics)
   }

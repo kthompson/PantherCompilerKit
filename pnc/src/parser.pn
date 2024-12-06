@@ -160,7 +160,7 @@ class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
       accept()
     } else {
       diagnostics.reportUnexpectedToken(curr.location, curr.kind, kind)
-      new SyntaxToken(source_file, kind, curr.start, "", MakeSyntaxTokenValue.none(), new Array<SyntaxTrivia>(0), new Array<SyntaxTrivia>(0))
+      new SyntaxToken(source_file, kind, curr.start, "", SyntaxTokenValue.Error, new Array<SyntaxTrivia>(0), new Array<SyntaxTrivia>(0))
     }
   }
 
@@ -185,7 +185,7 @@ class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
       case value: ForExpression => hasStatementTerminator(value.body)
       case value: GroupExpression => value.closeParen.is_statement_terminator()
       case IdentifierName(value) => value.identifier.is_statement_terminator()
-      case value: IfExpression => hasStatementTerminator(value.elseExpr)
+      case value: If => hasStatementTerminator(value.elseExpr)
       case value: IndexExpression => value.closeBracket.is_statement_terminator()
       case value: LiteralExpression => value.token.is_statement_terminator()
       case MatchExpression(_, _, _, _, closeBrace) => closeBrace.is_statement_terminator()
@@ -515,9 +515,9 @@ class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
   def parse_literal_expression(): Expression = {
     debugPrint("parse_literal_expression")
     val token = accept()
-    val tokenValue = if (token.kind == SyntaxKind.NumberToken) MakeSyntaxTokenValue.number(int(token.text))
-    else if (token.kind == SyntaxKind.CharToken) MakeSyntaxTokenValue.char(token.text(0))
-    else MakeSyntaxTokenValue.string(token.text)
+    val tokenValue = if (token.kind == SyntaxKind.NumberToken) SyntaxTokenValue.Number(int(token.text))
+    else if (token.kind == SyntaxKind.CharToken) SyntaxTokenValue.Character(token.text(0))
+    else SyntaxTokenValue.string(token.text)
     new Expression.LiteralExpression(token, tokenValue)
   }
 
@@ -531,7 +531,7 @@ class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
     val elseKeyword = accept(SyntaxKind.ElseKeyword)
     val elseExpr = parse_expression(OperatorPrecedence.Lowest)
 
-    new Expression.IfExpression(keyword, open, condition, close, thenExpr, elseKeyword, elseExpr)
+    new Expression.If(keyword, open, condition, close, thenExpr, elseKeyword, elseExpr)
   }
 
   def parse_array_initializers(): ArrayInitializerExpressionSyntax = {
@@ -623,7 +623,7 @@ class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
   }
 
   def parse_boolean_literal_expression(): Expression = {
-    val value = MakeSyntaxTokenValue.bool(current_kind() == SyntaxKind.TrueKeyword)
+    val value = SyntaxTokenValue.bool(current_kind() == SyntaxKind.TrueKeyword)
 
     new Expression.LiteralExpression(accept(), value)
   }
@@ -981,7 +981,7 @@ class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
     // TODO: support resizing
     val cases = new Array<EnumCaseSyntax>(100)
 
-    while (current_kind() != SyntaxKind.EndOfInputToken && current_kind() != SyntaxKind.CloseBraceToken) {
+    while (current_kind() != SyntaxKind.EndOfInputToken && current_kind() == SyntaxKind.CaseKeyword) {
       cases(size) = parseEnumCase()
       size = size + 1
     }
@@ -1087,9 +1087,28 @@ class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
       parse_function_declaration()
     } else if (kind == SyntaxKind.EnumKeyword) {
       parseEnumDeclaration()
+    } else if (kind == SyntaxKind.ValKeyword || kind == SyntaxKind.VarKeyword) {
+      parseVariableDeclaration()
     } else {
       parse_global_statement()
     }
+  }
+
+
+  def parseVariableDeclaration(): MemberSyntax = {
+    val keyword = accept()
+    val ident = accept(SyntaxKind.IdentifierToken)
+    val typeAnnotation = parseOptionalTypeAnnotation()
+    val eq = accept(SyntaxKind.EqualsToken)
+    val expr = parse_expression(OperatorPrecedence.Lowest)
+
+    new MemberSyntax.VariableDeclaration(
+      keyword,
+      ident,
+      typeAnnotation,
+      eq,
+      expr
+    )
   }
 
   def parseMembers(topLevelStatement: bool): Array<MemberSyntax> = {

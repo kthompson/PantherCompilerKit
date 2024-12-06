@@ -12,6 +12,13 @@ enum BinaryOperatorKind {
   case GreaterThanOrEqual
   case LogicalAnd
   case LogicalOr
+  
+  case Error
+}
 
-  case Unknown
+enum UnaryOperatorKind {
+  case LogicalNot
+  case Negate
+  
+  case Error
 }

@@ -52,6 +52,7 @@ object AstPrinter {
       case value: ClassDeclarationSyntax => printClassDeclaration(value)
       case value: FunctionDeclarationSyntax => printFunctionDeclaration(value)
       case value: GlobalStatementSyntax => printGlobalStatement(value)
+      case value: VariableDeclaration => panic("VariableDeclaration not implemented")
       case value: EnumDeclarationSyntax => panic("EnumDeclarationSyntax not implemented")
     }
   }
@@ -131,7 +132,7 @@ object AstPrinter {
       case value: Expression.ForExpression => printForExpression(value)
       case value: Expression.GroupExpression => printGroupExpression(value)
       case IdentifierName(value) => printIdentifierName(value, ColorPalette.Identifier)
-      case value: Expression.IfExpression => printIfExpression(value)
+      case value: Expression.If => printIfExpression(value)
       case value: Expression.IndexExpression => printIndexExpression(value)
       case value: Expression.LiteralExpression => printLiteralExpression(value)
       case value: MatchExpression => panic("MatchExpression not implemented")
@@ -222,7 +223,7 @@ object AstPrinter {
     printToken(node.closeParen)
   }
 
-  def printIfExpression(node: Expression.IfExpression): unit = {
+  def printIfExpression(node: Expression.If): unit = {
     printToken(node.ifKeyword)
     printToken(node.openParen)
     printExpression(node.condition)
@@ -477,7 +478,7 @@ object AstPrinter {
         printColor(ColorPalette.Punctuation)
         print(") -> ")
         _printType(returnType, false)
-      case Type.Array(inner) =>
+      case Type.ArrayType(inner) =>
         printColor(ColorPalette.Keyword)
         print("Array")
         printColor(ColorPalette.Punctuation)
@@ -490,7 +491,7 @@ object AstPrinter {
         val color = if (SyntaxFacts.isBuiltin(symbol.name)) ColorPalette.Keyword else ColorPalette.Identifier
         printColor(color)
         print(symbol.name)
-      case Type.Option(inner) =>
+      case Type.OptionType(inner) =>
         printColor(ColorPalette.Keyword)
         print("Option")
         printColor(ColorPalette.Punctuation)

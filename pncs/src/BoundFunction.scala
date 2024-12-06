@@ -1,1 +1,0 @@
-case class BoundFunction(symbol: Symbol, function: MemberSyntax.FunctionDeclarationSyntax, parameters: Array[BoundParameter])
