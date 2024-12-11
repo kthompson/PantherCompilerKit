@@ -1,6 +1,6 @@
 import panther._
 
-case class Result(is_success: bool, value: any)
+case class Result(isSuccess: bool, value: any)
 
 object MakeResult {
   val fail: Result = new Result(false, 0)
@@ -8,11 +8,11 @@ object MakeResult {
   def success(value: any): Result = new Result(true, value)
 }
 
-case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
+case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   var _position: int = 0
   var debug: bool = false
 
-  def peek(position: int): char = source_file.get(position)
+  def peek(position: int): char = sourceFile.get(position)
 
   def current(): char = peek(_position)
 
@@ -64,11 +64,11 @@ case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
   def hexValue(): int = Hex.fromChar(current())
 
   def scan(): SyntaxToken = {
-    val leading = scan_trivia(true)
+    val leading = scanTrivia(true)
     val token = scanSimpleToken()
-    val trailing = scan_trivia(false)
+    val trailing = scanTrivia(false)
 
-    new SyntaxToken(source_file, token.kind, token.start, token.text, token.value, leading, trailing)
+    new SyntaxToken(sourceFile, token.kind, token.start, token.text, token.value, leading, trailing)
   }
 
   def scanSimpleToken(): SimpleToken = {
@@ -149,7 +149,7 @@ case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
 
   def scanInvalidToken(): SimpleToken = {
     val curr = current()
-    diagnostics.reportBadCharacter(new TextLocation(source_file, new TextSpan(_position, 1)), curr)
+    diagnostics.reportBadCharacter(new TextLocation(sourceFile, new TextSpan(_position, 1)), curr)
     val token = new SimpleToken(SyntaxKind.InvalidTokenTrivia, _position, string(curr), SyntaxTokenValue.Error)
     next()
     token
@@ -201,7 +201,7 @@ case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
       val hvalue = hexValue()
       if (hvalue == -1) {
         // TODO: could throw if we are at EOF
-        diagnostics.reportInvalidEscapeSequence(new TextLocation(source_file, new TextSpan(start, _position)), current())
+        diagnostics.reportInvalidEscapeSequence(new TextLocation(sourceFile, new TextSpan(start, _position)), current())
         MakeResult.fail
       } else {
         next() // consume the hex digit
@@ -229,14 +229,14 @@ case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
       makeStringToken(start, value)
     } else if (curr == '\\') {
       val escape = scanEscapeSequence()
-      val newValue = if (escape.is_success) {
+      val newValue = if (escape.isSuccess) {
         value + string(escape.value)
       } else {
         value
       }
       _scanString(start, newValue)
     } else if (curr == '\r' || curr == '\n' || curr == '\u0000') {
-      diagnostics.reportUnterminatedString(new TextLocation(source_file, new TextSpan(start, 1)))
+      diagnostics.reportUnterminatedString(new TextLocation(sourceFile, new TextSpan(start, 1)))
       makeStringToken(start, value)
     } else {
       val newValue = value + string(curr)
@@ -245,7 +245,7 @@ case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
     }
   }
 
-  def makeSpan(start: int): string = source_file.to_string(start, _position - start)
+  def makeSpan(start: int): string = sourceFile.toString(start, _position - start)
 
   def makeStringToken(start: int, value: string): SimpleToken = {
     val span = makeSpan(start)
@@ -258,14 +258,14 @@ case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
 
     val curr = current()
     val value = if (curr == '\r' || curr == '\n' || curr == '\u0000') {
-      diagnostics.reportUnterminatedChar(new TextLocation(source_file, new TextSpan(start, 1)))
+      diagnostics.reportUnterminatedChar(new TextLocation(sourceFile, new TextSpan(start, 1)))
       SyntaxTokenValue.Error
     } else if (curr == '\'') {
-      diagnostics.reportEmptyCharLiteral(new TextLocation(source_file, new TextSpan(start, 2)))
+      diagnostics.reportEmptyCharLiteral(new TextLocation(sourceFile, new TextSpan(start, 2)))
       SyntaxTokenValue.Error
     } else if (curr == '\\') {
       val result = scanEscapeSequence()
-      if (result.is_success) SyntaxTokenValue.Character(string(result.value)(0))
+      if (result.isSuccess) SyntaxTokenValue.Character(string(result.value)(0))
       else SyntaxTokenValue.None
     } else {
       next() // character
@@ -275,7 +275,7 @@ case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
     if (current() == '\'') {
       next() // close '
     } else {
-      diagnostics.reportUnterminatedChar(new TextLocation(source_file, new TextSpan(start, 1)))
+      diagnostics.reportUnterminatedChar(new TextLocation(sourceFile, new TextSpan(start, 1)))
     }
 
     val span = makeSpan(start)
@@ -298,14 +298,14 @@ case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
 
   def scanSimpleOne(kind: int): SimpleToken = {
     val start = _position
-    val span = source_file.to_string(_position, 1)
+    val span = sourceFile.toString(_position, 1)
     next()
     new SimpleToken(kind, start, span, SyntaxTokenValue.None)
   }
 
   def scanSimpleTwo(kind: int): SimpleToken = {
     val start = _position
-    val span = source_file.to_string(_position, 2)
+    val span = sourceFile.toString(_position, 2)
     next()
     next()
     new SimpleToken(kind, start, span, SyntaxTokenValue.None)
@@ -343,19 +343,19 @@ case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
     new SimpleToken(SyntaxKind.AnnotationToken, start, span, SyntaxTokenValue.None)
   }
 
-  def scan_trivia(leading: bool): Array[SyntaxTrivia] = {
+  def scanTrivia(leading: bool): Array[SyntaxTrivia] = {
     val trivia = new SyntaxTriviaList()
     _scanTrivia(leading, trivia)
   }
 
   def _scanTrivia(leading: bool, trivia: SyntaxTriviaList): Array[SyntaxTrivia] = {
     if (current() == '\u0000') {
-      trivia.to_array()
+      trivia.toArray()
     } else if (isNewLine(current())) {
       trivia.add(scanNewLineTrivia())
       if (!leading) {
         // trailing trivia should always terminate at the end of a line
-        trivia.to_array()
+        trivia.toArray()
       } else {
         // leading trivia will terminate once we find out first non-trivia token
         _scanTrivia(leading, trivia)
@@ -371,9 +371,9 @@ case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
       _scanTrivia(leading, trivia)
     } else if (isInvalidTokenTrivia(current())) {
       trivia.add(scanInvalidTokenTrivia())
-      trivia.to_array()
+      trivia.toArray()
     } else {
-      trivia.to_array()
+      trivia.toArray()
     }
   }
 
@@ -409,7 +409,7 @@ case class Lexer(source_file: SourceFile, diagnostics: DiagnosticBag) {
     val look = lookahead()
 
     if (curr == '\u0000') {
-      diagnostics.reportUnterminatedBlockComment(new TextLocation(source_file, new TextSpan(start, _position - start)))
+      diagnostics.reportUnterminatedBlockComment(new TextLocation(sourceFile, new TextSpan(start, _position - start)))
       makeBlockComment(start)
     } else if (curr == '*' && look == '/') {
       next()

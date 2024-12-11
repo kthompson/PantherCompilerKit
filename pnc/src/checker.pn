@@ -76,22 +76,22 @@ using panther
 class NodeLinks() {
   var _symbol: Option<Symbol> = None
 
-  def has_symbol(): bool = _symbol.isDefined
+  def hasSymbol(): bool = _symbol.isDefined
 
-  def get_symbol(): Symbol = _symbol.get
+  def getSymbol(): Symbol = _symbol.get
 
-  def set_symbol(symbol: Symbol): Symbol = {
+  def setSymbol(symbol: Symbol): Symbol = {
     _symbol = Some(symbol)
     symbol
   }
 
   var _type: Option<Type> = None
 
-  def has_type(): bool = _type.isDefined
+  def hasType(): bool = _type.isDefined
 
-  def get_type(): Type = _type.get
+  def getType(): Type = _type.get
 
-  def set_type(typ: Type): Type = {
+  def setType(typ: Type): Type = {
     _type = Some(typ)
     typ
   }
@@ -105,12 +105,12 @@ class TypeLinks() {
 
 class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
 
-  var last_symbol_id = 0
-  var symbol_links = new Array<SymbolLinks>(10)
-  var last_node_id = 0
-  var node_links = new Array<NodeLinks>(10)
-  var last_type_id = 0
-  var type_links = new Array<TypeLinks>(10)
+  var lastSymbolId = 0
+  var symbolLinks = new Array<SymbolLinks>(10)
+  var lastNodeId = 0
+  var nodeLinks = new Array<NodeLinks>(10)
+  var lastTypeId = 0
+  var typeLinks = new Array<TypeLinks>(10)
   val binaryOperators = new BinaryOperators()
 
   // string
@@ -205,8 +205,8 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
   def checkClasses(symbol: Symbol): unit = {
     if(symbol.kind == SymbolKind.Class) {
       val links = getSymbolLinks(symbol)
-      if(!links.has_type()) {
-        links.set_type(Type.Reference(symbol, None))
+      if(!links.hasType()) {
+        links.setType(Type.Reference(symbol, None))
       } else ()
     } else ()
     val symbols = symbol.members.symbols()
@@ -217,28 +217,28 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
     }
   }
   
-  def get_symbol_id(symbol: Symbol): int = {
+  def getSymbolId(symbol: Symbol): int = {
     if (symbol.id != -1) {
       symbol.id
     } else {
-      if (last_symbol_id + 1 >= symbol_links.length) {
-        val newItems = new Array<SymbolLinks>((last_symbol_id + 1) * 2)
-        for (i <- 0 to (last_symbol_id - 1)) {
-          newItems(i) = symbol_links(i)
+      if (lastSymbolId + 1 >= symbolLinks.length) {
+        val newItems = new Array<SymbolLinks>((lastSymbolId + 1) * 2)
+        for (i <- 0 to (lastSymbolId - 1)) {
+          newItems(i) = symbolLinks(i)
         }
-        symbol_links = newItems
+        symbolLinks = newItems
       } else {}
 
-      symbol_links(last_symbol_id) = new SymbolLinks()
-      symbol.id = last_symbol_id
-      last_symbol_id = last_symbol_id + 1
+      symbolLinks(lastSymbolId) = new SymbolLinks()
+      symbol.id = lastSymbolId
+      lastSymbolId = lastSymbolId + 1
       symbol.id
     }
   }
 
   def getSymbolLinks(symbol: Symbol): SymbolLinks = {
-    val id = get_symbol_id(symbol)
-    symbol_links(id)
+    val id = getSymbolId(symbol)
+    symbolLinks(id)
   }
 
   def checkFields(fields: Array<BoundField>): unit = {
@@ -249,8 +249,8 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
 
   def getSymbolType(symbol: Symbol): Option<Type> = {
     val links = getSymbolLinks(symbol)
-    if (links.has_type()) {
-      Some(links.get_type())
+    if (links.hasType()) {
+      Some(links.getType())
     } else {
       None
     }
@@ -672,8 +672,8 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
     scope.get(value.identifier.text) match {
       case Some(symbol) =>
         val links = getSymbolLinks(symbol)
-        if (links.has_type()) {
-          links.get_type()
+        if (links.hasType()) {
+          links.getType()
         } else {
           // maybe the binder should track all items that define a declaration rather than specific types
           // we can build Nodes that represent the declaration and then we can track the type of the node
@@ -760,14 +760,14 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
 
   def inferSymbolType(symbol: Symbol): Type = {
     val links = getSymbolLinks(symbol)
-    if (links.has_type()) {
-      links.get_type()
+    if (links.hasType()) {
+      links.getType()
     } else {
       if (symbol.kind == SymbolKind.Class) {
-        links.set_type(Type.Reference(symbol, None))
+        links.setType(Type.Reference(symbol, None))
       } else {
         val typ = inferTypeOfDeclaration(symbol, links, symbol.declaration())
-        links.set_type(typ)
+        links.setType(typ)
 
         //        inferTypeAnnotation(symbol, links) match {
         //          case Some(annotatedType) =>
@@ -1148,7 +1148,7 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
     getTypeOfString(token.text, token.location, scope)
 
   def getTypeOfString(name: string, location: TextLocation, scope: Scope): Type = {
-    val scalaType = if (location.source_file.isScala()) {
+    val scalaType = if (location.sourceFile.isScala()) {
       if (name == "String") {
         stringType
       } else if (name == "Int") {
@@ -1322,28 +1322,28 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
 
   def printLocation(location: TextLocation): unit = {
     val span = location.span
-    val source_file = location.source_file
+    val sourceFile = location.sourceFile
 
-    for (currentLine <- location.start_line to location.end_line) {
-      val line = source_file.get_line(currentLine)
-      val start_in_current = source_file.get_line_index(span.start) == currentLine
-      val end_in_current = source_file.get_line_index(span.end) == currentLine
+    for (currentLine <- location.startLine to location.endLine) {
+      val line = sourceFile.getLine(currentLine)
+      val startInCurrent = sourceFile.getLineIndex(span.start) == currentLine
+      val endInCurrent = sourceFile.getLineIndex(span.end) == currentLine
 
-      val prefix_end =
-        if (start_in_current) span.start
+      val prefixEnd =
+        if (startInCurrent) span.start
         else line.start
 
-      val suffix_start =
-        if (end_in_current) span.end
+      val suffixStart =
+        if (endInCurrent) span.end
         else line.end
 
-      val prefix_span = TextSpanFactory.fromBounds(line.start, prefix_end)
-      val error_span = TextSpanFactory.fromBounds(prefix_end, suffix_start)
-      val suffix_span = TextSpanFactory.fromBounds(suffix_start, line.end)
+      val prefixSpan = TextSpanFactory.fromBounds(line.start, prefixEnd)
+      val errorSpan = TextSpanFactory.fromBounds(prefixEnd, suffixStart)
+      val suffixSpan = TextSpanFactory.fromBounds(suffixStart, line.end)
 
-      val prefix = source_file.to_string(prefix_span)
-      val error = source_file.to_string(error_span)
-      val suffix = source_file.to_string(suffix_span)
+      val prefix = sourceFile.toString(prefixSpan)
+      val error = sourceFile.toString(errorSpan)
+      val suffix = sourceFile.toString(suffixSpan)
 
       print(prefix)
       print(ANSI.foregroundColor("e06c75"))
@@ -1351,7 +1351,7 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
       print(ANSI.Clear)
       println(suffix)
 
-      for (c <- 0 to (prefix_span.length - 1)) {
+      for (c <- 0 to (prefixSpan.length - 1)) {
         print('-')
       }
       println('^')
@@ -1413,6 +1413,6 @@ class Checker(diagnosticBag: DiagnosticBag, root: Symbol) {
 
   def setSymbolType(symbol: Symbol, value: Type): Type = {
     val links = getSymbolLinks(symbol)
-    links.set_type(value)
+    links.setType(value)
   }
 }

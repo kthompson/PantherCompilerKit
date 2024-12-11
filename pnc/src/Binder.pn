@@ -90,11 +90,11 @@ class Binder(diagnostics: DiagnosticBag, root: Symbol) {
     }
     defns
   }
-  
+
   def mergeDefinitions(a: BoundDefinitions, b: BoundDefinitions): BoundDefinitions = {
     a match {
       case BoundDefinitions.Empty => b
-      case BoundDefinitions.Cons(definition, tail) => 
+      case BoundDefinitions.Cons(definition, tail) =>
         mergeDefinitions(tail, BoundDefinitions.Cons(definition, b))
     }
   }
@@ -128,12 +128,12 @@ class Binder(diagnostics: DiagnosticBag, root: Symbol) {
     new BoundDefinition.Field(symbol, node.typeAnnotation, Some(node.expression))
   }
 
-//  def name_with_namespace(name: string): string =
+//  def nameWithNamespace(name: string): string =
 //    if (ns == "") name
 //    else ns + "." + name
 
-  def declareSymbol(symbol_kind: int, flags: int, node: Declaration, scope: Scope, parent: Symbol): Symbol = {
-    val name = if (symbol_kind == SymbolKind.Constructor) ".ctor" else node match {
+  def declareSymbol(symbolKind: int, flags: int, node: Declaration, scope: Scope, parent: Symbol): Symbol = {
+    val name = if (symbolKind == SymbolKind.Constructor) ".ctor" else node match {
       case Declaration.Class(name, _, _) => name
       case Declaration.ClassFromEnumCase(name, _, _) => name
       case Declaration.Constructor(name, _, _) => name
@@ -165,8 +165,8 @@ class Binder(diagnostics: DiagnosticBag, root: Symbol) {
 
     val res = scope.get(name)
     if (res.isEmpty) {
-      val symbol = new Symbol(symbol_kind, flags, name, location, Some(parent))
-      symbol.add_declaration(node)
+      val symbol = new Symbol(symbolKind, flags, name, location, Some(parent))
+      symbol.addDeclaration(node)
       scope.addSymbol(symbol)
     } else {
       // TODO: add diagnostic for duplicate declaration

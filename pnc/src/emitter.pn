@@ -4,9 +4,9 @@ using system.io
 class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, /*checker: Checker,*/ outputFile: string) {
 
   var indent = ""
-  var symbol_prefix = ""
+  var symbolPrefix = ""
   var container: Symbol = root
-  var container_has_this: bool = false
+  var containerHasThis: bool = false
 
   val nl = "\n"
   val metadata = new Metadata()
@@ -200,8 +200,8 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, /*checker: Checker,*
       print("   | ")
     } else {
       val line = chunk.readLine(offset)
-      val line_str = Pad.left(line.toString, 4, ' ')
-      print(line_str + " ")
+      val lineStr = Pad.left(line.toString, 4, ' ')
+      print(lineStr + " ")
     }
     val opcode = chunk.readI4(offset)
     if (opcode == Opcode.Ret) {

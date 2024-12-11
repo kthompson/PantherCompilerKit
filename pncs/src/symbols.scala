@@ -19,7 +19,7 @@ enum ScopeParent {
     case ScopeParent.OfScope(value) => value.get(name)
     case ScopeParent.OfSymbol(value) =>
       // if we are a Symbol, we already searched this symbols scope so go to our parent
-      if (value.has_parent()) {
+      if (value.hasParent()) {
         val parent = value.parent()
         parent.members.get(name)
       } else {
@@ -163,42 +163,42 @@ object SymbolFlags {
  */
 case class Symbol(kind: int, flags: int, name: string, location: TextLocation, _parent: Option[Symbol]) {
   var _declarations: Array[Declaration] = new Array[Declaration](0)
-  var _declaration_count = 0
+  var _declarationCount = 0
   var id = -1 // used in type checking
   val ns = if (_parent.isDefined) _parent.get.fullName() else ""
   val members: Scope = new Scope(ScopeParent.OfSymbol(this), name)
 
   def parent(): Symbol = _parent.get
 
-  def has_parent(): bool = _parent.isDefined
+  def hasParent(): bool = _parent.isDefined
 
   def fullName(): string = {
     val parentName = ns
     if (parentName == "") name else parentName + "." + name
   }
 
-  def has_declaration(): bool = _declaration_count > 0
+  def hasDeclaration(): bool = _declarationCount > 0
 
-  def add_declaration(declaration: Declaration): Declaration = {
-    if (_declaration_count + 1 >= _declarations.length) {
-      val newItems = new Array[Declaration]((_declaration_count + 1) * 2)
-      for (i <- 0 to (_declaration_count - 1)) {
+  def addDeclaration(declaration: Declaration): Declaration = {
+    if (_declarationCount + 1 >= _declarations.length) {
+      val newItems = new Array[Declaration]((_declarationCount + 1) * 2)
+      for (i <- 0 to (_declarationCount - 1)) {
         newItems(i) = _declarations(i)
       }
       _declarations = newItems
     } else {
       ()
     }
-    _declarations(_declaration_count) = declaration
-    _declaration_count = _declaration_count + 1
+    _declarations(_declarationCount) = declaration
+    _declarationCount = _declarationCount + 1
     declaration
   }
 
   def declaration(): Declaration = _declarations(0)
 
   def declarations(): Array[Declaration] = {
-    var newItems = new Array[Declaration](_declaration_count)
-    for (i <- 0 to (_declaration_count - 1)) {
+    var newItems = new Array[Declaration](_declarationCount)
+    for (i <- 0 to (_declarationCount - 1)) {
       newItems(i) = _declarations(i)
     }
     newItems
@@ -206,11 +206,11 @@ case class Symbol(kind: int, flags: int, name: string, location: TextLocation, _
 }
 
 case class SymbolTreePrinter(checker: Checker) {
-  def print_scope(scope: Scope, indent: string, last: bool): unit = {
+  def printScope(scope: Scope, indent: string, last: bool): unit = {
     val symbols = scope.symbols()
     val scopes = scope.scopes()
-    val num_symbols = symbols.length
-    val num_scopes = scopes.length
+    val numSymbols = symbols.length
+    val numScopes = scopes.length
 
     val marker = if (last) "└──" else "├──"
     var childIndent = indent
@@ -232,24 +232,24 @@ case class SymbolTreePrinter(checker: Checker) {
     }
 
 
-    if (num_symbols > 0) {
-      for (i <- 0 to (num_symbols - 2)) {
-        print_symbol(symbols(i), childIndent, false)
+    if (numSymbols > 0) {
+      for (i <- 0 to (numSymbols - 2)) {
+        printSymbol(symbols(i), childIndent, false)
       }
-      print_symbol(symbols(num_symbols - 1), childIndent, num_scopes == 0)
+      printSymbol(symbols(numSymbols - 1), childIndent, numScopes == 0)
     } else {}
 
-    if (num_scopes > 0) {
-      for (s <- 0 to (num_scopes - 2)) {
-        print_scope(scopes(s), childIndent, false)
+    if (numScopes > 0) {
+      for (s <- 0 to (numScopes - 2)) {
+        printScope(scopes(s), childIndent, false)
       }
-      print_scope(scopes(num_scopes - 1), childIndent, true)
+      printScope(scopes(numScopes - 1), childIndent, true)
     } else {}
   }
 
-  def print_symbol(symbol: Symbol): unit = print_symbol(symbol, "", true)
+  def printSymbol(symbol: Symbol): unit = printSymbol(symbol, "", true)
 
-  def print_symbol(symbol: Symbol, indent: string, last: bool): unit = {
+  def printSymbol(symbol: Symbol, indent: string, last: bool): unit = {
     val marker = if (last) "└──" else "├──"
 
     printColor(ColorPalette.Comments)
@@ -276,7 +276,7 @@ case class SymbolTreePrinter(checker: Checker) {
 
     }
 
-    if (symbol.has_declaration()) {
+    if (symbol.hasDeclaration()) {
     } else {
       printColor(ColorPalette.Error)
       print(" [missing declaration]")
@@ -288,7 +288,7 @@ case class SymbolTreePrinter(checker: Checker) {
     if (!symbol.members.empty()) {
       val end = if (last) "    " else "│   "
       val childIndent = indent + end
-      print_scope(symbol.members, childIndent, true)
+      printScope(symbol.members, childIndent, true)
     } else {}
   }
 

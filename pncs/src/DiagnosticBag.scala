@@ -1,7 +1,7 @@
 import panther._
 
 case class Diagnostic(location: TextLocation, message: string) {
-    override def toString(): string = location.to_string() + ": " + message
+    override def toString(): string = location.toString() + ": " + message
     def compareTo(other: Diagnostic): int = {
       val i = location.compareTo(other.location)
       if(i != 0) i

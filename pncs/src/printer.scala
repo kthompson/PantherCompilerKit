@@ -595,7 +595,7 @@ object AstPrinter {
   }
 
   def printTokenInfo(token: SyntaxToken): unit =
-    println(token.location.to_string() + "[" + SyntaxFacts.getKindName(token.kind) + "]: " + "\"" + token.text + "\"")
+    println(token.location.toString() + "[" + SyntaxFacts.getKindName(token.kind) + "]: " + "\"" + token.text + "\"")
 
   def padRight(value: string, len: int): string = {
     var padded = value

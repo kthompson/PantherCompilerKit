@@ -1,14 +1,14 @@
 import panther._
 
 case class SyntaxTrivia(kind: int, start: int, text: string) {
-    def is_statement_terminator(): bool = kind == SyntaxKind.EndOfLineTrivia
+    def isStatementTerminator(): bool = kind == SyntaxKind.EndOfLineTrivia
 }
 
 case class SyntaxTriviaList() {
     var _items: Array[SyntaxTrivia] = new Array[SyntaxTrivia](0)
     var _size: int = 0
 
-    def ensure_capacity(count: int): unit = {
+    def ensureCapacity(count: int): unit = {
         if (_size + count >= _items.length) {
             var newItems = new Array[SyntaxTrivia]((_size + count) * 2)
             for (i <- 0 to (_size-1)) {
@@ -21,12 +21,12 @@ case class SyntaxTriviaList() {
     }
 
     def add(trivia: SyntaxTrivia): unit = {
-        ensure_capacity(1)
+        ensureCapacity(1)
         _items(_size) = trivia
         _size = _size + 1
     }
 
-    def to_array(): Array[SyntaxTrivia] = {
+    def toArray(): Array[SyntaxTrivia] = {
         val newItems = new Array[SyntaxTrivia](_size)
         for (i <- 0 to (_size-1)) {
             newItems(i) = _items(i)
@@ -45,20 +45,20 @@ enum SyntaxTokenValue {
     case Error
 }
 
-case class SyntaxToken(source_file: SourceFile, kind: int, start: int, text: string, value: SyntaxTokenValue, leading: Array[SyntaxTrivia], trailing: Array[SyntaxTrivia]) {
+case class SyntaxToken(sourceFile: SourceFile, kind: int, start: int, text: string, value: SyntaxTokenValue, leading: Array[SyntaxTrivia], trailing: Array[SyntaxTrivia]) {
     val span: TextSpan = new TextSpan(start, text.length)
-    val location: TextLocation = new TextLocation(source_file, span)
+    val location: TextLocation = new TextLocation(sourceFile, span)
 
-    def is_statement_terminator(): bool =
+    def isStatementTerminator(): bool =
         if (kind == SyntaxKind.EndOfInputToken || kind == SyntaxKind.CloseBraceToken) true
-        else is_statement_terminator(0)
+        else isStatementTerminator(0)
 
-    def is_statement_terminator(index: int): bool =
+    def isStatementTerminator(index: int): bool =
         if (index >= trailing.length) {
             false
-        } else if (trailing(index).is_statement_terminator()) {
+        } else if (trailing(index).isStatementTerminator()) {
             true
-        } else is_statement_terminator(index + 1)
+        } else isStatementTerminator(index + 1)
 }
 
 case class SimpleToken(kind: int, start: int, text: string, value: SyntaxTokenValue)

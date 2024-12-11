@@ -36,7 +36,7 @@ object Program {
     val trees = new Array[SyntaxTree](numTrees)
     for (x <- firstFile to (args.length - 1)) {
       print("parsing " + args(x) + "...")
-      trees(x - firstFile) = MakeSyntaxTree.parse_file(args(x))
+      trees(x - firstFile) = MakeSyntaxTree.parseFile(args(x))
       println("done")
     }
 
@@ -53,7 +53,7 @@ object Program {
             println("transpiling to " + outputFile + "...")
             compilation.transpile(outputFile)
           } else {
-            compilation.print_symbols()
+            compilation.printSymbols()
             println("emitting to " + outputFile + "...")
             compilation.emit(outputFile)
           }
@@ -77,30 +77,30 @@ object Program {
   def printDiagnostic(diagnostic: Diagnostic): unit = {
     val location = diagnostic.location
     val span = location.span
-    val source_file = location.source_file
+    val sourceFile = location.sourceFile
 
     println(diagnostic.toString())
 
-    for (currentLine <- location.start_line to location.end_line) {
-      val line = source_file.get_line(currentLine)
-      val start_in_current = source_file.get_line_index(span.start) == currentLine
-      val end_in_current = source_file.get_line_index(span.end) == currentLine
+    for (currentLine <- location.startLine to location.endLine) {
+      val line = sourceFile.getLine(currentLine)
+      val startInCurrent = sourceFile.getLineIndex(span.start) == currentLine
+      val endInCurrent = sourceFile.getLineIndex(span.end) == currentLine
 
-      val prefix_end =
-        if (start_in_current) span.start
+      val prefixEnd =
+        if (startInCurrent) span.start
         else line.start
 
-      val suffix_start =
-        if (end_in_current) span.end
+      val suffixStart =
+        if (endInCurrent) span.end
         else line.end
 
-      val prefix_span = TextSpanFactory.fromBounds(line.start, prefix_end)
-      val error_span = TextSpanFactory.fromBounds(prefix_end, suffix_start)
-      val suffix_span = TextSpanFactory.fromBounds(suffix_start, line.end)
+      val prefixSpan = TextSpanFactory.fromBounds(line.start, prefixEnd)
+      val errorSpan = TextSpanFactory.fromBounds(prefixEnd, suffixStart)
+      val suffixSpan = TextSpanFactory.fromBounds(suffixStart, line.end)
 
-      val prefix = source_file.to_string(prefix_span)
-      val error = source_file.to_string(error_span)
-      val suffix = source_file.to_string(suffix_span)
+      val prefix = sourceFile.toString(prefixSpan)
+      val error = sourceFile.toString(errorSpan)
+      val suffix = sourceFile.toString(suffixSpan)
 
       print(prefix)
       print(ANSI.foregroundColor("e06c75"))
@@ -108,7 +108,7 @@ object Program {
       print(ANSI.Clear)
       println(suffix)
 
-      for (c <- 0 to (prefix_span.length - 2)) {
+      for (c <- 0 to (prefixSpan.length - 2)) {
         print('-')
       }
       println('^')
