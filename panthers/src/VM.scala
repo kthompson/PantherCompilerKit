@@ -84,7 +84,7 @@ case class VM(chunk: Chunk, metadata: Metadata, stack: Array[Value], heap: Array
     InterpretResult.RuntimeError
   }
 
-  def binaryIntBoolOp(op: (int, int) => Boolean, opName: string): InterpretResult = {
+  def binaryIntBoolOp(op: (int, int) => bool, opName: string): InterpretResult = {
     val b = popInt()
     val a = popInt()
     trace(opName + " " + a + ", " + b)

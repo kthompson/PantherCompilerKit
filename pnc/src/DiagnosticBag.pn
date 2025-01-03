@@ -20,8 +20,24 @@ class DiagnosticBag() {
 
   def report(location: TextLocation, message: string): unit = add(new Diagnostic(location, message))
 
-  def reportTypeNotDefined(location: TextLocation, name: string): unit = report(location, "Type " + name + " not defined")
+  def reportSymbolNotDefined(location: TextLocation, name: string): unit =
+    report(location, "Symbol " + name + " not defined")
 
+  def reportTypeNotDefined(location: TextLocation, name: string): unit =
+    report(location, "Type " + name + " not defined")
+
+  def reportTopLevelStatementsInMultipleFiles(firstLocation: TextLocation, secondLocation: TextLocation): unit =
+    report(firstLocation, "Top-level statements in multiple files " + firstLocation.toString() + " and " + secondLocation.toString())
+    
+  def reportDuplicateDefinition(name: string, first: TextLocation, second: TextLocation): unit =
+    report(first, "Duplicate definition of " + name + " at " + second.toString())
+  
+  def reportMultipleEntryPoints(first: TextLocation, second: TextLocation): unit = 
+    report(first, "Multiple entry points in files " + first.toString() + " and " + second.toString())
+
+  def reportInvalidNamespace(location: TextLocation): unit =
+    report(location, "Invalid namespace")
+  
   def reportBadCharacter(location: TextLocation, value: char): unit = report(location, "Invalid character in input: " + string(value))
 
   def reportEmptyCharLiteral(location: TextLocation): unit = report(location, "Empty character literal")

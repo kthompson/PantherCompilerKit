@@ -5,26 +5,6 @@ using StatementSyntax
 using SimpleNameSyntax
 using NameSyntax
 
-object ColorPalette {
-  val Literal1 = "d19a66" // number / bool
-  val Literal2 = "98c379" // string / char
-  val Punctuation = "56b6c2"
-
-  val Keyword = "c678dd" // if,else
-  val Identifier = "e06c75"
-
-  val Comments = "7f848e"
-  val Declarations = "e5c07b"
-  val Members = "61afef"
-
-  val Error = "c73e1d"
-
-  val Brackets = new Array<string>(3)
-  Brackets(0) = "d19a66"
-  Brackets(1) = "c678dd"
-  Brackets(2) = "56b6c2"
-}
-
 object AstPrinter {
 
   def printCompilationUnit(compilationUnit: CompilationUnitSyntax): unit = {
@@ -40,32 +20,41 @@ object AstPrinter {
     }
   }
 
-  def printMembers(nodes: Array<MemberSyntax>): unit = {
-    for (x <- 0 to (nodes.length - 1)) {
-      printMember(nodes(x))
+  def printMembers(nodes: List<MemberSyntax>): unit = {
+    nodes match {
+      case List.Nil => ()
+      case List.Cons(x, xs) =>
+        printMember(x)
+        printMembers(xs)
     }
   }
 
   def printMember(member: MemberSyntax): unit = {
     member match {
-      case value: ObjectDeclarationSyntax => printObjectDeclaration(value)
-      case value: ClassDeclarationSyntax => printClassDeclaration(value)
+      case value: ObjectDeclarationSyntax   => printObjectDeclaration(value)
+      case value: ClassDeclarationSyntax    => printClassDeclaration(value)
       case value: FunctionDeclarationSyntax => printFunctionDeclaration(value)
-      case value: GlobalStatementSyntax => printGlobalStatement(value)
-      case value: VariableDeclaration => panic("VariableDeclaration not implemented")
-      case value: EnumDeclarationSyntax => panic("EnumDeclarationSyntax not implemented")
+      case value: GlobalStatementSyntax     => printGlobalStatement(value)
+      case value: VariableDeclaration =>
+        panic("VariableDeclaration not implemented")
+      case value: EnumDeclarationSyntax =>
+        panic("EnumDeclarationSyntax not implemented")
     }
   }
 
-
-  def printObjectDeclaration(node: MemberSyntax.ObjectDeclarationSyntax): unit = {
-    printToken(node.objectKeyword)
-    printToken(node.identifier, ColorPalette.Declarations)
+  def printObjectDeclaration(
+      node: MemberSyntax.ObjectDeclarationSyntax
+  ): unit = {
+    printTokenWithColor(node.objectKeyword, ColorPalette.Keyword)
+    printTokenWithColor(node.identifier, ColorPalette.Identifier)
     printTemplate(node.template)
   }
 
   def printOptionalTemplate(node: Option<TemplateSyntax>): unit =
-    if (node.isDefined) printTemplate(node.get) else ()
+    node match {
+      case Option.Some(value) => printTemplate(value)
+      case Option.None        =>
+    }
 
   def printTemplate(node: TemplateSyntax): unit = {
     printToken(node.openBrace)
@@ -74,17 +63,72 @@ object AstPrinter {
   }
 
   def printClassDeclaration(node: MemberSyntax.ClassDeclarationSyntax): unit = {
-    printToken(node.classKeyword)
-    printToken(node.identifier, ColorPalette.Declarations)
+    printTokenWithColor(node.classKeyword, ColorPalette.Keyword)
+    printTokenWithColor(node.identifier, ColorPalette.Identifier)
+    node.genericParameters match {
+      case Option.None        => ()
+      case Option.Some(value) => printGenericParameters(value)
+    }
     printToken(node.openParenToken)
     printParameters(node.parameters)
     printToken(node.closeParenToken)
     printOptionalTemplate(node.template)
   }
 
-  def printFunctionDeclaration(node: MemberSyntax.FunctionDeclarationSyntax): unit = {
-    printToken(node.defKeyword)
-    printToken(node.identifier, ColorPalette.Members)
+  def printGenericParameters(
+      node: GenericParametersSyntax
+  ): unit = {
+    printTokenWithColor(node.lessThanToken, ColorPalette.Brackets(0))
+    printGenericTypeParameterList(
+      node.parameters.items,
+      node.parameters.separators
+    )
+    printTokenWithColor(node.greaterThanToken, ColorPalette.Brackets(0))
+  }
+
+  def printGenericTypeParameterList(
+      items: List<GenericParameterSyntax>,
+      separators: List<SyntaxToken>
+  ): unit = {
+    items match {
+      case List.Nil => ()
+      case List.Cons(genParam, parameterTail) =>
+        printGenericTypeParameter(genParam)
+        separators match {
+          case List.Nil =>
+            assert(
+              parameterTail.isEmpty(),
+              "Expected no more generic parameters"
+            )
+
+          case List.Cons(head, separatorTail) =>
+            printTokenWithColor(head, ColorPalette.Punctuation)
+            printGenericTypeParameterList(parameterTail, separatorTail)
+        }
+    }
+  }
+
+  def printGenericTypeParameter(node: GenericParameterSyntax): unit = {
+    node.variance match {
+      case Option.None => ()
+      case Option.Some(value) =>
+        printTokenWithColor(value, ColorPalette.TypeParameter)
+    }
+
+    printTokenWithColor(node.identifier, ColorPalette.TypeParameter)
+    node.bounds match {
+      case Option.None => ()
+      case Option.Some(value) =>
+        printTokenWithColor(value.token, ColorPalette.Punctuation)
+        printName(value.name)
+    }
+  }
+
+  def printFunctionDeclaration(
+      node: MemberSyntax.FunctionDeclarationSyntax
+  ): unit = {
+    printTokenWithColor(node.defKeyword, ColorPalette.Keyword)
+    printTokenWithColor(node.identifier, ColorPalette.Method)
     printToken(node.openParenToken)
     printParameters(node.parameters)
     printToken(node.closeParenToken)
@@ -107,7 +151,7 @@ object AstPrinter {
   }
 
   def printOptionalTypeAnnotation(node: Option<TypeAnnotationSyntax>): unit =
-    if (node.isDefined) printTypeAnnotation(node.get) else ()
+    if (node.isDefined()) printTypeAnnotation(node.get()) else ()
 
   def printTypeAnnotation(node: TypeAnnotationSyntax): unit = {
     printToken(node.colonToken)
@@ -115,7 +159,7 @@ object AstPrinter {
   }
 
   def printOptionalFunctionBody(node: Option<FunctionBodySyntax>): unit =
-    if (node.isDefined) printFunctionBody(node.get) else ()
+    if (node.isDefined()) printFunctionBody(node.get()) else ()
 
   def printFunctionBody(node: FunctionBodySyntax): unit = {
     printToken(node.equalToken)
@@ -124,35 +168,39 @@ object AstPrinter {
 
   def printExpression(node: Expression): unit = {
     node match {
-      case value: Expression.ArrayCreationExpression => printArrayCreationExpression(value)
-      case value: Expression.AssignmentExpression => printAssignmentExpression(value)
+      case value: Expression.ArrayCreationExpression =>
+        printArrayCreationExpression(value)
+      case value: Expression.AssignmentExpression =>
+        printAssignmentExpression(value)
       case value: Expression.BinaryExpression => printBinaryExpression(value)
-      case value: Expression.BlockExpression => printBlockExpression(value)
-      case value: Expression.CallExpression => printCallExpression(value)
-      case value: Expression.ForExpression => printForExpression(value)
-      case value: Expression.GroupExpression => printGroupExpression(value)
-      case IdentifierName(value) => printIdentifierName(value, ColorPalette.Identifier)
-      case value: Expression.If => printIfExpression(value)
-      case value: Expression.IndexExpression => printIndexExpression(value)
+      case value: Expression.BlockExpression  => printBlockExpression(value)
+      case value: Expression.CallExpression   => printCallExpression(value)
+      case value: Expression.ForExpression    => printForExpression(value)
+      case value: Expression.GroupExpression  => printGroupExpression(value)
+      case IdentifierName(value) =>
+        printIdentifierName(value, ColorPalette.Identifier)
+      case value: Expression.If                => printIfExpression(value)
+      case value: Expression.IndexExpression   => printIndexExpression(value)
       case value: Expression.LiteralExpression => printLiteralExpression(value)
       case value: MatchExpression => panic("MatchExpression not implemented")
-      case value: Expression.MemberAccessExpression => printMemberAccessExpression(value)
-      case value: Expression.NewExpression => printNewExpression(value)
+      case value: Expression.MemberAccessExpression =>
+        printMemberAccessExpression(value)
+      case value: Expression.NewExpression   => printNewExpression(value)
       case value: Expression.UnaryExpression => printUnaryExpression(value)
-      case value: Expression.UnitExpression => printUnitExpression(value)
+      case value: Expression.UnitExpression  => printUnitExpression(value)
       case value: Expression.WhileExpression => printWhileExpression(value)
     }
   }
 
   def printOptionalExpression(node: Option<Expression>): unit = {
-    if (node.isDefined) {
-      printExpression(node.get)
-    } else {
-      ()
+    if (node.isDefined()) {
+      printExpression(node.get())
     }
   }
 
-  def printArrayCreationExpression(node: Expression.ArrayCreationExpression): unit = {
+  def printArrayCreationExpression(
+      node: Expression.ArrayCreationExpression
+  ): unit = {
     printToken(node.newKeyword)
     printName(node.name)
     printToken(node.openBracket)
@@ -161,15 +209,17 @@ object AstPrinter {
     printArrayInitializerExpressions(node.initializer)
   }
 
-  def printArrayInitializerExpressions(node: Option<ArrayInitializerExpressionSyntax>): unit = {
-    if (node.isDefined) {
-      printArrayInitializerExpression(node.get)
-    } else {
-      ()
+  def printArrayInitializerExpressions(
+      node: Option<ArrayInitializerExpressionSyntax>
+  ): unit = {
+    if (node.isDefined()) {
+      printArrayInitializerExpression(node.get())
     }
   }
 
-  def printArrayInitializerExpression(node: ArrayInitializerExpressionSyntax): unit = {
+  def printArrayInitializerExpression(
+      node: ArrayInitializerExpressionSyntax
+  ): unit = {
     printToken(node.openBrace)
     printExpressionList(node.expressions)
     printToken(node.closeBrace)
@@ -229,8 +279,16 @@ object AstPrinter {
     printExpression(node.condition)
     printToken(node.closeParen)
     printExpression(node.thenExpr)
-    printToken(node.elseKeyword)
-    printExpression(node.elseExpr)
+    printElseExpression(node.elseExpr)
+  }
+
+  def printElseExpression(node: Option<ElseSyntax>): unit = {
+    node match {
+      case Option.Some(value) =>
+        printToken(value.elseKeyword)
+        printExpression(value.expression)
+      case Option.None => ()
+    }
   }
 
   def printIndexExpression(node: Expression.IndexExpression): unit = {
@@ -244,7 +302,9 @@ object AstPrinter {
     printToken(node.token)
   }
 
-  def printMemberAccessExpression(node: Expression.MemberAccessExpression): unit = {
+  def printMemberAccessExpression(
+      node: Expression.MemberAccessExpression
+  ): unit = {
     printExpression(node.left)
     printToken(node.dotToken)
     printIdentifierName(node.right, ColorPalette.Identifier)
@@ -293,14 +353,17 @@ object AstPrinter {
 
   def printStatment(node: StatementSyntax): unit = {
     node match {
-      case value: VariableDeclarationStatement => printVariableDeclarationStatement(value)
-      case value: BreakStatement => printBreakStatement(value)
-      case value: ContinueStatement => printContinueStatement(value)
+      case value: VariableDeclarationStatement =>
+        printVariableDeclarationStatement(value)
+      case value: BreakStatement      => printBreakStatement(value)
+      case value: ContinueStatement   => printContinueStatement(value)
       case value: ExpressionStatement => printExpressionStatement(value)
     }
   }
 
-  def printVariableDeclarationStatement(node: StatementSyntax.VariableDeclarationStatement): unit = {
+  def printVariableDeclarationStatement(
+      node: StatementSyntax.VariableDeclarationStatement
+  ): unit = {
     printToken(node.valOrVarKeyword)
     printToken(node.identifier)
     printOptionalTypeAnnotation(node.typeAnnotation)
@@ -308,11 +371,15 @@ object AstPrinter {
     printExpression(node.expression)
   }
 
-  def printBreakStatement(node: StatementSyntax.BreakStatement): unit = printToken(node.breakKeyword)
+  def printBreakStatement(node: StatementSyntax.BreakStatement): unit =
+    printToken(node.breakKeyword)
 
-  def printContinueStatement(node: StatementSyntax.ContinueStatement): unit = printToken(node.continueKeyword)
+  def printContinueStatement(node: StatementSyntax.ContinueStatement): unit =
+    printToken(node.continueKeyword)
 
-  def printExpressionStatement(node: StatementSyntax.ExpressionStatement): unit = {
+  def printExpressionStatement(
+      node: StatementSyntax.ExpressionStatement
+  ): unit = {
     printExpression(node.expression)
   }
 
@@ -334,52 +401,55 @@ object AstPrinter {
     }
   }
 
-  def printNamespaceDeclaration(decl: Option<NamespaceDeclarationSyntax>): unit = {
-    if (decl.isDefined) {
-      printToken(decl.get.namespaceKeyword)
-      printName(decl.get.name)
+  def printNamespaceDeclaration(
+      decl: Option<NamespaceDeclarationSyntax>
+  ): unit = {
+    if (decl.isDefined()) {
+      printToken(decl.get().namespaceKeyword)
+      printName(decl.get().name)
     } else ()
   }
 
   def printName(name: NameSyntax): unit = {
     name match {
-      case value: NameSyntax.QualifiedNameSyntax => printQualifiedName(value)
-      case value: NameSyntax.SimpleName => printSimpleName(value.name)
+      case value: NameSyntax.QualifiedName => printQualifiedName(value)
+      case value: NameSyntax.SimpleName    => printSimpleName(value.name)
     }
   }
 
-  def printQualifiedName(node: NameSyntax.QualifiedNameSyntax): unit = {
+  def printQualifiedName(node: NameSyntax.QualifiedName): unit = {
     printName(node.left)
     printToken(node.dotToken)
     printSimpleName(node.right)
   }
 
   def printGenericName(node: SimpleNameSyntax.GenericNameSyntax): unit = {
-    printToken(node.identifier, ColorPalette.Declarations)
+    printTokenWithColor(node.identifier, ColorPalette.Identifier)
     printTypeArgumentList(node.typeArgumentlist)
   }
 
   def printSimpleName(node: SimpleNameSyntax): unit = {
     node match {
       case value: SimpleNameSyntax.GenericNameSyntax => printGenericName(value)
-      case value: SimpleNameSyntax.IdentifierNameSyntax => printIdentifierName(value, ColorPalette.Declarations)
+      case value: SimpleNameSyntax.IdentifierNameSyntax =>
+        printIdentifierName(value, ColorPalette.Identifier)
       case value: SimpleNameSyntax.ScalaAliasSyntax => printScalaAlias(value)
-      case value: SimpleNameSyntax.AliasSyntax => printAlias(value)
+      case value: SimpleNameSyntax.AliasSyntax      => printAlias(value)
     }
   }
 
   def printAlias(node: SimpleNameSyntax.AliasSyntax): unit = {
-    printToken(node.name, ColorPalette.Identifier)
-    printToken(node.asKeyword, ColorPalette.Punctuation)
-    printToken(node.alias, ColorPalette.Identifier)
+    printTokenWithColor(node.name, ColorPalette.Identifier)
+    printTokenWithColor(node.asKeyword, ColorPalette.Punctuation)
+    printTokenWithColor(node.alias, ColorPalette.Identifier)
   }
 
   def printScalaAlias(node: SimpleNameSyntax.ScalaAliasSyntax): unit = {
-    printToken(node.open, ColorPalette.Punctuation)
-    printToken(node.name, ColorPalette.Identifier)
-    printToken(node.arrow, ColorPalette.Punctuation)
-    printToken(node.alias, ColorPalette.Identifier)
-    printToken(node.close, ColorPalette.Punctuation)
+    printTokenWithColor(node.open, ColorPalette.Punctuation)
+    printTokenWithColor(node.name, ColorPalette.Identifier)
+    printTokenWithColor(node.arrow, ColorPalette.Punctuation)
+    printTokenWithColor(node.alias, ColorPalette.Identifier)
+    printTokenWithColor(node.close, ColorPalette.Punctuation)
   }
 
   def printTypeArgumentLists(nodes: Array<TypeArgumentListSyntax>): unit = {
@@ -405,14 +475,20 @@ object AstPrinter {
     printOptionalToken(node.separator)
   }
 
-  def printIdentifierNames(nodes: Array<SimpleNameSyntax.IdentifierNameSyntax>, color: string): unit = {
+  def printIdentifierNames(
+      nodes: Array<SimpleNameSyntax.IdentifierNameSyntax>,
+      color: string
+  ): unit = {
     for (x <- 0 to (nodes.length - 1)) {
       printIdentifierName(nodes(x), color)
     }
   }
 
-  def printIdentifierName(node: SimpleNameSyntax.IdentifierNameSyntax, color: string): unit = {
-    printToken(node.identifier, color)
+  def printIdentifierName(
+      node: SimpleNameSyntax.IdentifierNameSyntax,
+      color: string
+  ): unit = {
+    printTokenWithColor(node.identifier, color)
   }
 
   def printTriviaArray(nodes: Array<SyntaxTrivia>): unit = {
@@ -434,8 +510,8 @@ object AstPrinter {
   }
 
   def printOptionalToken(node: Option<SyntaxToken>): unit = {
-    if (node.isDefined) {
-      printToken(node.get)
+    if (node.isDefined()) {
+      printToken(node.get())
     } else ()
   }
 
@@ -447,7 +523,7 @@ object AstPrinter {
     printTriviaArray(token.trailing)
   }
 
-  def printToken(token: SyntaxToken, color: string): unit = {
+  def printTokenWithColor(token: SyntaxToken, color: string): unit = {
     printTriviaArray(token.leading)
     printColor(color)
     print(token.text)
@@ -458,117 +534,157 @@ object AstPrinter {
   def printType(typ: Type): unit =
     _printType(typ, true)
 
+  def _printTypes(types: List<Type>, first: bool): unit =
+    types match {
+      case List.Nil => printClear()
+      case List.Cons(typ, tail) =>
+        if (!first) {
+          printColor(ColorPalette.Punctuation)
+          print(", ")
+        }
+        _printType(typ, false)
+        _printTypes(tail, false)
+    }
+
+  def _printTypedParameters(
+      printedFirst: bool,
+      parameters: List<BoundParameter>
+  ): unit = {
+    parameters match {
+      case List.Nil => ()
+      case List.Cons(param, tail) =>
+        if (printedFirst) {
+          printColor(ColorPalette.Punctuation)
+          print(", ")
+        } else {}
+        printColor(ColorPalette.Identifier)
+        print(param.name)
+        printColor(ColorPalette.Punctuation)
+        print(": ")
+        _printType(param.typ, false)
+        _printTypedParameters(true, tail)
+    }
+  }
+
   def _printType(typ: Type, clear: bool): unit = {
     typ match {
-      case Type.Function(parameters, returnType) =>
-        val lastIndex = parameters.length - 1
+      case Type.Function(genParams, parameters, returnType) =>
         printColor(ColorPalette.Punctuation)
-        print("(")
-        for (i <- 0 to (lastIndex)) {
-          printColor(ColorPalette.Identifier)
-          print(parameters(i).name)
-          printColor(ColorPalette.Punctuation)
-          print(": ")
-          _printType(parameters(i).typ, false)
-          if (i < lastIndex) {
+        if (genParams.length > 0) {
+            print("<")
+            _printTypes(genParams, true)
             printColor(ColorPalette.Punctuation)
-            print(", ")
-          } else ()
+            print(">")
         }
+        print("(")
+        _printTypedParameters(false, parameters)
         printColor(ColorPalette.Punctuation)
         print(") -> ")
         _printType(returnType, false)
-      case Type.ArrayType(inner) =>
-        printColor(ColorPalette.Keyword)
-        print("Array")
-        printColor(ColorPalette.Punctuation)
-        print("<")
-        _printType(inner, false)
-        printColor(ColorPalette.Punctuation)
-        print(">")
-
-      case Type.Reference(symbol, _) =>
-        val color = if (SyntaxFacts.isBuiltin(symbol.name)) ColorPalette.Keyword else ColorPalette.Identifier
+      case Type.Named(ns, name, args) =>
+        val color =
+          if (ns == "" && SyntaxFacts.isBuiltinType(name)) ColorPalette.Keyword
+          else ColorPalette.Identifier
         printColor(color)
-        print(symbol.name)
-      case Type.OptionType(inner) =>
-        printColor(ColorPalette.Keyword)
-        print("Option")
-        printColor(ColorPalette.Punctuation)
-        print("<")
-        _printType(inner, false)
-        printColor(ColorPalette.Punctuation)
-        print(">")
+
+        if (ns != "") {
+          print(ns)
+          print(".")
+        }
+        print(name)
+        args match {
+          case List.Nil =>
+          case List.Cons(typ, tail) =>
+            print("<")
+            _printTypes(args, true)
+            print(">")
+        }
+      case Type.Variable(name, variance, upperBound) =>
+        variance match {
+          case Variance.Covariant =>
+            printColor(ColorPalette.Keyword)
+            print("out ")
+          case Variance.Contravariant =>
+            printColor(ColorPalette.Keyword)
+            print("in ")
+          case _ =>
+        }
+
+        printColor(ColorPalette.Identifier)
+        upperBound match {
+          case Option.Some(value) =>
+            print(name)
+            printColor(ColorPalette.Punctuation)
+            print(": ")
+            _printType(value, false)
+          case Option.None => print(name)
+        }
       case Type.Any =>
         printColor(ColorPalette.Keyword)
         print("any")
       case Type.Never =>
         printColor(ColorPalette.Keyword)
         print("never")
-      case Type.unit =>
-        printColor(ColorPalette.Keyword)
-        print("unit")
       case Type.Error =>
         printColor(ColorPalette.Error)
         print("error")
-      case Type.int =>
-        printColor(ColorPalette.Keyword)
-        print("int")
-      case Type.Bool =>
-        printColor(ColorPalette.Keyword)
-        print("bool")
-      case Type.Class(ClassName(name)) => 
-        printColor(ColorPalette.Identifier)
-        print(name)
     }
 
     if (clear) printClear() else ()
   }
 
-  def printSymbolKind(kind: int): unit = {
-    if (kind == SymbolKind.Root) {
-      printColor(ColorPalette.Keyword)
-      print("Root")
-    } else if (kind == SymbolKind.Class) {
-      printColor(ColorPalette.Literal1)
-      print("Type")
-    } else if (kind == SymbolKind.Field) {
-      printColor(ColorPalette.Members)
-      print("Field")
-    } else if (kind == SymbolKind.Method) {
-      printColor(ColorPalette.Members)
-      print("Method")
-    } else if (kind == SymbolKind.Constructor) {
-      printColor(ColorPalette.Members)
-      print("Constructor")
-    } else if (kind == SymbolKind.Parameter) {
-      printColor(ColorPalette.Identifier)
-      print("Parameter")
-    } else {
-      print("Local")
+  def printSymbolKind(kind: SymbolKind): unit = {
+    kind match {
+      case SymbolKind.Namespace =>
+        printColor(ColorPalette.Keyword)
+        print("Namespace")
+      case SymbolKind.Class =>
+        printColor(ColorPalette.Keyword)
+        print("Class")
+      case SymbolKind.Object =>
+        printColor(ColorPalette.Keyword)
+        print("Object")
+      case SymbolKind.Enum =>
+        printColor(ColorPalette.Keyword)
+        print("Enum")
+      case SymbolKind.TypeParameter(_) =>
+        printColor(ColorPalette.TypeParameter)
+        print("TypeParameter")
+      case SymbolKind.Field =>
+        printColor(ColorPalette.Field)
+        print("Field")
+      case SymbolKind.Method =>
+        printColor(ColorPalette.Method)
+        print("Method")
+      case SymbolKind.Parameter =>
+        printColor(ColorPalette.Identifier)
+        print("Parameter")
     }
+
     print(ANSI.Clear)
   }
 
   def printKindColor(kind: int): unit = {
-    if (kind == SyntaxKind.NumberToken || kind == SyntaxKind.TrueKeyword || kind == SyntaxKind.FalseKeyword) {
-      printColor(ColorPalette.Literal1)
+    if (kind == SyntaxKind.NumberToken) {
+      printColor(ColorPalette.Number)
     } else if (SyntaxFacts.isKeywordKind(kind)) {
       printColor(ColorPalette.Keyword)
     } else if (kind == SyntaxKind.StringToken || kind == SyntaxKind.CharToken) {
-      printColor(ColorPalette.Literal2)
+      printColor(ColorPalette.string)
     } else if (kind == SyntaxKind.DashToken) {
       printColor(ColorPalette.Punctuation)
-    } else if (kind == SyntaxKind.LineCommentTrivia || kind == SyntaxKind.BlockCommentTrivia) {
-      printColor(ColorPalette.Comments)
+    } else if (
+      kind == SyntaxKind.LineCommentTrivia || kind == SyntaxKind.BlockCommentTrivia
+    ) {
+      printColor(ColorPalette.Comment)
     } else if (kind == SyntaxKind.IdentifierToken) {
       printColor(ColorPalette.Identifier)
-    } else if (kind == SyntaxKind.OpenBraceToken || kind == SyntaxKind.OpenParenToken || kind == SyntaxKind.OpenBracketToken ||
-      kind == SyntaxKind.CloseBraceToken || kind == SyntaxKind.CloseParenToken || kind == SyntaxKind.CloseBracketToken) {
+    } else if (
+      kind == SyntaxKind.OpenBraceToken || kind == SyntaxKind.OpenParenToken || kind == SyntaxKind.OpenBracketToken ||
+      kind == SyntaxKind.CloseBraceToken || kind == SyntaxKind.CloseParenToken || kind == SyntaxKind.CloseBracketToken
+    ) {
       printBracketColor(kind)
-    } else {
-
-    }
+    } else {}
   }
 
   var bracketDepth = 0
@@ -585,7 +701,9 @@ object AstPrinter {
   }
 
   def printBracketColor(kind: int): unit = {
-    if (kind == SyntaxKind.OpenBraceToken || kind == SyntaxKind.OpenParenToken || kind == SyntaxKind.OpenBracketToken) {
+    if (
+      kind == SyntaxKind.OpenBraceToken || kind == SyntaxKind.OpenParenToken || kind == SyntaxKind.OpenBracketToken
+    ) {
       printColor(ColorPalette.Brackets(bracketDepth))
       updateBracketDepth(bracketDepth + 1)
     } else {
@@ -595,7 +713,11 @@ object AstPrinter {
   }
 
   def printTokenInfo(token: SyntaxToken): unit =
-    println(token.location.toString() + "[" + SyntaxFacts.getKindName(token.kind) + "]: " + "\"" + token.text + "\"")
+    println(
+      token.location.toString() + "[" + SyntaxFacts.getKindName(
+        token.kind
+      ) + "]: " + "\"" + token.text + "\""
+    )
 
   def padRight(value: string, len: int): string = {
     var padded = value

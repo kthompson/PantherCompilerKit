@@ -1,7 +1,7 @@
 using panther
 using system.io
 
-class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, /*checker: Checker,*/ outputFile: string) {
+class Emitter(syntaxTrees: List<SyntaxTree>, root: Symbol, /*checker: Checker,*/ outputFile: string) {
 
   var indent = ""
   var symbolPrefix = ""

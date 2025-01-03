@@ -45,7 +45,10 @@ object MakeTokenList {
   }
 
   @tailrec
-  def _buildTokenList(scanner: Lexer, tokenList: TokenList): Array[SyntaxToken] = {
+  def _buildTokenList(
+      scanner: Lexer,
+      tokenList: TokenList
+  ): Array[SyntaxToken] = {
     val token = scanner.scan()
     tokenList.add(token)
     if (token.kind == SyntaxKind.EndOfInputToken) {
@@ -56,7 +59,6 @@ object MakeTokenList {
   }
 }
 
-
 case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
 
   val _tokens: Array[SyntaxToken] = {
@@ -64,6 +66,7 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     MakeTokenList.create(scanner)
   }
   var _position = 0
+  val scala = sourceFile.isScala()
 
   def next(): unit = {
     _position = _position + 1
@@ -71,8 +74,10 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     // skip tokens that are not valid in panther
     val curr = current()
     val kind = curr.kind
-    if (kind == SyntaxKind.AnnotationToken || kind == SyntaxKind.OverrideKeyword) {
-      if (!sourceFile.isScala()) {
+    if (
+      kind == SyntaxKind.AnnotationToken || kind == SyntaxKind.OverrideKeyword
+    ) {
+      if (!scala) {
         diagnostics.reportUnexpectedToken(curr.location, curr.kind, kind)
       } else ()
 
@@ -94,7 +99,8 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       val next = _tokens(nextP)
       val curr = _tokens(currP)
 
-      val newLeading = new Array[SyntaxTrivia](curr.leading.length + next.leading.length)
+      val newLeading =
+        new Array[SyntaxTrivia](curr.leading.length + next.leading.length)
       for (i <- 0 to (curr.leading.length - 1)) {
         newLeading(i) = curr.leading(i)
       }
@@ -135,14 +141,24 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     if (kind == SyntaxKind.EqualsToken) 1
     else if (kind == SyntaxKind.PipeToken || kind == SyntaxKind.PipePipeToken) 2
     else if (kind == SyntaxKind.CaretToken) 3
-    else if (kind == SyntaxKind.AmpersandToken || kind == SyntaxKind.AmpersandAmpersandToken) 4
-    else if (kind == SyntaxKind.EqualsEqualsToken || kind == SyntaxKind.BangEqualsToken) 5
-    else if (kind == SyntaxKind.LessThanToken || kind == SyntaxKind.LessThanEqualsToken) 6
-    else if (kind == SyntaxKind.GreaterThanToken || kind == SyntaxKind.GreaterThanEqualsToken) 6
+    else if (
+      kind == SyntaxKind.AmpersandToken || kind == SyntaxKind.AmpersandAmpersandToken
+    ) 4
+    else if (
+      kind == SyntaxKind.EqualsEqualsToken || kind == SyntaxKind.BangEqualsToken
+    ) 5
+    else if (
+      kind == SyntaxKind.LessThanToken || kind == SyntaxKind.LessThanEqualsToken
+    ) 6
+    else if (
+      kind == SyntaxKind.GreaterThanToken || kind == SyntaxKind.GreaterThanEqualsToken
+    ) 6
     else if (kind == SyntaxKind.PlusToken || kind == SyntaxKind.DashToken) 7
     else if (kind == SyntaxKind.StarToken || kind == SyntaxKind.SlashToken) 8
     // unary/prefix is 9
-    else if (kind == SyntaxKind.OpenParenToken || kind == SyntaxKind.OpenBracketToken) 10
+    else if (
+      kind == SyntaxKind.OpenParenToken || kind == SyntaxKind.OpenBracketToken
+    ) 10
     else if (kind == SyntaxKind.DotToken) 10
     else if (kind == SyntaxKind.MatchKeyword) 11
     else OperatorPrecedence.Lowest
@@ -155,13 +171,21 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     token
   }
 
-  def accept(kind: int): SyntaxToken = {
+  def acceptKind(kind: int): SyntaxToken = {
     val curr = current()
     if (curr.kind == kind) {
       accept()
     } else {
       diagnostics.reportUnexpectedToken(curr.location, curr.kind, kind)
-      new SyntaxToken(sourceFile, kind, curr.start, "", SyntaxTokenValue.Error, new Array[SyntaxTrivia](0), new Array[SyntaxTrivia](0))
+      new SyntaxToken(
+        sourceFile,
+        kind,
+        curr.start,
+        "",
+        SyntaxTokenValue.Error,
+        new Array[SyntaxTrivia](0),
+        new Array[SyntaxTrivia](0)
+      )
     }
   }
 
@@ -174,33 +198,40 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   def hasStatementTerminator(expression: Expression): bool = {
     expression match {
       case value: ArrayCreationExpression =>
-        if (value.initializer.isDefined) {
-          value.initializer.get.closeBrace.isStatementTerminator()
-        } else {
-          value.closeBracket.isStatementTerminator()
+        value.initializer match {
+          case Option.None =>
+            value.closeBracket.isStatementTerminator()
+          case Option.Some(value) =>
+            value.closeBrace.isStatementTerminator()
         }
       case value: AssignmentExpression => hasStatementTerminator(value.right)
-      case value: BinaryExpression => hasStatementTerminator(value.right)
+      case value: BinaryExpression     => hasStatementTerminator(value.right)
       case value: BlockExpression => value.closeBrace.isStatementTerminator()
-      case value: CallExpression => value.closeParen.isStatementTerminator()
-      case value: ForExpression => hasStatementTerminator(value.body)
+      case value: CallExpression  => value.closeParen.isStatementTerminator()
+      case value: ForExpression   => hasStatementTerminator(value.body)
       case value: GroupExpression => value.closeParen.isStatementTerminator()
-      case IdentifierName(value) => value.identifier.isStatementTerminator()
-      case value: If => hasStatementTerminator(value.elseExpr)
+      case Expression.IdentifierName(value)  => value.identifier.isStatementTerminator()
+      case value: If =>
+        hasStatementTerminator(value.elseExpr match {
+          case Option.Some(value) => value.expression
+          case Option.None        => value.thenExpr
+        })
       case value: IndexExpression => value.closeBracket.isStatementTerminator()
       case value: LiteralExpression => value.token.isStatementTerminator()
-      case MatchExpression(_, _, _, _, closeBrace) => closeBrace.isStatementTerminator()
-      case value: MemberAccessExpression => value.right.identifier.isStatementTerminator()
-      case value: NewExpression => value.closeParen.isStatementTerminator()
+      case MatchExpression(_, _, _, _, closeBrace) =>
+        closeBrace.isStatementTerminator()
+      case value: MemberAccessExpression =>
+        value.right.identifier.isStatementTerminator()
+      case value: NewExpression   => value.closeParen.isStatementTerminator()
       case value: UnaryExpression => hasStatementTerminator(value.expression)
-      case value: UnitExpression => value.closeParen.isStatementTerminator()
+      case value: UnitExpression  => value.closeParen.isStatementTerminator()
       case value: WhileExpression => hasStatementTerminator(value.body)
     }
   }
 
   def parseIdentifierName(): SimpleNameSyntax.IdentifierNameSyntax = {
     debugPrint("parseIdentifierName")
-    val identifier = accept(SyntaxKind.IdentifierToken)
+    val identifier = acceptKind(SyntaxKind.IdentifierToken)
 
     new IdentifierNameSyntax(identifier)
   }
@@ -218,7 +249,7 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     } else {
       val dot = accept()
       val right = parseSimpleName()
-      val qn = new QualifiedNameSyntax(left, dot, right)
+      val qn = new QualifiedName(left, dot, right)
       parseQualifiedName(qn)
     }
   }
@@ -240,23 +271,23 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
         val typeArgumentlist = parseTypeArgumentList(false)
         new GenericNameSyntax(ident, typeArgumentlist)
 
-      } else if (sourceFile.isScala() && currentKind() == SyntaxKind.OpenBracketToken) {
+      } else if (scala && currentKind() == SyntaxKind.OpenBracketToken) {
         val typeArgumentlist = parseTypeArgumentList(true)
 
         new GenericNameSyntax(ident, typeArgumentlist)
       } else {
         new IdentifierNameSyntax(ident)
       }
-    } else if (sourceFile.isScala() && currentKind() == SyntaxKind.OpenBraceToken) {
+    } else if (scala && currentKind() == SyntaxKind.OpenBraceToken) {
       val openBrace = accept()
-      val name = accept(SyntaxKind.IdentifierToken)
-      val arrow = accept(SyntaxKind.EqualsGreaterThanToken)
-      val alias = accept(SyntaxKind.IdentifierToken)
-      val closeBrace = accept(SyntaxKind.CloseBraceToken)
+      val name = acceptKind(SyntaxKind.IdentifierToken)
+      val arrow = acceptKind(SyntaxKind.EqualsGreaterThanToken)
+      val alias = acceptKind(SyntaxKind.IdentifierToken)
+      val closeBrace = acceptKind(SyntaxKind.CloseBraceToken)
 
       new ScalaAliasSyntax(openBrace, name, arrow, alias, closeBrace)
     } else {
-      new IdentifierNameSyntax(accept(SyntaxKind.IdentifierToken))
+      new IdentifierNameSyntax(acceptKind(SyntaxKind.IdentifierToken))
     }
   }
 
@@ -279,9 +310,10 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     var size = 0
     // TODO: support resizing
     val usings = new Array[UsingDirectiveSyntax](10)
-    val isScala = sourceFile.isScala()
 
-    while (currentKind() == SyntaxKind.UsingKeyword || (isScala && currentKind() == SyntaxKind.ImportKeyword)) {
+    while (
+      currentKind() == SyntaxKind.UsingKeyword || (scala && currentKind() == SyntaxKind.ImportKeyword)
+    ) {
       val keyword = accept()
       val name = parseName()
 
@@ -298,20 +330,76 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
 
   def parseTemplate(): TemplateSyntax = {
     debugPrint("parseTemplate")
-    val open = accept(SyntaxKind.OpenBraceToken)
+    val open = acceptKind(SyntaxKind.OpenBraceToken)
     val members = parseMembers(false)
-    val close = accept(SyntaxKind.CloseBraceToken)
+    val close = acceptKind(SyntaxKind.CloseBraceToken)
 
     new TemplateSyntax(open, members, close)
   }
 
   def parseObjectDeclaration(): MemberSyntax = {
     debugPrint("parseObjectDeclaration")
-    val objectKeyword = accept(SyntaxKind.ObjectKeyword)
-    val identifier = accept(SyntaxKind.IdentifierToken)
+    val objectKeyword = acceptKind(SyntaxKind.ObjectKeyword)
+    val identifier = acceptKind(SyntaxKind.IdentifierToken)
     val template = parseTemplate()
 
     new ObjectDeclarationSyntax(objectKeyword, identifier, template)
+  }
+
+  def parseGenericTypeParameters(): Option[GenericParametersSyntax] = {
+    debugPrint("parseGenericTypeParameters")
+
+    val start = (scala && currentKind() == SyntaxKind.OpenBracketToken) ||
+      currentKind() == SyntaxKind.LessThanToken
+
+    if (start) {
+      val close =
+        if (currentKind() == SyntaxKind.LessThanToken)
+          SyntaxKind.GreaterThanToken
+        else SyntaxKind.CloseBracketToken
+
+      val lessThan = accept()
+
+      val parameters = parseGenericTypeParameterArray()
+      val greaterThan = acceptKind(close)
+
+      Some(new GenericParametersSyntax(lessThan, parameters, greaterThan))
+    } else {
+      None
+    }
+  }
+
+  def parseGenericTypeParameterArray()
+      : SeparatedSyntaxList[GenericParameterSyntax] = {
+    debugPrint("parseGenericTypeParameterList")
+
+    var parameters = List.Cons(parseGenericParameter(), List.Nil)
+    var commas: List[SyntaxToken] = List.Nil
+
+    while (currentKind() == SyntaxKind.CommaToken) {
+      commas = List.Cons(accept(), commas)
+      parameters = List.Cons(parseGenericParameter(), parameters)
+    }
+
+    new SeparatedSyntaxList(parameters.reverse(), commas.reverse())
+  }
+
+  def parseGenericParameter(): GenericParameterSyntax = {
+    debugPrint("parseGenericParameter")
+
+    val hasVariance =
+      (scala && (currentKind() == SyntaxKind.PlusToken || currentKind() == SyntaxKind.DashToken)) ||
+        currentKind() == SyntaxKind.InKeyword ||
+        currentKind() == SyntaxKind.OutKeyword
+
+    val variance = if (hasVariance) {
+      Some(accept())
+    } else {
+      None
+    }
+    val identifier = acceptKind(SyntaxKind.IdentifierToken)
+    // TODO: bounds support
+    new GenericParameterSyntax(variance, identifier, None)
   }
 
   def parseClassDeclaration(): MemberSyntax = {
@@ -322,23 +410,32 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     } else {
       None
     }
-    val keyword = accept(SyntaxKind.ClassKeyword)
-    val identifier = accept(SyntaxKind.IdentifierToken)
-    val open = accept(SyntaxKind.OpenParenToken)
+    val keyword = acceptKind(SyntaxKind.ClassKeyword)
+    val identifier = acceptKind(SyntaxKind.IdentifierToken)
+    val typeParams = parseGenericTypeParameters()
+    val open = acceptKind(SyntaxKind.OpenParenToken)
     val parameters = parseParameterList()
-    val close = accept(SyntaxKind.CloseParenToken)
+    val close = acceptKind(SyntaxKind.CloseParenToken)
     val template = if (currentKind() == SyntaxKind.OpenBraceToken) {
       Some(parseTemplate())
     } else {
       None
     }
 
-    new ClassDeclarationSyntax(caseKeyword, keyword, identifier, open, parameters, close, template)
+    new ClassDeclarationSyntax(
+      caseKeyword,
+      keyword,
+      identifier,
+      typeParams,
+      open,
+      parameters,
+      close,
+      template
+    )
   }
 
   def parseParameter(): ParameterSyntax = {
     debugPrint("parseParameter")
-    val scala = sourceFile.isScala()
     val modifier = if (scala && currentKind() == SyntaxKind.ValKeyword) {
       Some(accept())
     } else if (scala && currentKind() == SyntaxKind.VarKeyword) {
@@ -364,7 +461,10 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     _parseTypeArgumentListNames(arguments, 1)
   }
 
-  def _parseTypeArgumentListNames(arguments: Array[TypeArgumentItemSyntax], size: int): Array[TypeArgumentItemSyntax] = {
+  def _parseTypeArgumentListNames(
+      arguments: Array[TypeArgumentItemSyntax],
+      size: int
+  ): Array[TypeArgumentItemSyntax] = {
     val arg = parseName()
     if (currentKind() != SyntaxKind.CommaToken) {
       arguments(size - 1) = new TypeArgumentItemSyntax(arg, None)
@@ -387,7 +487,9 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     debugPrint("parseTypeArgumentList")
     val lessThan = accept()
     val names = parseTypeArgumentListNames()
-    val greaterThan = accept(if (scala) SyntaxKind.CloseBracketToken else SyntaxKind.GreaterThanToken)
+    val greaterThan = acceptKind(
+      if (scala) SyntaxKind.CloseBracketToken else SyntaxKind.GreaterThanToken
+    )
 
     new TypeArgumentListSyntax(lessThan, names, greaterThan)
   }
@@ -421,11 +523,14 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     }
   }
 
-  def _parseParameterList(parameters: Array[ParameterSyntax], size: int): Array[ParameterSyntax] = {
+  def _parseParameterList(
+      parameters: Array[ParameterSyntax],
+      size: int
+  ): Array[ParameterSyntax] = {
     val param = parseParameter()
     parameters(size - 1) = param
 
-    if (param.commaToken.isEmpty) {
+    if (param.commaToken.isEmpty()) {
       val result = new Array[ParameterSyntax](size)
       for (i <- 0 to (size - 1)) {
         result(i) = parameters(i)
@@ -441,7 +546,9 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     var size = 0
 
     var statements = new Array[StatementSyntax](20)
-    while (currentKind() != SyntaxKind.EndOfInputToken && currentKind() != SyntaxKind.CloseBraceToken && currentKind() != SyntaxKind.CaseKeyword) {
+    while (
+      currentKind() != SyntaxKind.EndOfInputToken && currentKind() != SyntaxKind.CloseBraceToken && currentKind() != SyntaxKind.CaseKeyword
+    ) {
       if (size >= statements.length) {
         // resize
         val newStatements = new Array[StatementSyntax](statements.length * 2)
@@ -461,7 +568,9 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     result
   }
 
-  def dropStatement(statements: Array[StatementSyntax]): Array[StatementSyntax] = {
+  def dropStatement(
+      statements: Array[StatementSyntax]
+  ): Array[StatementSyntax] = {
     val size = statements.length - 1
     val result = new Array[StatementSyntax](size)
     for (i <- 0 to (size - 1)) {
@@ -495,7 +604,7 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     debugPrint("parseBlockExpression")
     val openBrace = accept()
     val exprList = parseBlockExpressionList()
-    val closeBrace = accept(SyntaxKind.CloseBraceToken)
+    val closeBrace = acceptKind(SyntaxKind.CloseBraceToken)
 
     new Expression.BlockExpression(openBrace, exprList, closeBrace)
   }
@@ -508,7 +617,7 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       new Expression.UnitExpression(open, close)
     } else {
       val expr = parseExpression(OperatorPrecedence.Lowest)
-      val close2 = accept(SyntaxKind.CloseParenToken)
+      val close2 = acceptKind(SyntaxKind.CloseParenToken)
       new Expression.GroupExpression(open, expr, close2)
     }
   }
@@ -516,31 +625,50 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   def parseLiteralExpression(): Expression = {
     debugPrint("parseLiteralExpression")
     val token = accept()
-    val tokenValue = if (token.kind == SyntaxKind.NumberToken) SyntaxTokenValue.Number(int(token.text))
-    else if (token.kind == SyntaxKind.CharToken) SyntaxTokenValue.Character(token.text(0))
-    else SyntaxTokenValue.String(token.text)
+    val tokenValue =
+      if (token.kind == SyntaxKind.NumberToken)
+        SyntaxTokenValue.Number(int(token.text))
+      else if (token.kind == SyntaxKind.CharToken)
+        SyntaxTokenValue.Character(token.text(0))
+      else SyntaxTokenValue.String(token.text)
     new Expression.LiteralExpression(token, tokenValue)
   }
 
   def parseIfExpression(): Expression = {
     debugPrint("parseIfExpression")
     val keyword = accept()
-    val open = accept(SyntaxKind.OpenParenToken)
+    val open = acceptKind(SyntaxKind.OpenParenToken)
     val condition = parseExpression(OperatorPrecedence.Lowest)
-    val close = accept(SyntaxKind.CloseParenToken)
+    val close = acceptKind(SyntaxKind.CloseParenToken)
     val thenExpr = parseExpression(OperatorPrecedence.Lowest)
-    val elseKeyword = accept(SyntaxKind.ElseKeyword)
-    val elseExpr = parseExpression(OperatorPrecedence.Lowest)
+    val elseExpr = parseElseExpression()
 
-    new Expression.If(keyword, open, condition, close, thenExpr, elseKeyword, elseExpr)
+    new Expression.If(
+      keyword,
+      open,
+      condition,
+      close,
+      thenExpr,
+      elseExpr
+    )
+  }
+
+  def parseElseExpression(): Option[ElseSyntax] = {
+    if (currentKind() == SyntaxKind.ElseKeyword) {
+      val elseKeyword = accept()
+      val expr = parseExpression(OperatorPrecedence.Lowest)
+      Some(new ElseSyntax(elseKeyword, expr))
+    } else {
+      None
+    }
   }
 
   def parseArrayInitializers(): ArrayInitializerExpressionSyntax = {
     debugPrint("parseArrayInitializers")
     val openBrace = accept()
     val expressions = parseExpressionList(SyntaxKind.CloseBraceToken)
-    val closeBrace = accept(SyntaxKind.CloseBraceToken)
-    
+    val closeBrace = acceptKind(SyntaxKind.CloseBraceToken)
+
     new ArrayInitializerExpressionSyntax(openBrace, expressions, closeBrace)
   }
 
@@ -557,7 +685,7 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       } else {
         Some(parseExpression(OperatorPrecedence.Lowest))
       }
-      val closeBracket = accept(SyntaxKind.CloseBracketToken)
+      val closeBracket = acceptKind(SyntaxKind.CloseBracketToken)
 
       val initializer = if (currentKind() == SyntaxKind.OpenBraceToken) {
         Some(parseArrayInitializers())
@@ -575,9 +703,9 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       )
     } else {
       debugPrint("parsing new expression")
-      val open = accept(SyntaxKind.OpenParenToken)
+      val open = acceptKind(SyntaxKind.OpenParenToken)
       val arguments = parseExpressionList(SyntaxKind.CloseParenToken)
-      val close = accept(SyntaxKind.CloseParenToken)
+      val close = acceptKind(SyntaxKind.CloseParenToken)
 
       new Expression.NewExpression(keyword, typ, open, arguments, close)
     }
@@ -585,13 +713,13 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
 
   def parseForExpression(): Expression = {
     val keyword = accept()
-    val openParen = accept(SyntaxKind.OpenParenToken)
-    val variable = accept(SyntaxKind.IdentifierToken)
-    val arrow = accept(SyntaxKind.LessThanDashToken)
+    val openParen = acceptKind(SyntaxKind.OpenParenToken)
+    val variable = acceptKind(SyntaxKind.IdentifierToken)
+    val arrow = acceptKind(SyntaxKind.LessThanDashToken)
     val fromExpr = parseExpression(OperatorPrecedence.Lowest)
-    val toKeyword = accept(SyntaxKind.ToKeyword)
+    val toKeyword = acceptKind(SyntaxKind.ToKeyword)
     val toExpr = parseExpression(OperatorPrecedence.Lowest)
-    val closeParen = accept(SyntaxKind.CloseParenToken)
+    val closeParen = acceptKind(SyntaxKind.CloseParenToken)
     val expr = parseExpression(OperatorPrecedence.Lowest)
 
     new Expression.ForExpression(
@@ -609,9 +737,9 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
 
   def parseWhileExpression(): Expression = {
     val keyword = accept()
-    val openParenToken = accept(SyntaxKind.OpenParenToken)
+    val openParenToken = acceptKind(SyntaxKind.OpenParenToken)
     val condition = parseExpression(OperatorPrecedence.Lowest)
-    val closeParenToken = accept(SyntaxKind.CloseParenToken)
+    val closeParenToken = acceptKind(SyntaxKind.CloseParenToken)
     val body = parseExpression(OperatorPrecedence.Lowest)
 
     new Expression.WhileExpression(
@@ -624,7 +752,8 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   }
 
   def parseBooleanLiteralExpression(): Expression = {
-    val value = SyntaxTokenValue.Boolean(currentKind() == SyntaxKind.TrueKeyword)
+    val value =
+      SyntaxTokenValue.Boolean(currentKind() == SyntaxKind.TrueKeyword)
 
     new Expression.LiteralExpression(accept(), value)
   }
@@ -639,7 +768,9 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   def parsePrefixExpression(): Expression = {
     debugPrint("parsePrefixExpression")
     val kind = currentKind()
-    if (kind == SyntaxKind.BangToken || kind == SyntaxKind.DashToken || kind == SyntaxKind.PlusToken || kind == SyntaxKind.TildeToken) {
+    if (
+      kind == SyntaxKind.BangToken || kind == SyntaxKind.DashToken || kind == SyntaxKind.PlusToken || kind == SyntaxKind.TildeToken
+    ) {
       parseUnaryExpression()
     } else if (kind == SyntaxKind.OpenBraceToken) {
       parseBlockExpression()
@@ -647,9 +778,13 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       parseIdentifierNameExpression()
     } else if (kind == SyntaxKind.OpenParenToken) {
       parseGroupOrUnitExpression()
-    } else if (kind == SyntaxKind.NumberToken || kind == SyntaxKind.CharToken || kind == SyntaxKind.StringToken) {
+    } else if (
+      kind == SyntaxKind.NumberToken || kind == SyntaxKind.CharToken || kind == SyntaxKind.StringToken
+    ) {
       parseLiteralExpression()
-    } else if (kind == SyntaxKind.TrueKeyword || kind == SyntaxKind.FalseKeyword) {
+    } else if (
+      kind == SyntaxKind.TrueKeyword || kind == SyntaxKind.FalseKeyword
+    ) {
       parseBooleanLiteralExpression()
     } else if (kind == SyntaxKind.IfKeyword) {
       parseIfExpression()
@@ -688,9 +823,9 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   }
 
   def parseExpression(precedence: int): Expression =
-    parseExpression(precedence, false)
+    parseExpressionWithGroup(precedence, false)
 
-  def parseExpression(precedence: int, inGroup: bool): Expression = {
+  def parseExpressionWithGroup(precedence: int, inGroup: bool): Expression = {
     debugPrint("parseExpression")
     val left = parsePrefixExpression()
 
@@ -709,9 +844,15 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     }
   }
 
-  def parseExpressionListInner(terminator: int, arguments: Array[ExpressionItemSyntax], size: int): ExpressionListSyntax = {
-    val expr = parseExpression(OperatorPrecedence.Lowest, false)
-    if (currentKind() == terminator || currentKind() == SyntaxKind.EndOfInputToken || currentKind() != SyntaxKind.CommaToken) {
+  def parseExpressionListInner(
+      terminator: int,
+      arguments: Array[ExpressionItemSyntax],
+      size: int
+  ): ExpressionListSyntax = {
+    val expr = parseExpressionWithGroup(OperatorPrecedence.Lowest, false)
+    if (
+      currentKind() == terminator || currentKind() == SyntaxKind.EndOfInputToken || currentKind() != SyntaxKind.CommaToken
+    ) {
       arguments(size - 1) = new ExpressionItemSyntax(expr, None)
 
       val result = new Array[ExpressionItemSyntax](size)
@@ -729,9 +870,25 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     debugPrint("parseCallExpression")
     val open = accept()
     val arguments = parseExpressionList(SyntaxKind.CloseParenToken)
-    val close = accept(SyntaxKind.CloseParenToken)
-
+    val close = acceptKind(SyntaxKind.CloseParenToken)
+//
+//    val isScala = open.location.sourceFile.isScala()
+//
+//    val isIndexExpression = isScala && arguments.expressions.length == 1
+//    if (isIndexExpression) {
+//      // this could be an index expression. check if the argument is a number
+//      // if it is we will assume this is an index expression
+//
+//      val arg = arguments.expressions(0).expression
+//      arg match {
+//        case LiteralExpression(token, SyntaxTokenValue.Number(value)) =>
+//          new Expression.IndexExpression(name, open, arg, close)
+//        case _ =>
+//          new Expression.CallExpression(name, open, arguments, close)
+//      }
+//    } else {
     new Expression.CallExpression(name, open, arguments, close)
+//    }
   }
 
   def parseBinaryExpression(left: Expression): Expression = {
@@ -753,7 +910,7 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   def parseIndexExpression(left: Expression): Expression = {
     val openBracket = accept()
     val index = parseExpression(OperatorPrecedence.Lowest)
-    val closeBracket = accept(SyntaxKind.CloseBracketToken)
+    val closeBracket = acceptKind(SyntaxKind.CloseBracketToken)
 
     new Expression.IndexExpression(left, openBracket, index, closeBracket)
   }
@@ -765,7 +922,11 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     new Expression.AssignmentExpression(left, equals, right)
   }
 
-  def parseInfixExpression(left: Expression, inGroup: bool, precedence: int): Expression = {
+  def parseInfixExpression(
+      left: Expression,
+      inGroup: bool,
+      precedence: int
+  ): Expression = {
     debugPrint("parseInfixExpression")
     val kind = currentKind()
     if (isTerminatingLine(inGroup, left)) {
@@ -797,9 +958,9 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
 
   def parseMatchExpression(left: Expression): Expression = {
     val keyword = accept()
-    val open = accept(SyntaxKind.OpenBraceToken)
+    val open = acceptKind(SyntaxKind.OpenBraceToken)
     val cases = parseMatchCases()
-    val close = accept(SyntaxKind.CloseBraceToken)
+    val close = acceptKind(SyntaxKind.CloseBraceToken)
 
     new MatchExpression(left, keyword, open, cases, close)
   }
@@ -825,7 +986,7 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     debugPrint("parseMatchCase")
     val caseKeyword = accept()
     val pattern = parsePattern()
-    val arrow = accept(SyntaxKind.EqualsGreaterThanToken)
+    val arrow = acceptKind(SyntaxKind.EqualsGreaterThanToken)
     val expr = parseBlockExpressionList()
 
     new MatchCaseSyntax(caseKeyword, pattern, arrow, expr)
@@ -834,24 +995,22 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   def parsePattern(): PatternSyntax = {
     debugPrint("parsePattern")
 
-    /**
-     * Patterns are a bit tricky to parse because they can be either a type pattern or an extract pattern.
-     * The difference is that a type pattern is just a type name, while an extract pattern is a type name
-     * followed by a list of patterns in parens.
-     *
-     * There are a few different forms of patterns:
-     * case x: int => ...
-     * case Type.Any => ...
-     * case Type.Some(x) => ...
-     * case Any => ...
-     * case Some(x) => ...
-     * case "taco" =>
-     */
+    /** Patterns are a bit tricky to parse because they can be either a type
+      * pattern or an extract pattern. The difference is that a type pattern is
+      * just a type name, while an extract pattern is a type name followed by a
+      * list of patterns in parens.
+      *
+      * There are a few different forms of patterns: case x: int => ... case
+      * Type.Any => ... case Type.Some(x) => ... case Any => ... case Some(x) =>
+      * ... case "taco" =>
+      */
     // Patterns have a few main forms:
     // 1. Type pattern: an identifier with an optional type annotation
     //
     // 2. Extract pattern: a type name with a list of patterns in parens
-    if (currentKind() == SyntaxKind.NumberToken || currentKind() == SyntaxKind.StringToken) {
+    if (
+      currentKind() == SyntaxKind.NumberToken || currentKind() == SyntaxKind.StringToken
+    ) {
       val token = accept()
       PatternSyntax.LiteralPattern(token)
     } else {
@@ -860,10 +1019,14 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
         // must be type pattern
         val typeAnnotation = parseTypeAnnotation()
         identFromName(name) match {
-          case Some(identifier) =>
+          case Option.Some(identifier) =>
             PatternSyntax.IdentifierPattern(identifier, typeAnnotation)
-          case None =>
-            diagnostics.reportUnexpectedToken(current().location, currentKind(), SyntaxKind.IdentifierToken)
+          case Option.None =>
+            diagnostics.reportUnexpectedToken(
+              current().location,
+              currentKind(),
+              SyntaxKind.IdentifierToken
+            )
             PatternSyntax.TypePattern(typeAnnotation.typ)
         }
 
@@ -878,7 +1041,7 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
 
   def identFromName(name: NameSyntax): Option[SyntaxToken] = {
     name match {
-      case _: QualifiedNameSyntax => None
+      case _: QualifiedName => None
       case NameSyntax.SimpleName(simpleName) =>
         simpleName match {
           case value: SimpleNameSyntax.GenericNameSyntax =>
@@ -896,7 +1059,7 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   def parseExtractPattern(nameSyntax: NameSyntax): PatternSyntax = {
     val open = accept()
     val patterns = parsePatternList()
-    val close = accept(SyntaxKind.CloseParenToken)
+    val close = acceptKind(SyntaxKind.CloseParenToken)
     PatternSyntax.ExtractPattern(nameSyntax, open, patterns, close)
   }
 
@@ -908,7 +1071,10 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     _parsePatternList(patterns, 1)
   }
 
-  def _parsePatternList(array: Array[PatternItemSyntax], i: int): Array[PatternItemSyntax] = {
+  def _parsePatternList(
+      array: Array[PatternItemSyntax],
+      i: int
+  ): Array[PatternItemSyntax] = {
     val pattern = parsePattern()
 
     if (currentKind() == SyntaxKind.CommaToken) {
@@ -944,17 +1110,18 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   def parseFunctionDeclaration(): MemberSyntax = {
     debugPrint("parseFunctionDeclaration")
     val defKeyword = accept()
-    val identifier = accept(SyntaxKind.IdentifierToken)
-    val openParenToken = accept(SyntaxKind.OpenParenToken)
+    val identifier = acceptKind(SyntaxKind.IdentifierToken)
+    val typeParams = parseGenericTypeParameters()
+    val openParenToken = acceptKind(SyntaxKind.OpenParenToken)
     val parameters = parseParameterList()
-    val closeParenToken = accept(SyntaxKind.CloseParenToken)
+    val closeParenToken = acceptKind(SyntaxKind.CloseParenToken)
     val typeAnnotation = parseOptionalTypeAnnotation()
     val body = parseFunctionBody()
-
 
     new FunctionDeclarationSyntax(
       defKeyword,
       identifier,
+      typeParams,
       openParenToken,
       parameters,
       closeParenToken,
@@ -967,13 +1134,22 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     debugPrint("parseEnumDeclaration")
 
     val enumKeyword = accept()
-    val identifier = accept(SyntaxKind.IdentifierToken)
-    val open = accept(SyntaxKind.OpenBraceToken)
+    val identifier = acceptKind(SyntaxKind.IdentifierToken)
+    val typeParams = parseGenericTypeParameters()
+    val open = acceptKind(SyntaxKind.OpenBraceToken)
     val cases = parseEnumCases()
     val members = parseMembers(false)
-    val close = accept(SyntaxKind.CloseBraceToken)
+    val close = acceptKind(SyntaxKind.CloseBraceToken)
 
-    new EnumDeclarationSyntax(enumKeyword, identifier, open, cases, members, close)
+    new EnumDeclarationSyntax(
+      enumKeyword,
+      identifier,
+      typeParams,
+      open,
+      cases,
+      members,
+      close
+    )
   }
 
   def parseEnumCases(): Array[EnumCaseSyntax] = {
@@ -982,7 +1158,9 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     // TODO: support resizing
     val cases = new Array[EnumCaseSyntax](100)
 
-    while (currentKind() != SyntaxKind.EndOfInputToken && currentKind() == SyntaxKind.CaseKeyword) {
+    while (
+      currentKind() != SyntaxKind.EndOfInputToken && currentKind() == SyntaxKind.CaseKeyword
+    ) {
       cases(size) = parseEnumCase()
       size = size + 1
     }
@@ -997,7 +1175,7 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   def parseEnumCase(): EnumCaseSyntax = {
     debugPrint("parseEnumCase")
     val keyword = accept()
-    val identifier = accept(SyntaxKind.IdentifierToken)
+    val identifier = acceptKind(SyntaxKind.IdentifierToken)
     val enumParams = if (currentKind() == SyntaxKind.OpenParenToken) {
       Some(parseEnumCaseParameters())
     } else {
@@ -1011,7 +1189,7 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     debugPrint("parseEnumCaseParameters")
     val open = accept()
     val parameters = parseParameterList()
-    val close = accept(SyntaxKind.CloseParenToken)
+    val close = acceptKind(SyntaxKind.CloseParenToken)
 
     new EnumCaseParametersSyntax(open, parameters, close)
   }
@@ -1042,9 +1220,9 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   def parseVariableDeclarationStatement(): StatementSyntax = {
     debugPrint("parseVariableDeclarationStatement")
     val keyword = accept()
-    val ident = accept(SyntaxKind.IdentifierToken)
+    val ident = acceptKind(SyntaxKind.IdentifierToken)
     val typeAnnotation = parseOptionalTypeAnnotation()
-    val eq = accept(SyntaxKind.EqualsToken)
+    val eq = acceptKind(SyntaxKind.EqualsToken)
     val expr = parseExpression(OperatorPrecedence.Lowest)
 
     new StatementSyntax.VariableDeclarationStatement(
@@ -1055,7 +1233,6 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       expr
     )
   }
-
 
   def parseStatement(): StatementSyntax = {
     debugPrint("parseStatement")
@@ -1081,8 +1258,10 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     val kind = currentKind()
     if (kind == SyntaxKind.ObjectKeyword) {
       parseObjectDeclaration()
-    } else if (kind == SyntaxKind.CaseKeyword && sourceFile.isScala() ||
-      kind == SyntaxKind.ClassKeyword) {
+    } else if (
+      kind == SyntaxKind.CaseKeyword && scala ||
+      kind == SyntaxKind.ClassKeyword
+    ) {
       parseClassDeclaration()
     } else if (kind == SyntaxKind.DefKeyword) {
       parseFunctionDeclaration()
@@ -1095,12 +1274,11 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     }
   }
 
-
   def parseVariableDeclaration(): MemberSyntax = {
     val keyword = accept()
-    val ident = accept(SyntaxKind.IdentifierToken)
+    val ident = acceptKind(SyntaxKind.IdentifierToken)
     val typeAnnotation = parseOptionalTypeAnnotation()
-    val eq = accept(SyntaxKind.EqualsToken)
+    val eq = acceptKind(SyntaxKind.EqualsToken)
     val expr = parseExpression(OperatorPrecedence.Lowest)
 
     new MemberSyntax.VariableDeclaration(
@@ -1112,13 +1290,15 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     )
   }
 
-  def parseMembers(topLevelStatement: bool): Array[MemberSyntax] = {
+  def parseMembers(topLevelStatement: bool): List[MemberSyntax] = {
     debugPrint("parseMembers")
     var size = 0
     // TODO: support resizing
     val members = new Array[MemberSyntax](200)
 
-    while (currentKind() != SyntaxKind.EndOfInputToken && currentKind() != SyntaxKind.CloseBraceToken) {
+    while (
+      currentKind() != SyntaxKind.EndOfInputToken && currentKind() != SyntaxKind.CloseBraceToken
+    ) {
       members(size) = parseMember(topLevelStatement)
       size = size + 1
     }
@@ -1127,7 +1307,7 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     for (i <- 0 to (size - 1)) {
       result(i) = members(i)
     }
-    result
+    ListModule.fromArray(result)
   }
 
   def parseCompilationUnit(): CompilationUnitSyntax = {
@@ -1135,9 +1315,18 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     val namespaceDeclaration = parseNamespaceDeclaration()
     val usingDirectives = parseUsings()
     val members = parseMembers(true)
-    val endToken = accept(SyntaxKind.EndOfInputToken)
-    new CompilationUnitSyntax(namespaceDeclaration, usingDirectives, members, endToken)
+    val endToken = acceptKind(SyntaxKind.EndOfInputToken)
+    new CompilationUnitSyntax(
+      namespaceDeclaration,
+      usingDirectives,
+      members,
+      endToken
+    )
   }
 }
 
-case class SyntaxTree(file: SourceFile, root: CompilationUnitSyntax, diagnostics: Diagnostics)
+case class SyntaxTree(
+    file: SourceFile,
+    root: CompilationUnitSyntax,
+    diagnostics: Diagnostics
+)

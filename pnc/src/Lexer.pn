@@ -194,9 +194,9 @@ class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   }
 
   def scanUtfEscapeSequence(digits: int, start: int): Result =
-    scanUtfEscapeSequence(digits, start, 0)
+    _scanUtfEscapeSequence(digits, start, 0)
 
-  def scanUtfEscapeSequence(digits: int, start: int, value: int): Result = {
+  def _scanUtfEscapeSequence(digits: int, start: int, value: int): Result = {
     if (digits > 0) {
       val hvalue = hexValue()
       if (hvalue == -1) {
@@ -209,7 +209,7 @@ class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
         // scan_utf_escape_sequence(digits - 1, start, value + (hexValue << (4 * (digits - 1))))
         // TODO: support exponents
         // scan_utf_escape_sequence(digits - 1, start, value + hexValue * (2 ^ 4 * (digits - 1)))
-        scanUtfEscapeSequence(digits - 1, start, value + hvalue * Math.pow(2, 4 * (digits - 1)))
+        _scanUtfEscapeSequence(digits - 1, start, value + hvalue * Math.pow(2, 4 * (digits - 1)))
       }
     } else {
       MakeResult.success(string(char(value)))
@@ -245,7 +245,7 @@ class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     }
   }
 
-  def makeSpan(start: int): string = sourceFile.toString(start, _position - start)
+  def makeSpan(start: int): string = sourceFile.substring(start, _position - start)
 
   def makeStringToken(start: int, value: string): SimpleToken = {
     val span = makeSpan(start)
@@ -298,14 +298,14 @@ class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
 
   def scanSimpleOne(kind: int): SimpleToken = {
     val start = _position
-    val span = sourceFile.toString(_position, 1)
+    val span = sourceFile.substring(_position, 1)
     next()
     new SimpleToken(kind, start, span, SyntaxTokenValue.None)
   }
 
   def scanSimpleTwo(kind: int): SimpleToken = {
     val start = _position
-    val span = sourceFile.toString(_position, 2)
+    val span = sourceFile.substring(_position, 2)
     next()
     next()
     new SimpleToken(kind, start, span, SyntaxTokenValue.None)

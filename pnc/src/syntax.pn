@@ -5,33 +5,16 @@ class SyntaxTrivia(kind: int, start: int, text: string) {
 }
 
 class SyntaxTriviaList() {
-    var _items: Array<SyntaxTrivia> = new Array<SyntaxTrivia>(0)
-    var _size: int = 0
-
-    def ensureCapacity(count: int): unit = {
-        if (_size + count >= _items.length) {
-            var newItems = new Array<SyntaxTrivia>((_size + count) * 2)
-            for (i <- 0 to (_size-1)) {
-                newItems(i) = _items(i)
-            }
-            _items = newItems
-        } else {
-            ()
-        }
-    }
+    var _items: List<SyntaxTrivia> = List.Nil
 
     def add(trivia: SyntaxTrivia): unit = {
-        ensureCapacity(1)
-        _items(_size) = trivia
-        _size = _size + 1
+        _items = List.Cons(trivia, _items)
     }
 
     def toArray(): Array<SyntaxTrivia> = {
-        val newItems = new Array<SyntaxTrivia>(_size)
-        for (i <- 0 to (_size-1)) {
-            newItems(i) = _items(i)
-        }
-        newItems
+        val result: Array<SyntaxTrivia> = new Array<SyntaxTrivia>(_items.length)
+        ListModule.fillReverse(result, _items.length - 1, _items)
+        result
     }
 }
 
@@ -41,7 +24,7 @@ enum SyntaxTokenValue {
     case Character(value: char)
     case Number(value: int)
     case None
-    
+
     case Error
 }
 
@@ -51,14 +34,14 @@ class SyntaxToken(sourceFile: SourceFile, kind: int, start: int, text: string, v
 
     def isStatementTerminator(): bool =
         if (kind == SyntaxKind.EndOfInputToken || kind == SyntaxKind.CloseBraceToken) true
-        else isStatementTerminator(0)
+        else _isStatementTerminator(0)
 
-    def isStatementTerminator(index: int): bool =
+    def _isStatementTerminator(index: int): bool =
         if (index >= trailing.length) {
             false
         } else if (trailing(index).isStatementTerminator()) {
             true
-        } else isStatementTerminator(index + 1)
+        } else _isStatementTerminator(index + 1)
 }
 
 class SimpleToken(kind: int, start: int, text: string, value: SyntaxTokenValue)
@@ -95,21 +78,23 @@ object SyntaxKind {
     val FalseKeyword            = 22
     val ForKeyword              = 23
     val IfKeyword               = 24
-    val ImplicitKeyword         = 25
-    val ImportKeyword           = 26
-    val MatchKeyword            = 27
-    val NamespaceKeyword        = 28
-    val NewKeyword              = 29
-    val ObjectKeyword           = 30
-    val OverrideKeyword         = 31
-    val StaticKeyword           = 32
-    val ToKeyword               = 33
-    val TrueKeyword             = 34
-    val UsingKeyword            = 35
-    val ValKeyword              = 36
-    val VarKeyword              = 37
-    val WhileKeyword            = 38
-    val LastKeyword             = 38 // this is a marker and should be set to the last keyword
+    val InKeyword               = 25
+    val ImplicitKeyword         = 26
+    val ImportKeyword           = 27
+    val MatchKeyword            = 28
+    val NamespaceKeyword        = 29
+    val NewKeyword              = 30
+    val ObjectKeyword           = 31
+    val OutKeyword              = 32
+    val OverrideKeyword         = 33
+    val StaticKeyword           = 34
+    val ToKeyword               = 35
+    val TrueKeyword             = 36
+    val UsingKeyword            = 37
+    val ValKeyword              = 38
+    val VarKeyword              = 39
+    val WhileKeyword            = 40
+    val LastKeyword             = 40 // this is a marker and should be set to the last keyword
 
     // Operators
     val AmpersandAmpersandToken = 41
@@ -199,9 +184,18 @@ object OperatorPrecedence {
 }
 
 object SyntaxFacts {
-    def isBuiltin(name: string): bool =
-        name == "bool" || name == "int" || name == "string" || name == "char" || name == "unit"
-    
+    def isBuiltinType(name: string): bool =
+      name match {
+        case "bool" => true
+        case "int" => true
+        case "string" => true
+        case "char" => true
+        case "unit" => true
+        case "any" => true
+        case "never" => true
+        case _ => false
+      }
+
     def getKindName(kind: int): string = {
         if (kind == SyntaxKind.AsKeyword) "AsKeyword"
         else if (kind == SyntaxKind.AmpersandAmpersandToken) "AmpersandAmpersandToken"
@@ -257,6 +251,7 @@ object SyntaxFacts {
         else if (kind == SyntaxKind.IfKeyword) "IfKeyword"
         else if (kind == SyntaxKind.ImplicitKeyword) "ImplicitKeyword"
         else if (kind == SyntaxKind.ImportKeyword) "ImportKeyword"
+        else if (kind == SyntaxKind.InKeyword) "InKeyword"
         else if (kind == SyntaxKind.IndexExpression) "IndexExpression"
         else if (kind == SyntaxKind.Initializer) "Initializer"
         else if (kind == SyntaxKind.InvalidTokenTrivia) "InvalidTokenTrivia"
@@ -277,6 +272,7 @@ object SyntaxFacts {
         else if (kind == SyntaxKind.OpenBraceToken) "OpenBraceToken"
         else if (kind == SyntaxKind.OpenBracketToken) "OpenBracketToken"
         else if (kind == SyntaxKind.OpenParenToken) "OpenParenToken"
+        else if (kind == SyntaxKind.OutKeyword) "OutKeyword"
         else if (kind == SyntaxKind.Parameter) "Parameter"
         else if (kind == SyntaxKind.PipePipeToken) "PipePipeToken"
         else if (kind == SyntaxKind.PipeToken) "PipeToken"
@@ -322,9 +318,11 @@ object SyntaxFacts {
         else if (span == "if") SyntaxKind.IfKeyword
         else if (span == "implicit") SyntaxKind.ImplicitKeyword
         else if (span == "import") SyntaxKind.ImportKeyword
+        else if (span == "in") SyntaxKind.InKeyword
         else if (span == "match") SyntaxKind.MatchKeyword
         else if (span == "namespace") SyntaxKind.NamespaceKeyword
         else if (span == "object") SyntaxKind.ObjectKeyword
+        else if (span == "out") SyntaxKind.OutKeyword
         else if (span == "override") SyntaxKind.OverrideKeyword
         else if (span == "new") SyntaxKind.NewKeyword
         else if (span == "static") SyntaxKind.StaticKeyword
@@ -336,6 +334,36 @@ object SyntaxFacts {
         else if (span == "while") SyntaxKind.WhileKeyword
         else SyntaxKind.IdentifierToken
     }
+
+    def getBinaryOperatorKind(kind: int): BinaryOperatorKind =
+      kind match {
+        case SyntaxKind.AmpersandAmpersandToken => BinaryOperatorKind.LogicalAnd
+        case SyntaxKind.BangEqualsToken => BinaryOperatorKind.NotEquals
+        case SyntaxKind.DashToken => BinaryOperatorKind.Minus
+        case SyntaxKind.EqualsEqualsToken => BinaryOperatorKind.Equals
+        case SyntaxKind.GreaterThanEqualsToken => BinaryOperatorKind.GreaterThanOrEqual
+        case SyntaxKind.GreaterThanToken => BinaryOperatorKind.GreaterThan
+        case SyntaxKind.LessThanEqualsToken => BinaryOperatorKind.LessThanOrEqual
+        case SyntaxKind.LessThanToken => BinaryOperatorKind.LessThan
+        case SyntaxKind.PipePipeToken => BinaryOperatorKind.LogicalOr
+        case SyntaxKind.PlusToken => BinaryOperatorKind.Plus
+        case SyntaxKind.SlashToken => BinaryOperatorKind.Divide
+        case SyntaxKind.StarToken => BinaryOperatorKind.Multiply
+
+//        case SyntaxKind.AmpersandToken =>
+//        case SyntaxKind.BangToken =>
+//        case SyntaxKind.CaretToken =>
+//        case SyntaxKind.ColonToken =>
+//        case SyntaxKind.DotToken =>
+//        case SyntaxKind.EqualsGreaterThanToken =>
+//        case SyntaxKind.EqualsToken =>
+//        case SyntaxKind.LessThanDashToken =>
+//        case SyntaxKind.PipeToken =>
+//        case SyntaxKind.TildeToken => 
+        
+//        case "%" => BinaryOperatorKind.Modulus
+        case _ => BinaryOperatorKind.Error
+      }
 
     def isBinaryOperator(kind: int): bool =
         kind == SyntaxKind.AmpersandAmpersandToken ||

@@ -1,277 +1,1113 @@
 import panther._
 
-case class Binder(diagnostics: DiagnosticBag, root: Symbol) {
+case class Members(
+    objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
+    classes: List[Namespaced[MemberSyntax.ClassDeclarationSyntax]],
+    functions: List[MemberSyntax.FunctionDeclarationSyntax],
+    enums: List[Namespaced[MemberSyntax.EnumDeclarationSyntax]],
+    fields: List[MemberSyntax.VariableDeclaration],
 
-  var ns = "" // namespace
-  var _parent = root
+    // top level variable declarations are converted to top level assignments so that we can maintain the order
+    // within the set of statements. the statements are then moved to the relevant constructor
+    globalStatements: List[MemberSyntax.GlobalStatementSyntax]
+)
 
-  def bind(trees: Array[SyntaxTree]): BoundTree = {
-    val bag = new DiagnosticBag()
-    for (i <- 0 to (trees.length - 1)) {
-      bag.addDiagnostics(trees(i).diagnostics)
+case class Entry(
+    program: Option[MemberSyntax.ObjectDeclarationSyntax],
+    main: Option[MemberSyntax.FunctionDeclarationSyntax],
+    extraStatements: List[MemberSyntax.GlobalStatementSyntax],
+    members: Members
+)
+
+case class Namespaced[A](ns: List[string], value: A)
+
+enum BindingMember {
+  case Method(value: MemberSyntax.FunctionDeclarationSyntax)
+  case Field(value: MemberSyntax.VariableDeclaration)
+}
+
+class Binder(
+    trees: List[SyntaxTree],
+    rootSymbol: Symbol,
+    diagnosticBag: DiagnosticBag
+) {
+
+  var symbolTypes: Dictionary[int, SymbolLinks] = DictionaryModule.empty()
+  var nextSymbolId = 0
+
+  def setSymbolType(symbol: Symbol, typ: Type, base: Option[Symbol]): Type = {
+    val id = getSymbolId(symbol)
+    symbolTypes = symbolTypes.put(id, SymbolLinks(typ, base))
+    typ
+  }
+
+  def getSymbolId(symbol: Symbol): int = {
+    if (symbol._id == -1) {
+      symbol._id = nextSymbolId
+      nextSymbolId = nextSymbolId + 1
+    }
+    symbol._id
+  }
+
+  def getSymbolType(symbol: Symbol): Option[Type] =
+    symbolTypes.get(symbol._id) match {
+      case Option.None => Option.None
+      case Option.Some(value) => Some(value.typ)
     }
 
-    var defns = BoundDefinitions.Empty
-    for (x <- 0 to (trees.length - 1)) {
-      defns = mergeDefinitions(defns, bindCompilationUnit(trees(x).root))
-    }
+  val anyType = Type.Named("", "any", List.Nil)
+  val stringType = Type.Named("", "string", List.Nil)
+  val intType = Type.Named("", "int", List.Nil)
+  val charType = Type.Named("", "char", List.Nil)
+  val boolType = Type.Named("", "bool", List.Nil)
+  val unitType = Type.Named("", "unit", List.Nil)
+  val noneType =
+    Type.Named("", "Option", List.Cons(Type.Never, List.Nil))
 
-    BoundTree(root, bag.diagnostics, defns)
-  }
+  val pantherNamespace = rootSymbol // TODO: move these to the panther namespace .enter("panther")
 
-  def bindMethod(parent: Symbol, node: MemberSyntax.FunctionDeclarationSyntax): BoundDefinition.Method = {
-    // TODO: need to handle non-static methods
-    val functionSymbol = declareSymbol(SymbolKind.Method, SymbolFlags.Static, Declaration.Method(node.identifier.text, node.identifier.location, node), parent.members, parent)
-    val params = bindParameters(node.parameters, functionSymbol.members)
-    val body = node.body match {
-      case Some(value) => Some(value.expression)
-      case None => None
-    }
-    new BoundDefinition.Method(functionSymbol, node, params, body)
-  }
+  val anySymbol =
+    pantherNamespace.defineClass("any", TextLocationFactory.empty())
+  symbolTypes = symbolTypes.put(getSymbolId(anySymbol), SymbolLinks(anyType, None))
 
-  def bindFieldFromParam(parent: Symbol, node: ParameterSyntax): BoundField = {
-    val fieldSymbol = declareSymbol(
-      SymbolKind.Field,
-      parent.flags & SymbolFlags.Static,
-      Declaration.FieldFromParameter(node.identifier.text, node.identifier.location, node),
-      parent.members,
-      parent
-    )
+  val intSymbol =
+    pantherNamespace.defineClass("int", TextLocationFactory.empty())
+  setSymbolType(intSymbol, intType, Some(anySymbol))
 
-    BoundField(fieldSymbol, Some(node.typeAnnotation), None)
-  }
+  val stringSymbol = pantherNamespace.defineClass(
+    "string",
+    TextLocationFactory.empty()
+  )
+  setSymbolType(stringSymbol, stringType, Some(anySymbol))
 
-  def bindCompilationUnit(compilationUnit: CompilationUnitSyntax): BoundDefinitions = {
-    // bind_namespace_declarations(compilationUnit.namespaceDeclaration)
-    // bind_using_declarations(compilationUnit.usings)
-    bindMembers(compilationUnit.members, root.members)
-  }
+  val boolSymbol = pantherNamespace.defineClass(
+    "bool",
+    TextLocationFactory.empty()
+  )
+  setSymbolType(boolSymbol, boolType, Some(anySymbol))
 
-  def bindCases(nodes: Array[EnumCaseSyntax], scope: Scope): Array[BoundEnumCase] = {
-    val cases = new Array[BoundEnumCase](nodes.length)
-    for (x <- 0 to (nodes.length - 1)) {
-      cases(x) = bindCase(nodes(x), scope)
-    }
-    cases
-  }
+  val charSymbol = pantherNamespace.defineClass(
+    "char",
+    TextLocationFactory.empty()
+  )
+  setSymbolType(charSymbol, charType, Some(anySymbol))
 
-  def bindCase(node: EnumCaseSyntax, scope: Scope): BoundEnumCase = {
-    val saveParent = _parent
-    val symbol = declareSymbol(SymbolKind.Class, SymbolFlags.None, Declaration.ClassFromEnumCase(node.identifier.text, node.identifier.location, node), scope, _parent)
+  val unitSymbol = pantherNamespace.defineClass(
+    "unit",
+    TextLocationFactory.empty()
+  )
+  setSymbolType(unitSymbol, unitType, Some(anySymbol))
 
-    // todo bind fields
-    val params = bindEnumConstructor(node, symbol.members)
+  val arraySymbol = pantherNamespace.defineClass(
+    "Array",
+    TextLocationFactory.empty()
+  )
 
-    _parent = saveParent
-
-    new BoundEnumCase(symbol, params)
-  }
-
-  def bindEnumConstructor(node: EnumCaseSyntax, scope: Scope): Array[BoundParameter] = {
-    node.parameters match {
-      case Some(EnumCaseParametersSyntax(_, parameters, _)) =>
-        val saveParent = _parent
-        val symbol = declareSymbol(SymbolKind.Constructor, SymbolFlags.None, Declaration.Constructor(node.identifier.text, node.identifier.location, parameters), scope, _parent)
-        _parent = symbol
-
-        val params = bindParameters(parameters, symbol.members)
-        _parent = saveParent
-        params
-      case None =>
-        new Array[BoundParameter](0)
-    }
-  }
-
-  def bindMembers(nodes: Array[MemberSyntax], scope: Scope): BoundDefinitions = {
-    var defns = BoundDefinitions.Empty
-    for (x <- 0 to (nodes.length - 1)) {
-      defns = BoundDefinitions.Cons(bindMember(nodes(x), scope), defns)
-    }
-    defns
-  }
-
-  def mergeDefinitions(a: BoundDefinitions, b: BoundDefinitions): BoundDefinitions = {
-    a match {
-      case BoundDefinitions.Empty => b
-      case BoundDefinitions.Cons(definition, tail) =>
-        mergeDefinitions(tail, BoundDefinitions.Cons(definition, b))
-    }
-  }
-
-  def bindMember(member: MemberSyntax, scope: Scope): BoundDefinition = {
-    member match {
-      case value: MemberSyntax.ObjectDeclarationSyntax => bindObjectDeclaration(value, scope)
-      case value: MemberSyntax.ClassDeclarationSyntax => bindClassDeclaration(value, scope)
-      case value: MemberSyntax.FunctionDeclarationSyntax => bindFunctionDeclaration(value, scope)
-      case value: MemberSyntax.EnumDeclarationSyntax => bindEnumDeclaration(value, scope)
-      case value: MemberSyntax.VariableDeclaration => bindVariableDeclaration(value, scope)
-      case value: MemberSyntax.GlobalStatementSyntax => bindGlobalStatement(value, scope)
-    }
-  }
-
-  def bindGlobalStatement(node: MemberSyntax.GlobalStatementSyntax, scope: Scope): BoundDefinition =
-    new BoundDefinition.GlobalStatement(node.statement)
-
-  def bindVariableDeclaration(node: MemberSyntax.VariableDeclaration, scope: Scope): BoundDefinition = {
-    val parent = scope.getParentSymbol()
-
-    val isClass = parent.kind == SymbolKind.Class
-
-    val symbol = declareSymbol(
-      SymbolKind.Field,
-      parent.flags & SymbolFlags.Static,
-      Declaration.FieldFromMember(node.identifier.text, node.identifier.location, node),
-      scope,
-      parent
-    )
-    new BoundDefinition.Field(symbol, node.typeAnnotation, Some(node.expression))
-  }
-
-//  def nameWithNamespace(name: string): string =
-//    if (ns == "") name
-//    else ns + "." + name
-
-  def declareSymbol(symbolKind: int, flags: int, node: Declaration, scope: Scope, parent: Symbol): Symbol = {
-    val name = if (symbolKind == SymbolKind.Constructor) ".ctor" else node match {
-      case Declaration.Class(name, _, _) => name
-      case Declaration.ClassFromEnumCase(name, _, _) => name
-      case Declaration.Constructor(name, _, _) => name
-      case Declaration.FieldFromParameter(name, _, _) => name
-      case Declaration.FieldFromVariable(name, _, _) => name
-      case Declaration.FieldFromMember(name, _, _) => name
-      case Declaration.Parameter(name, _, _) => name
-      case Declaration.Local(name, _, _) => name
-      case Declaration.LocalFromFor(name, _, _) => name
-      case Declaration.ClassFromObject(name, _, _) => name
-      case Declaration.ClassFromEnum(name, _, _) => name
-      case Declaration.Method(name, _, _) => name
-    }
-
-    val location = node match {
-      case Declaration.Class(_, location, _) => location
-      case Declaration.ClassFromEnumCase(_, location, _) => location
-      case Declaration.Constructor(_, location, _) => location
-      case Declaration.FieldFromParameter(_, location, _) => location
-      case Declaration.FieldFromVariable(_, location, _) => location
-      case Declaration.FieldFromMember(_, location, _) => location
-      case Declaration.Parameter(_, location, _) => location
-      case Declaration.Local(_, location, _) => location
-      case Declaration.LocalFromFor(_, location, _) => location
-      case Declaration.ClassFromObject(_, location, _) => location
-      case Declaration.ClassFromEnum(_, location, _) => location
-      case Declaration.Method(_, location, _) => location
-    }
-
-    val res = scope.get(name)
-    if (res.isEmpty) {
-      val symbol = new Symbol(symbolKind, flags, name, location, Some(parent))
-      symbol.addDeclaration(node)
-      scope.addSymbol(symbol)
-    } else {
-      // TODO: add diagnostic for duplicate declaration
-      res.get
-    }
-  }
-
-  def bindObjectDeclaration(node: MemberSyntax.ObjectDeclarationSyntax, scope: Scope): BoundDefinition = {
-    val saveParent = _parent
-    val symbol = declareSymbol(SymbolKind.Class, SymbolFlags.Static, Declaration.ClassFromObject(node.identifier.text, node.identifier.location, node), scope, _parent)
-    _parent = symbol
-
-    val members = bindTemplate(node.template, symbol.members)
-
-    _parent = saveParent
-
-    new BoundDefinition.Object(symbol, members)
-  }
-
-  def bindEnumDeclaration(node: MemberSyntax.EnumDeclarationSyntax, scope: Scope): BoundDefinition = {
-    val saveParent = _parent
-    val symbol = declareSymbol(SymbolKind.Class, SymbolFlags.None, Declaration.ClassFromEnum(node.identifier.text, node.identifier.location, node), scope, _parent)
-    _parent = symbol
-
-    val cases = bindCases(node.cases, symbol.members)
-
-    val members = bindMembers(node.members, symbol.members)
-
-    _parent = saveParent
-    new BoundDefinition.Enum(symbol, cases, members)
-  }
-
-  def bindOptionalTemplate(node: Option[TemplateSyntax], scope: Scope): BoundDefinitions =
-    if (node.isDefined) bindTemplate(node.get, scope) else BoundDefinitions.Empty
-
-  def bindTemplate(node: TemplateSyntax, scope: Scope): BoundDefinitions =
-    bindMembers(node.members, scope)
-
-
-  def bindClassDeclaration(node: MemberSyntax.ClassDeclarationSyntax, scope: Scope): BoundDefinition = {
-    val saveParent = _parent
-    val symbol = declareSymbol(SymbolKind.Class, SymbolFlags.None, Declaration.Class(node.identifier.text, node.identifier.location, node), scope, _parent)
-    _parent = symbol
-
-    val newScope = symbol.members
-
-    //    bindConstructor(node, newScope)
-    val fields = bindFields(node.parameters, newScope)
-    val members = bindOptionalTemplate(node.template, newScope)
-
-    _parent = saveParent
-    new BoundDefinition.Class(symbol, fields, members)
-  }
-
-  def bindFunctionDeclaration(node: MemberSyntax.FunctionDeclarationSyntax, scope: Scope): BoundDefinition = {
-    val saveParent = _parent
-    val flags = _parent.flags & SymbolFlags.Static
-    val isClass = _parent.kind == SymbolKind.Class
-    val kind = if (isClass) SymbolKind.Method else SymbolKind.Function
-    val symbol = declareSymbol(kind, flags, Declaration.Method(node.identifier.text, node.identifier.location, node), scope, _parent)
-    _parent = symbol
-    val methodScope = symbol.members
-    val params = bindParameters(node.parameters, methodScope)
-
-    val expr = node.body match {
-      case Some(value) => Some(value.expression)
-      case None => None
-    }
-
-    _parent = saveParent
-
-    new BoundDefinition.Method(symbol, node, params, expr)
-  }
-
-  def bindParameter(node: ParameterSyntax, scope: Scope): BoundParameter = {
-    val symbol = if (_parent.kind == SymbolKind.Class) {
-      declareSymbol(SymbolKind.Field,
-        _parent.flags & SymbolFlags.Static,
-        Declaration.FieldFromParameter(node.identifier.text, node.identifier.location, node),
-        scope,
-        _parent
+  setSymbolType(
+    arraySymbol,
+    Type.Named("panther", "Array",
+      List.Cons(
+        setSymbolType(
+          arraySymbol.defineTypeParameter(
+            "T",
+            TextLocationFactory.empty(),
+            Variance.Invariant
+          ),
+          Type.Variable("T", Variance.Invariant, None),
+          None
+        ),
+        List.Nil
       )
-    } else if (_parent.kind == SymbolKind.Method || _parent.kind == SymbolKind.Constructor) {
-      declareSymbol(SymbolKind.Parameter, SymbolFlags.None, Declaration.Parameter(node.identifier.text, node.identifier.location, node), scope, _parent)
-    } else {
-      AstPrinter.printSymbolKind(_parent.kind)
-      panic("bindParameter")
+    ),
+    Some(anySymbol)
+  )
+
+  //  string.length: int
+  setSymbolType(
+    stringSymbol.defineField(
+      "length",
+      TextLocationFactory.empty()
+    ),
+    intType,
+    None
+  )
+
+  val predef = pantherNamespace.defineObject(
+    "predef",
+    TextLocationFactory.empty()
+  )
+
+  // println(message: string): unit
+  val printlnSymbol = predef.defineMethod(
+    "println",
+    TextLocationFactory.empty()
+  )
+  setSymbolType(printlnSymbol, Type.Function(List.Nil, List.Cons(BoundParameter("message", stringType), List.Nil), unitType), None)
+  setSymbolType(
+    printlnSymbol.defineParameter(
+      "message",
+      TextLocationFactory.empty()
+    ),
+    stringType,
+    None
+  )
+
+  // print(message: string): unit
+  val printSymbol = predef.defineMethod(
+    "print",
+    TextLocationFactory.empty()
+  )
+  setSymbolType(printSymbol, Type.Function(List.Nil, List.Cons(BoundParameter("message", stringType), List.Nil), unitType), None)
+
+  setSymbolType(
+    printSymbol.defineParameter(
+      "message",
+      TextLocationFactory.empty()
+    ),
+    stringType,
+    None
+  )
+
+  var membersToBind: Dictionary[Symbol, List[BindingMember]] = DictionaryModule.empty()
+
+  var statementsToBind
+  : Dictionary[Symbol, List[MemberSyntax.GlobalStatementSyntax]] =
+    DictionaryModule.empty()
+
+  def bind(): BoundAssembly = {
+    // take ast, extract top level statements
+    val members = splitMembersInTrees(trees)
+
+    // make sure there are not more than one source file with top level statements
+    detectMultipleSourceFilesWithTopLevelStatements(
+      members.functions,
+      members.globalStatements
+    )
+
+    // find Program class
+    val program = getProgramObject(members.objects)
+
+    // find main method
+    val mainAsGlobal = getMainMethod(members.functions)
+    val mainFromProgram = program match {
+      case Option.Some(p) =>
+        val members =
+          splitMembers(p.ns, p.value.template.members)
+        getMainMethod(members.functions)
+      case Option.None => Option.None
+    }
+    val mainMethod = Tuple2(mainAsGlobal, mainFromProgram) match {
+      case Tuple2(Option.Some(global), Option.None) => Option.Some(global)
+      case Tuple2(Option.None, Option.Some(program)) => Option.Some(program)
+
+      case Tuple2(Option.Some(global), Option.Some(program)) =>
+        // report error if we have two mains
+        diagnosticBag.reportMultipleEntryPoints(
+          AstUtils.locationOfMember(global),
+          AstUtils.locationOfMember(program)
+        )
+        Option.Some(global)
+      case Tuple2(Option.None, Option.None) => Option.None
     }
 
-    BoundParameter(symbol, node)
+    val objects = removeProgram(members.objects)
+    val functions = removeMain(members.functions)
+    val enums = members.enums
+
+    // start binding/typing analysis
+    val rootScope = Scope(rootSymbol, List.Nil)
+
+    // bind all objects and classes first
+    bindClassesObjectAndEnums(members.classes, objects, enums, rootScope)
+
+    //    println("Binding complete")
+    //    printMembersToBind(membersToBind.list)
+    //    printStatementsToBind(statementsToBind.list)
+
+
+    // bind all members
+    bindMembers(membersToBind.list, List.Nil)
+
+    // then bind all function & field types
+
+    // then bind all function bodies
+
+    // bind entry point
+    //    val main =
+    //      bindEntry(program, mainMethod, functions, members.globalStatements)
+
+
+    BoundAssembly(List.Nil, diagnosticBag.diagnostics, Option.None)
   }
 
-  def bindParameters(nodes: Array[ParameterSyntax], scope: Scope): Array[BoundParameter] = {
-    val params = new Array[BoundParameter](nodes.length)
-    for (x <- 0 to (nodes.length - 1)) {
-      params(x) = bindParameter(nodes(x), scope)
+  def bindMembers(
+                   list: List[KeyValue[Symbol, List[BindingMember]]],
+                   bound: List[BoundDefinition]
+                 ): List[BoundDefinition] = {
+    list match {
+      case List.Nil => bound
+      case List.Cons(KeyValue(symbol, members), tail) =>
+        // TODO: need to make scope that incorporates imports from the SyntaxTree
+        //  that the symbol was defined in
+        val scope = Scope(symbol, List.Nil)
+        val boundMembers = bindSymbolMembers(members, List.Nil, scope)
+        bindMembers(tail, List.Cons(BoundDefinition.Object(symbol, boundMembers), bound))
     }
-    params
   }
 
-  def bindFields(nodes: Array[ParameterSyntax], scope: Scope): Array[BoundField] = {
-    val fields = new Array[BoundField](nodes.length)
-    for (x <- 0 to (nodes.length - 1)) {
-      fields(x) = bindFieldFromParam(scope.getParentSymbol(), nodes(x))
+  def bindSymbolMembers(list: List[BindingMember], bound: List[BoundMember], scope: Scope): List[BoundMember] = {
+    list match {
+      case List.Nil => bound
+      case List.Cons(head, tail) =>
+        head match {
+          case BindingMember.Method(value) =>
+            val boundMethod = bindMethod(value, scope)
+            bindSymbolMembers(tail, List.Cons(boundMethod, bound), scope)
+          case BindingMember.Field(value) =>
+            val boundField = bindField(value, scope)
+            bindSymbolMembers(tail, List.Cons(boundField, bound), scope)
+        }
     }
-    fields
+  }
+
+  def bindField(value: MemberSyntax.VariableDeclaration, scope: Scope): BoundMember = {
+    value.typeAnnotation match {
+      case Option.None =>
+        // TODO: infer type
+        BoundMember.Field(value.identifier.text, Type.Error)
+      case Option.Some(typeAnnotation) =>
+        val returnType = bindTypeName(typeAnnotation.typ, scope)
+        scope.defineField(value.identifier.text, value.identifier.location) match {
+          case Either.Left(location) =>
+            diagnosticBag.reportDuplicateDefinition(
+              value.identifier.text,
+              location,
+              value.identifier.location
+            )
+            BoundMember.Field(value.identifier.text, returnType)
+          case Either.Right(symbol) =>
+            setSymbolType(symbol, returnType, None)
+            BoundMember.Field(value.identifier.text, returnType)
+        }
+    }
+  }
+
+  def bindMethod(value: MemberSyntax.FunctionDeclarationSyntax, scope: Scope): BoundMember = {
+    val methodName = value.identifier.text
+    val methodLocation = value.identifier.location
+    scope.defineMethod(methodName, methodLocation) match {
+      case Either.Left(location) =>
+        diagnosticBag.reportDuplicateDefinition(
+          methodName,
+          methodLocation,
+          location
+        )
+
+        BoundMember.Method(
+          methodName,
+          List.Nil,
+          Type.Error,
+          BoundExpression.IntLiteral(intType, TextLocationFactory.empty(), 0)
+        )
+      case Either.Right(symbol) =>
+        val methodScope = scope.enterSymbol(symbol)
+
+        // bind generic type parameters
+        val genTypeParams = value.genericParameters match {
+          case Option.None => List.Nil
+          case Option.Some(value) =>
+            bindGenericTypeParameters(value.parameters.items, methodScope)
+        }
+
+        val parameters = bindParameters(ListModule.fromArray(value.parameters), methodScope)
+
+        value.typeAnnotation match {
+          case Option.None =>
+            // todo: infer type
+            BoundMember.Method(
+              value.identifier.text,
+              parameters,
+              Type.Error,
+              BoundExpression.IntLiteral(intType, TextLocationFactory.empty(), 0)
+            )
+          case Option.Some(typeAnnotation) =>
+            val returnType = bindTypeName(typeAnnotation.typ, methodScope)
+            setSymbolType(symbol, Type.Function(genTypeParams, parameters, returnType), None)
+            BoundMember.Method(
+              value.identifier.text,
+              parameters,
+              returnType,
+              BoundExpression.IntLiteral(intType, TextLocationFactory.empty(), 0)
+            )
+        }
+    }
+
+  }
+
+  def bindParameters(parameters: List[ParameterSyntax], scope: Scope): List[BoundParameter] = {
+    parameters match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        val typ = bindTypeName(head.typeAnnotation.typ, scope)
+        scope.defineParameter(head.identifier.text, head.identifier.location) match {
+          case Either.Left(location) =>
+            diagnosticBag.reportDuplicateDefinition(
+              head.identifier.text,
+              location,
+              head.identifier.location
+            )
+            bindParameters(tail, scope)
+          case Either.Right(symbol) =>
+            setSymbolType(symbol, typ, None)
+            List.Cons(BoundParameter(head.identifier.text, typ), bindParameters(tail, scope))
+        }
+    }
+  }
+
+  def bindTypeName(name: NameSyntax, scope: Scope): Type = {
+    name match {
+      case NameSyntax.SimpleName(value) =>
+        bindTypeSimpleName(value, true, scope)
+      case NameSyntax.QualifiedName(left, _, right) =>
+        val newScope = bindNameToScope(left, scope)
+        bindTypeSimpleName(right, false, newScope)
+    }
+  }
+
+  def bindNameToScope(name: NameSyntax, scope: Scope): Scope = {
+    name match {
+      case NameSyntax.SimpleName(value) =>
+        bindSimpleNameToScope(value, scope)
+      case NameSyntax.QualifiedName(left, _, right) =>
+        val newScope = bindNameToScope(left, scope)
+        bindSimpleNameToScope(right, newScope)
+    }
+  }
+
+  def bindSimpleNameToScope(name: SimpleNameSyntax, scope: Scope): Scope = {
+    name match {
+      case SimpleNameSyntax.IdentifierNameSyntax(identifier) =>
+        scope.lookup(identifier.text) match {
+          case Option.None =>
+            diagnosticBag.reportInvalidNamespace(identifier.location)
+            scope
+          case Option.Some(symbol) =>
+            scope.enterSymbol(symbol)
+        }
+      case SimpleNameSyntax.GenericNameSyntax(identifier, typeArgumentlist) =>
+        diagnosticBag.reportInvalidNamespace(identifier.location)
+        scope
+      case SimpleNameSyntax.ScalaAliasSyntax(open, name, arrow, alias, close) =>
+        diagnosticBag.reportInvalidNamespace(
+          open.location.merge(close.location)
+        )
+        scope
+      case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) =>
+        diagnosticBag.reportInvalidNamespace(
+          name.location.merge(alias.location)
+        )
+        scope
+    }
+  }
+
+  def bindTypeArgumentList(arguments: Array[TypeArgumentItemSyntax], scope: Scope): List[Type] =
+    bindTypeArguments(ListModule.fromArray(arguments), scope)
+
+  def bindTypeArguments(arguments: List[TypeArgumentItemSyntax], scope: Scope): List[Type] = {
+    arguments match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        List.Cons(bindTypeName(head.name, scope), bindTypeArguments(tail, scope))
+    }
+  }
+
+  def bindTypeSimpleName(name: SimpleNameSyntax, top: bool, scope: Scope): Type = {
+    name match {
+      case SimpleNameSyntax.GenericNameSyntax(identifier, typeArgumentlist) =>
+        scope.lookup(identifier.text) match {
+          case Option.None =>
+            diagnosticBag.reportTypeNotDefined(identifier.location, identifier.text)
+            Type.Error
+          case Option.Some(symbol) =>
+            // TODO: need to add diagnostic for verifying that there are the correct
+            //  number of type arguments on `symbol`
+            val typeArguments = bindTypeArgumentList(typeArgumentlist.arguments, scope)
+            Type.Named(symbol.ns(), symbol.name, typeArguments)
+        }
+      case SimpleNameSyntax.IdentifierNameSyntax(identifier) =>
+        if (top && identifier.text == "any") {
+          Type.Any
+        } else if (top && identifier.text == "never") {
+          Type.Never
+        } else {
+          scope.lookup(identifier.text) match {
+            case Option.None =>
+              diagnosticBag.reportTypeNotDefined(identifier.location, identifier.text)
+              Type.Error
+            case Option.Some(value) =>
+              Type.Named(value.ns(), value.name, List.Nil)
+          }
+        }
+      case SimpleNameSyntax.ScalaAliasSyntax(open, name, arrow, alias, close) =>
+        diagnosticBag.reportInvalidNamespace(
+          name.location.merge(close.location)
+        )
+        Type.Never
+      case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) =>
+        diagnosticBag.reportInvalidNamespace(
+          name.location.merge(alias.location)
+        )
+        Type.Never
+    }
+  }
+
+  def printMembersToBind(
+                          list: List[KeyValue[Symbol, List[BindingMember]]]
+                        ): unit = {
+    list match {
+      case List.Nil => ()
+      case List.Cons(KeyValue(symbol, members), tail) =>
+        println(symbol.name)
+        val methodsAndFields = countMembers(members, 0, 0)
+        if (methodsAndFields._1 > 0) {
+          println("  " + string(methodsAndFields._1) + " methods")
+        }
+
+        if (methodsAndFields._2 > 0) {
+          println("  " + string(methodsAndFields._2) + " fields")
+        }
+
+        printMembersToBind(tail)
+    }
+  }
+
+  def countMembers(list: List[BindingMember], methods: int, fields: int): Tuple2[int, int] = {
+    list match {
+      case List.Nil => Tuple2(methods, fields)
+      case List.Cons(BindingMember.Method(_), tail) => countMembers(tail, methods + 1, fields)
+      case List.Cons(BindingMember.Field(_), tail) => countMembers(tail, methods, fields + 1)
+    }
+  }
+
+  def printFunctionsToBind(
+                            list: List[KeyValue[Symbol, List[MemberSyntax.FunctionDeclarationSyntax]]]
+                          ): unit = {
+    list match {
+      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        println(head.key.name)
+        println("  " + string(head.value.length) + " functions")
+        printFunctionsToBind(tail)
+    }
+  }
+
+  def printStatementsToBind(
+                             list: List[KeyValue[Symbol, List[MemberSyntax.GlobalStatementSyntax]]]
+                           ): unit = {
+    list match {
+      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        println(head.key.name)
+        println("  " + string(head.value.length) + " statements")
+        printStatementsToBind(tail)
+    }
+  }
+
+  def bindClassesObjectAndEnums(
+                                 classes: List[Namespaced[MemberSyntax.ClassDeclarationSyntax]],
+                                 objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
+                                 enums: List[Namespaced[MemberSyntax.EnumDeclarationSyntax]],
+                                 scope: Scope
+                               ): unit = {
+    bindObjects(objects, scope)
+    bindClasses(classes, scope)
+    bindEnums(enums, scope)
+  }
+
+  def bindEnums(
+                 enums: List[Namespaced[MemberSyntax.EnumDeclarationSyntax]],
+                 scope: Scope
+               ): List[BoundDefinition] = {
+    enums match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        bindEnum(head, scope)
+        bindEnums(tail, scope)
+    }
+  }
+
+  def bindEnum(
+                head: Namespaced[MemberSyntax.EnumDeclarationSyntax],
+                scope: Scope
+              ): unit = {
+    val name = head.value.identifier.text
+    val enumSymbol = scope.defineEnum(
+      name,
+      head.value.identifier.location
+    )
+    enumSymbol match {
+      case Either.Left(location) =>
+        diagnosticBag.reportDuplicateDefinition(
+          name,
+          location,
+          head.value.identifier.location
+        )
+      case Either.Right(symbol) =>
+        // bind generic type parameters
+        val enumScope = scope.enterSymbol(symbol)
+        head.value.genericParameters match {
+          case Option.None => ()
+          case Option.Some(value) =>
+            bindGenericTypeParameters(value.parameters.items, enumScope)
+        }
+        val cases = ListModule.fromArray(head.value.cases)
+        bindEnumCases(cases, enumScope)
+
+        val members = splitMembers(List.Nil, head.value.members)
+        bindClassesObjectAndEnums(
+          members.classes,
+          members.objects,
+          members.enums,
+          enumScope
+        )
+
+        addMembersToBind(symbol, members.functions, members.fields)
+        addStatementsToBind(symbol, members.globalStatements)
+    }
+  }
+
+  def bindEnumCases(cases: List[EnumCaseSyntax], scope: Scope): unit = {
+    cases match {
+      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        val name = head.identifier.text
+        val location = head.identifier.location
+        scope.defineClass(name, location) match {
+          case Either.Left(location) =>
+            diagnosticBag.reportDuplicateDefinition(name, location, location)
+          case Either.Right(value) =>
+            // TODO: bind parameters as fields
+            //            head.parameters match {
+            //                case Option.None => ()
+            //                case Option.Some(parameters) =>
+            //                  ???
+            //            //      bindParameters(ListModule.fromArray(parameters.parameters), scope.enterSymbol(value))
+            //
+            //            }
+
+            ()
+        }
+        bindEnumCases(tail, scope)
+    }
+  }
+
+  def bindClasses(
+                   value: List[Namespaced[MemberSyntax.ClassDeclarationSyntax]],
+                   scope: Scope
+                 ): List[BoundDefinition] = {
+    value match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        bindClass(head, scope)
+        bindClasses(tail, scope)
+    }
+  }
+
+  def bindClass(
+                 head: Namespaced[MemberSyntax.ClassDeclarationSyntax],
+                 scope: Scope
+               ): unit = {
+    val name = head.value.identifier.text
+    val classSymbol = scope.defineClass(
+      name,
+      head.value.identifier.location
+    )
+    classSymbol match {
+      case Either.Left(location) =>
+        diagnosticBag.reportDuplicateDefinition(
+          name,
+          location,
+          head.value.identifier.location
+        )
+      case Either.Right(symbol) =>
+        // bind generic type parameters
+        head.value.genericParameters match {
+          case Option.None =>
+            setSymbolType(symbol, Type.Named(symbol.ns(), symbol.name, List.Nil), None)
+
+          case Option.Some(value) =>
+            val args = bindGenericTypeParameters(value.parameters.items, scope.enterSymbol(symbol))
+            setSymbolType(symbol, Type.Named(symbol.ns(), symbol.name, args), None)
+        }
+
+        head.value.template match {
+          case Option.None => ()
+          case Option.Some(template) =>
+            val members = splitMembers(List.Nil, template.members)
+            bindClassesObjectAndEnums(
+              members.classes,
+              members.objects,
+              members.enums,
+              scope.enterSymbol(symbol)
+            )
+            addMembersToBind(symbol, members.functions, members.fields)
+            addStatementsToBind(symbol, members.globalStatements)
+        }
+    }
+  }
+
+  def bindGenericTypeParameters(value: List[GenericParameterSyntax], scope: Scope): List[Type] = {
+    value match {
+      case List.Nil => List.Nil
+      case List.Cons(GenericParameterSyntax(varianceToken, identifier, _), tail) =>
+        val variance = varianceToken match {
+          case Option.None => Variance.Invariant
+          case Option.Some(value) =>
+            value.text match {
+              case "+" => Variance.Covariant
+              case "-" => Variance.Contravariant
+              case "in" => Variance.Covariant
+              case "out" => Variance.Contravariant
+              case x => panic("Invalid variance token: " + x)
+            }
+        }
+        val name = identifier.text
+        val symbol = scope.defineTypeParameter(
+          name,
+          identifier.location,
+          variance
+        )
+        
+        symbol match {
+          case Either.Left(value) =>
+            diagnosticBag.reportDuplicateDefinition(name, value, identifier.location)
+            bindGenericTypeParameters(tail, scope)
+          case Either.Right(value) =>
+            setSymbolType(value, Type.Variable(name, variance, None), None)
+            List.Cons(Type.Variable(name, variance, None), bindGenericTypeParameters(tail, scope))
+        }
+    }
+  }
+
+  def bindObjects(
+                   objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
+                   parentScope: Scope
+                 ): List[BoundDefinition] = {
+    objects match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        bindObject(head, parentScope)
+        bindObjects(tail, parentScope)
+    }
+  }
+
+  def bindObject(
+                  head: Namespaced[MemberSyntax.ObjectDeclarationSyntax],
+                  parentScope: Scope
+                ): unit = {
+    val scope = getNamespacedScope(head.ns, parentScope)
+    val name = head.value.identifier.text
+    scope.defineObject(
+      name,
+      head.value.identifier.location
+    ) match {
+      case Either.Left(location) =>
+        diagnosticBag.reportDuplicateDefinition(
+          name,
+          location,
+          head.value.identifier.location
+        )
+      case Either.Right(symbol) =>
+        // no namespace here as the scope is already namespaced
+        val members = splitMembers(List.Nil, head.value.template.members)
+        bindClassesObjectAndEnums(
+          members.classes,
+          members.objects,
+          members.enums,
+          scope.enterSymbol(symbol)
+        )
+        addMembersToBind(symbol, members.functions, members.fields)
+        addStatementsToBind(symbol, members.globalStatements)
+    }
+  }
+
+  def addMembersToBind(
+                        symbol: Symbol,
+                        functions: List[MemberSyntax.FunctionDeclarationSyntax],
+                        variables: List[MemberSyntax.VariableDeclaration]
+                      ): unit = {
+    val members =
+      variablesToMembers(functionsToMembers(List.Nil, functions), variables)
+
+    if (members.length > 0) {
+      membersToBind = membersToBind.put(symbol, members)
+    }
+  }
+
+  def functionsToMembers(members: List[BindingMember], functions: List[MemberSyntax.FunctionDeclarationSyntax]): List[BindingMember] = {
+    functions match {
+      case List.Nil => members
+      case List.Cons(head, tail) => functionsToMembers(List.Cons(BindingMember.Method(head), members), tail)
+    }
+  }
+
+  def variablesToMembers(members: List[BindingMember], variables: List[MemberSyntax.VariableDeclaration]): List[BindingMember] = {
+    variables match {
+      case List.Nil => members
+      case List.Cons(head, tail) => variablesToMembers(List.Cons(BindingMember.Field(head), members), tail)
+    }
+  }
+
+  def addStatementsToBind(
+                           symbol: Symbol,
+                           statements: List[MemberSyntax.GlobalStatementSyntax]
+                         ): unit = {
+    if (statements.length > 0) {
+      statementsToBind = statementsToBind.put(symbol, statements)
+    }
+  }
+
+  def getNamespacedScope(
+                          ns: List[string],
+                          scope: Scope
+                        ): Scope = {
+    ns match {
+      case List.Nil => scope
+      case List.Cons(head, tail) =>
+        getNamespacedScope(tail, scope.enter(head))
+    }
+  }
+
+  def removeProgram(
+                     members: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]]
+                   ): List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]] = {
+    members match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        if (head.value.identifier.text == "Program") {
+          tail
+        } else {
+          List.Cons(head, removeProgram(tail))
+        }
+    }
+  }
+
+  def removeMain(
+                  members: List[MemberSyntax.FunctionDeclarationSyntax]
+                ): List[MemberSyntax.FunctionDeclarationSyntax] = {
+    members match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        if (head.identifier.text == "main") {
+          tail
+        } else {
+          List.Cons(head, removeMain(tail))
+        }
+    }
+  }
+
+  def bindEntry(
+                 program: Option[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
+                 main: Option[MemberSyntax.FunctionDeclarationSyntax],
+                 programMethods: List[MemberSyntax.FunctionDeclarationSyntax],
+                 statements: List[MemberSyntax.GlobalStatementSyntax]
+               ): BoundEntry = {
+
+    // if program class does not exist, create it
+    // if main method does not exist, create it
+
+    // move all top level functions to Program class
+
+    // move all top level statements to main method and bind main
+    ???
+  }
+
+  def getMainMethod(
+                     functions: List[MemberSyntax.FunctionDeclarationSyntax]
+                   ): Option[MemberSyntax.FunctionDeclarationSyntax] = {
+    functions match {
+      case List.Nil => Option.None
+      case List.Cons(head, tail) =>
+        if (head.identifier.text == "main") {
+          Option.Some(head)
+        } else {
+          getMainMethod(tail)
+        }
+    }
+  }
+
+  def getProgramObject(
+                        objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]]
+                      ): Option[Namespaced[MemberSyntax.ObjectDeclarationSyntax]] = {
+    objects match {
+      case List.Nil => Option.None
+      case List.Cons(head, tail) =>
+        if (head.value.identifier.text == "Program") {
+          Option.Some(head)
+        } else {
+          getProgramObject(tail)
+        }
+    }
+  }
+
+  /** Split members into disparate lists from the given list of syntax trees.
+   *
+   *   - variable declarations generate assignments as statements
+   *   - this does not perform nested extraction
+   */
+  def splitMembersInTrees(trees: List[SyntaxTree]): Members = {
+    _splitMembers(
+      List.Nil,
+      trees,
+      List.Nil,
+      List.Nil,
+      List.Nil,
+      List.Nil,
+      List.Nil,
+      List.Nil,
+      List.Nil
+    )
+  }
+
+  def splitMembers(ns: List[string], members: List[MemberSyntax]): Members = {
+    _splitMembers(
+      ns,
+      List.Nil,
+      members,
+      List.Nil,
+      List.Nil,
+      List.Nil,
+      List.Nil,
+      List.Nil,
+      List.Nil
+    )
+  }
+
+  def simpleNameToNamespace(name: SimpleNameSyntax): string = {
+    name match {
+      case SimpleNameSyntax.GenericNameSyntax(identifier, typeArgumentlist) =>
+        diagnosticBag.reportInvalidNamespace(
+          identifier.location.merge(typeArgumentlist.greaterThanToken.location)
+        )
+        identifier.text
+      case SimpleNameSyntax.IdentifierNameSyntax(identifier) =>
+        identifier.text
+      case SimpleNameSyntax.ScalaAliasSyntax(open, name, arrow, alias, close) =>
+        diagnosticBag.reportInvalidNamespace(
+          name.location.merge(close.location)
+        )
+        name.text
+      case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) =>
+        diagnosticBag.reportInvalidNamespace(
+          name.location.merge(alias.location)
+        )
+        name.text
+    }
+  }
+
+  def nameToNamespace(name: NameSyntax, ns: List[string]): List[string] = {
+    name match {
+      case NameSyntax.SimpleName(value) =>
+        List.Cons(simpleNameToNamespace(value), ns).reverse()
+      case NameSyntax.QualifiedName(left, _, right) =>
+        nameToNamespace(left, List.Cons(simpleNameToNamespace(right), ns))
+    }
+  }
+
+  def _splitMembers(
+                     ns: List[string],
+                     trees: List[SyntaxTree],
+                     members: List[MemberSyntax],
+                     objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
+                     classes: List[Namespaced[MemberSyntax.ClassDeclarationSyntax]],
+                     enums: List[Namespaced[MemberSyntax.EnumDeclarationSyntax]],
+                     fields: List[MemberSyntax.VariableDeclaration],
+                     functions: List[MemberSyntax.FunctionDeclarationSyntax],
+                     globalStatements: List[MemberSyntax.GlobalStatementSyntax]
+                   ): Members = {
+    members match {
+      case List.Nil =>
+        trees match {
+          case List.Nil =>
+            Members(
+              objects,
+              classes,
+              functions,
+              enums,
+              fields,
+              globalStatements
+            )
+          case List.Cons(tree, tail) =>
+            _splitMembers(
+              tree.root.namespaceDeclaration match {
+                case Option.None => List.Nil
+                case Option.Some(value) => nameToNamespace(value.name, List.Nil)
+              },
+              tail,
+              tree.root.members,
+              objects,
+              classes,
+              enums,
+              fields,
+              functions,
+              globalStatements
+            )
+        }
+
+      case List.Cons(member, tail) =>
+        member match {
+          case member: MemberSyntax.ObjectDeclarationSyntax =>
+            _splitMembers(
+              ns,
+              trees,
+              tail,
+              List.Cons(Namespaced(ns, member), objects),
+              classes,
+              enums,
+              fields,
+              functions,
+              globalStatements
+            )
+          case member: MemberSyntax.ClassDeclarationSyntax =>
+            _splitMembers(
+              ns,
+              trees,
+              tail,
+              objects,
+              List.Cons(Namespaced(ns, member), classes),
+              enums,
+              fields,
+              functions,
+              globalStatements
+            )
+          case member: MemberSyntax.FunctionDeclarationSyntax =>
+            _splitMembers(
+              ns,
+              trees,
+              tail,
+              objects,
+              classes,
+              enums,
+              fields,
+              List.Cons(member, functions),
+              globalStatements
+            )
+          case member: MemberSyntax.EnumDeclarationSyntax =>
+            _splitMembers(
+              ns,
+              trees,
+              tail,
+              objects,
+              classes,
+              List.Cons(Namespaced(ns, member), enums),
+              fields,
+              functions,
+              globalStatements
+            )
+          case member: MemberSyntax.GlobalStatementSyntax =>
+            _splitMembers(
+              ns,
+              trees,
+              tail,
+              objects,
+              classes,
+              enums,
+              fields,
+              functions,
+              List.Cons(member, globalStatements)
+            )
+          case variable: MemberSyntax.VariableDeclaration =>
+            val statement = new MemberSyntax.GlobalStatementSyntax(
+              StatementSyntax.ExpressionStatement(
+                Expression.AssignmentExpression(
+                  Expression.IdentifierName(
+                    SimpleNameSyntax.IdentifierNameSyntax(variable.identifier)
+                  ),
+                  variable.equalToken,
+                  variable.expression
+                )
+              )
+            )
+            _splitMembers(
+              ns,
+              trees,
+              tail,
+              objects,
+              classes,
+              enums,
+              List.Cons(variable, fields),
+              functions,
+              List.Cons(statement, globalStatements)
+            )
+        }
+    }
+  }
+
+  /** Detects multiple source files with top level statements.
+   *
+   *   - if there are multiple source files with top level statements or top
+   *     level functions report an error
+   */
+  def detectMultipleSourceFilesWithTopLevelStatements(
+                                                       functions: List[MemberSyntax.FunctionDeclarationSyntax],
+                                                       globalStatements: List[MemberSyntax.GlobalStatementSyntax]
+                                                     ): unit = {
+    functions match {
+      case List.Nil =>
+        globalStatements match {
+          case List.Nil => ()
+          case List.Cons(head, tail) =>
+            _detectMultipleSourceFilesWithTopLevelStatements(
+              AstUtils.locationOfMember(head),
+              functions,
+              tail
+            )
+        }
+      case List.Cons(head, tail) =>
+        _detectMultipleSourceFilesWithTopLevelStatements(
+          AstUtils.locationOfMember(head),
+          tail,
+          globalStatements
+        )
+    }
+  }
+
+  def _detectMultipleSourceFilesWithTopLevelStatements(
+                                                        firstLocation: TextLocation,
+                                                        functions: List[MemberSyntax.FunctionDeclarationSyntax],
+                                                        globalStatements: List[MemberSyntax.GlobalStatementSyntax]
+                                                      ): unit = {
+    functions match {
+      case List.Nil =>
+        globalStatements match {
+          case List.Nil => ()
+          case List.Cons(head, tail) =>
+            val memberLocation = AstUtils.locationOfMember(head)
+            if (memberLocation.sourceFile != firstLocation.sourceFile) {
+              diagnosticBag.reportTopLevelStatementsInMultipleFiles(
+                firstLocation,
+                memberLocation
+              )
+            }
+            _detectMultipleSourceFilesWithTopLevelStatements(
+              firstLocation,
+              functions,
+              tail
+            )
+        }
+      case List.Cons(head, tail) =>
+        val memberLocation = AstUtils.locationOfMember(head)
+        if (memberLocation.sourceFile != firstLocation.sourceFile) {
+          diagnosticBag.reportTopLevelStatementsInMultipleFiles(
+            firstLocation,
+            memberLocation
+          )
+        }
+        _detectMultipleSourceFilesWithTopLevelStatements(
+          firstLocation,
+          tail,
+          globalStatements
+        )
+    }
   }
 }

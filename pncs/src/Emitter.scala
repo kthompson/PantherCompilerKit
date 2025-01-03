@@ -1,7 +1,7 @@
 import panther._
 import system.io._
 
-case class Emitter(syntaxTrees: Array[SyntaxTree], root: Symbol, /*checker: Checker,*/ outputFile: string) {
+case class Emitter(syntaxTrees: List[SyntaxTree], root: Symbol, /*checker: Checker,*/ outputFile: string) {
 
   var indent = ""
   var symbolPrefix = ""

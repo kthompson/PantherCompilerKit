@@ -66,7 +66,7 @@ object panther {
   type string = java.lang.String
   type unit = scala.Unit
   type any = scala.Any
-  type nothing = scala.Nothing
+  type never = scala.Nothing
 
   def string(any: Any): string = any.toString
   def char(any: Any): char = any match {
@@ -81,12 +81,17 @@ object panther {
     case _ => throw new Exception("not an int")
   }
 
-  def panic(message: string): nothing = throw new Exception(message)
+  def panic(message: string): never = throw new Exception(message)
 
   def assert(condition: bool, message: string): unit = {
     if (!condition) panic(message) else ()
   }
   def mod(a: int, b: int): int = a % b
+  
+  def Some[T](value: T): Option[T] = Option.Some(value)
+  
+  val None = Option.None
+  val Nil = List.Nil
 
   // scala to panther translate
   // * replace Array[ ] with Array< >

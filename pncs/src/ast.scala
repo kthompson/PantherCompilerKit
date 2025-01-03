@@ -23,10 +23,12 @@ enum SimpleNameSyntax {
     case ScalaAliasSyntax(open: SyntaxToken, name: SyntaxToken, arrow: SyntaxToken, alias: SyntaxToken, close: SyntaxToken)
     case AliasSyntax(name: SyntaxToken, asKeyword: SyntaxToken, alias: SyntaxToken)
 }
+
 enum NameSyntax {
     case SimpleName(name: SimpleNameSyntax)
-    case QualifiedNameSyntax(left: NameSyntax, dotToken: SyntaxToken, right: SimpleNameSyntax)
+    case QualifiedName(left: NameSyntax, dotToken: SyntaxToken, right: SimpleNameSyntax)
 }
+
 case class ExpressionItemSyntax(expression: Expression, separatorToken: Option[SyntaxToken])
 case class ExpressionListSyntax(expressions: Array[ExpressionItemSyntax])
 
@@ -34,6 +36,7 @@ case class BlockExpressionListSyntax(
                                       statements: Array[StatementSyntax],
                                       expression: Option[Expression])
 
+case class ElseSyntax(elseKeyword: SyntaxToken, expression: Expression)
 
 enum Expression {
     case ArrayCreationExpression(newKeyword: SyntaxToken,
@@ -76,8 +79,7 @@ enum Expression {
                        condition: Expression,
                        closeParen: SyntaxToken,
                        thenExpr: Expression,
-                       elseKeyword: SyntaxToken,
-                       elseExpr: Expression)
+                       elseExpr: Option[ElseSyntax])
     case IndexExpression(
                           left: Expression,
                           openBracket: SyntaxToken,
@@ -114,7 +116,7 @@ case class MatchCaseSyntax(
 enum PatternSyntax {
     case ExtractPattern(value: NameSyntax, openParenToken: SyntaxToken, patterns: Array[PatternItemSyntax], closeParenToken: SyntaxToken)
     case TypePattern(typ: NameSyntax)
-    
+
     case IdentifierPattern(value: SyntaxToken, typeAnnotation: TypeAnnotationSyntax)
     case LiteralPattern(value: SyntaxToken)
     case DiscardPattern(value: SyntaxToken)
@@ -142,7 +144,7 @@ case class UsingDirectiveSyntax(usingKeyword: SyntaxToken, name: NameSyntax)
 
 case class TemplateSyntax(
     openBrace: SyntaxToken,
-    members: Array[MemberSyntax],
+    members: List[MemberSyntax],
     closeBrace: SyntaxToken
 )
 
@@ -161,6 +163,12 @@ enum StatementSyntax {
 case class EnumCaseParametersSyntax(openParenToken: SyntaxToken, parameters: Array[ParameterSyntax], closeParenToken: SyntaxToken)
 case class EnumCaseSyntax(caseKeyword: SyntaxToken, identifier: SyntaxToken, parameters: Option[EnumCaseParametersSyntax])
 
+case class GenericBoundsSyntax(token: SyntaxToken, name: NameSyntax)
+case class GenericParameterSyntax(variance: Option[SyntaxToken], identifier: SyntaxToken, bounds: Option[GenericBoundsSyntax])
+case class GenericParametersSyntax(lessThanToken: SyntaxToken, parameters: SeparatedSyntaxList[GenericParameterSyntax], greaterThanToken: SyntaxToken)
+
+case class SeparatedSyntaxList[T](items: List[T], separators: List[SyntaxToken])
+
 enum MemberSyntax {
     case ObjectDeclarationSyntax(objectKeyword: SyntaxToken,
                                  identifier: SyntaxToken,
@@ -168,12 +176,14 @@ enum MemberSyntax {
     case ClassDeclarationSyntax(caseKeyword: Option[SyntaxToken],
                                 classKeyword: SyntaxToken,
                                 identifier: SyntaxToken,
+                                genericParameters: Option[GenericParametersSyntax],
                                 openParenToken: SyntaxToken,
                                 parameters: Array[ParameterSyntax],
                                 closeParenToken: SyntaxToken,
                                 template: Option[TemplateSyntax])
     case FunctionDeclarationSyntax(defKeyword: SyntaxToken,
                                    identifier: SyntaxToken,
+                                   genericParameters: Option[GenericParametersSyntax],
                                    openParenToken: SyntaxToken,
                                    parameters: Array[ParameterSyntax],
                                    closeParenToken: SyntaxToken,
@@ -182,9 +192,10 @@ enum MemberSyntax {
     case GlobalStatementSyntax(statement: StatementSyntax)
     case EnumDeclarationSyntax(enumKeyword: SyntaxToken,
                                identifier: SyntaxToken,
+                               genericParameters: Option[GenericParametersSyntax],
                                openBraceToken: SyntaxToken,
                                cases: Array[EnumCaseSyntax],
-                               members: Array[MemberSyntax],
+                               members: List[MemberSyntax],
                                closeBraceToken: SyntaxToken)
     case VariableDeclaration(valOrVarKeyword: SyntaxToken,
                              identifier: SyntaxToken,
@@ -204,7 +215,7 @@ case class NamespaceDeclarationSyntax(namespaceKeyword: SyntaxToken, name: NameS
     usings [0..n]
     members [0..n]
 */
-case class CompilationUnitSyntax(namespaceDeclaration: Option[NamespaceDeclarationSyntax], usings: Array[UsingDirectiveSyntax], members: Array[MemberSyntax], endToken: SyntaxToken) {
+case class CompilationUnitSyntax(namespaceDeclaration: Option[NamespaceDeclarationSyntax], usings: Array[UsingDirectiveSyntax], members: List[MemberSyntax], endToken: SyntaxToken) {
     val kind: int = SyntaxKind.CompilationUnit
 }
 
@@ -222,21 +233,127 @@ object DeclarationKind {
 // For example, a constructor symbol will usually have a Class declaration
 // and field symbols can either be Local declarations or Parameter declarations
 
-enum Declaration {
-    case Class(name: string, location: TextLocation, value: MemberSyntax.ClassDeclarationSyntax)
-    case ClassFromObject(name: string, location: TextLocation, value: MemberSyntax.ObjectDeclarationSyntax)
-    case ClassFromEnum(name: string, location: TextLocation, value: MemberSyntax.EnumDeclarationSyntax)
-    case ClassFromEnumCase(name: string, location: TextLocation, value: EnumCaseSyntax)
+//enum Declaration {
+//
+//  case Class(value: MemberSyntax.ClassDeclarationSyntax)
+//  case ClassFromObject(value: MemberSyntax.ObjectDeclarationSyntax)
+//  case ClassFromEnum(value: MemberSyntax.EnumDeclarationSyntax)
+//  case ClassFromEnumCase(value: EnumCaseSyntax)
+//
+//  case Constructor(value: BoundDefinition.Constructor)
+//  case ConstructorFromParams(value: Array[BoundParameter])
+//
+//  case Function(value: BoundDefinition.Function)
+//
+//  case FieldFromParameter(value: ParameterSyntax)
+//  case FieldFromVariable(value: StatementSyntax.VariableDeclarationStatement)
+//  case Field(value: BoundDefinition.Field)
+//
+//  case Parameter(value: ParameterSyntax)
+//  case Local(value: BoundStatement.VariableDeclarationStatement)
+//  case LocalFromFor(value: Expression.ForExpression)
+//
+//  var id = -1 // used in type checking
+//}
 
-    case Constructor(name: string, location: TextLocation, value: Array[ParameterSyntax])
+object AstUtils {
+  def locationOfMember(member: MemberSyntax): TextLocation = {
+    member match {
+      case member: MemberSyntax.ObjectDeclarationSyntax =>
+        member.objectKeyword.location.merge(
+          member.template.closeBrace.location
+        )
+      case member: MemberSyntax.ClassDeclarationSyntax =>
+        member.classKeyword.location.merge(
+          member.template match {
+            case Option.Some(value) => value.closeBrace.location
+            case Option.None => member.closeParenToken.location
+          }
+        )
+      case member: MemberSyntax.FunctionDeclarationSyntax =>
+        member.defKeyword.location.merge(
+          member.body match {
+            case Option.Some(value) => locationOfExpression(value.expression)
+            case Option.None => member.closeParenToken.location
+          }
+        )
+      case member: MemberSyntax.EnumDeclarationSyntax =>
+        member.enumKeyword.location.merge(
+          member.closeBraceToken.location
+        )
+      case member: MemberSyntax.VariableDeclaration =>
+        member.valOrVarKeyword.location.merge(
+          locationOfExpression(member.expression)
+        )
+      case member: MemberSyntax.GlobalStatementSyntax => locationOfStatement(member.statement)
+    }
+  }
 
-    case Method(name: string, location: TextLocation, value: MemberSyntax.FunctionDeclarationSyntax)
+  def locationOfStatement(statement: StatementSyntax): TextLocation = {
+    statement match {
+      case statement: StatementSyntax.BreakStatement =>
+        statement.breakKeyword.location
+      case statement: StatementSyntax.ContinueStatement =>
+        statement.continueKeyword.location
+      case statement: StatementSyntax.ExpressionStatement =>
+        locationOfExpression(statement.expression)
+      case statement: StatementSyntax.VariableDeclarationStatement =>
+        statement.valOrVarKeyword.location.merge(
+          locationOfExpression(statement.expression)
+        )
+    }
+  }
 
-    case FieldFromParameter(name: string, location: TextLocation, value: ParameterSyntax)
-    case FieldFromVariable(name: string, location: TextLocation, value: StatementSyntax.VariableDeclarationStatement)
-    case FieldFromMember(name: string, location: TextLocation, value: MemberSyntax.VariableDeclaration)
-
-    case Parameter(name: string, location: TextLocation, value: ParameterSyntax)
-    case Local(name: string, location: TextLocation, value: StatementSyntax.VariableDeclarationStatement)
-    case LocalFromFor(name: string, location: TextLocation, value: Expression.ForExpression)
+  def locationOfExpression(value: Expression): TextLocation = {
+    value match {
+      case Expression.ArrayCreationExpression(
+      newKeyword,
+      _,
+      _,
+      _,
+      closeBracket,
+      initializer
+      ) =>
+        val end = initializer match {
+          case Option.Some(value) => value.closeBrace.location
+          case Option.None => closeBracket.location
+        }
+        newKeyword.location.merge(end)
+      case Expression.AssignmentExpression(left, equals, right) =>
+        locationOfExpression(left).merge(locationOfExpression(right))
+      case Expression.BinaryExpression(left, operator, right) =>
+        locationOfExpression(left).merge(locationOfExpression(right))
+      case Expression.BlockExpression(openBrace, block, closeBrace) =>
+        openBrace.location.merge(closeBrace.location)
+      case Expression.CallExpression(name, openParen, arguments, closeParen) =>
+        locationOfExpression(name).merge(closeParen.location)
+      case Expression.ForExpression(forKeyword, _, _, _, _, _, _, _, body) =>
+        forKeyword.location.merge(locationOfExpression(body))
+      case Expression.GroupExpression(openParen, expression, closeParen) =>
+        openParen.location.merge(closeParen.location)
+      case Expression.IdentifierName(value) =>
+        value.identifier.location
+      case Expression.If(ifKeyword, _, _, _, expression, elseExpr) =>
+        ifKeyword.location.merge(locationOfExpression(elseExpr match {
+          case Option.Some(value) => value.expression
+          case Option.None => expression
+        }))
+      case Expression.IndexExpression(left, openBracket, index, closeBracket) =>
+        locationOfExpression(left).merge(closeBracket.location)
+      case Expression.LiteralExpression(token, value) =>
+        token.location
+      case Expression.MemberAccessExpression(left, dotToken, right) =>
+        locationOfExpression(left).merge(right.identifier.location)
+      case Expression.MatchExpression(expression, _, _, _, closeBrace) =>
+        locationOfExpression(expression).merge(closeBrace.location)
+      case Expression.NewExpression(newKeyword, _, _, _, closeParen) =>
+        newKeyword.location.merge(closeParen.location)
+      case Expression.UnaryExpression(operator, expression) =>
+        operator.location.merge(locationOfExpression(expression))
+      case Expression.UnitExpression(openParen, closeParen) =>
+        openParen.location.merge(closeParen.location)
+      case Expression.WhileExpression(whileKeyword, _, _, _, body) =>
+        whileKeyword.location.merge(locationOfExpression(body))
+    }
+  }
 }

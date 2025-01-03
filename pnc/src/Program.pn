@@ -17,15 +17,15 @@ object Program {
     }
   }
 
-  def hasDiagnostics(trees: Array<SyntaxTree>): bool = {
-    var diags = false
-    for (i <- 0 to (trees.length - 1)) {
-      trees(i).diagnostics match {
-        case Diagnostics.Empty => ()
-        case _ => diags = true
-      }
+  def hasDiagnostics(trees: List<SyntaxTree>): bool = {
+    trees match {
+      case List.Nil => false
+      case List.Cons(head, tail) =>
+        head.diagnostics match {
+          case Diagnostics.Empty => hasDiagnostics(tail)
+          case _                 => true
+        }
     }
-    diags
   }
 
   def run(transpile: bool, args: Array<string>): unit = {
@@ -33,17 +33,22 @@ object Program {
     val numTrees = args.length - firstFile
     val outputFile = args(firstFile - 1)
     printLogo()
-    val trees = new Array<SyntaxTree>(numTrees)
+    var trees: List<SyntaxTree> = List.Nil
     for (x <- firstFile to (args.length - 1)) {
       print("parsing " + args(x) + "...")
-      trees(x - firstFile) = MakeSyntaxTree.parseFile(args(x))
+      trees = List.Cons(MakeSyntaxTree.parseFile(args(x)), trees)
       println("done")
     }
 
     // verify no diagnostics from parse trees
     if (hasDiagnostics(trees)) {
-      for (i <- 0 to (trees.length - 1)) {
-        printDiagnostics(trees(i).diagnostics)
+      while (trees != List.Nil) {
+        trees match {
+          case List.Nil => ()
+          case List.Cons(head, tail) =>
+            printDiagnostics(head.diagnostics, 0)
+            trees = tail
+        }
       }
     } else {
       val compilation = MakeCompilation.create(trees)
@@ -52,6 +57,7 @@ object Program {
           if (transpile) {
             println("transpiling to " + outputFile + "...")
             compilation.transpile(outputFile)
+//            compilation.printSymbols()
           } else {
             compilation.printSymbols()
             println("emitting to " + outputFile + "...")
@@ -59,20 +65,23 @@ object Program {
           }
 
         case diags =>
-          printDiagnostics(diags)
+          compilation.printSymbols()
+          val count = printDiagnostics(diags, 0)
+          println("found " + count + " diagnostics")
       }
     }
   }
-  
-  def printDiagnostics(diagnostics: Diagnostics): unit =
+
+  def printDiagnostics(diagnostics: Diagnostics, count: int): int =
     diagnostics match {
-      case Diagnostics.Empty => ()
+      case Diagnostics.Empty => count
       case Diagnostics.Node(left, head, right) =>
-        printDiagnostics(left)
-        printDiagnostic(head)
-        printDiagnostics(right)
+        val leftCount = printDiagnostics(left, count)
+        if (leftCount <= 20) {
+          printDiagnostic(head)
+        }
+        printDiagnostics(right, leftCount + 1)
     }
-  
 
   def printDiagnostic(diagnostic: Diagnostic): unit = {
     val location = diagnostic.location
@@ -98,9 +107,9 @@ object Program {
       val errorSpan = TextSpanFactory.fromBounds(prefixEnd, suffixStart)
       val suffixSpan = TextSpanFactory.fromBounds(suffixStart, line.end)
 
-      val prefix = sourceFile.toString(prefixSpan)
-      val error = sourceFile.toString(errorSpan)
-      val suffix = sourceFile.toString(suffixSpan)
+      val prefix = sourceFile.substringFromSpan(prefixSpan)
+      val error = sourceFile.substringFromSpan(errorSpan)
+      val suffix = sourceFile.substringFromSpan(suffixSpan)
 
       print(prefix)
       print(ANSI.foregroundColor("e06c75"))
@@ -118,7 +127,15 @@ object Program {
   }
 
   def printToken(token: SyntaxToken): unit =
-    println(Pad.right("TOKEN[" + SyntaxFacts.getKindName(token.kind) + "," + string(token.start) + "]: ", 36, ' ') + "\"" + token.text + "\"")
+    println(
+      Pad.right(
+        "TOKEN[" + SyntaxFacts.getKindName(token.kind) + "," + string(
+          token.start
+        ) + "]: ",
+        36,
+        ' '
+      ) + "\"" + token.text + "\""
+    )
 
   def printLogo(): unit = println("panther compiler - 0.0.1")
 

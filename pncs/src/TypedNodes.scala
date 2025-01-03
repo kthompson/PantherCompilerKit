@@ -1,24 +1,94 @@
-enum Type {
-  case Function(parameters: Array[TypedParameter], returnType: Type)
-  case ArrayType(inner: Type)
-  case Reference(symbol: Symbol, baseType: Option[Type])
-  case OptionType(inner: Type)
-  case Class(name: ClassName)
-  case Int
-  case Bool
-  case Any
-  case Never
-  case Unit
-
-  case Error
+import panther._
+enum Variance {
+  case Invariant
+  case Covariant // "out"
+  case Contravariant // "in"
 }
 
-enum TypedUnaryOperator {
+enum Type {
+
+  /** A named type can have zero or more type arguments.
+   *  E.g. `List[Int]` -> Named("panther", "List", Types.Cons(Named("", "Int"), Types.Empty))
+   */
+  case Named(ns: string, name: string, args: List[Type])
+
+  /** A function type takes a list of parameters and a return type.
+   *  E.g. `(x: Int, y: Int) => Int`
+   */
+  case Function(genericTypeParameters: List[Type], parameters: List[BoundParameter], returnType: Type)
+
+  /** A type variable with optional upper-bound.
+   *  e.g., `T <: SomeBase`.
+   *
+   */
+  case Variable(name: string, variance: Variance, upperBound: Option[Type])
+
+  /** Built-in "top" type */
+  case Any
+
+  /** Built-in "bottom" type */
+  case Never
+
+  case Error
+
+  def _params(paramsStr: string, parameters: List[BoundParameter]): string = {
+    parameters match {
+      case List.Nil => paramsStr
+      case List.Cons(param, tail) =>
+        val sep = if (paramsStr == "") "" else ", "
+        _params(paramsStr + sep + param.name + ": " + param.typ.toString, tail)
+    }
+  }
+
+  def _args(str: string, args: List[Type]): string =
+    args match {
+      case List.Nil => str
+      case List.Cons(typ, tail) =>
+        val sep = if (str == "") "" else ", "
+        _args(str + sep + typ.toString, tail)
+    }
+
+  override def toString(): string = {
+    this match {
+      case Type.Function(genTypeParams, parameters, returnType) =>
+        val genTypeStr = _args("", genTypeParams)
+        val paramStr = _params("", parameters)
+        if(genTypeStr.isEmpty) "(" + paramStr + ") -> " + returnType.toString
+        else "<" + genTypeStr + ">" + "(" + paramStr + ") -> " + returnType.toString
+      case Type.Named(ns, name, args) =>
+        val argStr = _args("", args)
+        val tail = if (argStr.isEmpty) "" else "[" + argStr + "]"
+        if (ns == "") name + tail
+        else ns + "." + name + tail
+      case Type.Variable(name, variance, upperBound) =>
+        val varianceStr = variance match {
+          case Variance.Invariant =>
+            ""
+          case Variance.Covariant =>
+            "+"
+          case Variance.Contravariant =>
+            "-"
+        }
+        upperBound match {
+          case Option.Some(value) => varianceStr + name + " : " + value.toString
+          case Option.None => varianceStr + name
+        }
+      case Type.Any =>
+        "Any"
+      case Type.Never =>
+        "Never"
+      case Type.Error =>
+        "Error"
+    }
+  }
+}
+
+enum BoundUnaryOperator {
   case Negate
   case Not
 }
 
-enum TypedBinaryOperator {
+enum BoundBinaryOperator {
   case Add
   case And
   case Divide
@@ -64,44 +134,58 @@ object Environment {
   }
 }
 
-enum TypedExpression {
-  case ArrayCreationExpression(typ: Type, expression: Expression.ArrayCreationExpression)
-  case AssignmentExpression(typ: Type, expression: Expression.AssignmentExpression)
-  case BinaryExpression(typ: Type, expression: Expression.BinaryExpression)
-  case BlockExpression(typ: Type, expression: Expression.BlockExpression)
-  case CallExpression(typ: Type, expression: Expression.CallExpression)
-  case ForExpression(typ: Type, expression: Expression.ForExpression)
-  case GroupExpression(typ: Type, expression: Expression.GroupExpression)
-//  case IdentifierName(typ: Type, expression: Expression.IdentifierName)
-  case IfExpression(typ: Type, expression: Expression.If)
-  case IndexExpression(typ: Type, expression: Expression.IndexExpression)
-  case LiteralExpression(typ: Type, expression: Expression.LiteralExpression)
-//  case MemberAccessExpression(typ: Type, expression: Expression.MemberAccessExpression)
-  case MatchExpression(typ: Type, expression: Expression.MatchExpression)
-  case NewExpression(typ: Type, expression: Expression.NewExpression)
-  case UnaryExpression(typ: Type, expression: Expression.UnaryExpression)
-  case UnitExpression(typ: Type, expression: Expression.UnitExpression)
-  case WhileExpression(typ: Type, expression: Expression.WhileExpression)
+
+
+case class BoundAssembly(definitions: List[BoundDefinition], diagnostics: Diagnostics, entryPoint: Option[BoundEntry])
+
+case class BoundEntry(
+                       program: BoundDefinition.Object,
+                       main: BoundMember.Method,
+                       extraStatements: List[MemberSyntax.GlobalStatementSyntax]
+                     )
+
+enum BoundDefinition {
+  case Object(symbol: Symbol, members: List[BoundMember])
+  case Class(symbol: Symbol, members: List[BoundMember])
+  //  case Enum(symbol: string, members: Array[String])
 }
 
-case class TypedParameter(name: String, typ: Type)
-
-case class TypedField(name: MemberName, typ: Type)
-
-case class TypedMethod(name: MemberName, returnType: Type, args: Array[TypedParameter])
-
-enum TypedDefinition {
-  case TypedObject(namespace: NamespaceName, name: ClassName, fields: Array[TypedField], members: Array[TypedMethod])
-  case TypedClass(namespace: NamespaceName, name: ClassName, fields: Array[TypedField], members: Array[TypedMethod])
-  case TypedEnum(namespace: NamespaceName, name: ClassName, members: Array[String])
+enum BoundMember {
+  case Field(name: string, typ: Type)
+  case Method(name: string, parameters: List[BoundParameter], returnType: Type, body: BoundExpression)
 }
 
-enum TypeDefinitions {
-  case Empty
-  case Cons(definition: TypedDefinition, tail: TypeDefinitions)
+case class BoundParameter(name: string, typ: Type)
+
+enum BoundExpression {
+  case IntLiteral(typ: Type, location: TextLocation, value: int)
+  //
+  //  case ArrayCreationExpression(typ: Type,
+  //                               newKeyword: SyntaxToken,
+  //                               name: NameSyntax,
+  //                               openBracket: SyntaxToken,
+  //                               arrayRank: Option[TypedExpression],
+  //                               closeBracket: SyntaxToken,
+  //                               initializer: Option[ArrayInitializerExpressionSyntax])
+
+  //  case AssignmentExpression(typ: Type, location: TextLocation, expression: Expression.AssignmentExpression)
+  //  case BinaryExpression(typ: Type, location: TextLocation, expression: Expression.BinaryExpression)
+  //  case BlockExpression(typ: Type, location: TextLocation, expression: Expression.BlockExpression)
+  //  case CallExpression(typ: Type, location: TextLocation, expression: Expression.CallExpression)
+  //  case ForExpression(typ: Type, location: TextLocation, expression: Expression.ForExpression)
+  //  case GroupExpression(typ: Type, location: TextLocation, expression: Expression.GroupExpression)
+  //  case IdentifierName(typ: Type, location: TextLocation, expression: Expression.IdentifierName)
+  //  case IfExpression(typ: Type, location: TextLocation, expression: Expression.If)
+  //  case IndexExpression(typ: Type, location: TextLocation, expression: Expression.IndexExpression)
+  //  case LiteralExpression(typ: Type, location: TextLocation, expression: Expression.LiteralExpression)
+  //  case MemberAccessExpression(typ: Type, location: TextLocation, expression: Expression.MemberAccessExpression)
+  //  case MatchExpression(typ: Type, location: TextLocation, expression: Expression.MatchExpression)
+  //  case NewExpression(typ: Type, location: TextLocation, expression: Expression.NewExpression)
+  //  case UnaryExpression(typ: Type, location: TextLocation, expression: Expression.UnaryExpression)
+  //  case UnitExpression(typ: Type, location: TextLocation, expression: Expression.UnitExpression)
+  //  case WhileExpression(typ: Type, location: TextLocation, expression: Expression.WhileExpression)
 }
 
-case class TypedAssembly(definitions: Array[TypedDefinition])
 
 //case class FunctionDefinition(name: FunctionName, )
 //(* Function defn consists of the function name, return type, the list of params, and the

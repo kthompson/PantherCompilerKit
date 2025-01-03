@@ -1,28 +1,48 @@
 using panther
 
 object MakeCompilation {
-  def create(trees: Array<SyntaxTree>): Compilation = {
+  def create(trees: List<SyntaxTree>): Compilation = {
     val diagnosticBag = new DiagnosticBag()
-    for (i <- 0 to (trees.length - 1)) {
-      diagnosticBag.addDiagnostics(trees(i).diagnostics)
+    var diagTrees = trees
+    while (diagTrees != List.Nil) {
+      diagTrees match {
+        case List.Nil => ()
+        case List.Cons(head, tail) =>
+          diagnosticBag.addDiagnostics(head.diagnostics)
+          diagTrees = tail
+      }
     }
-    val root = new Symbol(SymbolKind.Root, SymbolFlags.None, "", TextLocationFactory.empty(), None)
-    val binder = new Binder(diagnosticBag, root)
+//    val root = new Symbol(
+//      SymbolKind.Root,
+//      SymbolFlags.None,
+//      "",
+//      TextLocationFactory.empty(),
+//      None
+//    )
 
-    // creation of the checker will initialize all of the builtin symbols and their types into the
+    val rootSymbol = Symbol(
+      "",
+      TextLocationFactory.empty(),
+      SymbolKind.Namespace,
+      Option.None
+    )
+    // creation of the Binder will initialize all of the builtin symbols and their types into the
     // root symbol table
-    val checker = new Checker(diagnosticBag, root)
+    val binder = new Binder(trees, rootSymbol, diagnosticBag)
+    
+    val boundTree = binder.bind()
 
-    val boundTree = binder.bind(trees)
-
-//    checker.check(boundTree.functions, boundTree.fields)
-
-    new Compilation(trees, root, checker, diagnosticBag.diagnostics)
+    new Compilation(trees, rootSymbol,binder, diagnosticBag.diagnostics)
   }
 }
 
-class Compilation(syntaxTrees: Array<SyntaxTree>, root: Symbol, checker: Checker, diagnostics: Diagnostics) {
-  def printSymbols(): unit = SymbolTreePrinter(checker).printSymbol(root)
+class Compilation(
+                        syntaxTrees: List<SyntaxTree>,
+                        root: Symbol,
+                        binder: Binder,
+                        diagnostics: Diagnostics
+) {
+  def printSymbols(): unit = SymbolTreePrinter(binder).printSymbol(root)
 
   def emit(output: string): unit = {
     val emitter = new Emitter(syntaxTrees, root, /* checker, */ output)
@@ -30,7 +50,7 @@ class Compilation(syntaxTrees: Array<SyntaxTree>, root: Symbol, checker: Checker
   }
 
   def transpile(outputPath: string): unit = {
-    val transpiler = new Transpiler(syntaxTrees, root, outputPath)
+    val transpiler = new Transpiler(syntaxTrees, outputPath)
     transpiler.transpile()
   }
 }

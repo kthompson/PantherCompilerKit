@@ -36,10 +36,11 @@ object pncs extends PantherCompilerKitModule {
 
   def transpileSources = T {
     (super
-      .sources() ++ metadata.sources())
+      .sources() ++ metadata.sources() ++ runtime.sources())
       .map(_.path)
       .flatMap(os.list(_))
       .filterNot(_.endsWith(RelPath("SyntaxVisitor.scala")))
+      .filterNot(_.endsWith(RelPath("panther.scala")))
       .toList
   }
 

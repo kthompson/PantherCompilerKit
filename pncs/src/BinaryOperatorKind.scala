@@ -10,15 +10,17 @@ enum BinaryOperatorKind {
   case LessThanOrEqual
   case GreaterThan
   case GreaterThanOrEqual
-  case LogicalAnd
+  case LogicalAnd // booleans
   case LogicalOr
-  
+  case BitwiseAnd // numbers
+  case BitwiseOr
+
   case Error
 }
 
 enum UnaryOperatorKind {
   case LogicalNot
   case Negate
-  
+
   case Error
 }
