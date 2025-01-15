@@ -64,144 +64,20 @@ using panther
 
 class TypePair(t1: Type, t2: Type)
 
-class Checker(diagnosticBag: DiagnosticBag) {
-
-  var lastSymbolId = 0
-  var symbolLinks = new Array<SymbolLinks>(10)
+class ExprBinder(
+    rootSymbol: Symbol,
+    binder: Binder,
+    diagnosticBag: DiagnosticBag
+) {
 
   val binaryOperators = new BinaryOperators()
 
   val emptyTypeArray: List<Type> = List.Nil
 
+  // ensure these type are kept in sync with the Binder
   val stringType = Type.Named("panther", "string", emptyTypeArray)
   val intType = Type.Named("panther", "int", emptyTypeArray)
-  val charType = Type.Named("panther", "char", emptyTypeArray)
   val boolType = Type.Named("panther", "bool", emptyTypeArray)
-  val unitType = Type.Named("panther", "unit", emptyTypeArray)
-
-  val noneType =
-    Type.Named("panther", "Option", List.Cons(Type.Never, List.Nil))
-
-  // string
-//  val stringSymbol = new Symbol(
-//    SymbolKind.Class,
-//    SymbolFlags.None,
-//    "string",
-//    TextLocationFactory.empty(),
-//    Some(root)
-//  )
-//  root.members.addSymbol(stringSymbol)
-//  setSymbolType(stringSymbol, stringType)
-
-  // int
-//  val intSymbol = new Symbol(
-//    SymbolKind.Class,
-//    SymbolFlags.None,
-//    "int",
-//    TextLocationFactory.empty(),
-//    Some(root)
-//  )
-//  root.members.addSymbol(intSymbol)
-//  setSymbolType(intSymbol, intType)
-
-  // char
-//  val charSymbol = new Symbol(
-//    SymbolKind.Class,
-//    SymbolFlags.None,
-//    "char",
-//    TextLocationFactory.empty(),
-//    Some(root)
-//  )
-//  root.members.addSymbol(charSymbol)
-//  setSymbolType(charSymbol, charType)
-
-  // bool
-//  val boolSymbol = new Symbol(
-//    SymbolKind.Class,
-//    SymbolFlags.None,
-//    "bool",
-//    TextLocationFactory.empty(),
-//    Some(root)
-//  )
-//  root.members.addSymbol(boolSymbol)
-//  setSymbolType(boolSymbol, boolType)
-
-  // None
-//  val noneSymbol = new Symbol(
-//    SymbolKind.Class,
-//    SymbolFlags.None,
-//    "None",
-//    TextLocationFactory.empty(),
-//    Some(root)
-//  )
-//  root.members.addSymbol(noneSymbol)
-//  setSymbolType(noneSymbol, noneType)
-
-  // string.length: int
-//  val length = new Symbol(
-//    SymbolKind.Field,
-//    SymbolFlags.None,
-//    "length",
-//    TextLocationFactory.empty(),
-//    Some(stringSymbol)
-//  )
-//  stringSymbol.members.addSymbol(length)
-//  setSymbolType(length, intType)
-
-  // println(message: string): unit
-//  val printlnSymbol = new Symbol(
-//    SymbolKind.Method,
-//    SymbolFlags.Static,
-//    "println",
-//    TextLocationFactory.empty(),
-//    Some(root)
-//  )
-//  val printlnMessage = new Symbol(
-//    SymbolKind.Parameter,
-//    SymbolFlags.None,
-//    "message",
-//    TextLocationFactory.empty(),
-//    Some(printlnSymbol)
-//  )
-//  printlnSymbol.members.addSymbol(printlnMessage)
-//  root.members.addSymbol(printlnSymbol)
-//
-//  setSymbolType(printlnMessage, stringType)
-//  val message = BoundParameter("message", stringType)
-//  setSymbolType(
-//    printlnSymbol,
-//    Type.Function(
-//      List.Cons(message, List.Nil),
-//      unitType
-//    )
-//  )
-
-  // print(message: string): unit
-//  val printSymbol = new Symbol(
-//    SymbolKind.Method,
-//    SymbolFlags.Static,
-//    "print",
-//    TextLocationFactory.empty(),
-//    Some(root)
-//  )
-//  val printMessage = new Symbol(
-//    SymbolKind.Parameter,
-//    SymbolFlags.None,
-//    "message",
-//    TextLocationFactory.empty(),
-//    Some(printSymbol)
-//  )
-//  printSymbol.members.addSymbol(printMessage)
-//  root.members.addSymbol(printSymbol)
-//  setSymbolType(printMessage, stringType)
-//
-//  setSymbolType(
-//    printSymbol,
-//    Type.Function(
-//      List.Cons(message, List.Nil),
-//      unitType
-//    )
-//  )
 
   // initialize binary operators
   simpleOp(intType, BinaryOperatorKind.Plus)
@@ -225,39 +101,6 @@ class Checker(diagnosticBag: DiagnosticBag) {
 
   def equalityOp(typ: Type, operator: BinaryOperatorKind): unit =
     binaryOperators.addOperator(BinaryOperator(typ, typ, operator, boolType))
-
-//  def getSymbolId(symbol: Symbol): int = {
-//    if (symbol.id != -1) {
-//      symbol.id
-//    } else {
-//      if (lastSymbolId + 1 >= symbolLinks.length) {
-//        val newItems = new Array[SymbolLinks]((lastSymbolId + 1) * 2)
-//        for (i <- 0 to (lastSymbolId - 1)) {
-//          newItems(i) = symbolLinks(i)
-//        }
-//        symbolLinks = newItems
-//      } else {}
-//
-//      symbolLinks(lastSymbolId) = new SymbolLinks()
-//      symbol.id = lastSymbolId
-//      lastSymbolId = lastSymbolId + 1
-//      symbol.id
-//    }
-//  }
-
-//  def getSymbolLinks(symbol: Symbol): SymbolLinks = {
-//    val id = getSymbolId(symbol)
-//    symbolLinks(id)
-//  }
-
-//  def getSymbolType(symbol: Symbol): Option[Type] = {
-//    val links = getSymbolLinks(symbol)
-//    if (links.hasType()) {
-//      Some(links.getType())
-//    } else {
-//      None
-//    }
-//  }
 
   /**   1. Base rules:
     *      - Never is a subtype of all types.
@@ -299,7 +142,7 @@ class Checker(diagnosticBag: DiagnosticBag) {
             ) =>
           assert(genTypeParams1.length == 0, "generics not supported")
           assert(genTypeParams2.length == 0, "generics not supported")
-          
+
           isSubtype(return1, return2) && areParametersSubtype(params2, params1)
 
         // Array subtyping: inner types must be subtypes
@@ -388,20 +231,6 @@ class Checker(diagnosticBag: DiagnosticBag) {
       }
     }
 
-//  def getTypeOfLiteralExpression(
-//      value: Expression.LiteralExpression,
-//      scope: Scope
-//  ): Type =
-//    value.value match {
-//      case _: SyntaxTokenValue.Boolean   => boolType
-//      case _: SyntaxTokenValue.String    => stringType
-//      case _: SyntaxTokenValue.Character => charType
-//      case _: SyntaxTokenValue.Number    => intType
-//      case _ =>
-//        panic("getTypeOfLiteralExpression: ")
-//        Type.Error
-//    }
-
   def getStringMemberType(member: string): Type = {
     member match {
       case "length" => intType
@@ -411,19 +240,134 @@ class Checker(diagnosticBag: DiagnosticBag) {
     }
   }
 
-//  def printSymbolType(note: string, symbol: Symbol, typ: Type): unit = {
-//    print(note + symbol.fullName() + ": ")
-//    AstPrinter.printType(typ)
-//    println()
-//  }
-//
-//  def setSymbolType(symbol: Symbol, value: Type): Type = {
-//    val links = getSymbolLinks(symbol)
-//    links.setType(value)
-//  }
+  def bind(expr: Expression, scope: Scope): BoundExpression = {
+    expr match {
+      case node: Expression.ArrayCreationExpression =>
+        bindArrayCreationExpression(node, scope)
+      case node: Expression.AssignmentExpression =>
+        bindAssignmentExpression(node, scope)
+      case node: Expression.BinaryExpression =>
+        bindBinaryExpression(node, scope)
+      case node: Expression.BlockExpression => bindBlockExpression(node, scope)
+      case node: Expression.CallExpression  => bindCallExpression(node, scope)
+      case node: Expression.ForExpression   => bindForExpression(node, scope)
+      case node: Expression.GroupExpression => bindGroupExpression(node, scope)
+      case node: Expression.IdentifierName  => bindIdentifierName(node, scope)
+      case node: Expression.If              => bindIf(node, scope)
+      case node: Expression.IndexExpression => bindIndexExpression(node, scope)
+      case node: Expression.LiteralExpression =>
+        bindLiteralExpression(node, scope)
+      case node: Expression.MemberAccessExpression =>
+        bindMemberAccessExpression(node, scope)
+      case node: Expression.MatchExpression => bindMatchExpression(node, scope)
+      case node: Expression.NewExpression   => bindNewExpression(node, scope)
+      case node: Expression.UnaryExpression => bindUnaryExpression(node, scope)
+      case node: Expression.UnitExpression  => bindUnitExpression(node, scope)
+      case node: Expression.WhileExpression => bindWhileExpression(node, scope)
+    }
+  }
 
-  def check(): unit = {
-//    val scope = new BoundScope(None)
+  def bindArrayCreationExpression(
+      node: Expression.ArrayCreationExpression,
+      scope: Scope
+  ): BoundExpression =
+    panic("ArrayCreationExpression")
 
+  def bindAssignmentExpression(
+      node: Expression.AssignmentExpression,
+      scope: Scope
+  ): BoundExpression =
+    panic("AssignmentExpression")
+
+  def bindBinaryExpression(
+      node: Expression.BinaryExpression,
+      scope: Scope
+  ): BoundExpression =
+    panic("BinaryExpression")
+
+  def bindBlockExpression(
+      node: Expression.BlockExpression,
+      scope: Scope
+  ): BoundExpression =
+    panic("BlockExpression")
+
+  def bindCallExpression(
+      node: Expression.CallExpression,
+      scope: Scope
+  ): BoundExpression =
+    panic("CallExpression")
+
+  def bindForExpression(
+      node: Expression.ForExpression,
+      scope: Scope
+  ): BoundExpression =
+    panic("ForExpression")
+
+  def bindGroupExpression(
+      node: Expression.GroupExpression,
+      scope: Scope
+  ): BoundExpression =
+    panic("GroupExpression")
+
+  def bindIdentifierName(
+      node: Expression.IdentifierName,
+      scope: Scope
+  ): BoundExpression =
+    panic("IdentifierName")
+
+  def bindIf(node: Expression.If, scope: Scope): BoundExpression =
+    panic("If")
+
+  def bindIndexExpression(
+      node: Expression.IndexExpression,
+      scope: Scope
+  ): BoundExpression =
+    panic("IndexExpression")
+
+  def bindLiteralExpression(
+      node: Expression.LiteralExpression,
+      scope: Scope
+  ): BoundExpression =
+    panic("LiteralExpression")
+
+  def bindMemberAccessExpression(
+      node: Expression.MemberAccessExpression,
+      scope: Scope
+  ): BoundExpression =
+    panic("MemberAccessExpression")
+
+  def bindMatchExpression(
+      node: Expression.MatchExpression,
+      scope: Scope
+  ): BoundExpression =
+    panic("MatchExpression")
+
+  def bindNewExpression(
+      node: Expression.NewExpression,
+      scope: Scope
+  ): BoundExpression =
+    panic("NewExpression")
+
+  def bindUnaryExpression(
+      node: Expression.UnaryExpression,
+      scope: Scope
+  ): BoundExpression =
+    panic("UnaryExpression")
+
+  def bindUnitExpression(
+      node: Expression.UnitExpression,
+      scope: Scope
+  ): BoundExpression =
+    panic("UnitExpression")
+
+  def bindWhileExpression(
+      node: Expression.WhileExpression,
+      scope: Scope
+  ): BoundExpression =
+    panic("WhileExpression")
+
+  def getType(expr: BoundExpression, scope: Scope): Type = {
+
+    ???
   }
 }

@@ -729,13 +729,16 @@ case class Transpiler(
     }
 
   def transpileParameters(
-      parameters: Array[ParameterSyntax],
+      parameters: List[ParameterSyntax],
       context: TranspilerContext
-  ): unit =
-    for (x <- 0 to (parameters.length - 1)) {
-      val parameter = parameters(x)
-      transpileParameter(parameter, context)
+  ): unit = {
+    parameters match {
+      case List.Nil =>
+      case List.Cons(head, tail) =>
+        transpileParameter(head, context)
+        transpileParameters(tail, context)
     }
+  }
 
   def transpileParameter(
       parameter: ParameterSyntax,

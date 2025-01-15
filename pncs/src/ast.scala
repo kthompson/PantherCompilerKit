@@ -160,7 +160,7 @@ enum StatementSyntax {
     case ExpressionStatement(expression: Expression)
 }
 
-case class EnumCaseParametersSyntax(openParenToken: SyntaxToken, parameters: Array[ParameterSyntax], closeParenToken: SyntaxToken)
+case class EnumCaseParametersSyntax(openParenToken: SyntaxToken, parameters: List[ParameterSyntax], closeParenToken: SyntaxToken)
 case class EnumCaseSyntax(caseKeyword: SyntaxToken, identifier: SyntaxToken, parameters: Option[EnumCaseParametersSyntax])
 
 case class GenericBoundsSyntax(token: SyntaxToken, name: NameSyntax)
@@ -178,14 +178,14 @@ enum MemberSyntax {
                                 identifier: SyntaxToken,
                                 genericParameters: Option[GenericParametersSyntax],
                                 openParenToken: SyntaxToken,
-                                parameters: Array[ParameterSyntax],
+                                parameters: List[ParameterSyntax],
                                 closeParenToken: SyntaxToken,
                                 template: Option[TemplateSyntax])
     case FunctionDeclarationSyntax(defKeyword: SyntaxToken,
                                    identifier: SyntaxToken,
                                    genericParameters: Option[GenericParametersSyntax],
                                    openParenToken: SyntaxToken,
-                                   parameters: Array[ParameterSyntax],
+                                   parameters: List[ParameterSyntax],
                                    closeParenToken: SyntaxToken,
                                    typeAnnotation: Option[TypeAnnotationSyntax],
                                    body: Option[FunctionBodySyntax])

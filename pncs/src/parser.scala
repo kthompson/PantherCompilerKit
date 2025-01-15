@@ -210,7 +210,8 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       case value: CallExpression  => value.closeParen.isStatementTerminator()
       case value: ForExpression   => hasStatementTerminator(value.body)
       case value: GroupExpression => value.closeParen.isStatementTerminator()
-      case Expression.IdentifierName(value)  => value.identifier.isStatementTerminator()
+      case Expression.IdentifierName(value) =>
+        value.identifier.isStatementTerminator()
       case value: If =>
         hasStatementTerminator(value.elseExpr match {
           case Option.Some(value) => value.expression
@@ -511,33 +512,23 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     }
   }
 
-  def parseParameterList(): Array[ParameterSyntax] = {
+  def parseParameterList(): List[ParameterSyntax] = {
     debugPrint("parseParameterList")
     if (currentKind() == SyntaxKind.CloseParenToken) {
-      new Array[ParameterSyntax](0)
+      List.Nil
     } else {
-      // TODO: support resizing
-      val parameters = new Array[ParameterSyntax](20)
-
-      _parseParameterList(parameters, 1)
+      ListModule.reverse(_parseParameterList(List.Nil))
     }
   }
 
-  def _parseParameterList(
-      parameters: Array[ParameterSyntax],
-      size: int
-  ): Array[ParameterSyntax] = {
+  def _parseParameterList(acc: List[ParameterSyntax]): List[ParameterSyntax] = {
     val param = parseParameter()
-    parameters(size - 1) = param
+    val list = List.Cons(param, acc)
 
     if (param.commaToken.isEmpty()) {
-      val result = new Array[ParameterSyntax](size)
-      for (i <- 0 to (size - 1)) {
-        result(i) = parameters(i)
-      }
-      result
+      list
     } else {
-      _parseParameterList(parameters, size + 1)
+      _parseParameterList(list)
     }
   }
 
@@ -1292,22 +1283,15 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
 
   def parseMembers(topLevelStatement: bool): List[MemberSyntax] = {
     debugPrint("parseMembers")
-    var size = 0
-    // TODO: support resizing
-    val members = new Array[MemberSyntax](200)
+    var members: List[MemberSyntax] = List.Nil
 
     while (
       currentKind() != SyntaxKind.EndOfInputToken && currentKind() != SyntaxKind.CloseBraceToken
     ) {
-      members(size) = parseMember(topLevelStatement)
-      size = size + 1
+      members = List.Cons(parseMember(topLevelStatement), members)
     }
 
-    val result = new Array[MemberSyntax](size)
-    for (i <- 0 to (size - 1)) {
-      result(i) = members(i)
-    }
-    ListModule.fromArray(result)
+    ListModule.reverse(members)
   }
 
   def parseCompilationUnit(): CompilationUnitSyntax = {

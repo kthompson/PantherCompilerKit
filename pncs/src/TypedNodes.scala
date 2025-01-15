@@ -151,13 +151,14 @@ enum BoundDefinition {
 }
 
 enum BoundMember {
-  case Field(name: string, typ: Type)
+  case Field(symbol: Symbol, typ: Type)
   case Method(name: string, parameters: List[BoundParameter], returnType: Type, body: BoundExpression)
 }
 
 case class BoundParameter(name: string, typ: Type)
 
 enum BoundExpression {
+  case Error(typ: Type, location: TextLocation)
   case IntLiteral(typ: Type, location: TextLocation, value: int)
   //
   //  case ArrayCreationExpression(typ: Type,

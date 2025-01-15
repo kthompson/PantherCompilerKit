@@ -5,11 +5,11 @@ object ListModule {
   //    case List.Nil => 0
   //    case List.Cons(_, tail) => 1 + length(tail)
   //  }
-  //
-  //  def reverse[T](list: List[T]): List[T] = {
-  //    _reverse(List.Nil, list)
-  //  }
-  //
+
+  def reverse<T>(list: List<T>): List<T> = {
+    _reverse(List.Nil, list)
+  }
+
   def _reverse<T>(acc: List<T>, list: List<T>): List<T> = list match {
     case List.Nil => acc
     case List.Cons(head, tail) => _reverse(List.Cons(head, acc), tail)

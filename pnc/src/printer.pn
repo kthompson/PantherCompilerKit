@@ -395,9 +395,12 @@ object AstPrinter {
     }
   }
 
-  def printParameters(nodes: Array<ParameterSyntax>): unit = {
-    for (x <- 0 to (nodes.length - 1)) {
-      printParameter(nodes(x))
+  def printParameters(nodes: List<ParameterSyntax>): unit = {
+    nodes match {
+      case List.Nil =>
+      case List.Cons(head, tail) =>
+        printParameter(head)
+        printParameters(tail)
     }
   }
 

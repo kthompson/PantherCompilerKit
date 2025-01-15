@@ -195,9 +195,12 @@ class SymbolTreePrinter(binder: Binder) {
       val typ = binder.getSymbolType(symbol)
       typ match {
         case Option.Some(value) =>
-          if (symbol.kind != SymbolKind.Class) {
-            print(": ")
-            printType(value)
+          symbol.kind match {
+            case SymbolKind.Class            =>
+            case SymbolKind.TypeParameter(_) =>
+            case _ =>
+              print(": ")
+              printType(value)
           }
         case Option.None =>
           print(": ")
