@@ -158,8 +158,12 @@ enum BoundMember {
 class BoundParameter(name: string, typ: Type)
 
 enum BoundExpression {
-  case Error(typ: Type, location: TextLocation)
-  case IntLiteral(typ: Type, location: TextLocation, value: int)
+  case Error
+  case IntLiteral(location: TextLocation, value: int)
+  case StringLiteral(location: TextLocation, value: string)
+  case BooleanLiteral(location: TextLocation, value: bool)
+  case CharacterLiteral(location: TextLocation, value: char)
+
   //
   //  case ArrayCreationExpression(typ: Type,
   //                               newKeyword: SyntaxToken,

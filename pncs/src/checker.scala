@@ -271,103 +271,112 @@ case class ExprBinder(
       node: Expression.ArrayCreationExpression,
       scope: Scope
   ): BoundExpression =
-    panic("ArrayCreationExpression")
+    BoundExpression.Error
 
   def bindAssignmentExpression(
       node: Expression.AssignmentExpression,
       scope: Scope
   ): BoundExpression =
-    panic("AssignmentExpression")
+    BoundExpression.Error
 
   def bindBinaryExpression(
       node: Expression.BinaryExpression,
       scope: Scope
   ): BoundExpression =
-    panic("BinaryExpression")
+    BoundExpression.Error
 
   def bindBlockExpression(
       node: Expression.BlockExpression,
       scope: Scope
   ): BoundExpression =
-    panic("BlockExpression")
+    BoundExpression.Error
 
   def bindCallExpression(
       node: Expression.CallExpression,
       scope: Scope
   ): BoundExpression =
-    panic("CallExpression")
+    BoundExpression.Error
 
   def bindForExpression(
       node: Expression.ForExpression,
       scope: Scope
   ): BoundExpression =
-    panic("ForExpression")
+    BoundExpression.Error
 
   def bindGroupExpression(
       node: Expression.GroupExpression,
       scope: Scope
   ): BoundExpression =
-    panic("GroupExpression")
+    BoundExpression.Error
 
   def bindIdentifierName(
       node: Expression.IdentifierName,
       scope: Scope
   ): BoundExpression =
-    panic("IdentifierName")
+    BoundExpression.Error
 
   def bindIf(node: Expression.If, scope: Scope): BoundExpression =
-    panic("If")
+    BoundExpression.Error
 
   def bindIndexExpression(
       node: Expression.IndexExpression,
       scope: Scope
   ): BoundExpression =
-    panic("IndexExpression")
+    BoundExpression.Error
 
   def bindLiteralExpression(
       node: Expression.LiteralExpression,
       scope: Scope
-  ): BoundExpression =
-    panic("LiteralExpression")
+  ): BoundExpression = {
+    node.value match {
+      case SyntaxTokenValue.Number(value) =>
+        BoundExpression.IntLiteral(node.token.location, value)
+      case SyntaxTokenValue.Boolean(value) =>
+        BoundExpression.BooleanLiteral(node.token.location, value)
+      case SyntaxTokenValue.String(value) =>
+        BoundExpression.StringLiteral(node.token.location, value)
+      case SyntaxTokenValue.Character(value) =>
+        BoundExpression.CharacterLiteral(node.token.location, value)
+      case _ =>
+
+        BoundExpression.Error
+    }
+  }
 
   def bindMemberAccessExpression(
       node: Expression.MemberAccessExpression,
       scope: Scope
   ): BoundExpression =
-    panic("MemberAccessExpression")
+    BoundExpression.Error
 
   def bindMatchExpression(
       node: Expression.MatchExpression,
       scope: Scope
   ): BoundExpression =
-    panic("MatchExpression")
+    BoundExpression.Error
 
   def bindNewExpression(
       node: Expression.NewExpression,
       scope: Scope
   ): BoundExpression =
-    panic("NewExpression")
+    BoundExpression.Error
 
   def bindUnaryExpression(
       node: Expression.UnaryExpression,
       scope: Scope
   ): BoundExpression =
-    panic("UnaryExpression")
+    BoundExpression.Error
 
   def bindUnitExpression(
       node: Expression.UnitExpression,
       scope: Scope
   ): BoundExpression =
-    panic("UnitExpression")
+    BoundExpression.Error
 
   def bindWhileExpression(
       node: Expression.WhileExpression,
       scope: Scope
   ): BoundExpression =
-    panic("WhileExpression")
+    BoundExpression.Error
 
-  def getType(expr: BoundExpression, scope: Scope): Type = {
-
-    ???
-  }
 }

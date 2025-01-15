@@ -246,42 +246,16 @@ class Binder(
 //    println(string(counts._1 + counts._2) + " members to bind")
     //    printStatementsToBind(statementsToBind.list)
 
-
     // bind all members function & field types with type annotations
     val membersToType = bindMembers(membersToBind.list, 1, List.Nil)
 
+    // TODO: this method still needs to register the field assignments as ctor statements
     bindEnumCaseFieldsAndConstructors(enumCasesToBind.list)
-
-//
-//    enumCase.parameters match {
-//      case Option.None => ()
-//      case Option.Some(value) =>
-//        bindCaseParameters(value.parameters, scope)
-//    }
-//
-//    val parameterToFieldAssignments = ???
-//
-//    addStatementsToBind(caseSymbol, parameterToFieldAssignments)
-//
-//    /**
-//     * TODO:
-//     *  1. create fields for each parameter in the case
-//     *     2. add assignment statements for each parameter for initializing the fields
-//     *
-//     */
-//
-//    //            head.parameters match {
-//    //                case Option.None => ()
-//    //                case Option.Some(parameters) =>
-//    //                  ???
-//    //            //      bindParameters(ListModule.fromArray(parameters.parameters), scope.enterSymbol(value))
-//    //
-//    //            }
 
 //    panic(string(membersToType.length) + " members to type")
 
     // then bind all functions & fields without type annotations
-//    bindTypingMembers(membersToType)
+    bindTypingMembers(membersToType)
 
     // bind all `statementsToBind` as constructor bodies
 
@@ -332,8 +306,6 @@ class Binder(
             }
         }
 
-
-
         bindEnumCaseFieldsAndConstructors(tail)
     }
   }
@@ -354,7 +326,8 @@ class Binder(
 
   def bindFieldExpression(symbol: Symbol, expression: Expression, scope: Scope): unit = {
     val expr = exprBinder.bind(expression, scope)
-    val returnType = exprBinder.getType(expr, scope)
+    // TODO: this expression needs to be added to the symbol's constructor body
+    val returnType = getType(expr, scope)
     setSymbolType(symbol, returnType, None)
   }
 
@@ -364,13 +337,28 @@ class Binder(
     // if returnType is None, then we need to infer the type and set the methods type
     val expr = expression match {
       case Option.None => None
-      case Option.Some(expression) => Some(exprBinder.bind(expression, methodScope))
+      case Option.Some(expression) =>
+        val boundExpr = exprBinder.bind(expression, methodScope)
+        functionBodies = functionBodies.put(symbol, boundExpr)
+        Some(boundExpr)
     }
     val returnType = expr match {
       case Option.None => Type.Error
-      case Option.Some(expr) =>  exprBinder.getType(expr, methodScope)
+      case Option.Some(expr) =>  getType(expr, methodScope)
     }
     setSymbolType(symbol, Type.Function(value, parameters, returnType), None)
+  }
+
+  def getType(expr: BoundExpression, scope: Scope): Type = {
+    expr match {
+      case BoundExpression.Error => Type.Error
+      case _: BoundExpression.IntLiteral => intType
+      case _: BoundExpression.StringLiteral => stringType
+      case _: BoundExpression.BooleanLiteral => boolType
+      case _: BoundExpression.CharacterLiteral => charType
+//      case _ => 
+//        panic("getType not implemented for " + expr)
+    }
   }
 
   def bindMembers(

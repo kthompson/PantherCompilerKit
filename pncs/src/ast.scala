@@ -219,43 +219,6 @@ case class CompilationUnitSyntax(namespaceDeclaration: Option[NamespaceDeclarati
     val kind: int = SyntaxKind.CompilationUnit
 }
 
-
-object DeclarationKind {
-    val Member = 1
-    val Parameter = 2
-    val Local = 3
-    val Token = 4
-    val Builtin = 5
-}
-
-// A declaration is any syntax that defines a binding, the type of the
-// symbol will not always match the declarations.
-// For example, a constructor symbol will usually have a Class declaration
-// and field symbols can either be Local declarations or Parameter declarations
-
-//enum Declaration {
-//
-//  case Class(value: MemberSyntax.ClassDeclarationSyntax)
-//  case ClassFromObject(value: MemberSyntax.ObjectDeclarationSyntax)
-//  case ClassFromEnum(value: MemberSyntax.EnumDeclarationSyntax)
-//  case ClassFromEnumCase(value: EnumCaseSyntax)
-//
-//  case Constructor(value: BoundDefinition.Constructor)
-//  case ConstructorFromParams(value: Array[BoundParameter])
-//
-//  case Function(value: BoundDefinition.Function)
-//
-//  case FieldFromParameter(value: ParameterSyntax)
-//  case FieldFromVariable(value: StatementSyntax.VariableDeclarationStatement)
-//  case Field(value: BoundDefinition.Field)
-//
-//  case Parameter(value: ParameterSyntax)
-//  case Local(value: BoundStatement.VariableDeclarationStatement)
-//  case LocalFromFor(value: Expression.ForExpression)
-//
-//  var id = -1 // used in type checking
-//}
-
 object AstUtils {
   def locationOfMember(member: MemberSyntax): TextLocation = {
     member match {
