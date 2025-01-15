@@ -279,6 +279,9 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       } else {
         new IdentifierNameSyntax(ident)
       }
+    } else if (scala && currentKind() == SyntaxKind.StarToken) {
+      val ident = accept()
+      new IdentifierNameSyntax(ident)
     } else if (scala && currentKind() == SyntaxKind.OpenBraceToken) {
       val openBrace = accept()
       val name = acceptKind(SyntaxKind.IdentifierToken)
