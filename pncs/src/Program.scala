@@ -57,7 +57,7 @@ object Program {
           if (transpile) {
             println("transpiling to " + outputFile + "...")
             compilation.transpile(outputFile)
-//            compilation.printSymbols()
+            compilation.printSymbols()
           } else {
             compilation.printSymbols()
             println("emitting to " + outputFile + "...")
@@ -77,7 +77,7 @@ object Program {
       case Diagnostics.Empty => count
       case Diagnostics.Node(left, head, right) =>
         val leftCount = printDiagnostics(left, count)
-        if (leftCount <= 20) {
+        if (leftCount <= 40) {
           printDiagnostic(head)
         }
         printDiagnostics(right, leftCount + 1)

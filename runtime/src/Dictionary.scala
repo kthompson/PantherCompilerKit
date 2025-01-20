@@ -18,13 +18,28 @@ case class Dictionary[K, V](list: List[KeyValue[K, V]]) {
   }
 
   def get(key: K): Option[V] = _get(key, list)
-  
+
   def _get(key: K, list: List[KeyValue[K, V]]): Option[V] = {
     list match {
       case List.Nil => None
       case List.Cons(KeyValue(k, v), tail) =>
         if (k == key) Some(v)
         else _get(key, tail)
+    }
+  }
+
+  def remove(key: K): Dictionary[K, V] =
+    new Dictionary[K, V](_remove(key, list))
+
+  def _remove(key: K, list: List[KeyValue[K, V]]): List[KeyValue[K, V]] = {
+    list match {
+      case List.Nil => list
+      case List.Cons(kv, tail) =>
+        if (kv.key == key) {
+          tail
+        } else {
+          List.Cons(kv, _remove(key, tail))
+        }
     }
   }
 

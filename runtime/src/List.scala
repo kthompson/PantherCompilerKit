@@ -73,10 +73,36 @@ enum List[+T] {
 
   def reverse(): List[T] = ListModule._reverse(List.Nil, this)
 
-  def isEmpty(): bool = this match {
-    case List.Nil => true
-    case List.Cons(_, _) => false
+  val isEmpty: bool = length == 0
+
+  def last(): Option[T] = this match {
+    case List.Nil => None
+    case List.Cons(head, tail) =>
+      if(tail.isEmpty) Some(head)
+      else tail.last()
   }
+
+  def lastUnsafe(): T = this match {
+    case List.Nil => panic("Empty list")
+    case List.Cons(head, tail) =>
+      if(tail.isEmpty) head
+      else tail.lastUnsafe()
+  }
+
+  def take(n: int): List[T] = this match {
+    case List.Nil => List.Nil
+    case List.Cons(head, tail) =>
+      if (n == 0) List.Nil
+      else List.Cons(head, tail.take(n - 1))
+  }
+
+  def drop(n: int): List[T] = this match {
+    case List.Nil => List.Nil
+    case List.Cons(_, tail)  =>
+      if (n == 0) this
+      else tail.drop(n - 1)
+  }
+
 
   override def toString(): string = ListModule.toString(this)
 

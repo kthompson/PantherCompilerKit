@@ -9,5 +9,7 @@ enum SymbolKind {
   // Typed symbols
   case Field
   case Method
+  case Constructor
   case Parameter
+  case Local
 }

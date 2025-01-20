@@ -97,7 +97,7 @@ object AstPrinter {
         separators match {
           case List.Nil =>
             assert(
-              parameterTail.isEmpty(),
+              parameterTail.isEmpty,
               "Expected no more generic parameters"
             )
 
@@ -340,9 +340,12 @@ object AstPrinter {
     printExpressionItems(node.expressions)
   }
 
-  def printExpressionItems(nodes: Array[ExpressionItemSyntax]): unit = {
-    for (x <- 0 to (nodes.length - 1)) {
-      printExpressionItem(nodes(x))
+  def printExpressionItems(nodes: List[ExpressionItemSyntax]): unit = {
+    nodes match {
+      case List.Nil => ()
+      case List.Cons(x, xs) =>
+        printExpressionItem(x)
+        printExpressionItems(xs)
     }
   }
 
@@ -383,9 +386,12 @@ object AstPrinter {
     printExpression(node.expression)
   }
 
-  def printStatments(nodes: Array[StatementSyntax]): unit = {
-    for (x <- 0 to (nodes.length - 1)) {
-      printStatment(nodes(x))
+  def printStatments(nodes: List[StatementSyntax]): unit = {
+    nodes match {
+      case List.Nil => ()
+      case List.Cons(x, xs) =>
+        printStatment(x)
+        printStatments(xs)
     }
   }
 
@@ -574,10 +580,10 @@ object AstPrinter {
       case Type.Function(genParams, parameters, returnType) =>
         printColor(ColorPalette.Punctuation)
         if (genParams.length > 0) {
-            print("<")
-            _printTypes(genParams, true)
-            printColor(ColorPalette.Punctuation)
-            print(">")
+          print("<")
+          _printTypes(genParams, true)
+          printColor(ColorPalette.Punctuation)
+          print(">")
         }
         print("(")
         _printTypedParameters(false, parameters)
@@ -586,15 +592,13 @@ object AstPrinter {
         _printType(returnType, false)
       case Type.Named(ns, name, args) =>
         val color =
-          if (ns == "" && SyntaxFacts.isBuiltinType(name)) ColorPalette.Keyword
+          if (ns.isEmpty && SyntaxFacts.isBuiltinType(name))
+            ColorPalette.Keyword
           else ColorPalette.Identifier
-        printColor(color)
 
-        if (ns != "") {
-          print(ns)
-          print(".")
-        }
-        print(name)
+        printColor(color)
+        print(typ._name(ns, name))
+
         args match {
           case List.Nil =>
           case List.Cons(typ, tail) =>
@@ -659,9 +663,15 @@ object AstPrinter {
       case SymbolKind.Method =>
         printColor(ColorPalette.Method)
         print("Method")
+      case SymbolKind.Constructor =>
+        printColor(ColorPalette.Method)
+        print("Constructor")
       case SymbolKind.Parameter =>
         printColor(ColorPalette.Identifier)
         print("Parameter")
+      case SymbolKind.Local =>
+        printColor(ColorPalette.Identifier)
+        print("Local")
     }
 
     print(ANSI.Clear)

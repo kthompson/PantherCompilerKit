@@ -19,8 +19,11 @@ enum BinaryOperatorKind {
 }
 
 enum UnaryOperatorKind {
-  case LogicalNot
-  case Negate
+
+  case Identity
+  case Negation // -
+  case LogicalNegation // !
+  case BitwiseNegation // ~
 
   case Error
 }

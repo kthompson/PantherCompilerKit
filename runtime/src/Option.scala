@@ -15,4 +15,18 @@ enum Option[+T] {
     case Option.Some(value) => value
     case Option.None => panic("Option is empty")
   }
+
+}
+
+object OptionModule {
+  def product[A, B](a: Option[A], b: Option[B]): Option[Tuple2[A, B]] = {
+    a match {
+      case Option.None => Option.None
+      case Option.Some(aValue) =>
+        b match {
+          case Option.None => Option.None
+          case Option.Some(bValue) => Option.Some(Tuple2(aValue, bValue))
+        }
+    }
+  }
 }

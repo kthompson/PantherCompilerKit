@@ -103,6 +103,12 @@ case class Symbol(
   ): Either[TextLocation, Symbol] =
     tryDefine(name, location, SymbolKind.Field)
 
+  def tryDefineLocal(
+      name: string,
+      location: TextLocation
+  ): Either[TextLocation, Symbol] =
+    tryDefine(name, location, SymbolKind.Local)
+
   def defineField(name: string, location: TextLocation): Symbol =
     tryDefineField(name, location) match {
       case Either.Left(_)       => panic("Symbol " + name + " already exists!")
@@ -113,7 +119,11 @@ case class Symbol(
       name: string,
       location: TextLocation
   ): Either[TextLocation, Symbol] =
-    tryDefine(name, location, SymbolKind.Method)
+    tryDefine(
+      name,
+      location,
+      if (name == ".ctor") SymbolKind.Constructor else SymbolKind.Method
+    )
 
   def defineMethod(name: string, location: TextLocation): Symbol =
     tryDefineMethod(name, location) match {
@@ -133,22 +143,26 @@ case class Symbol(
       case Either.Right(symbol) => symbol
     }
 
-  def qualifiedName(): string = this._qualifiedName("")
+  def qualifiedName(): string = this._qualifiedName(name)
 
   def _qualifiedName(suffix: string): string = {
     parent match {
+      case Option.None => suffix
       case Option.Some(parent) =>
         parent._qualifiedName(
-          if (suffix == "") name else name + "." + suffix
+          if (parent.name == "") suffix else parent.name + "." + suffix
         )
-      case Option.None => name + suffix
     }
   }
 
-  def ns(): string = {
+  def ns(): List[string] = _ns(List.Nil)
+
+  def _ns(list: List[string]): List[string] = {
     parent match {
-      case Option.None        => ""
-      case Option.Some(value) => value.qualifiedName()
+      case Option.None => list
+      case Option.Some(value) =>
+        val acc = if (value.name == "") list else List.Cons(value.name, list)
+        value._ns(acc)
     }
   }
 
@@ -160,6 +174,22 @@ case class Symbol(
         parent match {
           case Option.Some(p) => p.lookup(name)
           case Option.None    => None
+        }
+    }
+  }
+
+  def lookupMember(name: string): Option[Symbol] =
+    _children.get(name)
+
+  def findSymbol(ns: List[string], name: string): Option[Symbol] = {
+    ns match {
+      case List.Nil => lookupMember(name)
+      case List.Cons(head, tail) =>
+        lookupMember(head) match {
+          case Option.Some(value) =>
+            value.findSymbol(tail, name)
+          case Option.None =>
+            Option.None
         }
     }
   }

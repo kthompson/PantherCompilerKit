@@ -10,7 +10,7 @@ enum Type {
   /** A named type can have zero or more type arguments.
    *  E.g. `List[Int]` -> Named("panther", "List", Types.Cons(Named("", "Int"), Types.Empty))
    */
-  case Named(ns: string, name: string, args: List[Type])
+  case Named(ns: List[string], name: string, args: List[Type])
 
   /** A function type takes a list of parameters and a return type.
    *  E.g. `(x: Int, y: Int) => Int`
@@ -48,6 +48,13 @@ enum Type {
         _args(str + sep + typ.toString, tail)
     }
 
+  def _name(list: List[string], name: string): string = {
+    list match {
+      case List.Nil => name
+      case List.Cons(head, tail) => _name(tail, if (head == "") name else head + "." + name)
+    }
+  }
+
   override def toString(): string = {
     this match {
       case Type.Function(genTypeParams, parameters, returnType) =>
@@ -58,8 +65,7 @@ enum Type {
       case Type.Named(ns, name, args) =>
         val argStr = _args("", args)
         val tail = if (argStr.isEmpty) "" else "[" + argStr + "]"
-        if (ns == "") name + tail
-        else ns + "." + name + tail
+        _name(ns, name) + tail
       case Type.Variable(name, variance, upperBound) =>
         val varianceStr = variance match {
           case Variance.Invariant =>
@@ -83,26 +89,6 @@ enum Type {
   }
 }
 
-enum BoundUnaryOperator {
-  case Negate
-  case Not
-}
-
-enum BoundBinaryOperator {
-  case Add
-  case And
-  case Divide
-  case Equal
-  case Greater
-  case GreaterOrEqual
-  case Less
-  case LessOrEqual
-  case Multiply
-  case NotEqual
-  case Or
-  case Subtract
-}
-
 case class VariableName(name: String)
 
 case class ClassName(name: String)
@@ -112,29 +98,6 @@ case class MemberName(name: String)
 case class NamespaceName(name: String)
 
 case class FunctionName(name: String)
-
-case class TypeBinding(name: VariableName, typ: Type)
-
-enum TypeEnvironment {
-  case Empty
-  case Cons(binding: TypeBinding, tail: TypeEnvironment)
-}
-
-object Environment {
-  def getVarType(variable: VariableName, env: TypeEnvironment): Option[Type] = {
-    env match {
-      case TypeEnvironment.Empty => None
-      case TypeEnvironment.Cons(binding, tail) =>
-        if (binding.name == variable) {
-          Some(binding.typ)
-        } else {
-          getVarType(variable, tail)
-        }
-    }
-  }
-}
-
-
 
 case class BoundAssembly(definitions: List[BoundDefinition], diagnostics: Diagnostics, entryPoint: Option[BoundEntry])
 
@@ -157,12 +120,28 @@ enum BoundMember {
 
 case class BoundParameter(name: string, typ: Type)
 
+enum BoundStatement {
+    case Error
+    case ExpressionStatement(expression: BoundExpression)
+    case VariableDeclaration(variable: Symbol, isReadOnly: bool, typ: Type, initializer: BoundExpression)
+}
+
 enum BoundExpression {
   case Error
-  case IntLiteral(location: TextLocation, value: int)
-  case StringLiteral(location: TextLocation, value: string)
+  case BinaryExpression(location: TextLocation, left: BoundExpression, operator: BinaryOperatorKind, right: BoundExpression, resultType: Type)
+  case Block(statements: List[BoundStatement], expression: BoundExpression)
   case BooleanLiteral(location: TextLocation, value: bool)
+  case CallExpression(location: TextLocation, method: BoundExpression, genericArguments: List[Type], arguments: List[BoundExpression], resultType: Type)
+  case CastExpression(location: TextLocation, expression: BoundExpression, targetType: Type)
   case CharacterLiteral(location: TextLocation, value: char)
+  case IfExpression(location: TextLocation, cond: BoundExpression, thenExpr: BoundExpression, elseExpr: Option[BoundExpression], resultType: Type)
+  case IntLiteral(location: TextLocation, value: int)
+  case NewExpression(location: TextLocation, constructor: Symbol, genericArguments: List[Type], arguments: List[BoundExpression], resultType: Type)
+  case StringLiteral(location: TextLocation, value: string)
+  case UnaryExpression(location: TextLocation, operator: UnaryOperatorKind, operand: BoundExpression, resultType: Type)
+  case UnitExpression(location: TextLocation)
+  case Variable(location: TextLocation, symbol: Symbol)
+  case WhileExpression(location: TextLocation, condition: BoundExpression, body: BoundExpression)
 
   //
   //  case ArrayCreationExpression(typ: Type,
@@ -173,22 +152,19 @@ enum BoundExpression {
   //                               closeBracket: SyntaxToken,
   //                               initializer: Option[ArrayInitializerExpressionSyntax])
 
-  //  case AssignmentExpression(typ: Type, location: TextLocation, expression: Expression.AssignmentExpression)
-  //  case BinaryExpression(typ: Type, location: TextLocation, expression: Expression.BinaryExpression)
-  //  case BlockExpression(typ: Type, location: TextLocation, expression: Expression.BlockExpression)
-  //  case CallExpression(typ: Type, location: TextLocation, expression: Expression.CallExpression)
-  //  case ForExpression(typ: Type, location: TextLocation, expression: Expression.ForExpression)
-  //  case GroupExpression(typ: Type, location: TextLocation, expression: Expression.GroupExpression)
-  //  case IdentifierName(typ: Type, location: TextLocation, expression: Expression.IdentifierName)
-  //  case IfExpression(typ: Type, location: TextLocation, expression: Expression.If)
-  //  case IndexExpression(typ: Type, location: TextLocation, expression: Expression.IndexExpression)
-  //  case LiteralExpression(typ: Type, location: TextLocation, expression: Expression.LiteralExpression)
-  //  case MemberAccessExpression(typ: Type, location: TextLocation, expression: Expression.MemberAccessExpression)
-  //  case MatchExpression(typ: Type, location: TextLocation, expression: Expression.MatchExpression)
-  //  case NewExpression(typ: Type, location: TextLocation, expression: Expression.NewExpression)
-  //  case UnaryExpression(typ: Type, location: TextLocation, expression: Expression.UnaryExpression)
-  //  case UnitExpression(typ: Type, location: TextLocation, expression: Expression.UnitExpression)
-  //  case WhileExpression(typ: Type, location: TextLocation, expression: Expression.WhileExpression)
+  //  case AssignmentExpression(location: TextLocation, expression: Expression.AssignmentExpression)
+
+  //  case BlockExpression(location: TextLocation, expression: Expression.BlockExpression)
+  //  case ForExpression(location: TextLocation, expression: Expression.ForExpression)
+  //  case GroupExpression(location: TextLocation, expression: Expression.GroupExpression)
+  //  case IdentifierName(location: TextLocation, expression: Expression.IdentifierName)
+  //  case IndexExpression(location: TextLocation, expression: Expression.IndexExpression)
+  //  case LiteralExpression(location: TextLocation, expression: Expression.LiteralExpression)
+  //  case MemberAccessExpression(location: TextLocation, expression: Expression.MemberAccessExpression)
+  //  case MatchExpression(location: TextLocation, expression: Expression.MatchExpression)
+  //  case NewExpression(location: TextLocation, expression: Expression.NewExpression)
+  //  case UnitExpression(location: TextLocation, expression: Expression.UnitExpression)
+
 }
 
 

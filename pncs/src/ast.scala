@@ -30,10 +30,10 @@ enum NameSyntax {
 }
 
 case class ExpressionItemSyntax(expression: Expression, separatorToken: Option[SyntaxToken])
-case class ExpressionListSyntax(expressions: Array[ExpressionItemSyntax])
+case class ExpressionListSyntax(expressions: List[ExpressionItemSyntax])
 
 case class BlockExpressionListSyntax(
-                                      statements: Array[StatementSyntax],
+                                      statements: List[StatementSyntax],
                                       expression: Option[Expression])
 
 case class ElseSyntax(elseKeyword: SyntaxToken, expression: Expression)
@@ -267,6 +267,37 @@ object AstUtils {
     }
   }
 
+  def locationOfSimpleName(value: SimpleNameSyntax): TextLocation = {
+    value match {
+      case SimpleNameSyntax.GenericNameSyntax(identifier, typeArgumentlist) =>
+        identifier.location.merge(typeArgumentlist.greaterThanToken.location)
+      case SimpleNameSyntax.IdentifierNameSyntax(value) =>
+        value.location
+      case SimpleNameSyntax.ScalaAliasSyntax(open, name, arrow, alias, close) =>
+        open.location.merge(close.location)
+      case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) =>
+        name.location.merge(alias.location)
+    }
+  }
+  
+  def locationOfName(value: NameSyntax): TextLocation = {
+    value match {
+      case NameSyntax.QualifiedName(left, dotToken, right) =>
+        locationOfName(left).merge(locationOfSimpleName(right))
+      case NameSyntax.SimpleName(name) =>
+        name match {
+          case SimpleNameSyntax.GenericNameSyntax(identifier, typeArgumentlist) =>
+            identifier.location.merge(typeArgumentlist.greaterThanToken.location)
+          case SimpleNameSyntax.IdentifierNameSyntax(value) =>
+            value.location
+          case SimpleNameSyntax.ScalaAliasSyntax(open, name, arrow, alias, close) =>
+            open.location.merge(close.location)
+          case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) =>
+            name.location.merge(alias.location)
+        }
+    }
+  }
+  
   def locationOfExpression(value: Expression): TextLocation = {
     value match {
       case Expression.ArrayCreationExpression(
@@ -317,6 +348,33 @@ object AstUtils {
         openParen.location.merge(closeParen.location)
       case Expression.WhileExpression(whileKeyword, _, _, _, body) =>
         whileKeyword.location.merge(locationOfExpression(body))
+    }
+  }
+
+  def locationOfBoundExpression(value: BoundExpression): TextLocation = {
+    value match {
+      case BoundExpression.BinaryExpression(location, left, _, right, _) => locationOfBoundExpression(left).merge(locationOfBoundExpression(right))
+      case BoundExpression.Block(statements, expression) => locationOfBoundExpression(expression)
+      case BoundExpression.BooleanLiteral(location, _) => location
+      case BoundExpression.CallExpression(location, _, _, _, _) => location
+      case BoundExpression.CastExpression(location, expression, _) => location
+      case BoundExpression.CharacterLiteral(location, _) => location
+      case BoundExpression.IfExpression(location, cond, thenExpr, elseExpr, _) =>
+        locationOfBoundExpression(thenExpr).merge(
+          elseExpr match {
+            case Option.Some(value) => locationOfBoundExpression(value)
+            case Option.None => locationOfBoundExpression(thenExpr)
+          }
+        )
+      case BoundExpression.IntLiteral(location, _) => location
+      case BoundExpression.NewExpression(location, _, _, _, _) => location
+      case BoundExpression.StringLiteral(location, _) => location
+      case BoundExpression.UnaryExpression(location, _, operand, _) => location.merge(locationOfBoundExpression(operand))
+      case BoundExpression.UnitExpression(location) => location
+      case BoundExpression.Variable(location, _) => location
+      case BoundExpression.WhileExpression(location, _, _) => location
+
+      case BoundExpression.Error => TextLocationFactory.empty()
     }
   }
 }

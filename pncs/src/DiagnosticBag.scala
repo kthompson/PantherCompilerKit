@@ -20,11 +20,35 @@ case class DiagnosticBag() {
 
   def report(location: TextLocation, message: string): unit = add(new Diagnostic(location, message))
 
-  def reportSymbolNotDefined(location: TextLocation, name: string): unit =
-    report(location, "Symbol " + name + " not defined")
+  def reportNotCallable(location: TextLocation): unit =
+    report(location, "expression is not callable")
+
+  def reportArgumentCountMismatch(location: TextLocation, expected: int, actual: int): unit =
+    report(location, "Expected " + expected + " arguments, but got " + actual)
+
+  def reportCannotConvert(location: TextLocation, from: Type, toType: Type): unit =
+    report(location, "Cannot convert from " + from + " to " + toType)
+
+  def reportSymbolNotFoundForType(location: TextLocation, left: Type, name: string): unit =
+    report(location, "Symbol " + name + " not found for type " + left)
+
+  def reportSymbolNotFound(location: TextLocation, name: string): unit =
+    report(location, "Symbol " + name + " not found")
 
   def reportTypeNotDefined(location: TextLocation, name: string): unit =
     report(location, "Type " + name + " not defined")
+
+  def reportInvalidOperator(location: TextLocation, op: string): unit =
+    report(location, "Invalid operator: " + op)
+
+  def reportBugUnknownType(location: TextLocation, name: string): unit =
+    report(location, "Bug: type could not be determined for variable " + name)
+
+  def reportNoOperatorForOperands(location: TextLocation, op: string, left: Type, right: Type): unit =
+    report(location, "No operator '" + op + "' for operands " + left + " and " + right)
+
+  def reportNoOperatorForOperand(location: TextLocation, op: string, operand: Type): unit =
+    report(location, "No operator '" + op + "' for operand " + operand)
 
   def reportTopLevelStatementsInMultipleFiles(firstLocation: TextLocation, secondLocation: TextLocation): unit =
     report(firstLocation, "Top-level statements in multiple files " + firstLocation.toString() + " and " + secondLocation.toString())

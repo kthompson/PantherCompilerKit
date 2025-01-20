@@ -1,10 +1,10 @@
-import Expression._
-import panther._
-import system.io._
-import MemberSyntax._
-import PatternSyntax._
-import NameSyntax._
-import SimpleNameSyntax._
+import Expression.*
+import panther.*
+import system.io.*
+import MemberSyntax.*
+import PatternSyntax.*
+import NameSyntax.*
+import SimpleNameSyntax.*
 
 case class StringBuilder() {
   var content = ""
@@ -518,20 +518,21 @@ case class Transpiler(
       node: BlockExpressionListSyntax,
       context: TranspilerContext
   ): unit = {
-    for (x <- 0 to (node.statements.length - 1)) {
-      transpileStatement(node.statements(x), context)
-    }
+    transpileStatements(node.statements, context)
     transpileOptionalExpression(node.expression, context)
   }
 
   def transpileStatements(
-      statements: Array[StatementSyntax],
+      statements: List[StatementSyntax],
       context: TranspilerContext
-  ): unit =
-    for (x <- 0 to (statements.length - 1)) {
-      val statement = statements(x)
-      transpileStatement(statement, context)
+  ): unit = {
+    statements match {
+      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        transpileStatement(head, context)
+        transpileStatements(tail, context)
     }
+  }
 
   def transpileCallExpression(
       expr: Expression.CallExpression,
@@ -540,19 +541,29 @@ case class Transpiler(
     //    checker.get_type_of_expression(expr.name, ???)
     transpileExpression(expr.name, context)
     transpileToken(expr.openParen, context)
-    transpileExpressions(expr.arguments, context)
+    transpileExpressionList(expr.arguments, context)
     transpileToken(expr.closeParen, context)
   }
-
-  def transpileExpressions(
-      arguments: ExpressionListSyntax,
-      context: TranspilerContext
-  ): unit = {
-    for (x <- 0 to (arguments.expressions.length - 1)) {
-      val expression = arguments.expressions(x)
-      transpileExpression(expression.expression, context)
-      transpileOptionalToken(expression.separatorToken, context)
+  
+  def transpileExpressionItems(
+                               arguments: List[ExpressionItemSyntax],
+                               context: TranspilerContext
+                             ): unit = {
+    arguments match {
+      case List.Nil => ()
+      case List.Cons(head, tail) => {
+        transpileExpression(head.expression, context)
+        transpileOptionalToken(head.separatorToken, context)
+        transpileExpressionItems(tail, context)
+      }
     }
+  }
+  
+  def transpileExpressionList(
+                            arguments: ExpressionListSyntax,
+                            context: TranspilerContext
+                          ): unit = {
+    transpileExpressionItems(arguments.expressions, context)
   }
 
   def transpileForExpression(
@@ -629,7 +640,7 @@ case class Transpiler(
     transpileToken(expr.newKeyword, context)
     transpileName(expr.name, context)
     transpileToken(expr.openParen, context)
-    transpileExpressions(expr.arguments, context)
+    transpileExpressionList(expr.arguments, context)
     transpileToken(expr.closeParen, context)
   }
 

@@ -6,8 +6,8 @@ case class SymbolTreePrinter(binder: Binder) {
     symbols match {
       case List.Nil => ()
       case List.Cons(head, tail) =>
-        _printSymbol(head, indent, tail.isEmpty())
-        if (!tail.isEmpty()) {
+        _printSymbol(head, indent, tail.isEmpty)
+        if (!tail.isEmpty) {
           printSymbols(tail, indent)
         }
     }
@@ -58,11 +58,10 @@ case class SymbolTreePrinter(binder: Binder) {
     println()
 
     val members = symbol.members()
-    if (!members.isEmpty()) {
+    if (!members.isEmpty) {
       val end = if (last) "    " else "│   "
       val childIndent = indent + end
       printSymbols(members, childIndent)
     }
   }
-
 }

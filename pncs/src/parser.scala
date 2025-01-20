@@ -535,62 +535,44 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     }
   }
 
-  def parseBlockStatements(): Array[StatementSyntax] = {
+  def parseBlockStatements(): List[StatementSyntax] = {
     debugPrint("parseBlockStatements")
-    var size = 0
 
-    var statements = new Array[StatementSyntax](20)
+    var statements: List[StatementSyntax] = List.Nil
     while (
       currentKind() != SyntaxKind.EndOfInputToken && currentKind() != SyntaxKind.CloseBraceToken && currentKind() != SyntaxKind.CaseKeyword
     ) {
-      if (size >= statements.length) {
-        // resize
-        val newStatements = new Array[StatementSyntax](statements.length * 2)
-        for (i <- 0 to (size - 1)) {
-          newStatements(i) = statements(i)
-        }
-        statements = newStatements
-      } else ()
-      statements(size) = parseStatement()
-      size = size + 1
+      statements = List.Cons(parseStatement(), statements)
     }
 
-    val result = new Array[StatementSyntax](size)
-    for (i <- 0 to (size - 1)) {
-      result(i) = statements(i)
-    }
-    result
+    ListModule.reverse(statements)
   }
 
   def dropStatement(
-      statements: Array[StatementSyntax]
-  ): Array[StatementSyntax] = {
-    val size = statements.length - 1
-    val result = new Array[StatementSyntax](size)
-    for (i <- 0 to (size - 1)) {
-      result(i) = statements(i)
-    }
-    result
-  }
+      statements: List[StatementSyntax]
+  ): List[StatementSyntax] =
+    statements.take(statements.length - 1)
 
   def parseBlockExpressionList(): BlockExpressionListSyntax = {
     debugPrint("parseBlockExpressionList")
     val statements = parseBlockStatements()
 
-    if (statements.length > 0) {
-      val lastStatement = statements(statements.length - 1)
-      lastStatement match {
-        case StatementSyntax.ExpressionStatement(value) =>
-          new BlockExpressionListSyntax(
-            dropStatement(statements),
-            Some(value)
-          )
+    NonEmptyListModule.fromList(statements) match {
+      case Option.None =>
+        new BlockExpressionListSyntax(statements, None)
+      case Option.Some(nel) =>
+        val lastStatement = nel.last()
+        lastStatement match {
+          case StatementSyntax.ExpressionStatement(value) =>
+            new BlockExpressionListSyntax(
+              dropStatement(statements),
+              Some(value)
+            )
 
-        case _ =>
-          new BlockExpressionListSyntax(statements, None)
-      }
-    } else {
-      new BlockExpressionListSyntax(statements, None)
+          case _ =>
+            new BlockExpressionListSyntax(statements, None)
+        }
+
     }
   }
 
@@ -828,35 +810,30 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
 
   def parseExpressionList(terminator: int): ExpressionListSyntax = {
     debugPrint("parseExpressionList")
-    // TODO: support resizing
-    val arguments = new Array[ExpressionItemSyntax](20)
+    val arguments: List[ExpressionItemSyntax] = List.Nil
 
     if (currentKind() == terminator) {
-      new ExpressionListSyntax(new Array[ExpressionItemSyntax](0))
+      new ExpressionListSyntax(arguments)
     } else {
-      parseExpressionListInner(terminator, arguments, 1)
+      parseExpressionListInner(terminator, arguments)
     }
   }
 
   def parseExpressionListInner(
       terminator: int,
-      arguments: Array[ExpressionItemSyntax],
-      size: int
+      arguments: List[ExpressionItemSyntax]
   ): ExpressionListSyntax = {
     val expr = parseExpressionWithGroup(OperatorPrecedence.Lowest, false)
     if (
       currentKind() == terminator || currentKind() == SyntaxKind.EndOfInputToken || currentKind() != SyntaxKind.CommaToken
     ) {
-      arguments(size - 1) = new ExpressionItemSyntax(expr, None)
-
-      val result = new Array[ExpressionItemSyntax](size)
-      for (i <- 0 to (size - 1)) {
-        result(i) = arguments(i)
-      }
-      new ExpressionListSyntax(result)
+      val exprItem = new ExpressionItemSyntax(expr, None)
+      new ExpressionListSyntax(
+        ListModule.reverse(List.Cons(exprItem, arguments))
+      )
     } else {
-      arguments(size - 1) = new ExpressionItemSyntax(expr, Some(accept()))
-      parseExpressionListInner(terminator, arguments, size + 1)
+      val exprItem = new ExpressionItemSyntax(expr, Some(accept()))
+      parseExpressionListInner(terminator, List.Cons(exprItem, arguments))
     }
   }
 

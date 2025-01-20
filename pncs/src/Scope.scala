@@ -28,6 +28,9 @@ case class Scope(current: Symbol, imports: List[Symbol]) {
   def defineField(name: string, location: TextLocation): Either[TextLocation, Symbol] =
     current.tryDefineField(name, location)
 
+  def defineLocal(name: string, location: TextLocation): Either[TextLocation, Symbol] =
+    current.tryDefineLocal(name, location)
+
   def defineMethod(name: string, location: TextLocation): Either[TextLocation, Symbol] =
     current.tryDefineMethod(name, location)
 
