@@ -9,6 +9,7 @@ case class Symbol(
 
   // used in binder
   var _id: int = -1
+  var _blockId: int = -1
 
   var _children: Dictionary[string, Symbol] = DictionaryModule.empty()
 
@@ -42,6 +43,20 @@ case class Symbol(
         _children = _children.put(name, symbol)
         symbol
     }
+  }
+
+  def newBlock(): Symbol = {
+    _blockId = _blockId + 1
+    val name = "block$" + string(_blockId)
+    val symbol = Symbol(
+      name,
+      TextLocationFactory.empty(),
+      SymbolKind.Block,
+      Option.Some(this)
+    )
+    // TODO: when keys can be unique, we can use the name as the key
+    _children = _children.put(name, symbol)
+    symbol
   }
 
   def tryDefineObject(

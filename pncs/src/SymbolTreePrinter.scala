@@ -35,7 +35,9 @@ case class SymbolTreePrinter(binder: Binder) {
     printColor(ColorPalette.Punctuation)
 
     if (
-      symbol.kind != SymbolKind.Namespace && symbol.kind != SymbolKind.Object
+      symbol.kind != SymbolKind.Namespace &&
+      symbol.kind != SymbolKind.Block &&
+      symbol.kind != SymbolKind.Object
     ) {
       val typ = binder.getSymbolType(symbol)
       typ match {
@@ -52,6 +54,22 @@ case class SymbolTreePrinter(binder: Binder) {
           printColor(ColorPalette.Error)
           print("[missing type]")
           print(ANSI.Clear)
+      }
+
+      if (
+        symbol.kind == SymbolKind.Constructor || symbol.kind == SymbolKind.Method
+      ) {
+        val hasBody = binder.functionBodies.contains(symbol)
+        printColor(ColorPalette.Punctuation)
+        print(" = ")
+        if (!hasBody) {
+          printColor(ColorPalette.Error)
+          print("[no body]")
+        } else {
+          printColor(ColorPalette.Keyword)
+          print("[body]")
+        }
+        print(ANSI.Clear)
       }
     }
 

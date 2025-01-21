@@ -359,6 +359,7 @@ object AstUtils {
       case BoundExpression.CallExpression(location, _, _, _, _) => location
       case BoundExpression.CastExpression(location, expression, _) => location
       case BoundExpression.CharacterLiteral(location, _) => location
+      case BoundExpression.ForExpression(location, _, _, _, _) => location
       case BoundExpression.IfExpression(location, cond, thenExpr, elseExpr, _) =>
         locationOfBoundExpression(thenExpr).merge(
           elseExpr match {
@@ -366,6 +367,7 @@ object AstUtils {
             case Option.None => locationOfBoundExpression(thenExpr)
           }
         )
+      case BoundExpression.IndexExpression(location, _, _, _) => location
       case BoundExpression.IntLiteral(location, _) => location
       case BoundExpression.NewExpression(location, _, _, _, _) => location
       case BoundExpression.StringLiteral(location, _) => location

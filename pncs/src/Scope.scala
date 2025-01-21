@@ -2,47 +2,74 @@ import panther._
 
 case class Scope(current: Symbol, imports: List[Symbol]) {
 
-  /**
-   * create or define a namespace
-   *
-   * @param name
-   * @return
-   */
+  /** create or define a namespace
+    *
+    * @param name
+    * @return
+    */
   def enter(name: string): Scope =
     enterSymbol(current.enter(name))
 
-  def enterSymbol(symbol: Symbol): Scope = Scope(symbol, imports)
+  def newBlock(): Scope =
+    enterSymbol(current.newBlock())
 
-  def defineEnum(name: string, location: TextLocation): Either[TextLocation, Symbol] =
+  def enterSymbol(symbol: Symbol): Scope =
+    Scope(symbol, imports)
+
+  def defineEnum(
+      name: string,
+      location: TextLocation
+  ): Either[TextLocation, Symbol] =
     current.tryDefineEnum(name, location)
 
-  def defineObject(name: string, location: TextLocation): Either[TextLocation, Symbol] =
+  def defineObject(
+      name: string,
+      location: TextLocation
+  ): Either[TextLocation, Symbol] =
     current.tryDefineObject(name, location)
 
-  def defineClass(name: string, location: TextLocation): Either[TextLocation, Symbol] =
+  def defineClass(
+      name: string,
+      location: TextLocation
+  ): Either[TextLocation, Symbol] =
     current.tryDefineClass(name, location)
 
-  def defineTypeParameter(name: string, location: TextLocation, variance: Variance): Either[TextLocation, Symbol] =
+  def defineTypeParameter(
+      name: string,
+      location: TextLocation,
+      variance: Variance
+  ): Either[TextLocation, Symbol] =
     current.tryDefineTypeParameter(name, location, variance)
 
-  def defineField(name: string, location: TextLocation): Either[TextLocation, Symbol] =
+  def defineField(
+      name: string,
+      location: TextLocation
+  ): Either[TextLocation, Symbol] =
     current.tryDefineField(name, location)
 
-  def defineLocal(name: string, location: TextLocation): Either[TextLocation, Symbol] =
+  def defineLocal(
+      name: string,
+      location: TextLocation
+  ): Either[TextLocation, Symbol] =
     current.tryDefineLocal(name, location)
 
-  def defineMethod(name: string, location: TextLocation): Either[TextLocation, Symbol] =
+  def defineMethod(
+      name: string,
+      location: TextLocation
+  ): Either[TextLocation, Symbol] =
     current.tryDefineMethod(name, location)
 
-  def defineParameter(name: string, location: TextLocation): Either[TextLocation, Symbol] =
+  def defineParameter(
+      name: string,
+      location: TextLocation
+  ): Either[TextLocation, Symbol] =
     current.tryDefineParameter(name, location)
 
-  /**
-   *  add the symbol to the current scope
-   *
-   * @param symbol
-   * @return
-   */
+  /** add the symbol to the current scope
+    *
+    * @param symbol
+    * @return
+    */
   def use(symbol: Symbol): Scope =
     Scope(current, List.Cons(symbol, imports))
 

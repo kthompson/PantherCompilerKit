@@ -842,24 +842,8 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     val open = accept()
     val arguments = parseExpressionList(SyntaxKind.CloseParenToken)
     val close = acceptKind(SyntaxKind.CloseParenToken)
-//
-//    val isScala = open.location.sourceFile.isScala()
-//
-//    val isIndexExpression = isScala && arguments.expressions.length == 1
-//    if (isIndexExpression) {
-//      // this could be an index expression. check if the argument is a number
-//      // if it is we will assume this is an index expression
-//
-//      val arg = arguments.expressions(0).expression
-//      arg match {
-//        case LiteralExpression(token, SyntaxTokenValue.Number(value)) =>
-//          new Expression.IndexExpression(name, open, arg, close)
-//        case _ =>
-//          new Expression.CallExpression(name, open, arguments, close)
-//      }
-//    } else {
+
     new Expression.CallExpression(name, open, arguments, close)
-//    }
   }
 
   def parseBinaryExpression(left: Expression): Expression = {

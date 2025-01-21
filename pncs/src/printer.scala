@@ -666,6 +666,9 @@ object AstPrinter {
       case SymbolKind.Constructor =>
         printColor(ColorPalette.Method)
         print("Constructor")
+      case SymbolKind.Block =>
+        printColor(ColorPalette.Identifier)
+        print("Block")
       case SymbolKind.Parameter =>
         printColor(ColorPalette.Identifier)
         print("Parameter")

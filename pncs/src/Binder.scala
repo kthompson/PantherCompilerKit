@@ -1,4 +1,4 @@
-import panther._
+import panther.*
 
 case class Members(
     objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
@@ -118,8 +118,14 @@ class Binder(
   )
 
   setSymbolType(
+    arraySymbol.defineMethod(".ctor", TextLocationFactory.empty()),
+    Type.Function(List.Nil, List.Cons(BoundParameter("size", intType), List.Nil), unitType),
+    Option.None
+  )
+
+  setSymbolType(
     arraySymbol,
-    Type.Named(List.Cons("panther", List.Nil), "Array",
+    Type.Named(List.Nil, "Array",
       List.Cons(
         setSymbolType(
           arraySymbol.defineTypeParameter(
@@ -264,7 +270,7 @@ class Binder(
 //    panic("need to create ctors for classes")
 
     // TODO: this method still needs to register the field assignments as ctor statements
-    bindConstructors(ctorsToBind.list)
+    bindConstructorSignatures(ctorsToBind.list)
 
 //    panic(string(membersToType.length) + " members to type")
 
@@ -286,7 +292,7 @@ class Binder(
     BoundAssembly(List.Nil, diagnosticBag.diagnostics, Option.None)
   }
 
-  def bindConstructors(
+  def bindConstructorSignatures(
                                          list: List[KeyValue[Symbol, ConstructorParams]]
                                        ): unit = {
     list match {
@@ -309,7 +315,7 @@ class Binder(
         }
 
 
-        bindConstructors(tail)
+        bindConstructorSignatures(tail)
     }
   }
 
@@ -396,6 +402,7 @@ class Binder(
       case _: BoundExpression.StringLiteral => stringType
       case _: BoundExpression.BooleanLiteral => boolType
       case _: BoundExpression.CharacterLiteral => charType
+      case _: BoundExpression.ForExpression => unitType
       case _: BoundExpression.UnitExpression => unitType
       case _: BoundExpression.WhileExpression => unitType
 
@@ -403,6 +410,7 @@ class Binder(
       case expr: BoundExpression.Block => getType(expr.expression)
       case expr: BoundExpression.CallExpression => expr.resultType
       case expr: BoundExpression.CastExpression => expr.targetType
+      case expr: BoundExpression.IndexExpression => expr.resultType
       case expr: BoundExpression.IfExpression => expr.resultType
       case expr: BoundExpression.NewExpression => expr.resultType
       case expr: BoundExpression.UnaryExpression => expr.resultType

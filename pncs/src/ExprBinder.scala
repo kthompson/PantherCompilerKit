@@ -284,7 +284,7 @@ case class ExprBinder(
 
   def boundErrorStatement(text: string): BoundStatement = {
     //    panic(text)
-    println("\nbinding error: " + text + "\n")
+    panic("\nbinding error: " + text + "\n")
     BoundStatement.Error
   }
 
@@ -342,11 +342,12 @@ case class ExprBinder(
       node: Expression.BlockExpression,
       scope: Scope
   ): BoundExpression = {
-    val statements = bindStatements(node.block.statements, scope)
+    val block = scope.newBlock()
+    val statements = bindStatements(node.block.statements, block)
     val expr = node.block.expression match {
       case Option.None =>
         BoundExpression.UnitExpression(TextLocationFactory.empty())
-      case Option.Some(value) => bind(value, scope)
+      case Option.Some(value) => bind(value, block)
     }
 
     if (expr == BoundExpression.Error) {
@@ -398,6 +399,32 @@ case class ExprBinder(
             )
           }
         case Type.Error => BoundExpression.Error
+        case Type.Named(List.Nil, "Array", List.Cons(elementType, List.Nil)) =>
+          if(node.openParen.sourceFile.isScala()) {
+            args match {
+              case List.Nil =>
+                diagnosticBag.reportArgumentCountMismatch(
+                  location,
+                  1,
+                  args.length
+                )
+                BoundExpression.Error
+              case List.Cons(head, List.Nil) => 
+                val arg = bindConversion(head, binder.intType)
+                BoundExpression.IndexExpression(location, function, arg, elementType)
+              case List.Cons(_, _) =>
+                diagnosticBag.reportArgumentCountMismatch(
+                  location,
+                  1,
+                  args.length
+                )
+                BoundExpression.Error
+            }
+          } else {
+            diagnosticBag.reportNotCallable(location)
+            BoundExpression.Error
+          }
+
         case Type.Named(ns, name, genericTypeParameters) =>
           findConstructor(ns, name) match {
             case Option.Some(symbol) =>
@@ -519,8 +546,30 @@ case class ExprBinder(
   def bindForExpression(
       node: Expression.ForExpression,
       scope: Scope
-  ): BoundExpression =
-    boundErrorExpression("bindForExpression")
+  ): BoundExpression = {
+
+    val blockScope = scope.newBlock()
+    val lowerBound = bindConversionExpr(node.fromExpr, binder.intType, scope)
+    val upperBound = bindConversionExpr(node.toExpr, binder.intType, scope)
+    val identifier = node.identifier
+
+    blockScope.defineLocal(identifier.text, identifier.location) match {
+      case Either.Left(value) =>
+        panic("symbol already defined even though that should not be possible")
+      case Either.Right(variable) =>
+        binder.setSymbolType(variable, binder.intType, Option.None)
+
+        val body = bind(node.body, blockScope)
+
+        BoundExpression.ForExpression(
+          node.forKeyword.location,
+          variable,
+          lowerBound,
+          upperBound,
+          body
+        )
+    }
+  }
 
   def bindGroupExpression(
       node: Expression.GroupExpression,
