@@ -398,11 +398,12 @@ class Binder(
   def getType(expr: BoundExpression): Type = {
     expr match {
       case BoundExpression.Error => Type.Error
-      case _: BoundExpression.IntLiteral => intType
-      case _: BoundExpression.StringLiteral => stringType
+      case _: BoundExpression.Assignment => unitType
       case _: BoundExpression.BooleanLiteral => boolType
       case _: BoundExpression.CharacterLiteral => charType
       case _: BoundExpression.ForExpression => unitType
+      case _: BoundExpression.IntLiteral => intType
+      case _: BoundExpression.StringLiteral => stringType
       case _: BoundExpression.UnitExpression => unitType
       case _: BoundExpression.WhileExpression => unitType
 

@@ -353,6 +353,7 @@ object AstUtils {
 
   def locationOfBoundExpression(value: BoundExpression): TextLocation = {
     value match {
+      case BoundExpression.Assignment(location, _, expression) => location.merge(locationOfBoundExpression(expression))
       case BoundExpression.BinaryExpression(location, left, _, right, _) => locationOfBoundExpression(left).merge(locationOfBoundExpression(right))
       case BoundExpression.Block(statements, expression) => locationOfBoundExpression(expression)
       case BoundExpression.BooleanLiteral(location, _) => location

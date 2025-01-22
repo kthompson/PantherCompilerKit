@@ -297,8 +297,29 @@ case class ExprBinder(
   def bindAssignmentExpression(
       node: Expression.AssignmentExpression,
       scope: Scope
-  ): BoundExpression =
-    boundErrorExpression("bindAssignmentExpression")
+  ): BoundExpression = {
+    val lhs = bind(node.left, scope)
+    val rhs = bind(node.right, scope)
+    if (lhs == BoundExpression.Error || rhs == BoundExpression.Error) {
+      BoundExpression.Error
+    } else {
+      lhs match {
+        case BoundExpression.Variable(location, symbol) =>
+          val lhsType = binder.getType(lhs)
+
+          BoundExpression.Assignment(
+            location,
+            symbol,
+            bindConversion(rhs, lhsType)
+          )
+        case _ =>
+          diagnosticBag.reportExpressionIsNotAssignable(
+            AstUtils.locationOfBoundExpression(lhs)
+          )
+          BoundExpression.Error
+      }
+    }
+  }
 
   def bindBinaryExpression(
       node: Expression.BinaryExpression,
@@ -461,8 +482,8 @@ case class ExprBinder(
 
         case Type.Named(ns, name, genericTypeParameters) =>
           findConstructor(ns, name) match {
-            case Option.Some(symbol) =>
-              bindNewExpressionForSymbol(location, symbol, args, scope)
+            case Option.Some(ctor) =>
+              bindNewExpressionForSymbol(location, ctor, args, scope)
 
             case Option.None =>
               diagnosticBag.reportNotCallable(location)
@@ -477,12 +498,11 @@ case class ExprBinder(
 
   def bindNewExpressionForSymbol(
       location: TextLocation,
-      symbol: Symbol,
+      constructor: Symbol,
       args: List[BoundExpression],
       scope: Scope
-  ) = {
-    val ctorType = binder.getSymbolType(symbol)
-    findConstructor(symbol.ns(), symbol.name)
+  ): BoundExpression = {
+    val ctorType = binder.getSymbolType(constructor)
     ctorType match {
       case Option.Some(
             Type.Function(
@@ -500,13 +520,21 @@ case class ExprBinder(
           BoundExpression.Error
         } else {
           val arguments = bindArguments(parameters, args, scope)
-          BoundExpression.NewExpression(
-            location,
-            symbol,
-            genericTypeParameters,
-            arguments,
-            returnType
-          )
+          constructor.parent match {
+            case Option.None => ???
+            case Option.Some(value) =>
+              binder.getSymbolType(value) match {
+                case Option.None => ???
+                case Option.Some(clsType) =>
+                  BoundExpression.NewExpression(
+                    location,
+                    constructor,
+                    genericTypeParameters,
+                    arguments,
+                    clsType
+                  )
+              }
+          }
         }
       case _ =>
         diagnosticBag.reportNotCallable(location)

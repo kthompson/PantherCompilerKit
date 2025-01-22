@@ -22,6 +22,9 @@ case class DiagnosticBag() {
 
   def reportNotCallable(location: TextLocation): unit =
     report(location, "expression is not callable")
+    
+  def reportExpressionIsNotAssignable(location: TextLocation): unit =
+    report(location, "expression is not assignable")
 
   def reportArgumentCountMismatch(location: TextLocation, expected: int, actual: int): unit =
     report(location, "Expected " + expected + " arguments, but got " + actual)

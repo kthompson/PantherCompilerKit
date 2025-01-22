@@ -128,6 +128,7 @@ enum BoundStatement {
 
 enum BoundExpression {
   case Error
+  case Assignment(location: TextLocation, variable: Symbol, expression: BoundExpression)
   case BinaryExpression(location: TextLocation, left: BoundExpression, operator: BinaryOperatorKind, right: BoundExpression, resultType: Type)
   case Block(statements: List[BoundStatement], expression: BoundExpression)
   case BooleanLiteral(location: TextLocation, value: bool)
