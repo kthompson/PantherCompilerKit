@@ -27,8 +27,14 @@ case class SymbolTreePrinter(binder: Binder) {
     AstPrinter.printSymbolKind(kind)
     print(" ")
 
-    if (symbol.kind == SymbolKind.Class || symbol.kind == SymbolKind.Object) {
-      print(symbol.qualifiedName())
+    if (symbol.kind == SymbolKind.Class || symbol.kind == SymbolKind.Object || symbol.kind == SymbolKind.Enum) {
+      val typ = binder.getSymbolType(symbol)
+      typ match {
+        case Option.Some(value) =>
+          printType(value)
+        case Option.None =>
+          print(symbol.qualifiedName())
+      }
     } else {
       print(symbol.name)
     }
@@ -37,6 +43,7 @@ case class SymbolTreePrinter(binder: Binder) {
     if (
       symbol.kind != SymbolKind.Namespace &&
       symbol.kind != SymbolKind.Block &&
+      symbol.kind != SymbolKind.Enum &&
       symbol.kind != SymbolKind.Object
     ) {
       val typ = binder.getSymbolType(symbol)
