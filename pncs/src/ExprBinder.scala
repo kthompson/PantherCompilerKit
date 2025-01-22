@@ -358,14 +358,12 @@ case class ExprBinder(
   }
 
   def isCast(node: Expression.CallExpression): bool = {
-    if (node.arguments.expressions.length != 1) false
-    else
-      node.name match {
-        case Expression.IdentifierName(value) =>
-          val name = value.identifier.text
-          name == "string" || name == "int" || name == "bool"
-        case _ => false
-      }
+    node.name match {
+      case Expression.IdentifierName(value) =>
+        val name = value.identifier.text
+        name == "string" || name == "int" || name == "bool"
+      case _ => false
+    }
   }
 
   def bindCallExpression(
@@ -400,7 +398,7 @@ case class ExprBinder(
           }
         case Type.Error => BoundExpression.Error
         case Type.Named(List.Nil, "Array", List.Cons(elementType, List.Nil)) =>
-          if(node.openParen.sourceFile.isScala()) {
+          if (node.openParen.sourceFile.isScala()) {
             args match {
               case List.Nil =>
                 diagnosticBag.reportArgumentCountMismatch(
@@ -409,9 +407,45 @@ case class ExprBinder(
                   args.length
                 )
                 BoundExpression.Error
-              case List.Cons(head, List.Nil) => 
+              case List.Cons(head, List.Nil) =>
                 val arg = bindConversion(head, binder.intType)
-                BoundExpression.IndexExpression(location, function, arg, elementType)
+                BoundExpression.IndexExpression(
+                  location,
+                  function,
+                  arg,
+                  elementType
+                )
+              case List.Cons(_, _) =>
+                diagnosticBag.reportArgumentCountMismatch(
+                  location,
+                  1,
+                  args.length
+                )
+                BoundExpression.Error
+            }
+          } else {
+            diagnosticBag.reportNotCallable(location)
+            BoundExpression.Error
+          }
+
+        case Type.Named(List.Nil, "string", List.Nil) =>
+          if (node.openParen.sourceFile.isScala()) {
+            args match {
+              case List.Nil =>
+                diagnosticBag.reportArgumentCountMismatch(
+                  location,
+                  1,
+                  args.length
+                )
+                BoundExpression.Error
+              case List.Cons(head, List.Nil) =>
+                val arg = bindConversion(head, binder.intType)
+                BoundExpression.IndexExpression(
+                  location,
+                  function,
+                  arg,
+                  binder.charType
+                )
               case List.Cons(_, _) =>
                 diagnosticBag.reportArgumentCountMismatch(
                   location,
@@ -493,18 +527,31 @@ case class ExprBinder(
       scope: Scope
   ): BoundExpression = {
     expression.arguments.expressions match {
-      case List.Nil => panic("cast expression has no arguments")
+      case List.Nil =>
+        diagnosticBag.reportArgumentCountMismatch(
+          AstUtils.locationOfExpression(expression.name),
+          1,
+          0
+        )
+        BoundExpression.Error
       case List.Cons(head, tail) =>
-        if (!tail.isEmpty) panic("cast expression has more than one argument")
-
-        val arg = bind(head.expression, scope)
-        val lhs = bind(expression.name, scope)
-        val location = AstUtils.locationOfBoundExpression(lhs)
-        val targetType = binder.getType(lhs)
-        if (targetType == Type.Error) {
+        if (!tail.isEmpty) {
+          diagnosticBag.reportArgumentCountMismatch(
+            AstUtils.locationOfExpression(expression.name),
+            1,
+            tail.length + 1
+          )
           BoundExpression.Error
         } else {
-          new BoundExpression.CastExpression(location, arg, targetType)
+          val arg = bind(head.expression, scope)
+          val lhs = bind(expression.name, scope)
+          val location = AstUtils.locationOfBoundExpression(lhs)
+          val targetType = binder.getType(lhs)
+          if (targetType == Type.Error) {
+            BoundExpression.Error
+          } else {
+            new BoundExpression.CastExpression(location, arg, targetType)
+          }
         }
     }
   }
