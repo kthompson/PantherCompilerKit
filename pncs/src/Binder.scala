@@ -858,9 +858,12 @@ class Binder(
           case Option.None =>
             setSymbolType(symbol, new Type.Named(symbol.ns(), symbol.name, List.Nil), None)
 
+            ctorsToBind = ctorsToBind.put(symbol, ConstructorParams(List.Nil, head.value.parameters))
           case Option.Some(value) =>
             val args = bindGenericTypeParameters(value.parameters.items, scope.enterSymbol(symbol))
             setSymbolType(symbol, new Type.Named(symbol.ns(), symbol.name, args), None)
+
+            ctorsToBind = ctorsToBind.put(symbol, ConstructorParams(args, head.value.parameters))
         }
 
         head.value.template match {
