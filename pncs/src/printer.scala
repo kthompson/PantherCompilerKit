@@ -577,20 +577,30 @@ object AstPrinter {
 
   def _printType(typ: Type, clear: bool): unit = {
     typ match {
-      case Type.Function(genParams, parameters, returnType) =>
+      case Type.Function(_, parameters, returnType) =>
         printColor(ColorPalette.Punctuation)
-        if (genParams.length > 0) {
-          print("<")
-          _printTypes(genParams, true)
-          printColor(ColorPalette.Punctuation)
-          print(">")
-        }
+//        if (genParams.length > 0) {
+//          print("<")
+//          _printTypes(genParams, true)
+//          printColor(ColorPalette.Punctuation)
+//          print(">")
+//        }
         print("(")
         _printTypedParameters(false, parameters)
         printColor(ColorPalette.Punctuation)
         print(") -> ")
         _printType(returnType, false)
-      case Type.Named(ns, name, args) =>
+      case Type.GenericType(_, genParams, traits, uninstantiatedType) =>
+        if (genParams.length > 0) {
+          printColor(ColorPalette.Punctuation)
+          print("<")
+          _printGenTypes(genParams, true)
+          printColor(ColorPalette.Punctuation)
+          print(">")
+        }
+        _printType(uninstantiatedType, false)
+        
+      case Type.Named(_, ns, name, args) =>
         val color =
           if (ns.isEmpty && SyntaxFacts.isBuiltinType(name))
             ColorPalette.Keyword
@@ -606,26 +616,29 @@ object AstPrinter {
             _printTypes(args, true)
             print(">")
         }
-      case Type.Variable(name, variance, upperBound) =>
-        variance match {
-          case Variance.Covariant =>
-            printColor(ColorPalette.Keyword)
-            print("out ")
-          case Variance.Contravariant =>
-            printColor(ColorPalette.Keyword)
-            print("in ")
-          case _ =>
-        }
-
-        printColor(ColorPalette.Identifier)
-        upperBound match {
-          case Option.Some(value) =>
-            print(name)
-            printColor(ColorPalette.Punctuation)
-            print(": ")
-            _printType(value, false)
-          case Option.None => print(name)
-        }
+//      case Type.Generic(_, name, variance, upperBound) =>
+//        variance match {
+//          case Variance.Covariant =>
+//            printColor(ColorPalette.Keyword)
+//            print("out ")
+//          case Variance.Contravariant =>
+//            printColor(ColorPalette.Keyword)
+//            print("in ")
+//          case _ =>
+//        }
+//
+//        printColor(ColorPalette.Identifier)
+//        upperBound match {
+//          case Option.Some(value) =>
+//            print(name)
+//            printColor(ColorPalette.Punctuation)
+//            print(": ")
+//            _printType(value, false)
+//          case Option.None => print(name)
+//        }
+      case Type.Variable(_, i) =>
+        printColor(ColorPalette.Keyword)
+        print("$" + i)
       case Type.Any =>
         printColor(ColorPalette.Keyword)
         print("any")
@@ -638,6 +651,39 @@ object AstPrinter {
     }
 
     if (clear) printClear() else ()
+  }
+  
+  def _printGenTypes(types: List[GenericTypeParameter], first: bool): unit = {
+    types match {
+      case List.Nil => printClear()
+      case List.Cons(typ, tail) =>
+        if (!first) {
+          printColor(ColorPalette.Punctuation)
+          print(", ")
+        }
+        
+        typ.variance match {
+          case Variance.Covariant =>
+            printColor(ColorPalette.Keyword)
+            print("out ")
+          case Variance.Contravariant =>
+            printColor(ColorPalette.Keyword)
+            print("in ")
+          case _ =>
+        }
+        
+        printColor(ColorPalette.Identifier)
+        print(typ.name)
+        typ.upperBound match {
+          case Option.Some(value) =>
+            printColor(ColorPalette.Punctuation)
+            print(" <: ")
+            _printType(value, false)
+          case Option.None =>
+        }
+        
+        _printGenTypes(tail, false)
+    }
   }
 
   def printSymbolKind(kind: SymbolKind): unit = {

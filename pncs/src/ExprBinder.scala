@@ -1,5 +1,5 @@
-//import Type.Reference
 import panther.*
+//import Type.Reference
 
 // object TypeSchemeKind {
 //     val Polymorphic = 1
@@ -108,18 +108,15 @@ case class ExprBinder(
 
         // Function subtyping: contravariant in parameters, covariant in return type
         case TypePair(
-              Type.Function(genTypeParams1, params1, return1),
-              Type.Function(genTypeParams2, params2, return2)
+              Type.Function(_, params1, return1),
+              Type.Function(_, params2, return2)
             ) =>
-          assert(genTypeParams1.length == 0, "generics not supported")
-          assert(genTypeParams2.length == 0, "generics not supported")
-
           isSubtype(return1, return2) && areParametersSubtype(params2, params1)
 
         // Array subtyping: inner types must be subtypes
         case TypePair(
-              Type.Named(ns1, name1, args1),
-              Type.Named(ns2, name2, args2)
+              Type.Named(_, ns1, name1, args1),
+              Type.Named(_, ns2, name2, args2)
             ) =>
           if (ns1 == ns2 && name1 == name2) {
             areArgsSubtype(args1, args2)
@@ -277,13 +274,11 @@ case class ExprBinder(
   }
 
   def boundErrorExpression(text: string): BoundExpression = {
-    //    panic(text)
-    println("\nbinding error: " + text + "\n")
+    panic("\nbinding error: " + text + "\n")
     BoundExpression.Error
   }
 
   def boundErrorStatement(text: string): BoundStatement = {
-    //    panic(text)
     panic("\nbinding error: " + text + "\n")
     BoundStatement.Error
   }
@@ -304,7 +299,7 @@ case class ExprBinder(
       BoundExpression.Error
     } else {
       lhs match {
-        case BoundExpression.Variable(location, symbol) =>
+        case BoundExpression.Variable(location, symbol, returnType) =>
           val lhsType = binder.getType(lhs)
 
           BoundExpression.Assignment(
@@ -387,6 +382,15 @@ case class ExprBinder(
     }
   }
 
+  def typesWithError(list: List[Type]): bool = {
+    list match {
+      case List.Nil => false
+      case List.Cons(head, tail) =>
+        if (head == Type.Error) true
+        else typesWithError(tail)
+    }
+  }
+
   def bindCallExpression(
       node: Expression.CallExpression,
       scope: Scope
@@ -395,104 +399,156 @@ case class ExprBinder(
       bindCast(node, scope)
     } else {
       val function = bind(node.name, scope)
-      val args = bindExpressionList(node.arguments.expressions, scope)
-      val location = AstUtils.locationOfBoundExpression(function)
-      val methodType = binder.getType(function)
-      methodType match {
-        case Type.Function(genericTypeParameters, parameters, returnType) =>
-          if (parameters.length != args.length) {
-            diagnosticBag.reportArgumentCountMismatch(
-              location,
-              parameters.length,
-              args.length
-            )
-            BoundExpression.Error
-          } else {
-            val arguments = bindArguments(parameters, args, scope)
-            BoundExpression.CallExpression(
-              location,
-              function,
-              genericTypeParameters,
-              arguments,
-              returnType
-            )
-          }
-        case Type.Error => BoundExpression.Error
-        case Type.Named(List.Nil, "Array", List.Cons(elementType, List.Nil)) =>
-          if (node.openParen.sourceFile.isScala()) {
-            args match {
-              case List.Nil =>
+      if (function == BoundExpression.Error) {
+        BoundExpression.Error
+      } else {
+        val exprs = fromExpressionList(node.arguments.expressions)
+        val args = bindExpressions(exprs, scope)
+        val argTypes = binder.getTypes(args)
+        if (typesWithError(argTypes)) {
+          BoundExpression.Error
+        } else {
+          val location = AstUtils.locationOfBoundExpression(function)
+          val inference = new Inference(diagnosticBag)
+          val methodType = inference.instantiate(
+            DictionaryModule.empty(),
+            binder.getType(function)
+          )
+          methodType match {
+            case Type.Function(_, parameters, returnType) =>
+              if (parameters.length != args.length) {
                 diagnosticBag.reportArgumentCountMismatch(
                   location,
-                  1,
+                  parameters.length,
                   args.length
                 )
                 BoundExpression.Error
-              case List.Cons(head, List.Nil) =>
-                val arg = bindConversion(head, binder.intType)
-                BoundExpression.IndexExpression(
+              } else {
+                val paramTypes = getParameterTypes(parameters)
+                val constraints =
+                  buildConstraints(paramTypes, argTypes, List.Nil)
+                val func = inference.inferFunction(
+                  constraints,
+                  Type.Function(location, parameters, returnType)
+                )
+
+                BoundExpression.CallExpression(
                   location,
                   function,
-                  arg,
-                  elementType
+                  List.Nil,
+                  args,
+                  func.returnType
                 )
-              case List.Cons(_, _) =>
-                diagnosticBag.reportArgumentCountMismatch(
-                  location,
-                  1,
-                  args.length
-                )
+              }
+            case Type.Error => BoundExpression.Error
+            case Type.Named(
+                  _,
+                  List.Nil,
+                  "Array",
+                  List.Cons(elementType, List.Nil)
+                ) =>
+              if (node.openParen.sourceFile.isScala()) {
+                args match {
+                  case List.Nil =>
+                    diagnosticBag.reportArgumentCountMismatch(
+                      location,
+                      1,
+                      args.length
+                    )
+                    BoundExpression.Error
+                  case List.Cons(head, List.Nil) =>
+                    val arg = bindConversion(head, binder.intType)
+                    BoundExpression.IndexExpression(
+                      location,
+                      function,
+                      arg,
+                      elementType
+                    )
+                  case List.Cons(_, _) =>
+                    diagnosticBag.reportArgumentCountMismatch(
+                      location,
+                      1,
+                      args.length
+                    )
+                    BoundExpression.Error
+                }
+              } else {
+                diagnosticBag.reportNotCallable(location)
                 BoundExpression.Error
-            }
-          } else {
-            diagnosticBag.reportNotCallable(location)
-            BoundExpression.Error
-          }
+              }
 
-        case Type.Named(List.Nil, "string", List.Nil) =>
-          if (node.openParen.sourceFile.isScala()) {
-            args match {
-              case List.Nil =>
-                diagnosticBag.reportArgumentCountMismatch(
-                  location,
-                  1,
-                  args.length
-                )
+            case Type.Named(_, List.Nil, "string", List.Nil) =>
+              if (node.openParen.sourceFile.isScala()) {
+                args match {
+                  case List.Nil =>
+                    diagnosticBag.reportArgumentCountMismatch(
+                      location,
+                      1,
+                      args.length
+                    )
+                    BoundExpression.Error
+                  case List.Cons(head, List.Nil) =>
+                    val arg = bindConversion(head, binder.intType)
+                    BoundExpression.IndexExpression(
+                      location,
+                      function,
+                      arg,
+                      binder.charType
+                    )
+                  case List.Cons(_, _) =>
+                    diagnosticBag.reportArgumentCountMismatch(
+                      location,
+                      1,
+                      args.length
+                    )
+                    BoundExpression.Error
+                }
+              } else {
+                diagnosticBag.reportNotCallable(location)
                 BoundExpression.Error
-              case List.Cons(head, List.Nil) =>
-                val arg = bindConversion(head, binder.intType)
-                BoundExpression.IndexExpression(
-                  location,
-                  function,
-                  arg,
-                  binder.charType
-                )
-              case List.Cons(_, _) =>
-                diagnosticBag.reportArgumentCountMismatch(
-                  location,
-                  1,
-                  args.length
-                )
-                BoundExpression.Error
-            }
-          } else {
-            diagnosticBag.reportNotCallable(location)
-            BoundExpression.Error
-          }
+              }
 
-        case Type.Named(ns, name, genericTypeParameters) =>
-          findConstructor(ns, name) match {
-            case Option.Some(ctor) =>
-              bindNewExpressionForSymbol(location, ctor, args, scope)
+            case Type.Named(_, ns, name, genericTypeParameters) =>
+              findConstructor(ns, name) match {
+                case Option.Some(ctor) =>
+                  bindNewExpressionForSymbol(location, ctor, args, scope)
 
-            case Option.None =>
+                case Option.None =>
+                  diagnosticBag.reportNotCallable(location)
+                  BoundExpression.Error
+              }
+            case _ =>
               diagnosticBag.reportNotCallable(location)
               BoundExpression.Error
           }
-        case _ =>
-          diagnosticBag.reportNotCallable(location)
-          BoundExpression.Error
+        }
       }
+    }
+  }
+
+  def buildConstraints(
+      params: List[Type],
+      args: List[Type],
+      constraints: List[Constraint]
+  ): List[Constraint] = {
+    params match {
+      case List.Nil =>
+        args match {
+          case List.Nil => constraints
+          case List.Cons(_, _) =>
+            panic("params is empty but args is not")
+        }
+      case List.Cons(param, tail) =>
+        args match {
+          case List.Nil =>
+            panic("params is not empty but args is")
+          case List.Cons(arg, argTail) =>
+            buildConstraints(
+              tail,
+              argTail,
+              List.Cons(Constraint.Equality(param, arg), constraints)
+            )
+        }
     }
   }
 
@@ -502,40 +558,65 @@ case class ExprBinder(
       args: List[BoundExpression],
       scope: Scope
   ): BoundExpression = {
+    val parent = constructor.parent.get()
+    val parentType = binder.getSymbolType(parent)
     val ctorType = binder.getSymbolType(constructor)
-    ctorType match {
-      case Option.Some(
-            Type.Function(
-              genericTypeParameters,
-              parameters,
-              returnType
-            )
-          ) =>
-        if (parameters.length != args.length) {
-          diagnosticBag.reportArgumentCountMismatch(
-            location,
-            parameters.length,
-            args.length
-          )
-          BoundExpression.Error
-        } else {
-          val arguments = bindArguments(parameters, args, scope)
-          constructor.parent match {
-            case Option.None => ???
-            case Option.Some(value) =>
-              binder.getSymbolType(value) match {
-                case Option.None => ???
-                case Option.Some(clsType) =>
-                  BoundExpression.NewExpression(
-                    location,
-                    constructor,
-                    genericTypeParameters,
-                    arguments,
-                    clsType
-                  )
-              }
+    OptionModule.product(parentType, ctorType) match {
+      case Option.Some(Tuple2(parentType, functionType)) =>
+        val inference = new Inference(diagnosticBag)
+        val instantiation = inference.instantiateGenericsFromTypes(
+          List.Cons(parentType, List.Cons(functionType, List.Nil)),
+          List.Nil,
+          DictionaryModule.empty()
+        )
+        val methodType = inference.instantiate(
+          instantiation,
+          functionType match {
+            case Type.GenericType(_, _, _, uninstantiatedType) =>
+              uninstantiatedType
+            case t => t
           }
+        )
+        val instantiatedParentType =
+          inference.instantiate(
+            instantiation,
+            parentType match {
+              case Type.GenericType(_, _, _, uninstantiatedType) =>
+                uninstantiatedType
+              case t => t
+            }
+          )
+
+        methodType match {
+          case Type.Function(_, parameters, returnType) =>
+            if (parameters.length != args.length) {
+              diagnosticBag.reportArgumentCountMismatch(
+                location,
+                parameters.length,
+                args.length
+              )
+              BoundExpression.Error
+            } else {
+              val paramTypes = getParameterTypes(parameters)
+              val constraints =
+                buildConstraints(paramTypes, binder.getTypes(args), List.Nil)
+              inference.unifyConstraints(constraints)
+              val typ = inference.substitute(instantiatedParentType)
+
+              BoundExpression.NewExpression(
+                location,
+                constructor,
+                List.Nil,
+                args,
+                typ
+              )
+            }
+          case Type.Error => BoundExpression.Error
+          case _ =>
+            diagnosticBag.reportNotCallable(location)
+            BoundExpression.Error
         }
+
       case _ =>
         diagnosticBag.reportNotCallable(location)
         BoundExpression.Error
@@ -584,7 +665,16 @@ case class ExprBinder(
     }
   }
 
+  def getParameterTypes(parameters: List[BoundParameter]): List[Type] = {
+    parameters match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        List.Cons(head.typ, getParameterTypes(tail))
+    }
+  }
+
   def bindArguments(
+      function: Type.Function,
       parameters: List[BoundParameter],
       arguments: List[BoundExpression],
       scope: Scope
@@ -602,20 +692,31 @@ case class ExprBinder(
             panic("parameters is not empty but arguments is")
           case List.Cons(argHead, argTail) =>
             val boundArg = bindConversion(argHead, head.typ)
-            List.Cons(boundArg, bindArguments(tail, argTail, scope))
+            ???
+//            List.Cons(boundArg, bindArguments(tail, argTail, scope))
         }
     }
   }
 
-  def bindExpressionList(
-      list: List[ExpressionItemSyntax],
+  def fromExpressionList(
+      list: List[ExpressionItemSyntax]
+  ): List[Expression] =
+    list match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        val expr = head.expression
+        List.Cons(expr, fromExpressionList(tail))
+    }
+
+  def bindExpressions(
+      list: List[Expression],
       scope: Scope
   ): List[BoundExpression] =
     list match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
-        val expr = bind(head.expression, scope)
-        List.Cons(expr, bindExpressionList(tail, scope))
+        val expr = bind(head, scope)
+        List.Cons(expr, bindExpressions(tail, scope))
     }
 
   def bindForExpression(
@@ -662,7 +763,12 @@ case class ExprBinder(
         diagnosticBag.reportSymbolNotFound(identifier.location, identifier.text)
         BoundExpression.Error
       case Option.Some(symbol) =>
-        BoundExpression.Variable(identifier.location, symbol)
+        val symbolType = binder.getSymbolType(symbol)
+        BoundExpression.Variable(
+          identifier.location,
+          symbol,
+          symbolType
+        )
     }
   }
 
@@ -721,6 +827,7 @@ case class ExprBinder(
       case SyntaxTokenValue.Character(value) =>
         BoundExpression.CharacterLiteral(node.token.location, value)
       case _ =>
+        panic("unexpected literal expression")
         BoundExpression.Error
     }
   }
@@ -734,42 +841,69 @@ case class ExprBinder(
     val memberName = right.text
     val leftType = binder.getType(left)
 
-    val symbol = binder.getTypeSymbol(leftType)
+    bindMemberForSymbolAndType(leftType, right) match {
+      case Option.None => BoundExpression.Error
+      case Option.Some(Tuple2(member, typ)) =>
+        BoundExpression.MemberAccess(
+          right.location,
+          left,
+          member,
+          typ
+        )
+    }
+  }
 
+  def bindMemberForSymbolAndType(
+      leftType: Type,
+      right: SyntaxToken
+  ): Option[Tuple2[Symbol, Type]] = {
     leftType match {
-      case Type.Named(ns, name, _) =>
+      case Type.GenericType(location, generics, traits, uninstantiatedType) =>
+        bindMemberForSymbolAndType(uninstantiatedType, right) match {
+          case Option.None => Option.None
+          case Option.Some(Tuple2(member, typ)) =>
+            Option.Some(
+              Tuple2(member, Type.GenericType(location, generics, traits, typ))
+            )
+        }
+
+      case Type.Named(_, ns, name, _) =>
         rootSymbol.findSymbol(ns, name) match {
           case Option.None =>
             diagnosticBag.reportSymbolNotFoundForType(
               right.location,
               leftType,
-              memberName
+              right.text
             )
-            BoundExpression.Error
+            Option.None
           case Option.Some(symbol) =>
-            symbol.lookupMember(memberName) match {
+            symbol.lookupMember(right.text) match {
               case Option.None =>
                 diagnosticBag.reportSymbolNotFoundForType(
                   right.location,
                   leftType,
-                  memberName
+                  right.text
                 )
-                BoundExpression.Error
+                Option.None
               case Option.Some(member) =>
-                BoundExpression.Variable(right.location, member)
+                binder.getSymbolType(member) match {
+                  case Option.None => Option.None
+                  case Option.Some(typ) =>
+                    Option.Some(Tuple2(member, typ))
+                }
             }
         }
-      case Type.Error =>
-        BoundExpression.Error
+      case Type.Error => Option.None
       case _ =>
         diagnosticBag.reportSymbolNotFoundForType(
           right.location,
           leftType,
-          memberName
+          right.text
         )
-        BoundExpression.Error
+        Option.None
     }
   }
+
   def bindMatchExpression(
       node: Expression.MatchExpression,
       scope: Scope
@@ -782,7 +916,7 @@ case class ExprBinder(
   ): BoundExpression = {
     val name = binder.bindTypeName(node.name, scope)
     name match {
-      case Type.Named(ns, name, args) =>
+      case Type.Named(_, ns, name, args) =>
         findConstructor(ns, name) match {
           case Option.None =>
             diagnosticBag.reportSymbolNotFound(
@@ -791,7 +925,10 @@ case class ExprBinder(
             )
             BoundExpression.Error
           case Option.Some(symbol) =>
-            val args = bindExpressionList(node.arguments.expressions, scope)
+            val args = bindExpressions(
+              fromExpressionList(node.arguments.expressions),
+              scope
+            )
             val location = AstUtils.locationOfExpression(node)
             bindNewExpressionForSymbol(location, symbol, args, scope)
         }

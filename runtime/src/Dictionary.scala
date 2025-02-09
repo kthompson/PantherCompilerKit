@@ -14,7 +14,14 @@ case class Dictionary[K, V](list: List[KeyValue[K, V]]) {
   val length: int = list.length
 
   def put(key: K, value: V): Dictionary[K, V] = {
-    new Dictionary(List.Cons(KeyValue(key, value), list))
+    new Dictionary(List.Cons(KeyValue(key, value), _remove(key, list)))
+  }
+
+  def getUnsafe(key: K): V = {
+    get(key) match {
+      case Option.Some(value) => value
+      case Option.None        => panic("Key not found")
+    }
   }
 
   def get(key: K): Option[V] = _get(key, list)

@@ -12,13 +12,6 @@ object MakeCompilation {
           diagTrees = tail
       }
     }
-//    val root = new Symbol(
-//      SymbolKind.Root,
-//      SymbolFlags.None,
-//      "",
-//      TextLocationFactory.empty(),
-//      None
-//    )
 
     val rootSymbol = Symbol(
       "",
@@ -32,7 +25,7 @@ object MakeCompilation {
     
     val boundTree = binder.bind()
 
-    new Compilation(trees, rootSymbol,binder, diagnosticBag.diagnostics)
+    new Compilation(trees, rootSymbol, binder, diagnosticBag.diagnostics)
   }
 }
 

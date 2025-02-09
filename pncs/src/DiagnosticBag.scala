@@ -12,6 +12,75 @@ case class Diagnostic(location: TextLocation, message: string) {
 enum Diagnostics {
   case Empty
   case Node(left: Diagnostics, head: Diagnostic, tail: Diagnostics)
+
+  def count(): int = _count(List.Cons(this, List.Nil), 0)
+
+  def _count(items: List[Diagnostics], count: int): int =
+    items match {
+      case List.Nil => count
+      case List.Cons(head, tail) =>
+        head match {
+          case Diagnostics.Empty => _count(tail, count)
+          case Diagnostics.Node(left, _, right) =>
+            _count(List.Cons(left, List.Cons(right, tail)), count + 1)
+        }
+    }
+
+  def printDiagnostics(): int = _printDiagnostics(0)
+
+  def _printDiagnostics(count: int): int =
+    this match {
+      case Diagnostics.Empty => count
+      case Diagnostics.Node(left, head, right) =>
+        val leftCount = left._printDiagnostics(count)
+        if (leftCount <= 40) {
+          printDiagnostic(head)
+        }
+        right._printDiagnostics(leftCount + 1)
+    }
+
+  def printDiagnostic(diagnostic: Diagnostic): unit = {
+    val location = diagnostic.location
+    val span = location.span
+    val sourceFile = location.sourceFile
+
+    println(diagnostic.toString())
+
+    for (currentLine <- location.startLine to location.endLine) {
+      val line = sourceFile.getLine(currentLine)
+      val startInCurrent = sourceFile.getLineIndex(span.start) == currentLine
+      val endInCurrent = sourceFile.getLineIndex(span.end) == currentLine
+
+      val prefixEnd =
+        if (startInCurrent) span.start
+        else line.start
+
+      val suffixStart =
+        if (endInCurrent) span.end
+        else line.end
+
+      val prefixSpan = TextSpanFactory.fromBounds(line.start, prefixEnd)
+      val errorSpan = TextSpanFactory.fromBounds(prefixEnd, suffixStart)
+      val suffixSpan = TextSpanFactory.fromBounds(suffixStart, line.end)
+
+      val prefix = sourceFile.substringFromSpan(prefixSpan)
+      val error = sourceFile.substringFromSpan(errorSpan)
+      val suffix = sourceFile.substringFromSpan(suffixSpan)
+
+      print(prefix)
+      print(ANSI.foregroundColor("e06c75"))
+      print(error)
+      print(ANSI.Clear)
+      println(suffix)
+
+      for (c <- 0 to (prefixSpan.length - 2)) {
+        print('-')
+      }
+      println('^')
+    }
+
+    println()
+  }
 }
 
 case class DiagnosticBag() {
@@ -22,7 +91,13 @@ case class DiagnosticBag() {
 
   def reportNotCallable(location: TextLocation): unit =
     report(location, "expression is not callable")
-    
+
+  def reportTypeMismatch(location: TextLocation, expected: Type, actual: Type): unit =
+    report(location, "Expected " + expected + " but got " + actual)
+
+  def reportTypeCircularity(location: TextLocation, name: Type): unit =
+    report(location, "Circular use of variable in type" + name)
+
   def reportExpressionIsNotAssignable(location: TextLocation): unit =
     report(location, "expression is not assignable")
 

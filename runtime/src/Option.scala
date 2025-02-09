@@ -19,6 +19,17 @@ enum Option[+T] {
 }
 
 object OptionModule {
+  
+  def orElse[A](a: Option[A], b: Option[A]): Option[A] = a match {
+    case Option.None => b
+    case Option.Some(_) => a
+  }
+  
+  def getOrElse[A](a: Option[A], b: A): A = a match {
+    case Option.None => b
+    case Option.Some(value) => value
+  }
+  
   def product[A, B](a: Option[A], b: Option[B]): Option[Tuple2[A, B]] = {
     a match {
       case Option.None => Option.None
