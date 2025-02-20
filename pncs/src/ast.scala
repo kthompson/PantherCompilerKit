@@ -55,6 +55,7 @@ enum Expression {
                           closeBrace: SyntaxToken)
     case CallExpression(
                          name: Expression,
+                         genericArguments: Option[TypeArgumentListSyntax],
                          openParen: SyntaxToken,
                          arguments: ExpressionListSyntax,
                          closeParen: SyntaxToken)
@@ -319,7 +320,7 @@ object AstUtils {
         locationOfExpression(left).merge(locationOfExpression(right))
       case Expression.BlockExpression(openBrace, block, closeBrace) =>
         openBrace.location.merge(closeBrace.location)
-      case Expression.CallExpression(name, openParen, arguments, closeParen) =>
+      case Expression.CallExpression(name, _, _, _, closeParen) =>
         locationOfExpression(name).merge(closeParen.location)
       case Expression.ForExpression(forKeyword, _, _, _, _, _, _, _, body) =>
         forKeyword.location.merge(locationOfExpression(body))

@@ -843,7 +843,7 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     val arguments = parseExpressionList(SyntaxKind.CloseParenToken)
     val close = acceptKind(SyntaxKind.CloseParenToken)
 
-    new Expression.CallExpression(name, open, arguments, close)
+    new Expression.CallExpression(name, Option.None, open, arguments, close)
   }
 
   def parseBinaryExpression(left: Expression): Expression = {

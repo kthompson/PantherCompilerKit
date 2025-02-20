@@ -544,11 +544,11 @@ case class Transpiler(
     transpileExpressionList(expr.arguments, context)
     transpileToken(expr.closeParen, context)
   }
-  
+
   def transpileExpressionItems(
-                               arguments: List[ExpressionItemSyntax],
-                               context: TranspilerContext
-                             ): unit = {
+      arguments: List[ExpressionItemSyntax],
+      context: TranspilerContext
+  ): unit = {
     arguments match {
       case List.Nil => ()
       case List.Cons(head, tail) => {
@@ -558,11 +558,11 @@ case class Transpiler(
       }
     }
   }
-  
+
   def transpileExpressionList(
-                            arguments: ExpressionListSyntax,
-                            context: TranspilerContext
-                          ): unit = {
+      arguments: ExpressionListSyntax,
+      context: TranspilerContext
+  ): unit = {
     transpileExpressionItems(arguments.expressions, context)
   }
 

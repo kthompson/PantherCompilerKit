@@ -26,7 +26,6 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     _position = _position + 1
   }
 
-
   def isLetter(c: char): bool = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 
   def isDigit(c: char): bool = (c >= '0' && c <= '9')
@@ -37,11 +36,16 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
 
   def isNewLine(c: char): bool = c == '\n' || c == '\r'
 
-  def isParen(c: char): bool = c == '(' || c == ')' || c == '[' || c == ']' || c == '{' || c == '}'
+  def isParen(c: char): bool =
+    c == '(' || c == ')' || c == '[' || c == ']' || c == '{' || c == '}'
 
-  def isDelim(c: char): bool = c == '`' || c == '\'' || c == '"' || c == '.' || c == ';' || c == ','
+  def isDelim(c: char): bool =
+    c == '`' || c == '\'' || c == '"' || c == '.' || c == ';' || c == ','
 
-  def isOperator(c: char): bool = c > ' ' && c <= '~' && !isLetter(c) && !isDigit(c) && !isWhitespace(c) && !isDelim(c)
+  def isOperator(c: char): bool =
+    c > ' ' && c <= '~' && !isLetter(c) && !isDigit(c) && !isWhitespace(
+      c
+    ) && !isDelim(c)
 
   def isWhitespace(c: char): bool =
     c == '\u0009' || c == '\u000A' || c == '\u000B' || c == '\u000C' || c == '\u000D' || c == '\u0020' ||
@@ -53,13 +57,15 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
 
   def isNonNewLineWhitespace(c: char): bool = !isNewLine(c) && isWhitespace(c)
 
-
   def isStartToken(c: char): bool =
     c == '-' || c == ':' || c == '!' ||
       c == '*' || c == '/' || c == '&' || c == '+' || c == '<' ||
       c == '=' || c == '>' || c == '|' || isDelim(c) || isParen(c)
 
-  def isInvalidTokenTrivia(c: char): bool = c != '\u0000' && c != '@' && !isStartToken(c) && !isDigit(c) && !isIdentStart(c) && !isOperator(c)
+  def isInvalidTokenTrivia(c: char): bool =
+    c != '\u0000' && c != '@' && !isStartToken(c) && !isDigit(
+      c
+    ) && !isIdentStart(c) && !isOperator(c)
 
   def hexValue(): int = Hex.fromChar(current())
 
@@ -68,14 +74,27 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     val token = scanSimpleToken()
     val trailing = scanTrivia(false)
 
-    new SyntaxToken(sourceFile, token.kind, token.start, token.text, token.value, leading, trailing)
+    new SyntaxToken(
+      sourceFile,
+      token.kind,
+      token.start,
+      token.text,
+      token.value,
+      leading,
+      trailing
+    )
   }
 
   def scanSimpleToken(): SimpleToken = {
     val curr = current()
     val look = lookahead()
     if (curr == '\u0000') {
-      new SimpleToken(SyntaxKind.EndOfInputToken, _position, "", SyntaxTokenValue.None)
+      new SimpleToken(
+        SyntaxKind.EndOfInputToken,
+        _position,
+        "",
+        SyntaxTokenValue.None
+      )
     } else if (curr == '.') {
       scanSimpleOne(SyntaxKind.DotToken)
     } else if (curr == '(') {
@@ -149,8 +168,16 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
 
   def scanInvalidToken(): SimpleToken = {
     val curr = current()
-    diagnostics.reportBadCharacter(new TextLocation(sourceFile, new TextSpan(_position, 1)), curr)
-    val token = new SimpleToken(SyntaxKind.InvalidTokenTrivia, _position, string(curr), SyntaxTokenValue.Error)
+    diagnostics.reportBadCharacter(
+      new TextLocation(sourceFile, new TextSpan(_position, 1)),
+      curr
+    )
+    val token = new SimpleToken(
+      SyntaxKind.InvalidTokenTrivia,
+      _position,
+      string(curr),
+      SyntaxTokenValue.Error
+    )
     next()
     token
   }
@@ -201,7 +228,10 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       val hvalue = hexValue()
       if (hvalue == -1) {
         // TODO: could throw if we are at EOF
-        diagnostics.reportInvalidEscapeSequence(new TextLocation(sourceFile, new TextSpan(start, _position)), current())
+        diagnostics.reportInvalidEscapeSequence(
+          new TextLocation(sourceFile, new TextSpan(start, _position)),
+          current()
+        )
         MakeResult.fail
       } else {
         next() // consume the hex digit
@@ -209,7 +239,11 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
         // scan_utf_escape_sequence(digits - 1, start, value + (hexValue << (4 * (digits - 1))))
         // TODO: support exponents
         // scan_utf_escape_sequence(digits - 1, start, value + hexValue * (2 ^ 4 * (digits - 1)))
-        _scanUtfEscapeSequence(digits - 1, start, value + hvalue * Math.pow(2, 4 * (digits - 1)))
+        _scanUtfEscapeSequence(
+          digits - 1,
+          start,
+          value + hvalue * Math.pow(2, 4 * (digits - 1))
+        )
       }
     } else {
       MakeResult.success(string(char(value)))
@@ -236,7 +270,9 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       }
       _scanString(start, newValue)
     } else if (curr == '\r' || curr == '\n' || curr == '\u0000') {
-      diagnostics.reportUnterminatedString(new TextLocation(sourceFile, new TextSpan(start, 1)))
+      diagnostics.reportUnterminatedString(
+        new TextLocation(sourceFile, new TextSpan(start, 1))
+      )
       makeStringToken(start, value)
     } else {
       val newValue = value + string(curr)
@@ -245,11 +281,17 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     }
   }
 
-  def makeSpan(start: int): string = sourceFile.substring(start, _position - start)
+  def makeSpan(start: int): string =
+    sourceFile.substring(start, _position - start)
 
   def makeStringToken(start: int, value: string): SimpleToken = {
     val span = makeSpan(start)
-    new SimpleToken(SyntaxKind.StringToken, start, span, SyntaxTokenValue.String(value))
+    new SimpleToken(
+      SyntaxKind.StringToken,
+      start,
+      span,
+      SyntaxTokenValue.String(value)
+    )
   }
 
   def scanChar(): SimpleToken = {
@@ -258,10 +300,14 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
 
     val curr = current()
     val value = if (curr == '\r' || curr == '\n' || curr == '\u0000') {
-      diagnostics.reportUnterminatedChar(new TextLocation(sourceFile, new TextSpan(start, 1)))
+      diagnostics.reportUnterminatedChar(
+        new TextLocation(sourceFile, new TextSpan(start, 1))
+      )
       SyntaxTokenValue.Error
     } else if (curr == '\'') {
-      diagnostics.reportEmptyCharLiteral(new TextLocation(sourceFile, new TextSpan(start, 2)))
+      diagnostics.reportEmptyCharLiteral(
+        new TextLocation(sourceFile, new TextSpan(start, 2))
+      )
       SyntaxTokenValue.Error
     } else if (curr == '\\') {
       val result = scanEscapeSequence()
@@ -275,7 +321,9 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     if (current() == '\'') {
       next() // close '
     } else {
-      diagnostics.reportUnterminatedChar(new TextLocation(sourceFile, new TextSpan(start, 1)))
+      diagnostics.reportUnterminatedChar(
+        new TextLocation(sourceFile, new TextSpan(start, 1))
+      )
     }
 
     val span = makeSpan(start)
@@ -293,7 +341,12 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     }
     val span = makeSpan(start)
 
-    new SimpleToken(SyntaxKind.NumberToken, start, span, SyntaxTokenValue.Number(value))
+    new SimpleToken(
+      SyntaxKind.NumberToken,
+      start,
+      span,
+      SyntaxTokenValue.Number(value)
+    )
   }
 
   def scanSimpleOne(kind: int): SimpleToken = {
@@ -330,7 +383,12 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       next()
     }
     val span = makeSpan(start)
-    new SimpleToken(SyntaxKind.IdentifierToken, start, span, SyntaxTokenValue.None)
+    new SimpleToken(
+      SyntaxKind.IdentifierToken,
+      start,
+      span,
+      SyntaxTokenValue.None
+    )
   }
 
   def scanAnnotation(): SimpleToken = {
@@ -340,7 +398,12 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       next()
     }
     val span = makeSpan(start)
-    new SimpleToken(SyntaxKind.AnnotationToken, start, span, SyntaxTokenValue.None)
+    new SimpleToken(
+      SyntaxKind.AnnotationToken,
+      start,
+      span,
+      SyntaxTokenValue.None
+    )
   }
 
   def scanTrivia(leading: bool): Array[SyntaxTrivia] = {
@@ -348,7 +411,10 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     _scanTrivia(leading, trivia)
   }
 
-  def _scanTrivia(leading: bool, trivia: SyntaxTriviaList): Array[SyntaxTrivia] = {
+  def _scanTrivia(
+      leading: bool,
+      trivia: SyntaxTriviaList
+  ): Array[SyntaxTrivia] = {
     if (current() == '\u0000') {
       trivia.toArray()
     } else if (isNewLine(current())) {
@@ -409,7 +475,9 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     val look = lookahead()
 
     if (curr == '\u0000') {
-      diagnostics.reportUnterminatedBlockComment(new TextLocation(sourceFile, new TextSpan(start, _position - start)))
+      diagnostics.reportUnterminatedBlockComment(
+        new TextLocation(sourceFile, new TextSpan(start, _position - start))
+      )
       makeBlockComment(start)
     } else if (curr == '*' && look == '/') {
       next()

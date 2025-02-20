@@ -23,12 +23,20 @@ case class MethodTable() {
 
   def get(method: MethodToken): MethodMetadata = methods(method.token)
 
-  def addMethod(name: StringToken, flags: int, methodSig: int, paramList: int, locals: int, address: int): MethodToken = {
+  def addMethod(
+      name: StringToken,
+      flags: int,
+      methodSig: int,
+      paramList: int,
+      locals: int,
+      address: int
+  ): MethodToken = {
     // ensure methods capacity
     ensureCapacity(size + 1)
 
     // add MethodMetadata to methods
-    methods(size) = MethodMetadata(name, flags, methodSig, paramList, locals, address)
+    methods(size) =
+      MethodMetadata(name, flags, methodSig, paramList, locals, address)
     size = size + 1
     MethodToken(size - 1)
   }
@@ -62,7 +70,8 @@ case class MethodTable() {
       val locals = buffer.read(recordOffset + 4)
       val address = buffer.read(recordOffset + 5)
 
-      methods(i) = MethodMetadata(name, flags, methodSig, paramList, locals, address)
+      methods(i) =
+        MethodMetadata(name, flags, methodSig, paramList, locals, address)
     }
 
     // return offset after reading the table

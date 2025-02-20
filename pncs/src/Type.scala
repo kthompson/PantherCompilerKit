@@ -15,13 +15,15 @@ enum Type {
   /** A named type can have zero or more type arguments.
    *  E.g. `List[Int]` -> Named("panther", "List", Types.Cons(Named("", "Int"), Types.Empty))
    */
-  case Named(location: TextLocation, ns: List[string], name: string, args: List[Type])
+  case Class(location: TextLocation, ns: List[string], name: string, args: List[Type])
+
+  case GenericClass(location: TextLocation, ns: List[string], name: string, args: List[GenericTypeParameter])
 
   /**
-   * A generic type is a type that has type parameters.
+   * A generic function is a type that has type parameters. this gets converted to a regular function
    */
-  case GenericType(location: TextLocation, generics: List[GenericTypeParameter], traits: List[Type], uninstantiatedType: Type)
-  
+  case GenericFunction(location: TextLocation, generics: List[GenericTypeParameter], traits: List[Type], parameters: List[BoundParameter], returnType: Type)
+
   /** A function type takes a list of parameters and a return type.
    *  E.g. `(x: Int, y: Int) => Int`
    */
@@ -48,9 +50,10 @@ enum Type {
 
   def getLocation(): Option[TextLocation] = {
     this match {
-      case Named(location, _, _, _) => Option.Some(location)
+      case Class(location, _, _, _) => Option.Some(location)
       case Function(location, _, _) => Option.Some(location)
-      case GenericType(location, _, _, _) => Option.Some(location)
+      case GenericClass(location, _, _, _) => Option.Some(location)
+      case GenericFunction(location, _, _, _, _) => Option.Some(location)
       case Variable(location, _) => Option.Some(location)
       case Any => Option.None
       case Never => Option.None
@@ -81,7 +84,7 @@ enum Type {
       case List.Cons(head, tail) => _name(tail, if (head == "") name else head + "." + name)
     }
   }
-  
+
   def _genArgs(str: string, items: List[GenericTypeParameter]): string = {
     items match {
       case List.Nil => str
@@ -108,16 +111,20 @@ enum Type {
       case Type.Function(_, parameters, returnType) =>
         val paramStr = _params("", parameters)
         "(" + paramStr + ") -> " + returnType.toString
-      case Type.Named(_, ns, name, args) =>
+      case Type.Class(_, ns, name, args) =>
         val argStr = _args("", args)
-        val tail = if (argStr.isEmpty) "" else "[" + argStr + "]"
+        val tail = if (argStr.isEmpty) "" else "<" + argStr + ">"
         _name(ns, name) + tail
-      case Type.GenericType(_, generics, traits, uninstantiatedType) =>
-        if(generics.isEmpty) {
-          uninstantiatedType.toString()
-        } else {
-          "<" + _genArgs("", generics) + ">" + uninstantiatedType.toString()
-        }
+
+      case Type.GenericClass(_, ns, name, generics) =>
+        val argStr = _genArgs("", generics)
+        val tail = if (argStr.isEmpty) "" else "<" + argStr + ">"
+        _name(ns, name) + tail
+        
+      case Type.GenericFunction(_, generics, traits, parameters, returnType) =>
+          val paramStr = _params("", parameters)
+          "<" + _genArgs("", generics) + ">" + "(" + paramStr + ") -> " + returnType.toString
+
 //      case Type.Generic(_, name, variance, upperBound) =>
 //        val varianceStr = variance match {
 //          case Variance.Invariant =>

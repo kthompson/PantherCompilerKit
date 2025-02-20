@@ -39,5 +39,4 @@ case class SignatureBuilder() {
 
   def writeAny() = write(12)
 
-
 }

@@ -21,7 +21,13 @@ case class TypeDefTable() {
     } else ()
   }
 
-  def addTypeDef(name: StringToken, ns: StringToken, flags: int, fieldList: int, methodList: MethodToken): int = {
+  def addTypeDef(
+      name: StringToken,
+      ns: StringToken,
+      flags: int,
+      fieldList: int,
+      methodList: MethodToken
+  ): int = {
     // ensure typeDefs capacity
     ensureCapacity(size + 1)
 

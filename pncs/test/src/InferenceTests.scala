@@ -6,10 +6,10 @@ object InferenceTests extends TestSuite {
   val tests = Tests {
 
     val empty = TextLocationFactory.empty()
-    val intType = Type.Named(empty, List.Nil, "int", List.Nil)
-    val boolType = Type.Named(empty, List.Nil, "bool", List.Nil)
+    val intType = Type.Class(empty, List.Nil, "int", List.Nil)
+    val boolType = Type.Class(empty, List.Nil, "bool", List.Nil)
 
-    def named(name: string): Type = Type.Named(empty, List.Nil, name, List.Nil)
+    def named(name: string): Type = Type.Class(empty, List.Nil, name, List.Nil)
 
     def genericArg(name: string): GenericTypeParameter = GenericTypeParameter(
       empty,
@@ -28,12 +28,17 @@ object InferenceTests extends TestSuite {
           genericArgs(tail, List.Cons(genericArg(name), args))
       }
 
-    def generic(args: List[GenericTypeParameter], typ: Type): Type =
-      Type.GenericType(
+    def genericFn(
+        args: List[GenericTypeParameter],
+        parameters: List[BoundParameter],
+        returnType: Type
+    ): Type =
+      Type.GenericFunction(
         empty,
         args,
         List.Nil,
-        typ
+        parameters,
+        returnType
       )
 
     def param(name: string, typ: Type): BoundParameter =
@@ -45,9 +50,10 @@ object InferenceTests extends TestSuite {
       test("inferFunction") {
         test("<A>(a: A) => int") {
           val g = named("A")
-          val f = generic(
+          val f = genericFn(
             genericArgs(ListModule.one("A"), List.Nil),
-            Type.Function(empty, ListModule.one(param("a", g)), intType)
+            ListModule.one(param("a", g)),
+            intType
           )
 
           val diagnostics = new DiagnosticBag()
@@ -77,16 +83,13 @@ object InferenceTests extends TestSuite {
 
         test("<A>(a: A, b: A) => A") {
           val g = named("A")
-          val f = generic(
+          val f = genericFn(
             genericArgs(ListModule.one("A"), List.Nil),
-            Type.Function(
-              empty,
-              List.Cons(
-                param("a", g),
-                List.Cons(param("b", g), List.Nil)
-              ),
-              g
-            )
+            List.Cons(
+              param("a", g),
+              List.Cons(param("b", g), List.Nil)
+            ),
+            g
           )
 
           val diagnostics = new DiagnosticBag()

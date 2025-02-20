@@ -46,16 +46,24 @@ case class Metadata() {
     ParamToken(lastParam)
   }
 
-  def addMethod(name: string, flags: int, sigId: int, locals: int, address: int): MethodToken = {
+  def addMethod(
+      name: string,
+      flags: int,
+      sigId: int,
+      locals: int,
+      address: int
+  ): MethodToken = {
     val nameId = strings.addBlob(name)
-    lastMethod = methods.addMethod(nameId, flags, sigId, lastParam, locals, address)
+    lastMethod =
+      methods.addMethod(nameId, flags, sigId, lastParam, locals, address)
     lastMethod
   }
 
   def addTypeDef(name: string, ns: string, flags: int): TypeDefToken = {
     val nameId = strings.addBlob(name)
     val namespaceId = strings.addBlob(ns)
-    val typeDef = typeDefs.addTypeDef(nameId, namespaceId, flags, lastField, lastMethod)
+    val typeDef =
+      typeDefs.addTypeDef(nameId, namespaceId, flags, lastField, lastMethod)
     TypeDefToken(typeDef)
   }
 

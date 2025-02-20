@@ -71,14 +71,14 @@ class Binder(
 
   val noLoc = TextLocationFactory.empty()
 
-  val anyType = new Type.Named(noLoc, List.Nil, "any", List.Nil)
-  val stringType = new Type.Named(noLoc, List.Nil, "string", List.Nil)
-  val intType = new Type.Named(noLoc, List.Nil, "int", List.Nil)
-  val charType = new Type.Named(noLoc, List.Nil, "char", List.Nil)
-  val boolType = new Type.Named(noLoc, List.Nil, "bool", List.Nil)
-  val unitType = new Type.Named(noLoc, List.Nil, "unit", List.Nil)
-  val neverType = new Type.Named(noLoc, List.Nil, "never", List.Nil)
-  val noneType = new Type.Named(noLoc, List.Nil, "Option", List.Cons(Type.Never, List.Nil))
+  val anyType = new Type.Class(noLoc, List.Nil, "any", List.Nil)
+  val stringType = new Type.Class(noLoc, List.Nil, "string", List.Nil)
+  val intType = new Type.Class(noLoc, List.Nil, "int", List.Nil)
+  val charType = new Type.Class(noLoc, List.Nil, "char", List.Nil)
+  val boolType = new Type.Class(noLoc, List.Nil, "bool", List.Nil)
+  val unitType = new Type.Class(noLoc, List.Nil, "unit", List.Nil)
+  val neverType = new Type.Class(noLoc, List.Nil, "never", List.Nil)
+  val noneType = new Type.Class(noLoc, List.Nil, "Option", List.Cons(Type.Never, List.Nil))
 
   val pantherNamespace = rootSymbol // TODO: move these to the panther namespace .enter("panther")
 
@@ -127,24 +127,8 @@ class Binder(
 
   setSymbolType(
     arraySymbol,
-    Type.Named(noLoc, List.Nil, "Array",
-      List.Cons(
-        setSymbolType(
-          arraySymbol.defineTypeParameter(
-            "T",
-            TextLocationFactory.empty(),
-            Variance.Invariant
-          ),
-          Type.GenericType(
-            noLoc,
-            ListModule.one(GenericTypeParameter(noLoc, "T", Variance.Invariant, None)),
-            List.Nil,
-            Type.Named(noLoc, List.Nil, "T", List.Nil)
-          ),
-          None
-        ),
-        List.Nil
-      )
+    Type.GenericClass(noLoc, List.Nil, "Array",
+      ListModule.one(GenericTypeParameter(noLoc, "T", Variance.Invariant, None))
     ),
     Some(anySymbol)
   )
@@ -325,11 +309,12 @@ class Binder(
             val typ = if(typParams.isEmpty) {
               Type.Function(symbol.location, params, unitType)
             } else {
-              Type.GenericType(
+              Type.GenericFunction(
                 symbol.location,
                 typParams,
                 List.Nil,
-                Type.Function(symbol.location, params, unitType)
+                params,
+                unitType
               )
             }
             setSymbolType(ctorSymbol, typ, None)
@@ -403,11 +388,12 @@ class Binder(
             val typ = if (args.isEmpty) {
               Type.Function(symbol.location, parameters, ret)
             } else {
-              Type.GenericType(
+              Type.GenericFunction(
                 symbol.location,
                 args,
                 List.Nil,
-                Type.Function(symbol.location, parameters, ret)
+                parameters,
+                ret
               )
             }
             setSymbolType(symbol, typ, None)
@@ -416,11 +402,12 @@ class Binder(
         val typ = if (args.isEmpty) {
           Type.Function(symbol.location, parameters, value)
         } else {
-          Type.GenericType(
+          Type.GenericFunction(
             symbol.location,
             args,
             List.Nil,
-            Type.Function(symbol.location, parameters, value)
+            parameters,
+            value
           )
         }
         setSymbolType(symbol, typ, None)
@@ -429,7 +416,7 @@ class Binder(
 
   def getTypeSymbol(typ: Type): Option[Symbol] = {
     typ match {
-      case Type.Named(_, ns, name, _) =>
+      case Type.Class(_, ns, name, _) =>
         // todo: handle type args being returned
         rootSymbol.findSymbol(ns, name)
       case _ => Option.None
@@ -620,11 +607,12 @@ class Binder(
             val typ = if (genTypeParams.isEmpty) {
               Type.Function(symbol.location, parameters, returnType)
             } else {
-              Type.GenericType(
+              Type.GenericFunction(
                 symbol.location,
                 genTypeParams,
                 List.Nil,
-                Type.Function(symbol.location, parameters, returnType)
+                parameters,
+                returnType
               )
             }
             setSymbolType(symbol, typ, None)
@@ -723,7 +711,7 @@ class Binder(
             // TODO: need to add diagnostic for verifying that there are the correct
             //  number of type arguments on `symbol`
             val typeArguments = bindTypeArgumentList(typeArgumentlist.arguments, scope)
-            new Type.Named(symbol.location, symbol.ns(), symbol.name, typeArguments)
+            new Type.Class(symbol.location, symbol.ns(), symbol.name, typeArguments)
         }
       case SimpleNameSyntax.IdentifierNameSyntax(identifier) =>
         if (top && identifier.text == "any") {
@@ -736,7 +724,7 @@ class Binder(
               diagnosticBag.reportTypeNotDefined(identifier.location, identifier.text)
               Type.Error
             case Option.Some(value) =>
-              new Type.Named(value.location, value.ns(), value.name, List.Nil)
+              new Type.Class(value.location, value.ns(), value.name, List.Nil)
           }
         }
       case SimpleNameSyntax.ScalaAliasSyntax(open, name, arrow, alias, close) =>
@@ -844,7 +832,7 @@ class Binder(
             bindGenericTypeParameters(value.parameters.items, enumScope)
         }
 
-        val typ = Type.Named(symbol.location, symbol.ns(), symbol.name, List.Nil)
+        val typ = Type.Class(symbol.location, symbol.ns(), symbol.name, List.Nil)
         setSymbolType(symbol, typ, None)
 
         val cases = ListModule.fromArray(head.value.cases)
@@ -875,15 +863,13 @@ class Binder(
           case Either.Right(caseSymbol) =>
             val parent = scope.current
             val typ = if(genericTypeParameters.isEmpty || enumCase.parameters.isEmpty()) {
-              new Type.Named(caseSymbol.location, caseSymbol.ns(), caseSymbol.name, List.Nil)
+              new Type.Class(caseSymbol.location, caseSymbol.ns(), caseSymbol.name, List.Nil)
             } else {
-                val genArgs = genericTypeParametersAsTypeArguments(genericTypeParameters)
-                Type.GenericType(
-                    caseSymbol.location,
-                    genericTypeParameters,
-                    List.Nil,
-                    Type.Named(caseSymbol.location, caseSymbol.ns(), caseSymbol.name, genArgs)
-                )
+              Type.GenericClass(
+                caseSymbol.location,
+                caseSymbol.ns(), caseSymbol.name,
+                genericTypeParameters
+              )
             }
             setSymbolType(caseSymbol, typ, Some(parent))
             enumCase.parameters match {
@@ -929,20 +915,17 @@ class Binder(
         // bind generic type parameters
         head.value.genericParameters match {
           case Option.None =>
-            setSymbolType(symbol, new Type.Named(symbol.location, symbol.ns(), symbol.name, List.Nil), None)
+            setSymbolType(symbol, new Type.Class(symbol.location, symbol.ns(), symbol.name, List.Nil), None)
 
             ctorsToBind = ctorsToBind.put(symbol, ConstructorParams(List.Nil, head.value.parameters))
           case Option.Some(value) =>
             val args = bindGenericTypeParameters(value.parameters.items, scope.enterSymbol(symbol))
             val typ = if (args.isEmpty) {
-              Type.Named(symbol.location, symbol.ns(), symbol.name, List.Nil)
+              Type.Class(symbol.location, symbol.ns(), symbol.name, List.Nil)
             } else {
-              val genArgs = genericTypeParametersAsTypeArguments(args)
-              Type.GenericType(
-                symbol.location,
-                args,
-                List.Nil,
-                Type.Named(symbol.location, symbol.ns(), symbol.name, genArgs)
+              Type.GenericClass(
+                symbol.location, symbol.ns(), symbol.name,
+                args
               )
             }
             setSymbolType(symbol, typ, None)
@@ -965,21 +948,8 @@ class Binder(
     }
   }
 
-  def genericTypeParametersAsTypeArguments(
-                                            genericTypeParameters: List[GenericTypeParameter]
-                                          ): List[Type] = {
-    genericTypeParameters match {
-      case List.Nil => List.Nil
-      case List.Cons(head, tail) =>
-        List.Cons(
-          genericTypeParamAsType(head),
-          genericTypeParametersAsTypeArguments(tail)
-        )
-    }
-  }
-
   def genericTypeParamAsType(head: GenericTypeParameter): Type =
-    Type.Named(head.location, List.Nil, head.name, List.Nil)
+    Type.Class(head.location, List.Nil, head.name, List.Nil)
 
   def bindGenericTypeParameters(value: List[GenericParameterSyntax], scope: Scope): List[GenericTypeParameter] = {
     value match {
@@ -1052,7 +1022,7 @@ class Binder(
           members.enums,
           scope.enterSymbol(symbol)
         )
-        setSymbolType(symbol, new Type.Named(symbol.location, symbol.ns(), symbol.name, List.Nil), None)
+        setSymbolType(symbol, new Type.Class(symbol.location, symbol.ns(), symbol.name, List.Nil), None)
         addMembersToBind(symbol, members.functions, members.fields, List.Nil)
         addStatementsToBind(symbol, members.globalStatements)
     }

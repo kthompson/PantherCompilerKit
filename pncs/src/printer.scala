@@ -579,28 +579,24 @@ object AstPrinter {
     typ match {
       case Type.Function(_, parameters, returnType) =>
         printColor(ColorPalette.Punctuation)
-//        if (genParams.length > 0) {
-//          print("<")
-//          _printTypes(genParams, true)
-//          printColor(ColorPalette.Punctuation)
-//          print(">")
-//        }
         print("(")
         _printTypedParameters(false, parameters)
         printColor(ColorPalette.Punctuation)
         print(") -> ")
         _printType(returnType, false)
-      case Type.GenericType(_, genParams, traits, uninstantiatedType) =>
-        if (genParams.length > 0) {
-          printColor(ColorPalette.Punctuation)
-          print("<")
-          _printGenTypes(genParams, true)
-          printColor(ColorPalette.Punctuation)
-          print(">")
-        }
-        _printType(uninstantiatedType, false)
-        
-      case Type.Named(_, ns, name, args) =>
+      case Type.GenericFunction(_, genParams, traits, parameters, returnType) =>
+        printColor(ColorPalette.Punctuation)
+        print("<")
+        _printGenTypes(genParams, true)
+        printColor(ColorPalette.Punctuation)
+        print(">")
+        print("(")
+        _printTypedParameters(false, parameters)
+        printColor(ColorPalette.Punctuation)
+        print(") -> ")
+        _printType(returnType, false)
+
+      case Type.Class(_, ns, name, args) =>
         val color =
           if (ns.isEmpty && SyntaxFacts.isBuiltinType(name))
             ColorPalette.Keyword
@@ -616,26 +612,23 @@ object AstPrinter {
             _printTypes(args, true)
             print(">")
         }
-//      case Type.Generic(_, name, variance, upperBound) =>
-//        variance match {
-//          case Variance.Covariant =>
-//            printColor(ColorPalette.Keyword)
-//            print("out ")
-//          case Variance.Contravariant =>
-//            printColor(ColorPalette.Keyword)
-//            print("in ")
-//          case _ =>
-//        }
-//
-//        printColor(ColorPalette.Identifier)
-//        upperBound match {
-//          case Option.Some(value) =>
-//            print(name)
-//            printColor(ColorPalette.Punctuation)
-//            print(": ")
-//            _printType(value, false)
-//          case Option.None => print(name)
-//        }
+
+      case Type.GenericClass(_, ns, name, args) =>
+        val color =
+          if (ns.isEmpty && SyntaxFacts.isBuiltinType(name))
+            ColorPalette.Keyword
+          else ColorPalette.Identifier
+
+        printColor(color)
+        print(typ._name(ns, name))
+
+        args match {
+          case List.Nil =>
+          case List.Cons(typ, tail) =>
+            print("<")
+            _printGenTypes(args, true)
+            print(">")
+        }
       case Type.Variable(_, i) =>
         printColor(ColorPalette.Keyword)
         print("$" + i)
@@ -652,7 +645,7 @@ object AstPrinter {
 
     if (clear) printClear() else ()
   }
-  
+
   def _printGenTypes(types: List[GenericTypeParameter], first: bool): unit = {
     types match {
       case List.Nil => printClear()
@@ -661,7 +654,7 @@ object AstPrinter {
           printColor(ColorPalette.Punctuation)
           print(", ")
         }
-        
+
         typ.variance match {
           case Variance.Covariant =>
             printColor(ColorPalette.Keyword)
@@ -671,7 +664,7 @@ object AstPrinter {
             print("in ")
           case _ =>
         }
-        
+
         printColor(ColorPalette.Identifier)
         print(typ.name)
         typ.upperBound match {
@@ -681,7 +674,7 @@ object AstPrinter {
             _printType(value, false)
           case Option.None =>
         }
-        
+
         _printGenTypes(tail, false)
     }
   }

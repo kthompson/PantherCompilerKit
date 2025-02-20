@@ -22,7 +22,7 @@ object MakeCompilation {
     // creation of the Binder will initialize all of the builtin symbols and their types into the
     // root symbol table
     val binder = new Binder(trees, rootSymbol, diagnosticBag)
-    
+
     val boundTree = binder.bind()
 
     new Compilation(trees, rootSymbol, binder, diagnosticBag.diagnostics)
@@ -30,10 +30,10 @@ object MakeCompilation {
 }
 
 case class Compilation(
-                        syntaxTrees: List[SyntaxTree],
-                        root: Symbol,
-                        binder: Binder,
-                        diagnostics: Diagnostics
+    syntaxTrees: List[SyntaxTree],
+    root: Symbol,
+    binder: Binder,
+    diagnostics: Diagnostics
 ) {
   def printSymbols(): unit = SymbolTreePrinter(binder).printSymbol(root)
 

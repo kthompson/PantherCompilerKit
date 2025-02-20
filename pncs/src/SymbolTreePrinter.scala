@@ -27,7 +27,9 @@ case class SymbolTreePrinter(binder: Binder) {
     AstPrinter.printSymbolKind(kind)
     print(" ")
 
-    if (symbol.kind == SymbolKind.Class || symbol.kind == SymbolKind.Object || symbol.kind == SymbolKind.Enum) {
+    if (
+      symbol.kind == SymbolKind.Class || symbol.kind == SymbolKind.Object || symbol.kind == SymbolKind.Enum
+    ) {
       val typ = binder.getSymbolType(symbol)
       typ match {
         case Option.Some(value) =>

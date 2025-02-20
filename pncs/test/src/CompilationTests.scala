@@ -14,7 +14,7 @@ object CompilationTests extends TestSuite {
 //      test("create") {
 //        val compilation = makeCompilation(
 //          "def test<T>(a: T): T = a\n" +
-//            "val x = test(10)"
+//            "val x = test<int>(10)"
 //        )
 //        compilation.printSymbols()
 //        assert(compilation.diagnostics.count() == 0)

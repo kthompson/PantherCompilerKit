@@ -1,7 +1,10 @@
 import panther._
 import system.io._
 
-case class Emitter(syntaxTrees: List[SyntaxTree], root: Symbol, /*checker: Checker,*/ outputFile: string) {
+case class Emitter(
+    syntaxTrees: List[SyntaxTree],
+    root: Symbol, /*checker: Checker,*/ outputFile: string
+) {
 
   var indent = ""
   var symbolPrefix = ""
@@ -17,7 +20,9 @@ case class Emitter(syntaxTrees: List[SyntaxTree], root: Symbol, /*checker: Check
   def queueSymbolSignature(symbol: Symbol): unit = {
     // ensure symbolsToProcessSignatures is large enough
     if (symbolsToProcessSignaturesCount == symbolsToProcessSignatures.length) {
-      val newLength = if (symbolsToProcessSignatures.length == 0) 4 else symbolsToProcessSignatures.length * 2
+      val newLength =
+        if (symbolsToProcessSignatures.length == 0) 4
+        else symbolsToProcessSignatures.length * 2
       val newArray = new Array[Symbol](newLength)
       for (i <- 0 to (symbolsToProcessSignatures.length - 1)) {
         newArray(i) = symbolsToProcessSignatures(i)
@@ -176,7 +181,10 @@ case class Emitter(syntaxTrees: List[SyntaxTree], root: Symbol, /*checker: Check
 //    }
 //  }
 
-  private def emitPrimitiveTypeSignature(name: string, sig: SignatureBuilder):unit = {
+  private def emitPrimitiveTypeSignature(
+      name: string,
+      sig: SignatureBuilder
+  ): unit = {
     if (name == "int") {
       sig.writeInt()
     } else if (name == "bool") {

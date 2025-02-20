@@ -1,8 +1,9 @@
 import mill._
 import os.RelPath
 import scalalib._
+import scalafmt._
 
-trait PantherCompilerKitModule extends ScalaModule {
+trait PantherCompilerKitModule extends ScalaModule with ScalafmtModule {
   def scalaVersion = "3.3.3"
 
   object test extends ScalaTests {
