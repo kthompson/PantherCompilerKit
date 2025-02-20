@@ -62,97 +62,11 @@ object ParserTests extends TestSuite {
 
       test("expressions") {
 
-        test("binary") {
-          val expr = mkSyntaxTreeExpr("1 + 2")
-          expr match {
-            case Expression.BinaryExpression(left, op, right) =>
-              assert(numberExpr(left) == 1)
-              assert(tokenKind(op) == SyntaxKind.PlusToken)
-              assert(numberExpr(right) == 2)
-
-            case _ => assert(false)
-          }
-
-        }
-
-        test("unary") {
-          val expr = mkSyntaxTreeExpr("-1")
-          expr match {
-            case Expression.UnaryExpression(op, operand) =>
-              assert(tokenKind(op) == SyntaxKind.DashToken)
-              assert(numberExpr(operand) == 1)
-
-            case _ => assert(false)
-          }
-        }
-
-        test("parenthesized") {
-          val expr = mkSyntaxTreeExpr("(1)")
-          expr match {
-            case Expression.GroupExpression(open, expression, close) =>
-              assert(tokenKind(open) == SyntaxKind.OpenParenToken)
-              assert(numberExpr(expression) == 1)
-              assert(tokenKind(close) == SyntaxKind.CloseParenToken)
-
-            case _ => assert(false)
-          }
-        }
-
-        test("precedence") {
-          val expr = mkSyntaxTreeExpr("1 + 2 * 3")
-          expr match {
-            case Expression.BinaryExpression(left, op, right) =>
-              assert(numberExpr(left) == 1)
-              assert(tokenKind(op) == SyntaxKind.PlusToken)
-
-              right match {
-                case Expression.BinaryExpression(left, op, right) =>
-                  assert(numberExpr(left) == 2)
-                  assert(tokenKind(op) == SyntaxKind.StarToken)
-                  assert(numberExpr(right) == 3)
-
-                case _ => assert(false)
-              }
-
-            case _ => assert(false)
-          }
-        }
-
-        test("associativity") {
-          val expr = mkSyntaxTreeExpr("1 - 2 - 3")
-          expr match {
-            case Expression.BinaryExpression(left, op, right) =>
-              left match {
-                case Expression.BinaryExpression(left, op, right) =>
-                  assert(numberExpr(left) == 1)
-                  assert(tokenKind(op) == SyntaxKind.DashToken)
-                  assert(numberExpr(right) == 2)
-                case _ => assert(false)
-              }
-              assert(tokenKind(op) == SyntaxKind.DashToken)
-              assert(numberExpr(right) == 3)
-
-            case _ => assert(false)
-          }
-        }
-
-        test("assignment") {
-          val expr = mkSyntaxTreeExpr("a = 1")
-          expr match {
-            case Expression.AssignmentExpression(left, op, right) =>
-              assert(tokenKind(op) == SyntaxKind.EqualsToken)
-              assert(identifierExpr(left) == "a")
-              assert(numberExpr(right) == 1)
-
-            case _ => assert(false)
-          }
-        }
-
         test("function call") {
           test("with multiple arguments") {
             val expr = mkSyntaxTreeExpr("f(1, 2)")
             expr match {
-              case Expression.CallExpression(name, open, args, close) =>
+              case Expression.CallExpression(name, _, open, args, close) =>
                 assert(identifierExpr(name) == "f")
                 assert(tokenKind(open) == SyntaxKind.OpenParenToken)
                 assert(args.expressions.length == 2)
@@ -171,7 +85,7 @@ object ParserTests extends TestSuite {
           test("with no arguments") {
             val expr = mkSyntaxTreeExpr("f()")
             expr match {
-              case Expression.CallExpression(name, open, args, close) =>
+              case Expression.CallExpression(name, _, open, args, close) =>
                 assert(identifierExpr(name) == "f")
                 assert(tokenKind(open) == SyntaxKind.OpenParenToken)
                 assert(args.expressions.length == 0)
@@ -184,7 +98,7 @@ object ParserTests extends TestSuite {
           test("with single argument") {
             val expr = mkSyntaxTreeExpr("f(1)")
             expr match {
-              case Expression.CallExpression(name, open, args, close) =>
+              case Expression.CallExpression(name, _, open, args, close) =>
                 assert(identifierExpr(name) == "f")
                 assert(tokenKind(open) == SyntaxKind.OpenParenToken)
                 assert(args.expressions.length == 1)
@@ -196,28 +110,24 @@ object ParserTests extends TestSuite {
               case _ => assert(false)
             }
           }
-        }
 
-        test("if") {
-          val expr = mkSyntaxTreeExpr("if (true) 1 else 2")
-          expr match {
-            case Expression.If(
-                  ifKeyword,
-                  openParen,
-                  condition,
-                  closeParen,
-                  thenExpression,
-                  Option.Some(ElseSyntax(elseKeyword, elseExpression))
-                ) =>
-              assert(tokenKind(ifKeyword) == SyntaxKind.IfKeyword)
-              assert(tokenKind(openParen) == SyntaxKind.OpenParenToken)
-              assert(tokenKind(closeParen) == SyntaxKind.CloseParenToken)
-              assert(tokenKind(elseKeyword) == SyntaxKind.ElseKeyword)
-              assert(boolExpr(condition))
-              assert(numberExpr(thenExpression) == 1)
-              assert(numberExpr(elseExpression) == 2)
+          test("with generic arguments") {
+            val expr = mkSyntaxTreeExpr("f<int>(1)")
+            expr match {
+              case Expression.CallExpression(name, _, open, args, close) =>
+                assert(identifierExpr(name) == "f")
+                assert(tokenKind(open) == SyntaxKind.OpenParenToken)
+                assert(args.expressions.length == 2)
+                assert(
+                  numberExpr(args.expressions.getUnsafe(0).expression) == 1
+                )
+                assert(
+                  numberExpr(args.expressions.getUnsafe(1).expression) == 2
+                )
+                assert(tokenKind(close) == SyntaxKind.CloseParenToken)
 
-            case _ => assert(false)
+              case _ => assert(false)
+            }
           }
         }
 
@@ -236,26 +146,6 @@ object ParserTests extends TestSuite {
               assert(tokenKind(closeParen) == SyntaxKind.CloseParenToken)
               assert(boolExpr(condition))
               assert(numberExpr(body) == 1)
-
-            case _ => assert(false)
-          }
-        }
-
-        test("block") {
-          val expr = mkSyntaxTreeExpr("{ 1 }")
-          expr match {
-            case Expression.BlockExpression(
-                  open,
-                  BlockExpressionListSyntax(
-                    statements,
-                    Option.Some(expression)
-                  ),
-                  close
-                ) =>
-              assert(tokenKind(open) == SyntaxKind.OpenBraceToken)
-              assert(statements.length == 0)
-              assert(numberExpr(expression) == 1)
-              assert(tokenKind(close) == SyntaxKind.CloseBraceToken)
 
             case _ => assert(false)
           }

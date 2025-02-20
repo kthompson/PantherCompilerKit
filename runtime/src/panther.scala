@@ -19,7 +19,9 @@ object system {
 
       def readAllText(file: string): string = {
         val source = scala.io.Source.fromFile(file)
-        val lines = try source.mkString finally source.close()
+        val lines =
+          try source.mkString
+          finally source.close()
         lines
       }
 
@@ -71,14 +73,14 @@ object panther {
   def string(any: Any): string = any.toString
   def char(any: Any): char = any match {
     case c: char => c
-    case i: int => i.toChar
-    case _ => throw new Exception("not a char")
+    case i: int  => i.toChar
+    case _       => throw new Exception("not a char")
   }
   def int(any: Any): int = any match {
-    case i: int => i
-    case c: char => c.toInt
+    case i: int    => i
+    case c: char   => c.toInt
     case s: string => s.toInt
-    case _ => throw new Exception("not an int")
+    case _         => throw new Exception("not an int")
   }
 
   def panic(message: string): never = throw new Exception(message)
@@ -87,9 +89,9 @@ object panther {
     if (!condition) panic(message) else ()
   }
   def mod(a: int, b: int): int = a % b
-  
+
   def Some[T](value: T): Option[T] = Option.Some(value)
-  
+
   val None = Option.None
   val Nil = List.Nil
 

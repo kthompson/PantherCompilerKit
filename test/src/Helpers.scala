@@ -1,0 +1,162 @@
+import panther._
+
+object Helpers {
+
+  def mkSyntaxTree(text: string): SyntaxTree =
+    MakeSyntaxTree.parseContent(text)
+
+  def mkBinaryExpr(text: string): Expression.BinaryExpression = {
+    val expression = mkSyntaxTreeExpr(text)
+    assertBinaryExpr(expression)
+  }
+
+  def mkAssignmentExpr(text: string): Expression.AssignmentExpression = {
+    val expression = mkSyntaxTreeExpr(text)
+    assertAssignmentExpr(expression)
+  }
+
+  def mkIfExpr(text: string): Expression.If = {
+    val expression = mkSyntaxTreeExpr(text)
+    assertIfExpr(expression)
+  }
+
+  def mkUnaryExpr(text: string): Expression.UnaryExpression = {
+    val expr = mkSyntaxTreeExpr(text)
+    assertUnaryExpr(expr)
+  }
+
+  def assertBinaryExpr(expression: Expression): Expression.BinaryExpression = {
+    expression match {
+      case expr: Expression.BinaryExpression => expr
+      case _ => panic("expected binary expression")
+    }
+  }
+
+  def assertAssignmentExpr(
+      expression: Expression
+  ): Expression.AssignmentExpression = {
+    expression match {
+      case expr: Expression.AssignmentExpression => expr
+      case _ => panic("expected assignment expression")
+    }
+  }
+
+  def assertIfExpr(
+      expression: Expression
+  ): Expression.If = {
+    expression match {
+      case expr: Expression.If => expr
+      case _                   => panic("expected assignment expression")
+    }
+  }
+
+  def assertGroupExpr(expr: Expression): Expression.GroupExpression = {
+    expr match {
+      case expr: Expression.GroupExpression => expr
+      case _ => panic("expected group expression")
+    }
+  }
+
+  def assertBlockExpr(expr: Expression): Expression.BlockExpression = {
+    expr match {
+      case expr: Expression.BlockExpression => expr
+      case _ => panic("expected block expression")
+    }
+  }
+
+  def assertUnaryExpr(expr: Expression): Expression.UnaryExpression = {
+    expr match {
+      case expr: Expression.UnaryExpression => expr
+      case _ => panic("expected unary expression")
+    }
+  }
+
+  def mkGroupExpr(text: string): Expression.GroupExpression = {
+    val expr = mkSyntaxTreeExpr(text)
+    assertGroupExpr(expr)
+  }
+
+  def mkSyntaxTreeExpr(text: string): Expression = {
+    mkSyntaxTreeStatement(text) match {
+      case StatementSyntax.ExpressionStatement(expr) => expr
+      case _ => panic("Expected expression")
+    }
+  }
+
+  def mkBlockExpr(text: string): Expression.BlockExpression = {
+    val expr = mkSyntaxTreeExpr(text)
+    assertBlockExpr(expr)
+  }
+
+  def mkSyntaxTreeStatement(text: string): StatementSyntax = {
+    mkSyntaxTreeMember(text) match {
+      case MemberSyntax.GlobalStatementSyntax(statement) => statement
+      case _ => panic("Expected statement")
+    }
+  }
+
+  def mkSyntaxTreeMember(text: string): MemberSyntax = {
+    val tree = mkSyntaxTree(text)
+    Assert.single(tree.root.members)
+  }
+
+  def assertNumberExpr(expected: int, expression: Expression): unit = {
+    expression match {
+      case Expression.LiteralExpression(_, SyntaxTokenValue.Number(n)) =>
+        Assert.intEqual(expected, n)
+      case _ => panic("Expected number expression")
+    }
+  }
+
+  def assertBoolExpr(expected: bool, expression: Expression): unit = {
+    expression match {
+      case Expression.LiteralExpression(_, SyntaxTokenValue.Boolean(b)) =>
+        Assert.boolEqual(expected, b)
+      case _ => panic("Expected boolean expression")
+    }
+  }
+
+  def assertTrueExpr(expression: Expression): unit = {
+    expression match {
+      case Expression.LiteralExpression(_, SyntaxTokenValue.Boolean(true)) =>
+      case _ => panic("Expected true expression")
+    }
+  }
+
+  def assertFalseExpr(expression: Expression): unit = {
+    expression match {
+      case Expression.LiteralExpression(_, SyntaxTokenValue.Boolean(false)) =>
+      case _ => panic("Expected false expression")
+    }
+  }
+
+  def assertIdentifierExpr(expected: string, expression: Expression): unit = {
+    expression match {
+      case Expression.IdentifierName(
+            SimpleNameSyntax.IdentifierNameSyntax(token)
+          ) =>
+        Assert.stringEqual(expected, token.text)
+      case _ => panic("Expected number expression")
+    }
+  }
+
+  def assertTokenKind(expected: int, token: SyntaxToken): unit =
+    if (expected == token.kind) ()
+    else
+      panic(
+        "expected " + SyntaxFacts.getKindName(expected) + ", got " + SyntaxFacts
+          .getKindName(token.kind)
+      )
+
+  def assertTokenText(expected: string, token: SyntaxToken): unit =
+    Assert.stringEqual(expected, token.text)
+
+  def assertVariableDeclaration(
+      statement: StatementSyntax
+  ): StatementSyntax.VariableDeclarationStatement = {
+    statement match {
+      case stmt: StatementSyntax.VariableDeclarationStatement => stmt
+      case _ => panic("Expected variable declaration")
+    }
+  }
+}
