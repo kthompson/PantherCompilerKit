@@ -1,12 +1,12 @@
 import panther._
 
 case class Diagnostic(location: TextLocation, message: string) {
-    override def toString(): string = location.toString() + ": " + message
-    def compareTo(other: Diagnostic): int = {
-      val i = location.compareTo(other.location)
-      if(i != 0) i
-      else message.compareTo(other.message)
-    }
+  override def toString(): string = location.toString() + ": " + message
+  def compareTo(other: Diagnostic): int = {
+    val i = location.compareTo(other.location)
+    if (i != 0) i
+    else message.compareTo(other.message)
+  }
 }
 
 enum Diagnostics {
@@ -87,12 +87,18 @@ case class DiagnosticBag() {
   var count: int = 0
   var diagnostics: Diagnostics = Diagnostics.Empty
 
-  def report(location: TextLocation, message: string): unit = add(new Diagnostic(location, message))
+  def report(location: TextLocation, message: string): unit = add(
+    new Diagnostic(location, message)
+  )
 
   def reportNotCallable(location: TextLocation): unit =
     report(location, "expression is not callable")
 
-  def reportTypeMismatch(location: TextLocation, expected: Type, actual: Type): unit =
+  def reportTypeMismatch(
+      location: TextLocation,
+      expected: Type,
+      actual: Type
+  ): unit =
     report(location, "Expected " + expected + " but got " + actual)
 
   def reportTypeCircularity(location: TextLocation, name: Type): unit =
@@ -101,13 +107,25 @@ case class DiagnosticBag() {
   def reportExpressionIsNotAssignable(location: TextLocation): unit =
     report(location, "expression is not assignable")
 
-  def reportArgumentCountMismatch(location: TextLocation, expected: int, actual: int): unit =
+  def reportArgumentCountMismatch(
+      location: TextLocation,
+      expected: int,
+      actual: int
+  ): unit =
     report(location, "Expected " + expected + " arguments, but got " + actual)
 
-  def reportCannotConvert(location: TextLocation, from: Type, toType: Type): unit =
+  def reportCannotConvert(
+      location: TextLocation,
+      from: Type,
+      toType: Type
+  ): unit =
     report(location, "Cannot convert from " + from + " to " + toType)
 
-  def reportSymbolNotFoundForType(location: TextLocation, left: Type, name: string): unit =
+  def reportSymbolNotFoundForType(
+      location: TextLocation,
+      left: Type,
+      name: string
+  ): unit =
     report(location, "Symbol " + name + " not found for type " + left)
 
   def reportSymbolNotFound(location: TextLocation, name: string): unit =
@@ -122,45 +140,102 @@ case class DiagnosticBag() {
   def reportBugUnknownType(location: TextLocation, name: string): unit =
     report(location, "Bug: type could not be determined for variable " + name)
 
-  def reportNoOperatorForOperands(location: TextLocation, op: string, left: Type, right: Type): unit =
-    report(location, "No operator '" + op + "' for operands " + left + " and " + right)
+  def reportNoOperatorForOperands(
+      location: TextLocation,
+      op: string,
+      left: Type,
+      right: Type
+  ): unit =
+    report(
+      location,
+      "No operator '" + op + "' for operands " + left + " and " + right
+    )
 
-  def reportNoOperatorForOperand(location: TextLocation, op: string, operand: Type): unit =
+  def reportNoOperatorForOperand(
+      location: TextLocation,
+      op: string,
+      operand: Type
+  ): unit =
     report(location, "No operator '" + op + "' for operand " + operand)
 
-  def reportTopLevelStatementsInMultipleFiles(firstLocation: TextLocation, secondLocation: TextLocation): unit =
-    report(firstLocation, "Top-level statements in multiple files " + firstLocation.toString() + " and " + secondLocation.toString())
-    
-  def reportDuplicateDefinition(name: string, first: TextLocation, second: TextLocation): unit =
-    report(first, "Duplicate definition of " + name + " at " + second.toString())
-  
-  def reportMultipleEntryPoints(first: TextLocation, second: TextLocation): unit = 
-    report(first, "Multiple entry points in files " + first.toString() + " and " + second.toString())
+  def reportTopLevelStatementsInMultipleFiles(
+      firstLocation: TextLocation,
+      secondLocation: TextLocation
+  ): unit =
+    report(
+      firstLocation,
+      "Top-level statements in multiple files " + firstLocation
+        .toString() + " and " + secondLocation.toString()
+    )
+
+  def reportDuplicateDefinition(
+      name: string,
+      first: TextLocation,
+      second: TextLocation
+  ): unit =
+    report(
+      first,
+      "Duplicate definition of " + name + " at " + second.toString()
+    )
+
+  def reportMultipleEntryPoints(
+      first: TextLocation,
+      second: TextLocation
+  ): unit =
+    report(
+      first,
+      "Multiple entry points in files " + first.toString() + " and " + second
+        .toString()
+    )
 
   def reportInvalidNamespace(location: TextLocation): unit =
     report(location, "Invalid namespace")
-  
-  def reportBadCharacter(location: TextLocation, value: char): unit = report(location, "Invalid character in input: " + string(value))
 
-  def reportEmptyCharLiteral(location: TextLocation): unit = report(location, "Empty character literal")
+  def reportBadCharacter(location: TextLocation, value: char): unit =
+    report(location, "Invalid character in input: " + string(value))
 
-  def reportUnterminatedBlockComment(location: TextLocation): unit = report(location, "Unterminated block comment")
+  def reportEmptyCharLiteral(location: TextLocation): unit =
+    report(location, "Empty character literal")
 
-  def reportUnterminatedChar(location: TextLocation): unit = report(location, "Unterminated character literal")
+  def reportUnterminatedBlockComment(location: TextLocation): unit =
+    report(location, "Unterminated block comment")
 
-  def reportUnterminatedString(location: TextLocation): unit = report(location, "Unterminated string literal")
+  def reportUnterminatedChar(location: TextLocation): unit =
+    report(location, "Unterminated character literal")
+
+  def reportUnterminatedString(location: TextLocation): unit =
+    report(location, "Unterminated string literal")
 
   def reportExpectedExpression(location: TextLocation, currentKind: int): unit =
-    report(location, "Unexpected token " + SyntaxFacts.getKindName(currentKind) + ", expected expression")
+    report(
+      location,
+      "Unexpected token " + SyntaxFacts.getKindName(
+        currentKind
+      ) + ", expected expression"
+    )
 
-  def reportUnexpectedToken(location: TextLocation, currentKind: int, expectedKind: int): unit =
-    report(location, "Unexpected token " + SyntaxFacts.getKindName(currentKind) + ", expected " + SyntaxFacts.getKindName(expectedKind))
+  def reportUnexpectedToken(
+      location: TextLocation,
+      currentKind: int,
+      expectedKind: int
+  ): unit =
+    report(
+      location,
+      "Unexpected token " + SyntaxFacts.getKindName(
+        currentKind
+      ) + ", expected " + SyntaxFacts.getKindName(expectedKind)
+    )
 
   def reportInvalidEscapeSequence(location: TextLocation, current: char): unit =
     report(location, "Invalid character in escape sequence: " + string(current))
 
   def reportExpectedPattern(location: TextLocation, currentKind: int): unit =
-    report(location, "Unexpected token " + SyntaxFacts.getKindName(currentKind) + ", expected pattern")
+    report(
+      location,
+      "Unexpected token " + SyntaxFacts.getKindName(
+        currentKind
+      ) + ", expected pattern"
+    )
 
   def add(diagnostic: Diagnostic): unit = {
     count = count + 1
@@ -169,7 +244,8 @@ case class DiagnosticBag() {
 
   def _insert(node: Diagnostics, diagnostic: Diagnostic): Diagnostics = {
     node match {
-      case Diagnostics.Empty => Diagnostics.Node(Diagnostics.Empty, diagnostic, Diagnostics.Empty)
+      case Diagnostics.Empty =>
+        Diagnostics.Node(Diagnostics.Empty, diagnostic, Diagnostics.Empty)
       case Diagnostics.Node(left, head, tail) =>
         val cmp = diagnostic.compareTo(head)
         if (cmp == 0) {

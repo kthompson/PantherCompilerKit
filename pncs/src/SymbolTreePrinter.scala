@@ -2,7 +2,7 @@ import panther._
 
 case class SymbolTreePrinter(binder: Binder) {
   val printer = new AstPrinter(true, true)
-  
+
   def printSymbols(symbols: List[Symbol], indent: string): unit = {
     symbols match {
       case List.Nil => ()

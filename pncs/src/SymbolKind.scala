@@ -7,7 +7,7 @@ enum SymbolKind {
   case TypeParameter(variance: Variance)
 
   case Block
-  
+
   // Typed symbols
   case Field
   case Method

@@ -11,7 +11,7 @@ object Assert {
     if (option.isDefined())
       panic("expected None, found Some")
   }
-  
+
   def index[T](i: int, list: List[T]): T = {
     if (i < 0 || i >= list.length)
       panic("index out of bounds: " + i)

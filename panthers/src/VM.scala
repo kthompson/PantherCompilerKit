@@ -42,7 +42,12 @@ a ret instruction pops values off the stack in the following order:
 
  */
 
-case class VM(chunk: Chunk, metadata: Metadata, stack: Array[Value], heap: Array[Value]) {
+case class VM(
+    chunk: Chunk,
+    metadata: Metadata,
+    stack: Array[Value],
+    heap: Array[Value]
+) {
   var sp = 0 // stack pointer
   var ip = 0 // instruction pointer
   var argsp = 0 // argument stack pointer
@@ -84,7 +89,10 @@ case class VM(chunk: Chunk, metadata: Metadata, stack: Array[Value], heap: Array
     InterpretResult.RuntimeError
   }
 
-  def binaryIntBoolOp(op: (int, int) => bool, opName: string): InterpretResult = {
+  def binaryIntBoolOp(
+      op: (int, int) => bool,
+      opName: string
+  ): InterpretResult = {
     val b = popInt()
     val a = popInt()
     trace(opName + " " + a + ", " + b)
@@ -92,7 +100,11 @@ case class VM(chunk: Chunk, metadata: Metadata, stack: Array[Value], heap: Array
     InterpretResult.Continue
   }
 
-  def binaryBoolOrIntOp(intOp: (int, int) => int, boolOp: (bool, bool) => bool, opName: string): InterpretResult = {
+  def binaryBoolOrIntOp(
+      intOp: (int, int) => int,
+      boolOp: (bool, bool) => bool,
+      opName: string
+  ): InterpretResult = {
     val b = pop()
     val a = pop()
     trace(opName + " " + a + ", " + b)
@@ -100,18 +112,22 @@ case class VM(chunk: Chunk, metadata: Metadata, stack: Array[Value], heap: Array
       case Value.Int(a) =>
         b match {
           case Value.Int(b) => push(Value.Int(intOp(a, b)))
-          case _ => runtimeError("Expected int on stack")
+          case _            => runtimeError("Expected int on stack")
         }
       case Value.Bool(a) =>
         b match {
           case Value.Bool(b) => push(Value.Bool(boolOp(a, b)))
-          case _ => runtimeError("Expected bool on stack")
+          case _             => runtimeError("Expected bool on stack")
         }
       case _ => runtimeError("Expected int or bool on stack")
     }
   }
 
-  def binaryStrOrIntOp(intOp: (int, int) => int, strOp: (string, string) => string, opName: string): InterpretResult = {
+  def binaryStrOrIntOp(
+      intOp: (int, int) => int,
+      strOp: (string, string) => string,
+      opName: string
+  ): InterpretResult = {
     val b = pop()
     val a = pop()
     trace(opName + " " + a + ", " + b)
@@ -119,12 +135,12 @@ case class VM(chunk: Chunk, metadata: Metadata, stack: Array[Value], heap: Array
       case Value.Int(a) =>
         b match {
           case Value.Int(b) => push(Value.Int(intOp(a, b)))
-          case _ => runtimeError("Expected int on stack")
+          case _            => runtimeError("Expected int on stack")
         }
       case Value.String(a) =>
         b match {
           case Value.String(b) => push(Value.String(strOp(a, b)))
-          case _ => runtimeError("Expected bool on stack")
+          case _               => runtimeError("Expected bool on stack")
         }
       case _ => runtimeError("Expected int or bool on stack")
     }
@@ -149,14 +165,14 @@ case class VM(chunk: Chunk, metadata: Metadata, stack: Array[Value], heap: Array
     val value = pop()
     value match {
       case Value.Int(i) => i
-      case _ => panic("Expected int on stack")
+      case _            => panic("Expected int on stack")
     }
   }
 
   def stackAsInt(pos: int): int = {
     stack(pos) match {
       case Value.Int(value) => value
-      case _ => panic("Expected int on stack at position " + pos)
+      case _                => panic("Expected int on stack at position " + pos)
     }
   }
 

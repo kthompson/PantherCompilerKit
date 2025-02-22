@@ -18,7 +18,7 @@ class ConversionClassifier(binder: Binder) {
       Conversion.Implicit
     } else if (from == binder.neverType) {
       Conversion.Implicit
-    } else if(from == binder.anyType) {
+    } else if (from == binder.anyType) {
       Conversion.Explicit
     } else if (toType == binder.stringType) {
       Conversion.Explicit

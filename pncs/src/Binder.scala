@@ -28,7 +28,13 @@ enum BindingMember {
 }
 
 enum TypingMember {
-  case Method(genericParameters: List[GenericTypeParameter], parameters: List[BoundParameter], returnType: Option[Type], expression: Option[Expression], scope: Scope)
+  case Method(
+      genericParameters: List[GenericTypeParameter],
+      parameters: List[BoundParameter],
+      returnType: Option[Type],
+      expression: Option[Expression],
+      scope: Scope
+  )
   case Field(options: FieldOptions, scope: Scope)
 }
 
@@ -38,7 +44,10 @@ enum FieldOptions {
   case ExpressionOnly(expression: Expression)
 }
 
-case class ConstructorParams(genericTypeParameters: List[GenericTypeParameter], parameters: List[ParameterSyntax])
+case class ConstructorParams(
+    genericTypeParameters: List[GenericTypeParameter],
+    parameters: List[ParameterSyntax]
+)
 
 class Binder(
     trees: List[SyntaxTree],
@@ -65,7 +74,7 @@ class Binder(
 
   def getSymbolType(symbol: Symbol): Option[Type] =
     symbolTypes.get(symbol._id) match {
-      case Option.None => Option.None
+      case Option.None        => Option.None
       case Option.Some(value) => Some(value.typ)
     }
 
@@ -78,13 +87,16 @@ class Binder(
   val boolType = new Type.Class(noLoc, List.Nil, "bool", List.Nil)
   val unitType = new Type.Class(noLoc, List.Nil, "unit", List.Nil)
   val neverType = new Type.Class(noLoc, List.Nil, "never", List.Nil)
-  val noneType = new Type.Class(noLoc, List.Nil, "Option", List.Cons(Type.Never, List.Nil))
+  val noneType =
+    new Type.Class(noLoc, List.Nil, "Option", List.Cons(Type.Never, List.Nil))
 
-  val pantherNamespace = rootSymbol // TODO: move these to the panther namespace .enter("panther")
+  val pantherNamespace =
+    rootSymbol // TODO: move these to the panther namespace .enter("panther")
 
   val anySymbol =
     pantherNamespace.defineClass("any", TextLocationFactory.empty())
-  symbolTypes = symbolTypes.put(getSymbolId(anySymbol), SymbolLinks(anyType, None))
+  symbolTypes =
+    symbolTypes.put(getSymbolId(anySymbol), SymbolLinks(anyType, None))
 
   val intSymbol =
     pantherNamespace.defineClass("int", TextLocationFactory.empty())
@@ -121,13 +133,20 @@ class Binder(
 
   setSymbolType(
     arraySymbol.defineMethod(".ctor", TextLocationFactory.empty()),
-    Type.Function(noLoc, List.Cons(BoundParameter("size", intType), List.Nil), unitType),
+    Type.Function(
+      noLoc,
+      List.Cons(BoundParameter("size", intType), List.Nil),
+      unitType
+    ),
     Option.None
   )
 
   setSymbolType(
     arraySymbol,
-    Type.GenericClass(noLoc, List.Nil, "Array",
+    Type.GenericClass(
+      noLoc,
+      List.Nil,
+      "Array",
       ListModule.one(GenericTypeParameter(noLoc, "T", Variance.Invariant, None))
     ),
     Some(anySymbol)
@@ -153,7 +172,15 @@ class Binder(
     "println",
     TextLocationFactory.empty()
   )
-  setSymbolType(printlnSymbol, Type.Function(noLoc, List.Cons(BoundParameter("message", stringType), List.Nil), unitType), None)
+  setSymbolType(
+    printlnSymbol,
+    Type.Function(
+      noLoc,
+      List.Cons(BoundParameter("message", stringType), List.Nil),
+      unitType
+    ),
+    None
+  )
   setSymbolType(
     printlnSymbol.defineParameter(
       "message",
@@ -168,7 +195,15 @@ class Binder(
     "print",
     TextLocationFactory.empty()
   )
-  setSymbolType(printSymbol, Type.Function(noLoc, List.Cons(BoundParameter("message", stringType), List.Nil), unitType), None)
+  setSymbolType(
+    printSymbol,
+    Type.Function(
+      noLoc,
+      List.Cons(BoundParameter("message", stringType), List.Nil),
+      unitType
+    ),
+    None
+  )
 
   setSymbolType(
     printSymbol.defineParameter(
@@ -179,30 +214,34 @@ class Binder(
     None
   )
 
-  /**
-   * These are the methods and fields that need to be bound/symbolized
-   */
-  var membersToBind: Dictionary[Symbol, List[BindingMember]] = DictionaryModule.empty()
+  /** These are the methods and fields that need to be bound/symbolized
+    */
+  var membersToBind: Dictionary[Symbol, List[BindingMember]] =
+    DictionaryModule.empty()
 
-  /**
-   * statementsToBind represent the statements that occur in the body of a class,
-   * these statements will be converted into a constructor for the class/enum/object
-   */
+  /** statementsToBind represent the statements that occur in the body of a
+    * class, these statements will be converted into a constructor for the
+    * class/enum/object
+    */
   var statementsToBind
-  : Dictionary[Symbol, List[MemberSyntax.GlobalStatementSyntax]] =
+      : Dictionary[Symbol, List[MemberSyntax.GlobalStatementSyntax]] =
     DictionaryModule.empty()
 
   /** constructors to build */
-  var ctorsToBind: Dictionary[Symbol, ConstructorParams] = DictionaryModule.empty()
+  var ctorsToBind: Dictionary[Symbol, ConstructorParams] =
+    DictionaryModule.empty()
 
-  /** functionBodies are the bound expressions for all methods and constructors */
-  var functionBodies : Dictionary[Symbol, BoundExpression] = DictionaryModule.empty()
+  /** functionBodies are the bound expressions for all methods and constructors
+    */
+  var functionBodies: Dictionary[Symbol, BoundExpression] =
+    DictionaryModule.empty()
 
   /** map of member symbols to their untyped declarations */
-  var membersToType : Dictionary[Symbol, TypingMember] = DictionaryModule.empty()
+  var membersToType: Dictionary[Symbol, TypingMember] = DictionaryModule.empty()
 
   val classifier = new ConversionClassifier(this)
-  val exprBinder: ExprBinder = new ExprBinder(rootSymbol, this, classifier,  diagnosticBag)
+  val exprBinder: ExprBinder =
+    new ExprBinder(rootSymbol, this, classifier, diagnosticBag)
 
   def bind(): BoundAssembly = {
     // take ast, extract top level statements
@@ -227,7 +266,7 @@ class Binder(
       case Option.None => Option.None
     }
     val mainMethod = Tuple2(mainAsGlobal, mainFromProgram) match {
-      case Tuple2(Option.Some(global), Option.None) => Option.Some(global)
+      case Tuple2(Option.Some(global), Option.None)  => Option.Some(global)
       case Tuple2(Option.None, Option.Some(program)) => Option.Some(program)
 
       case Tuple2(Option.Some(global), Option.Some(program)) =>
@@ -274,7 +313,6 @@ class Binder(
 
     // bind all `statementsToBind` as constructor bodies
 
-
 //    panic("the type above probably should include the symbols we started to type, as well as all the parameters for methods")
 
     // then bind all function bodies
@@ -283,13 +321,12 @@ class Binder(
     //    val main =
     //      bindEntry(program, mainMethod, functions, members.globalStatements)
 
-
     BoundAssembly(List.Nil, diagnosticBag.diagnostics, Option.None)
   }
 
   def bindConstructorSignatures(
-                                         list: List[KeyValue[Symbol, ConstructorParams]]
-                                       ): unit = {
+      list: List[KeyValue[Symbol, ConstructorParams]]
+  ): unit = {
     list match {
       case List.Nil => ()
       case List.Cons(KeyValue(symbol, ctorParams), tail) =>
@@ -306,7 +343,7 @@ class Binder(
             val ctor = scope.enterSymbol(ctorSymbol)
             val params = bindParameters(ctorParams.parameters, ctor)
             val typParams = ctorParams.genericTypeParameters
-            val typ = if(typParams.isEmpty) {
+            val typ = if (typParams.isEmpty) {
               Type.Function(symbol.location, params, unitType)
             } else {
               Type.GenericFunction(
@@ -320,13 +357,12 @@ class Binder(
             setSymbolType(ctorSymbol, typ, None)
         }
 
-
         bindConstructorSignatures(tail)
     }
   }
 
   def bindTypingMembers(): unit = {
-    membersToType.list  match {
+    membersToType.list match {
       case List.Nil => ()
       case List.Cons(KeyValue(symbol, member), tail) =>
         bindOneTypingMember(symbol, member)
@@ -337,17 +373,34 @@ class Binder(
   def bindOneTypingMember(symbol: Symbol, member: TypingMember): Type = {
     membersToType = membersToType.remove(symbol)
     member match {
-      case TypingMember.Method(genTypeParams, parameters, returnType, expression, scope) =>
-        bindMethodBody(symbol, genTypeParams, parameters, returnType, expression, scope)
+      case TypingMember.Method(
+            genTypeParams,
+            parameters,
+            returnType,
+            expression,
+            scope
+          ) =>
+        bindMethodBody(
+          symbol,
+          genTypeParams,
+          parameters,
+          returnType,
+          expression,
+          scope
+        )
       case TypingMember.Field(options, scope) =>
         bindFieldExpression(symbol, options, scope)
     }
   }
 
-  def bindFieldExpression(symbol: Symbol, options: FieldOptions, scope: Scope): Type = {
+  def bindFieldExpression(
+      symbol: Symbol,
+      options: FieldOptions,
+      scope: Scope
+  ): Type = {
     options match {
       case FieldOptions.TypeAndExpression(fieldType, expression) =>
-        val expr = exprBinder.bindConversionExpr(expression,fieldType, scope)
+        val expr = exprBinder.bindConversionExpr(expression, fieldType, scope)
         setSymbolType(symbol, fieldType, None)
       case FieldOptions.TypeOnly(fieldType) =>
         setSymbolType(symbol, fieldType, None)
@@ -359,7 +412,14 @@ class Binder(
     }
   }
 
-  def bindMethodBody(symbol: Symbol, args: List[GenericTypeParameter], parameters: List[BoundParameter], returnType: Option[Type], expression: Option[Expression], methodScope: Scope): Type = {
+  def bindMethodBody(
+      symbol: Symbol,
+      args: List[GenericTypeParameter],
+      parameters: List[BoundParameter],
+      returnType: Option[Type],
+      expression: Option[Expression],
+      methodScope: Scope
+  ): Type = {
 
     // if returnType is None, then we need to infer the type and set the methods type
     val expr = expression match {
@@ -435,24 +495,24 @@ class Binder(
     expr match {
       case BoundExpression.Error => Type.Error
 
-      case _: BoundExpression.Assignment => unitType
-      case _: BoundExpression.BooleanLiteral => boolType
+      case _: BoundExpression.Assignment       => unitType
+      case _: BoundExpression.BooleanLiteral   => boolType
       case _: BoundExpression.CharacterLiteral => charType
-      case _: BoundExpression.ForExpression => unitType
-      case _: BoundExpression.IntLiteral => intType
-      case _: BoundExpression.StringLiteral => stringType
-      case _: BoundExpression.UnitExpression => unitType
-      case _: BoundExpression.WhileExpression => unitType
+      case _: BoundExpression.ForExpression    => unitType
+      case _: BoundExpression.IntLiteral       => intType
+      case _: BoundExpression.StringLiteral    => stringType
+      case _: BoundExpression.UnitExpression   => unitType
+      case _: BoundExpression.WhileExpression  => unitType
 
       case expr: BoundExpression.BinaryExpression => expr.resultType
-      case expr: BoundExpression.Block => getType(expr.expression)
-      case expr: BoundExpression.CallExpression => expr.resultType
-      case expr: BoundExpression.CastExpression => expr.targetType
-      case expr: BoundExpression.IndexExpression => expr.resultType
-      case expr: BoundExpression.IfExpression => expr.resultType
-      case expr: BoundExpression.MemberAccess => expr.resultType
-      case expr: BoundExpression.NewExpression => expr.resultType
-      case expr: BoundExpression.UnaryExpression => expr.resultType
+      case expr: BoundExpression.Block            => getType(expr.expression)
+      case expr: BoundExpression.CallExpression   => expr.resultType
+      case expr: BoundExpression.CastExpression   => expr.targetType
+      case expr: BoundExpression.IndexExpression  => expr.resultType
+      case expr: BoundExpression.IfExpression     => expr.resultType
+      case expr: BoundExpression.MemberAccess     => expr.resultType
+      case expr: BoundExpression.NewExpression    => expr.resultType
+      case expr: BoundExpression.UnaryExpression  => expr.resultType
       case expr: BoundExpression.Variable =>
         expr.resultType match {
           case Option.None =>
@@ -475,38 +535,42 @@ class Binder(
   }
 
   def bindMembers(
-                   list: List[KeyValue[Symbol, List[BindingMember]]],
-                   phase: int,
-                   acc: Dictionary[Symbol, TypingMember]
-                 ): Dictionary[Symbol, TypingMember] = {
+      list: List[KeyValue[Symbol, List[BindingMember]]],
+      phase: int,
+      acc: Dictionary[Symbol, TypingMember]
+  ): Dictionary[Symbol, TypingMember] = {
     list match {
-      case List.Nil => acc
+      case List.Nil                                   => acc
       case List.Cons(KeyValue(symbol, members), tail) =>
         // TODO: need to make scope that incorporates imports from the SyntaxTree
         //  that the symbol was defined in
         val scope = Scope(symbol, List.Nil)
-        bindMembers(tail, phase, bindSymbolMembers(members,phase, acc, scope))
+        bindMembers(tail, phase, bindSymbolMembers(members, phase, acc, scope))
     }
   }
 
-  /**
-   * Create symbols for all the members of a class, object, or enum
-   *
-   * If the member has a type annotation, set the type, otherwise add
-   * to the members to type(acc)
-   * @param list
-   * @param phase
-   * @param acc
-   * @param scope
-   * @return
-   */
-  def bindSymbolMembers(list: List[BindingMember], phase: int, acc: Dictionary[Symbol, TypingMember], scope: Scope): Dictionary[Symbol, TypingMember] = {
+  /** Create symbols for all the members of a class, object, or enum
+    *
+    * If the member has a type annotation, set the type, otherwise add to the
+    * members to type(acc)
+    * @param list
+    * @param phase
+    * @param acc
+    * @param scope
+    * @return
+    */
+  def bindSymbolMembers(
+      list: List[BindingMember],
+      phase: int,
+      acc: Dictionary[Symbol, TypingMember],
+      scope: Scope
+  ): Dictionary[Symbol, TypingMember] = {
     list match {
       case List.Nil => acc
       case List.Cons(head, tail) =>
         val newAcc = head match {
           case BindingMember.Method(value) => bindMethod(value, acc, scope)
-          case BindingMember.Field(value) => bindField(value, acc, scope)
+          case BindingMember.Field(value)  => bindField(value, acc, scope)
           case BindingMember.Parameter(value) =>
             bindParameterAsField(value, acc, scope)
         }
@@ -515,14 +579,18 @@ class Binder(
     }
   }
 
-  /**
-   * Bind a field
-   *
-   * @param value
-   * @param scope
-   * @return a TypingMember if the field was not successfully typed
-   */
-  def bindField(value: MemberSyntax.VariableDeclaration, acc: Dictionary[Symbol, TypingMember], scope: Scope): Dictionary[Symbol, TypingMember] = {
+  /** Bind a field
+    *
+    * @param value
+    * @param scope
+    * @return
+    *   a TypingMember if the field was not successfully typed
+    */
+  def bindField(
+      value: MemberSyntax.VariableDeclaration,
+      acc: Dictionary[Symbol, TypingMember],
+      scope: Scope
+  ): Dictionary[Symbol, TypingMember] = {
     scope.defineField(value.identifier.text, value.identifier.location) match {
       case Either.Left(location) =>
         diagnosticBag.reportDuplicateDefinition(
@@ -546,8 +614,11 @@ class Binder(
     }
   }
 
-
-  def bindParameterAsField(value: ParameterSyntax, acc: Dictionary[Symbol, TypingMember], scope: Scope): Dictionary[Symbol, TypingMember] = {
+  def bindParameterAsField(
+      value: ParameterSyntax,
+      acc: Dictionary[Symbol, TypingMember],
+      scope: Scope
+  ): Dictionary[Symbol, TypingMember] = {
     scope.defineField(value.identifier.text, value.identifier.location) match {
       case Either.Left(location) =>
         diagnosticBag.reportDuplicateDefinition(
@@ -560,19 +631,26 @@ class Binder(
       case Either.Right(symbol) =>
         val returnType = bindTypeName(value.typeAnnotation.typ, scope)
         setSymbolType(symbol, returnType, None)
-        acc.put(symbol, TypingMember.Field(FieldOptions.TypeOnly(returnType), scope))
+        acc.put(
+          symbol,
+          TypingMember.Field(FieldOptions.TypeOnly(returnType), scope)
+        )
     }
   }
 
-
-  /**
-   * Bind a method
-   *
-   * @param value the method to bind
-   * @param scope
-   * @return a TypingMember if the method was not successfully typed
-   */
-  def bindMethod(value: MemberSyntax.FunctionDeclarationSyntax, acc: Dictionary[Symbol, TypingMember], scope: Scope): Dictionary[Symbol, TypingMember] = {
+  /** Bind a method
+    *
+    * @param value
+    *   the method to bind
+    * @param scope
+    * @return
+    *   a TypingMember if the method was not successfully typed
+    */
+  def bindMethod(
+      value: MemberSyntax.FunctionDeclarationSyntax,
+      acc: Dictionary[Symbol, TypingMember],
+      scope: Scope
+  ): Dictionary[Symbol, TypingMember] = {
     val methodName = value.identifier.text
     val methodLocation = value.identifier.location
     scope.defineMethod(methodName, methodLocation) match {
@@ -597,7 +675,7 @@ class Binder(
 
         val parameters = bindParameters(value.parameters, methodScope)
         val expr = value.body match {
-          case Option.None => None
+          case Option.None       => None
           case Option.Some(body) => Some(body.expression)
         }
         val returnType = value.typeAnnotation match {
@@ -619,16 +697,31 @@ class Binder(
             Some(returnType)
         }
 
-        acc.put(symbol, TypingMember.Method(genTypeParams, parameters, returnType, expr, methodScope))
+        acc.put(
+          symbol,
+          TypingMember.Method(
+            genTypeParams,
+            parameters,
+            returnType,
+            expr,
+            methodScope
+          )
+        )
     }
   }
 
-  def bindParameters(parameters: List[ParameterSyntax], scope: Scope): List[BoundParameter] = {
+  def bindParameters(
+      parameters: List[ParameterSyntax],
+      scope: Scope
+  ): List[BoundParameter] = {
     parameters match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
         val typ = bindTypeName(head.typeAnnotation.typ, scope)
-        scope.defineParameter(head.identifier.text, head.identifier.location) match {
+        scope.defineParameter(
+          head.identifier.text,
+          head.identifier.location
+        ) match {
           case Either.Left(location) =>
             diagnosticBag.reportDuplicateDefinition(
               head.identifier.text,
@@ -638,7 +731,10 @@ class Binder(
             bindParameters(tail, scope)
           case Either.Right(symbol) =>
             setSymbolType(symbol, typ, None)
-            List.Cons(BoundParameter(head.identifier.text, typ), bindParameters(tail, scope))
+            List.Cons(
+              BoundParameter(head.identifier.text, typ),
+              bindParameters(tail, scope)
+            )
         }
     }
   }
@@ -689,29 +785,51 @@ class Binder(
     }
   }
 
-  def bindTypeArgumentList(arguments: Array[TypeArgumentItemSyntax], scope: Scope): List[Type] =
+  def bindTypeArgumentList(
+      arguments: Array[TypeArgumentItemSyntax],
+      scope: Scope
+  ): List[Type] =
     bindTypeArguments(ListModule.fromArray(arguments), scope)
 
-  def bindTypeArguments(arguments: List[TypeArgumentItemSyntax], scope: Scope): List[Type] = {
+  def bindTypeArguments(
+      arguments: List[TypeArgumentItemSyntax],
+      scope: Scope
+  ): List[Type] = {
     arguments match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
-        List.Cons(bindTypeName(head.name, scope), bindTypeArguments(tail, scope))
+        List.Cons(
+          bindTypeName(head.name, scope),
+          bindTypeArguments(tail, scope)
+        )
     }
   }
 
-  def bindTypeSimpleName(name: SimpleNameSyntax, top: bool, scope: Scope): Type = {
+  def bindTypeSimpleName(
+      name: SimpleNameSyntax,
+      top: bool,
+      scope: Scope
+  ): Type = {
     name match {
       case SimpleNameSyntax.GenericNameSyntax(identifier, typeArgumentlist) =>
         scope.lookup(identifier.text) match {
           case Option.None =>
-            diagnosticBag.reportTypeNotDefined(identifier.location, identifier.text)
+            diagnosticBag.reportTypeNotDefined(
+              identifier.location,
+              identifier.text
+            )
             Type.Error
           case Option.Some(symbol) =>
             // TODO: need to add diagnostic for verifying that there are the correct
             //  number of type arguments on `symbol`
-            val typeArguments = bindTypeArgumentList(typeArgumentlist.arguments, scope)
-            new Type.Class(symbol.location, symbol.ns(), symbol.name, typeArguments)
+            val typeArguments =
+              bindTypeArgumentList(typeArgumentlist.arguments, scope)
+            new Type.Class(
+              symbol.location,
+              symbol.ns(),
+              symbol.name,
+              typeArguments
+            )
         }
       case SimpleNameSyntax.IdentifierNameSyntax(identifier) =>
         if (top && identifier.text == "any") {
@@ -721,7 +839,10 @@ class Binder(
         } else {
           scope.lookup(identifier.text) match {
             case Option.None =>
-              diagnosticBag.reportTypeNotDefined(identifier.location, identifier.text)
+              diagnosticBag.reportTypeNotDefined(
+                identifier.location,
+                identifier.text
+              )
               Type.Error
             case Option.Some(value) =>
               new Type.Class(value.location, value.ns(), value.name, List.Nil)
@@ -741,28 +862,41 @@ class Binder(
   }
 
   def countMembersToBind(
-                          list: List[KeyValue[Symbol, List[BindingMember]]], fields: int, methods: int
-                        ): Tuple2[int, int] = {
+      list: List[KeyValue[Symbol, List[BindingMember]]],
+      fields: int,
+      methods: int
+  ): Tuple2[int, int] = {
     list match {
       case List.Nil => Tuple2(fields, methods)
       case List.Cons(KeyValue(symbol, members), tail) =>
         val methodsAndFields = countMembers(members, 0, 0)
-        countMembersToBind(tail, fields + methodsAndFields._2, methods + methodsAndFields._1)
+        countMembersToBind(
+          tail,
+          fields + methodsAndFields._2,
+          methods + methodsAndFields._1
+        )
     }
   }
 
-  def countMembers(list: List[BindingMember], methods: int, fields: int): Tuple2[int, int] = {
+  def countMembers(
+      list: List[BindingMember],
+      methods: int,
+      fields: int
+  ): Tuple2[int, int] = {
     list match {
       case List.Nil => Tuple2(methods, fields)
-      case List.Cons(BindingMember.Method(_), tail) => countMembers(tail, methods + 1, fields)
-      case List.Cons(BindingMember.Field(_), tail) => countMembers(tail, methods, fields + 1)
-      case List.Cons(BindingMember.Parameter(_), tail) => countMembers(tail, methods, fields + 1)
+      case List.Cons(BindingMember.Method(_), tail) =>
+        countMembers(tail, methods + 1, fields)
+      case List.Cons(BindingMember.Field(_), tail) =>
+        countMembers(tail, methods, fields + 1)
+      case List.Cons(BindingMember.Parameter(_), tail) =>
+        countMembers(tail, methods, fields + 1)
     }
   }
 
   def printFunctionsToBind(
-                            list: List[KeyValue[Symbol, List[MemberSyntax.FunctionDeclarationSyntax]]]
-                          ): unit = {
+      list: List[KeyValue[Symbol, List[MemberSyntax.FunctionDeclarationSyntax]]]
+  ): unit = {
     list match {
       case List.Nil => ()
       case List.Cons(head, tail) =>
@@ -773,8 +907,8 @@ class Binder(
   }
 
   def printStatementsToBind(
-                             list: List[KeyValue[Symbol, List[MemberSyntax.GlobalStatementSyntax]]]
-                           ): unit = {
+      list: List[KeyValue[Symbol, List[MemberSyntax.GlobalStatementSyntax]]]
+  ): unit = {
     list match {
       case List.Nil => ()
       case List.Cons(head, tail) =>
@@ -785,20 +919,20 @@ class Binder(
   }
 
   def bindClassesObjectAndEnums(
-                                 classes: List[Namespaced[MemberSyntax.ClassDeclarationSyntax]],
-                                 objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
-                                 enums: List[Namespaced[MemberSyntax.EnumDeclarationSyntax]],
-                                 scope: Scope
-                               ): unit = {
+      classes: List[Namespaced[MemberSyntax.ClassDeclarationSyntax]],
+      objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
+      enums: List[Namespaced[MemberSyntax.EnumDeclarationSyntax]],
+      scope: Scope
+  ): unit = {
     bindObjects(objects, scope)
     bindClasses(classes, scope)
     bindEnums(enums, scope)
   }
 
   def bindEnums(
-                 enums: List[Namespaced[MemberSyntax.EnumDeclarationSyntax]],
-                 scope: Scope
-               ): List[BoundDefinition] = {
+      enums: List[Namespaced[MemberSyntax.EnumDeclarationSyntax]],
+      scope: Scope
+  ): List[BoundDefinition] = {
     enums match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
@@ -808,9 +942,9 @@ class Binder(
   }
 
   def bindEnum(
-                head: Namespaced[MemberSyntax.EnumDeclarationSyntax],
-                scope: Scope
-              ): unit = {
+      head: Namespaced[MemberSyntax.EnumDeclarationSyntax],
+      scope: Scope
+  ): unit = {
     val name = head.value.identifier.text
     val enumSymbol = scope.defineEnum(
       name,
@@ -832,7 +966,8 @@ class Binder(
             bindGenericTypeParameters(value.parameters.items, enumScope)
         }
 
-        val typ = Type.Class(symbol.location, symbol.ns(), symbol.name, List.Nil)
+        val typ =
+          Type.Class(symbol.location, symbol.ns(), symbol.name, List.Nil)
         setSymbolType(symbol, typ, None)
 
         val cases = ListModule.fromArray(head.value.cases)
@@ -851,7 +986,11 @@ class Binder(
     }
   }
 
-  def bindEnumCases(cases: List[EnumCaseSyntax], genericTypeParameters: List[GenericTypeParameter],  scope: Scope): unit = {
+  def bindEnumCases(
+      cases: List[EnumCaseSyntax],
+      genericTypeParameters: List[GenericTypeParameter],
+      scope: Scope
+  ): unit = {
     cases match {
       case List.Nil => ()
       case List.Cons(enumCase, tail) =>
@@ -862,21 +1001,38 @@ class Binder(
             diagnosticBag.reportDuplicateDefinition(name, location, location)
           case Either.Right(caseSymbol) =>
             val parent = scope.current
-            val typ = if(genericTypeParameters.isEmpty || enumCase.parameters.isEmpty()) {
-              new Type.Class(caseSymbol.location, caseSymbol.ns(), caseSymbol.name, List.Nil)
-            } else {
-              Type.GenericClass(
-                caseSymbol.location,
-                caseSymbol.ns(), caseSymbol.name,
-                genericTypeParameters
-              )
-            }
+            val typ =
+              if (
+                genericTypeParameters.isEmpty || enumCase.parameters.isEmpty()
+              ) {
+                new Type.Class(
+                  caseSymbol.location,
+                  caseSymbol.ns(),
+                  caseSymbol.name,
+                  List.Nil
+                )
+              } else {
+                Type.GenericClass(
+                  caseSymbol.location,
+                  caseSymbol.ns(),
+                  caseSymbol.name,
+                  genericTypeParameters
+                )
+              }
             setSymbolType(caseSymbol, typ, Some(parent))
             enumCase.parameters match {
               case Option.None =>
               case Option.Some(value) =>
-                addMembersToBind(caseSymbol, List.Nil, List.Nil, value.parameters)
-                ctorsToBind = ctorsToBind.put(caseSymbol, ConstructorParams(genericTypeParameters, value.parameters))
+                addMembersToBind(
+                  caseSymbol,
+                  List.Nil,
+                  List.Nil,
+                  value.parameters
+                )
+                ctorsToBind = ctorsToBind.put(
+                  caseSymbol,
+                  ConstructorParams(genericTypeParameters, value.parameters)
+                )
             }
         }
         bindEnumCases(tail, genericTypeParameters, scope)
@@ -884,9 +1040,9 @@ class Binder(
   }
 
   def bindClasses(
-                   value: List[Namespaced[MemberSyntax.ClassDeclarationSyntax]],
-                   scope: Scope
-                 ): List[BoundDefinition] = {
+      value: List[Namespaced[MemberSyntax.ClassDeclarationSyntax]],
+      scope: Scope
+  ): List[BoundDefinition] = {
     value match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
@@ -896,9 +1052,9 @@ class Binder(
   }
 
   def bindClass(
-                 head: Namespaced[MemberSyntax.ClassDeclarationSyntax],
-                 scope: Scope
-               ): unit = {
+      head: Namespaced[MemberSyntax.ClassDeclarationSyntax],
+      scope: Scope
+  ): unit = {
     val name = head.value.identifier.text
     val classSymbol = scope.defineClass(
       name,
@@ -915,21 +1071,41 @@ class Binder(
         // bind generic type parameters
         head.value.genericParameters match {
           case Option.None =>
-            setSymbolType(symbol, new Type.Class(symbol.location, symbol.ns(), symbol.name, List.Nil), None)
+            setSymbolType(
+              symbol,
+              new Type.Class(
+                symbol.location,
+                symbol.ns(),
+                symbol.name,
+                List.Nil
+              ),
+              None
+            )
 
-            ctorsToBind = ctorsToBind.put(symbol, ConstructorParams(List.Nil, head.value.parameters))
+            ctorsToBind = ctorsToBind.put(
+              symbol,
+              ConstructorParams(List.Nil, head.value.parameters)
+            )
           case Option.Some(value) =>
-            val args = bindGenericTypeParameters(value.parameters.items, scope.enterSymbol(symbol))
+            val args = bindGenericTypeParameters(
+              value.parameters.items,
+              scope.enterSymbol(symbol)
+            )
             val typ = if (args.isEmpty) {
               Type.Class(symbol.location, symbol.ns(), symbol.name, List.Nil)
             } else {
               Type.GenericClass(
-                symbol.location, symbol.ns(), symbol.name,
+                symbol.location,
+                symbol.ns(),
+                symbol.name,
                 args
               )
             }
             setSymbolType(symbol, typ, None)
-            ctorsToBind = ctorsToBind.put(symbol, ConstructorParams(args, head.value.parameters))
+            ctorsToBind = ctorsToBind.put(
+              symbol,
+              ConstructorParams(args, head.value.parameters)
+            )
         }
 
         head.value.template match {
@@ -942,7 +1118,12 @@ class Binder(
               members.enums,
               scope.enterSymbol(symbol)
             )
-            addMembersToBind(symbol, members.functions, members.fields, head.value.parameters)
+            addMembersToBind(
+              symbol,
+              members.functions,
+              members.fields,
+              head.value.parameters
+            )
             addStatementsToBind(symbol, members.globalStatements)
         }
     }
@@ -951,19 +1132,25 @@ class Binder(
   def genericTypeParamAsType(head: GenericTypeParameter): Type =
     Type.Class(head.location, List.Nil, head.name, List.Nil)
 
-  def bindGenericTypeParameters(value: List[GenericParameterSyntax], scope: Scope): List[GenericTypeParameter] = {
+  def bindGenericTypeParameters(
+      value: List[GenericParameterSyntax],
+      scope: Scope
+  ): List[GenericTypeParameter] = {
     value match {
       case List.Nil => List.Nil
-      case List.Cons(GenericParameterSyntax(varianceToken, identifier, _), tail) =>
+      case List.Cons(
+            GenericParameterSyntax(varianceToken, identifier, _),
+            tail
+          ) =>
         val variance = varianceToken match {
           case Option.None => Variance.Invariant
           case Option.Some(value) =>
             value.text match {
-              case "+" => Variance.Covariant
-              case "-" => Variance.Contravariant
-              case "in" => Variance.Covariant
+              case "+"   => Variance.Covariant
+              case "-"   => Variance.Contravariant
+              case "in"  => Variance.Covariant
               case "out" => Variance.Contravariant
-              case x => panic("Invalid variance token: " + x)
+              case x     => panic("Invalid variance token: " + x)
             }
         }
         val name = identifier.text
@@ -972,23 +1159,28 @@ class Binder(
           identifier.location,
           variance
         )
-        
+
         symbol match {
           case Either.Left(value) =>
-            diagnosticBag.reportDuplicateDefinition(name, value, identifier.location)
+            diagnosticBag.reportDuplicateDefinition(
+              name,
+              value,
+              identifier.location
+            )
             bindGenericTypeParameters(tail, scope)
           case Either.Right(value) =>
-            val generic = GenericTypeParameter(identifier.location, name, variance, None)
-            setSymbolType(value, genericTypeParamAsType(generic) , None)
+            val generic =
+              GenericTypeParameter(identifier.location, name, variance, None)
+            setSymbolType(value, genericTypeParamAsType(generic), None)
             List.Cons(generic, bindGenericTypeParameters(tail, scope))
         }
     }
   }
 
   def bindObjects(
-                   objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
-                   parentScope: Scope
-                 ): List[BoundDefinition] = {
+      objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
+      parentScope: Scope
+  ): List[BoundDefinition] = {
     objects match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
@@ -998,9 +1190,9 @@ class Binder(
   }
 
   def bindObject(
-                  head: Namespaced[MemberSyntax.ObjectDeclarationSyntax],
-                  parentScope: Scope
-                ): unit = {
+      head: Namespaced[MemberSyntax.ObjectDeclarationSyntax],
+      parentScope: Scope
+  ): unit = {
     val scope = getNamespacedScope(head.ns, parentScope)
     val name = head.value.identifier.text
     scope.defineObject(
@@ -1022,21 +1214,28 @@ class Binder(
           members.enums,
           scope.enterSymbol(symbol)
         )
-        setSymbolType(symbol, new Type.Class(symbol.location, symbol.ns(), symbol.name, List.Nil), None)
+        setSymbolType(
+          symbol,
+          new Type.Class(symbol.location, symbol.ns(), symbol.name, List.Nil),
+          None
+        )
         addMembersToBind(symbol, members.functions, members.fields, List.Nil)
         addStatementsToBind(symbol, members.globalStatements)
     }
   }
 
   def addMembersToBind(
-                        symbol: Symbol,
-                        functions: List[MemberSyntax.FunctionDeclarationSyntax],
-                        fields: List[MemberSyntax.VariableDeclaration],
-                        parameters: List[ParameterSyntax]
-                      ): unit = {
+      symbol: Symbol,
+      functions: List[MemberSyntax.FunctionDeclarationSyntax],
+      fields: List[MemberSyntax.VariableDeclaration],
+      parameters: List[ParameterSyntax]
+  ): unit = {
     val members =
       variablesToMembers(
-        functionsToMembers(parametersToMembers(List.Nil, parameters), functions),
+        functionsToMembers(
+          parametersToMembers(List.Nil, parameters),
+          functions
+        ),
         fields
       )
 
@@ -1045,15 +1244,24 @@ class Binder(
     }
   }
 
-  def parametersToMembers(members: List[BindingMember], parameters: List[ParameterSyntax]): List[BindingMember] = {
+  def parametersToMembers(
+      members: List[BindingMember],
+      parameters: List[ParameterSyntax]
+  ): List[BindingMember] = {
     parameters match {
       case List.Nil => members
       case List.Cons(head, tail) =>
-        parametersToMembers(List.Cons(BindingMember.Parameter(head), members), tail)
+        parametersToMembers(
+          List.Cons(BindingMember.Parameter(head), members),
+          tail
+        )
     }
   }
 
-  def functionsToMembers(members: List[BindingMember], functions: List[MemberSyntax.FunctionDeclarationSyntax]): List[BindingMember] = {
+  def functionsToMembers(
+      members: List[BindingMember],
+      functions: List[MemberSyntax.FunctionDeclarationSyntax]
+  ): List[BindingMember] = {
     functions match {
       case List.Nil => members
       case List.Cons(head, tail) =>
@@ -1061,7 +1269,10 @@ class Binder(
     }
   }
 
-  def variablesToMembers(members: List[BindingMember], variables: List[MemberSyntax.VariableDeclaration]): List[BindingMember] = {
+  def variablesToMembers(
+      members: List[BindingMember],
+      variables: List[MemberSyntax.VariableDeclaration]
+  ): List[BindingMember] = {
     variables match {
       case List.Nil => members
       case List.Cons(head, tail) =>
@@ -1073,18 +1284,18 @@ class Binder(
   }
 
   def addStatementsToBind(
-                           symbol: Symbol,
-                           statements: List[MemberSyntax.GlobalStatementSyntax]
-                         ): unit = {
+      symbol: Symbol,
+      statements: List[MemberSyntax.GlobalStatementSyntax]
+  ): unit = {
     if (statements.length > 0) {
       statementsToBind = statementsToBind.put(symbol, statements)
     }
   }
 
   def getNamespacedScope(
-                          ns: List[string],
-                          scope: Scope
-                        ): Scope = {
+      ns: List[string],
+      scope: Scope
+  ): Scope = {
     ns match {
       case List.Nil => scope
       case List.Cons(head, tail) =>
@@ -1093,8 +1304,8 @@ class Binder(
   }
 
   def removeProgram(
-                     members: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]]
-                   ): List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]] = {
+      members: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]]
+  ): List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]] = {
     members match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
@@ -1107,8 +1318,8 @@ class Binder(
   }
 
   def removeMain(
-                  members: List[MemberSyntax.FunctionDeclarationSyntax]
-                ): List[MemberSyntax.FunctionDeclarationSyntax] = {
+      members: List[MemberSyntax.FunctionDeclarationSyntax]
+  ): List[MemberSyntax.FunctionDeclarationSyntax] = {
     members match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
@@ -1121,11 +1332,11 @@ class Binder(
   }
 
   def bindEntry(
-                 program: Option[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
-                 main: Option[MemberSyntax.FunctionDeclarationSyntax],
-                 programMethods: List[MemberSyntax.FunctionDeclarationSyntax],
-                 statements: List[MemberSyntax.GlobalStatementSyntax]
-               ): BoundEntry = {
+      program: Option[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
+      main: Option[MemberSyntax.FunctionDeclarationSyntax],
+      programMethods: List[MemberSyntax.FunctionDeclarationSyntax],
+      statements: List[MemberSyntax.GlobalStatementSyntax]
+  ): BoundEntry = {
 
     // if program class does not exist, create it
     // if main method does not exist, create it
@@ -1137,8 +1348,8 @@ class Binder(
   }
 
   def getMainMethod(
-                     functions: List[MemberSyntax.FunctionDeclarationSyntax]
-                   ): Option[MemberSyntax.FunctionDeclarationSyntax] = {
+      functions: List[MemberSyntax.FunctionDeclarationSyntax]
+  ): Option[MemberSyntax.FunctionDeclarationSyntax] = {
     functions match {
       case List.Nil => Option.None
       case List.Cons(head, tail) =>
@@ -1151,8 +1362,8 @@ class Binder(
   }
 
   def getProgramObject(
-                        objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]]
-                      ): Option[Namespaced[MemberSyntax.ObjectDeclarationSyntax]] = {
+      objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]]
+  ): Option[Namespaced[MemberSyntax.ObjectDeclarationSyntax]] = {
     objects match {
       case List.Nil => Option.None
       case List.Cons(head, tail) =>
@@ -1165,10 +1376,10 @@ class Binder(
   }
 
   /** Split members into disparate lists from the given list of syntax trees.
-   *
-   *   - variable declarations generate assignments as statements
-   *   - this does not perform nested extraction
-   */
+    *
+    *   - variable declarations generate assignments as statements
+    *   - this does not perform nested extraction
+    */
   def splitMembersInTrees(trees: List[SyntaxTree]): Members = {
     _splitMembers(
       List.Nil,
@@ -1229,16 +1440,16 @@ class Binder(
   }
 
   def _splitMembers(
-                     ns: List[string],
-                     trees: List[SyntaxTree],
-                     members: List[MemberSyntax],
-                     objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
-                     classes: List[Namespaced[MemberSyntax.ClassDeclarationSyntax]],
-                     enums: List[Namespaced[MemberSyntax.EnumDeclarationSyntax]],
-                     fields: List[MemberSyntax.VariableDeclaration],
-                     functions: List[MemberSyntax.FunctionDeclarationSyntax],
-                     globalStatements: List[MemberSyntax.GlobalStatementSyntax]
-                   ): Members = {
+      ns: List[string],
+      trees: List[SyntaxTree],
+      members: List[MemberSyntax],
+      objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
+      classes: List[Namespaced[MemberSyntax.ClassDeclarationSyntax]],
+      enums: List[Namespaced[MemberSyntax.EnumDeclarationSyntax]],
+      fields: List[MemberSyntax.VariableDeclaration],
+      functions: List[MemberSyntax.FunctionDeclarationSyntax],
+      globalStatements: List[MemberSyntax.GlobalStatementSyntax]
+  ): Members = {
     members match {
       case List.Nil =>
         trees match {
@@ -1254,7 +1465,7 @@ class Binder(
           case List.Cons(tree, tail) =>
             _splitMembers(
               tree.root.namespaceDeclaration match {
-                case Option.None => List.Nil
+                case Option.None        => List.Nil
                 case Option.Some(value) => nameToNamespace(value.name, List.Nil)
               },
               tail,
@@ -1358,14 +1569,14 @@ class Binder(
   }
 
   /** Detects multiple source files with top level statements.
-   *
-   *   - if there are multiple source files with top level statements or top
-   *     level functions report an error
-   */
+    *
+    *   - if there are multiple source files with top level statements or top
+    *     level functions report an error
+    */
   def detectMultipleSourceFilesWithTopLevelStatements(
-                                                       functions: List[MemberSyntax.FunctionDeclarationSyntax],
-                                                       globalStatements: List[MemberSyntax.GlobalStatementSyntax]
-                                                     ): unit = {
+      functions: List[MemberSyntax.FunctionDeclarationSyntax],
+      globalStatements: List[MemberSyntax.GlobalStatementSyntax]
+  ): unit = {
     functions match {
       case List.Nil =>
         globalStatements match {
@@ -1387,10 +1598,10 @@ class Binder(
   }
 
   def _detectMultipleSourceFilesWithTopLevelStatements(
-                                                        firstLocation: TextLocation,
-                                                        functions: List[MemberSyntax.FunctionDeclarationSyntax],
-                                                        globalStatements: List[MemberSyntax.GlobalStatementSyntax]
-                                                      ): unit = {
+      firstLocation: TextLocation,
+      functions: List[MemberSyntax.FunctionDeclarationSyntax],
+      globalStatements: List[MemberSyntax.GlobalStatementSyntax]
+  ): unit = {
     functions match {
       case List.Nil =>
         globalStatements match {

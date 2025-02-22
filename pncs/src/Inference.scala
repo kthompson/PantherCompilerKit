@@ -5,15 +5,15 @@ enum Constraint {
 //  case SubType(param: Type, arg: Type)
 }
 
-/**
- * Inference module
- *
- * 1. instantiate all types
- * 2. unify all type pairs
- * 3. infer via substitution
- *
- * @param diagnostics errors for reporting
- */
+/** Inference module
+  *
+  *   1. instantiate all types
+  *   2. unify all type pairs
+  *   3. infer via substitution
+  *
+  * @param diagnostics
+  *   errors for reporting
+  */
 case class Inference(diagnostics: DiagnosticBag) {
   var typeVariables: Dictionary[int, Type] = DictionaryModule.empty()
 
@@ -40,7 +40,7 @@ case class Inference(diagnostics: DiagnosticBag) {
 
   def has(index: int): bool = typeVariables.getUnsafe(index) match {
     case Type.Variable(_, i) => i != index
-    case _ => true
+    case _                   => true
   }
 
   def substitute(t: Type): Type = {
@@ -51,7 +51,13 @@ case class Inference(diagnostics: DiagnosticBag) {
       case Type.Function(loc, p, r) =>
         Type.Function(loc, substituteParameters(p), substitute(r))
 
-      case Type.GenericFunction(loc, generics, traits, parameters, returnType) =>
+      case Type.GenericFunction(
+            loc,
+            generics,
+            traits,
+            parameters,
+            returnType
+          ) =>
         Type.GenericFunction(
           loc,
           generics,
@@ -59,29 +65,30 @@ case class Inference(diagnostics: DiagnosticBag) {
           substituteParameters(parameters),
           substitute(returnType)
         )
-        
+
       case Type.Class(loc, ns, name, args) =>
         Type.Class(loc, ns, name, substituteList(args))
 
       case _: Type.GenericClass => t
-      case Type.Error => t
-      case Type.Any => t
-      case Type.Never => t
+      case Type.Error           => t
+      case Type.Any             => t
+      case Type.Never           => t
     }
   }
 
   def unifyConstraint(constraint: Constraint): unit = {
     constraint match
 //      case Constraint.SubType(Type.Variable(_, i), Type.Variable(_, arg)) if i == arg =>
-      case Constraint.Equality(Type.Variable(_, i), Type.Variable(_, arg)) if i == arg =>
+      case Constraint.Equality(Type.Variable(_, i), Type.Variable(_, arg))
+          if i == arg =>
       case Constraint.Equality(Type.Variable(_, i), arg) if has(i) =>
         unifyConstraint(Constraint.Equality(get(i), arg))
 //      case Constraint.SubType(Type.Variable(_, i), arg) if has(i) =>
 //        unifyConstraint(Constraint.SubType(get(i), arg))
-      case Constraint.Equality(param, Type.Variable(_, i)) if has(i) => unifyConstraint(
-        Constraint.Equality(
-          param, get(i))
-      )
+      case Constraint.Equality(param, Type.Variable(_, i)) if has(i) =>
+        unifyConstraint(
+          Constraint.Equality(param, get(i))
+        )
 //      case Constraint.SubType(param, Type.Variable(_, i)) if has(i) => unifyConstraint(
 //        Constraint.SubType(
 //          param, get(i))
@@ -101,28 +108,45 @@ case class Inference(diagnostics: DiagnosticBag) {
           typeVariables = typeVariables.put(i, param)
         }
 
-      case Constraint.Equality(Type.Function(loc1, p1, r1), Type.Function(loc2, p2, r2)) =>
+      case Constraint.Equality(
+            Type.Function(loc1, p1, r1),
+            Type.Function(loc2, p2, r2)
+          ) =>
         if (p1.length != p2.length) {
           panic("Type mismatch: " + loc1.toString() + " vs. " + loc2.toString())
         }
-        unifyConstraints(buildConstraints(paramTypes(p1), paramTypes(p2), List.Nil))
+        unifyConstraints(
+          buildConstraints(paramTypes(p1), paramTypes(p2), List.Nil)
+        )
         unifyConstraint(Constraint.Equality(r1, r2))
 
       case Constraint.Equality(
-      Type.Class(loc1, ns1, name1, args1),
-      Type.Class(loc2, ns2, name2, args2)
-      ) =>
+            Type.Class(loc1, ns1, name1, args1),
+            Type.Class(loc2, ns2, name2, args2)
+          ) =>
         if (name1 == name2 && namespaceEquals(ns1, ns2)) {
           unifyConstraints(buildConstraints(args1, args2, List.Nil))
         } else {
-          panic("Type mismatch1: " + substitute(Type.Class(loc1, ns1, name1, args1)) + " vs. " + substitute(Type.Class(loc2, ns2, name2, args2)))
+          panic(
+            "Type mismatch1: " + substitute(
+              Type.Class(loc1, ns1, name1, args1)
+            ) + " vs. " + substitute(Type.Class(loc2, ns2, name2, args2))
+          )
         }
       case Constraint.Equality(Type.Any, Type.Any) =>
       case Constraint.Equality(param, arg) =>
-        panic("Type " + substitute(arg) + " is not assignable to " + substitute(param))
+        panic(
+          "Type " + substitute(arg) + " is not assignable to " + substitute(
+            param
+          )
+        )
   }
 
-  def buildConstraints(params: List[Type], args: List[Type], acc: List[Constraint]): List[Constraint] =
+  def buildConstraints(
+      params: List[Type],
+      args: List[Type],
+      acc: List[Constraint]
+  ): List[Constraint] =
     params match {
       case List.Nil =>
         args match {
@@ -168,9 +192,9 @@ case class Inference(diagnostics: DiagnosticBag) {
         unify(r1, r2)
 
       case Tuple2(
-      Type.Class(loc1, ns1, name1, args1),
-      Type.Class(loc2, ns2, name2, args2)
-      ) =>
+            Type.Class(loc1, ns1, name1, args1),
+            Type.Class(loc2, ns2, name2, args2)
+          ) =>
         if (name1 == name2 && namespaceEquals(ns1, ns2)) {
           unifyLists(args1, args2)
         } else {
@@ -221,8 +245,8 @@ case class Inference(diagnostics: DiagnosticBag) {
   }
 
   def substituteParameters(
-                            parameters: List[BoundParameter]
-                          ): List[BoundParameter] = {
+      parameters: List[BoundParameter]
+  ): List[BoundParameter] = {
     parameters match {
       case List.Nil => List.Nil
       case List.Cons(parameter, tail) =>
@@ -246,15 +270,24 @@ case class Inference(diagnostics: DiagnosticBag) {
       case Type.Variable(loc, i) => i == index
       case Type.Function(loc, p, r) =>
         occursInType(index, r) || occursInTypes(index, paramTypes(p))
-      case Type.GenericFunction(loc, generics, traits, parameters, returnType) =>
-        occursInTypes(index, traits) || occursInTypes(index, paramTypes(parameters)) || occursInType(index, returnType)
+      case Type.GenericFunction(
+            loc,
+            generics,
+            traits,
+            parameters,
+            returnType
+          ) =>
+        occursInTypes(index, traits) || occursInTypes(
+          index,
+          paramTypes(parameters)
+        ) || occursInType(index, returnType)
       case Type.Class(loc, _, _, args) =>
         occursInTypes(index, args)
 
       case _: Type.GenericClass => false
-      case Type.Any => false
-      case Type.Never => false
-      case Type.Error => false
+      case Type.Any             => false
+      case Type.Never           => false
+      case Type.Error           => false
     }
   }
 
@@ -275,13 +308,13 @@ case class Inference(diagnostics: DiagnosticBag) {
   }
 
   /** Ensure that a type is instantiated such that there are no GenericTypes and
-   * all GenericTypeParameters are replaced with fresh type variables.
-   *
-   * @param instantiation
-   * a mapping of generic type names to types
-   * @param t
-   * @return
-   */
+    * all GenericTypeParameters are replaced with fresh type variables.
+    *
+    * @param instantiation
+    *   a mapping of generic type names to types
+    * @param t
+    * @return
+    */
   def instantiate(instantiation: Dictionary[string, Type], t: Type): Type = {
     ???
 //    t match {
@@ -318,23 +351,26 @@ case class Inference(diagnostics: DiagnosticBag) {
   }
 
   def instantiateParameters(
-                            instantiation: Dictionary[string, Type],
-                            parameters: List[BoundParameter]
-                          ): List[BoundParameter] = {
+      instantiation: Dictionary[string, Type],
+      parameters: List[BoundParameter]
+  ): List[BoundParameter] = {
     parameters match {
       case List.Nil => List.Nil
       case List.Cons(parameter, tail) =>
         List.Cons(
-          BoundParameter(parameter.name, instantiate(instantiation, parameter.typ)),
+          BoundParameter(
+            parameter.name,
+            instantiate(instantiation, parameter.typ)
+          ),
           instantiateParameters(instantiation, tail)
         )
     }
   }
 
   def instantiateList(
-                       instantiation: Dictionary[string, Type],
-                       types: List[Type]
-                     ): List[Type] = {
+      instantiation: Dictionary[string, Type],
+      types: List[Type]
+  ): List[Type] = {
     types match {
       case List.Nil => List.Nil
       case List.Cons(typ, tail) =>
@@ -346,15 +382,15 @@ case class Inference(diagnostics: DiagnosticBag) {
   }
 
   def instantiateGenerics(
-                           generics: List[GenericTypeParameter],
-                           dict: Dictionary[string, Type]
-                         ): Dictionary[string, Type] = {
+      generics: List[GenericTypeParameter],
+      dict: Dictionary[string, Type]
+  ): Dictionary[string, Type] = {
     generics match {
       case List.Nil => dict
       case List.Cons(generic, tail) =>
         instantiateGenerics(
           tail,
-          if(dict.contains(generic.name)) {
+          if (dict.contains(generic.name)) {
             dict
           } else {
             dict.put(generic.name, freshTypeVariable(generic.location))
@@ -364,10 +400,10 @@ case class Inference(diagnostics: DiagnosticBag) {
   }
 
   def instantiateGenericsFromTypes(
-                            types: List[Type],
-                           generics: List[GenericTypeParameter],
-                           dict: Dictionary[string, Type]
-                         ): Dictionary[string, Type] = {
+      types: List[Type],
+      generics: List[GenericTypeParameter],
+      dict: Dictionary[string, Type]
+  ): Dictionary[string, Type] = {
     types match {
       case List.Nil => instantiateGenerics(generics, dict)
       case List.Cons(head, tail) =>
@@ -404,26 +440,35 @@ case class Inference(diagnostics: DiagnosticBag) {
     }
   }
 
-  /**
-   * Infer a function type given a list of constraints
-   *
-   * @param constraints list of constraints
-   * @param typ         should already be an instantiated type
-   * @return
-   */
-  def inferFunction(constraints: List[Constraint], typ: Type.Function): Type.Function = {
+  /** Infer a function type given a list of constraints
+    *
+    * @param constraints
+    *   list of constraints
+    * @param typ
+    *   should already be an instantiated type
+    * @return
+    */
+  def inferFunction(
+      constraints: List[Constraint],
+      typ: Type.Function
+  ): Type.Function = {
     unifyConstraints(constraints)
 
-    Type.Function(typ.location, substituteParameters(typ.parameters), substitute(typ.returnType))
+    Type.Function(
+      typ.location,
+      substituteParameters(typ.parameters),
+      substitute(typ.returnType)
+    )
   }
 
-  /**
-   * Infer a function type given a list of constraints
-   *
-   * @param constraints list of constraints
-   * @param typ         should already be an instantiated type
-   * @return
-   */
+  /** Infer a function type given a list of constraints
+    *
+    * @param constraints
+    *   list of constraints
+    * @param typ
+    *   should already be an instantiated type
+    * @return
+    */
   def inferNamed(constraints: List[Constraint], typ: Type.Class): Type.Class = {
     unifyConstraints(constraints)
 

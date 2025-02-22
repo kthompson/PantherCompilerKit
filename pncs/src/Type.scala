@@ -1,33 +1,56 @@
 import panther._
 
-/**
- * A type variable with optional upper-bound.
- *   e.g., `T <: SomeBase`.
- *
- * @param name
- * @param variance
- * @param upperBound
- */
-case class GenericTypeParameter(location: TextLocation, name: string, variance: Variance, upperBound: Option[Type])
+/** A type variable with optional upper-bound. e.g., `T <: SomeBase`.
+  *
+  * @param name
+  * @param variance
+  * @param upperBound
+  */
+case class GenericTypeParameter(
+    location: TextLocation,
+    name: string,
+    variance: Variance,
+    upperBound: Option[Type]
+)
 
 enum Type {
 
-  /** A named type can have zero or more type arguments.
-   *  E.g. `List[Int]` -> Named("panther", "List", Types.Cons(Named("", "Int"), Types.Empty))
-   */
-  case Class(location: TextLocation, ns: List[string], name: string, args: List[Type])
+  /** A named type can have zero or more type arguments. E.g. `List[Int]` ->
+    * Named("panther", "List", Types.Cons(Named("", "Int"), Types.Empty))
+    */
+  case Class(
+      location: TextLocation,
+      ns: List[string],
+      name: string,
+      args: List[Type]
+  )
 
-  case GenericClass(location: TextLocation, ns: List[string], name: string, args: List[GenericTypeParameter])
+  case GenericClass(
+      location: TextLocation,
+      ns: List[string],
+      name: string,
+      args: List[GenericTypeParameter]
+  )
 
-  /**
-   * A generic function is a type that has type parameters. this gets converted to a regular function
-   */
-  case GenericFunction(location: TextLocation, generics: List[GenericTypeParameter], traits: List[Type], parameters: List[BoundParameter], returnType: Type)
+  /** A generic function is a type that has type parameters. this gets converted
+    * to a regular function
+    */
+  case GenericFunction(
+      location: TextLocation,
+      generics: List[GenericTypeParameter],
+      traits: List[Type],
+      parameters: List[BoundParameter],
+      returnType: Type
+  )
 
-  /** A function type takes a list of parameters and a return type.
-   *  E.g. `(x: Int, y: Int) => Int`
-   */
-  case Function(location: TextLocation, parameters: List[BoundParameter], returnType: Type)
+  /** A function type takes a list of parameters and a return type. E.g.
+    * `(x: Int, y: Int) => Int`
+    */
+  case Function(
+      location: TextLocation,
+      parameters: List[BoundParameter],
+      returnType: Type
+  )
 
 //  /** A type variable with optional upper-bound.
 //   *  e.g., `T <: SomeBase`.
@@ -35,9 +58,8 @@ enum Type {
 //   */
 //  case Generic(location: TextLocation, name: string, variance: Variance, upperBound: Option[Type])
 
-  /**
-   * A type variable used in type inference.
-   */
+  /** A type variable used in type inference.
+    */
   case Variable(location: TextLocation, id: int)
 
   /** Built-in "top" type */
@@ -50,14 +72,14 @@ enum Type {
 
   def getLocation(): Option[TextLocation] = {
     this match {
-      case Class(location, _, _, _) => Option.Some(location)
-      case Function(location, _, _) => Option.Some(location)
-      case GenericClass(location, _, _, _) => Option.Some(location)
+      case Class(location, _, _, _)              => Option.Some(location)
+      case Function(location, _, _)              => Option.Some(location)
+      case GenericClass(location, _, _, _)       => Option.Some(location)
       case GenericFunction(location, _, _, _, _) => Option.Some(location)
-      case Variable(location, _) => Option.Some(location)
-      case Any => Option.None
-      case Never => Option.None
-      case Error => Option.None
+      case Variable(location, _)                 => Option.Some(location)
+      case Any                                   => Option.None
+      case Never                                 => Option.None
+      case Error                                 => Option.None
     }
   }
 
@@ -81,7 +103,8 @@ enum Type {
   def _name(list: List[string], name: string): string = {
     list match {
       case List.Nil => name
-      case List.Cons(head, tail) => _name(tail, if (head == "") name else head + "." + name)
+      case List.Cons(head, tail) =>
+        _name(tail, if (head == "") name else head + "." + name)
     }
   }
 
@@ -100,7 +123,7 @@ enum Type {
         }
         val upperBoundStr = item.upperBound match {
           case Option.Some(value) => " <: " + value.toString
-          case Option.None => ""
+          case Option.None        => ""
         }
         _genArgs(str + sep + varianceStr + item.name + upperBoundStr, tail)
     }
@@ -120,10 +143,13 @@ enum Type {
         val argStr = _genArgs("", generics)
         val tail = if (argStr.isEmpty) "" else "<" + argStr + ">"
         _name(ns, name) + tail
-        
+
       case Type.GenericFunction(_, generics, traits, parameters, returnType) =>
-          val paramStr = _params("", parameters)
-          "<" + _genArgs("", generics) + ">" + "(" + paramStr + ") -> " + returnType.toString
+        val paramStr = _params("", parameters)
+        "<" + _genArgs(
+          "",
+          generics
+        ) + ">" + "(" + paramStr + ") -> " + returnType.toString
 
 //      case Type.Generic(_, name, variance, upperBound) =>
 //        val varianceStr = variance match {
@@ -139,9 +165,9 @@ enum Type {
 //          case Option.None => varianceStr + name
 //        }
       case Type.Variable(_, i) => "$" + string(i)
-      case Type.Any => "Any"
-      case Type.Never => "Never"
-      case Type.Error => "Error"
+      case Type.Any            => "Any"
+      case Type.Never          => "Never"
+      case Type.Error          => "Error"
     }
   }
 }

@@ -10,13 +10,13 @@ object ListModule {
 
   def concat[T](left: List[T], right: List[T]): List[T] = {
     left match {
-      case List.Nil => right
+      case List.Nil              => right
       case List.Cons(head, tail) => List.Cons(head, concat(tail, right))
     }
   }
 
   def _reverse[T](acc: List[T], list: List[T]): List[T] = list match {
-    case List.Nil => acc
+    case List.Nil              => acc
     case List.Cons(head, tail) => _reverse(List.Cons(head, acc), tail)
   }
 
@@ -39,19 +39,20 @@ object ListModule {
       fill(array, index + 1, tail)
   }
 
-  def fillReverse[T](array: Array[T], index: int, list: List[T]): int = list match {
-    case List.Nil => index
-    case List.Cons(head, tail) =>
-      array(index) = head
-      fillReverse(array, index - 1, tail)
-  }
-  
+  def fillReverse[T](array: Array[T], index: int, list: List[T]): int =
+    list match {
+      case List.Nil => index
+      case List.Cons(head, tail) =>
+        array(index) = head
+        fillReverse(array, index - 1, tail)
+    }
+
   def toString[T](list: List[T]): string = list match {
-    case List.Nil => "List()"
+    case List.Nil              => "List()"
     case List.Cons(head, tail) => _toString(head.toString, 0, tail)
   }
-  
-  def _toString[T](head: string,count: int, tail: List[T]): string = {
+
+  def _toString[T](head: string, count: int, tail: List[T]): string = {
     tail match {
       case List.Nil =>
         "List(" + head + ")"
@@ -73,7 +74,7 @@ enum List[+T] {
 
   val length: int = this match {
     case List.Cons(_, tail) => 1 + tail.length
-    case _ => 0
+    case _                  => 0
   }
 
   def reverse(): List[T] = ListModule._reverse(List.Nil, this)
@@ -81,14 +82,14 @@ enum List[+T] {
   val isEmpty: bool = length == 0
 
   def headUnsafe(): T = this match {
-    case List.Nil => panic("Empty list")
+    case List.Nil           => panic("Empty list")
     case List.Cons(head, _) => head
   }
 
   def last(): Option[T] = this match {
     case List.Nil => None
     case List.Cons(head, tail) =>
-      if(tail.isEmpty) Some(head)
+      if (tail.isEmpty) Some(head)
       else tail.last()
   }
 
@@ -102,7 +103,7 @@ enum List[+T] {
   def lastUnsafe(): T = this match {
     case List.Nil => panic("Empty list")
     case List.Cons(head, tail) =>
-      if(tail.isEmpty) head
+      if (tail.isEmpty) head
       else tail.lastUnsafe()
   }
 
@@ -115,11 +116,10 @@ enum List[+T] {
 
   def drop(n: int): List[T] = this match {
     case List.Nil => List.Nil
-    case List.Cons(_, tail)  =>
+    case List.Cons(_, tail) =>
       if (n == 0) this
       else tail.drop(n - 1)
   }
-
 
   override def toString(): string = ListModule.toString(this)
 
