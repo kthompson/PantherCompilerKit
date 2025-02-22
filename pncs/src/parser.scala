@@ -832,7 +832,7 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       terminator: int,
       arguments: List[ExpressionItemSyntax]
   ): ExpressionListSyntax = {
-    val expr = parseExpressionWithGroup(OperatorPrecedence.Lowest, false)
+    val expr = parseExpressionWithGroup(OperatorPrecedence.Lowest, true)
     if (
       currentKind() == terminator || currentKind() == SyntaxKind.EndOfInputToken || currentKind() != SyntaxKind.CommaToken
     ) {
