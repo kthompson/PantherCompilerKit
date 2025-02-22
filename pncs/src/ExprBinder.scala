@@ -115,8 +115,8 @@ case class ExprBinder(
 
         // Array subtyping: inner types must be subtypes
         case TypePair(
-              Type.Named(_, ns1, name1, args1),
-              Type.Named(_, ns2, name2, args2)
+              Type.Class(_, ns1, name1, args1),
+              Type.Class(_, ns2, name2, args2)
             ) =>
           if (ns1 == ns2 && name1 == name2) {
             areArgsSubtype(args1, args2)
@@ -222,7 +222,6 @@ case class ExprBinder(
       case node: Expression.GroupExpression => bindGroupExpression(node, scope)
       case node: Expression.IdentifierName  => bindIdentifierName(node, scope)
       case node: Expression.If              => bindIf(node, scope)
-      case node: Expression.IndexExpression => bindIndexExpression(node, scope)
       case node: Expression.LiteralExpression =>
         bindLiteralExpression(node, scope)
       case node: Expression.MemberAccessExpression =>
@@ -375,8 +374,10 @@ case class ExprBinder(
 
   def isCast(node: Expression.CallExpression): bool = {
     node.name match {
-      case Expression.IdentifierName(value) =>
-        val name = value.identifier.text
+      case Expression.IdentifierName(
+            SimpleNameSyntax.IdentifierNameSyntax(value)
+          ) =>
+        val name = value.text
         name == "string" || name == "int" || name == "bool"
       case _ => false
     }
@@ -409,118 +410,127 @@ case class ExprBinder(
           BoundExpression.Error
         } else {
           val location = AstUtils.locationOfBoundExpression(function)
-          val inference = new Inference(diagnosticBag)
-          val methodType = inference.instantiate(
-            DictionaryModule.empty(),
-            binder.getType(function)
-          )
-          methodType match {
-            case Type.Function(_, parameters, returnType) =>
-              if (parameters.length != args.length) {
-                diagnosticBag.reportArgumentCountMismatch(
-                  location,
-                  parameters.length,
-                  args.length
-                )
-                BoundExpression.Error
-              } else {
-                val paramTypes = getParameterTypes(parameters)
-                val constraints =
-                  buildConstraints(paramTypes, argTypes, List.Nil)
-                val func = inference.inferFunction(
-                  constraints,
-                  Type.Function(location, parameters, returnType)
-                )
+          // cases:
+          // 1. functions
+          // 2. generic functions
+          // 3. class instantiation
+          // 4. generic class instantiation
+          // 5. string indexing
 
-                BoundExpression.CallExpression(
-                  location,
-                  function,
-                  List.Nil,
-                  args,
-                  func.returnType
-                )
-              }
-            case Type.Error => BoundExpression.Error
-            case Type.Named(
-                  _,
-                  List.Nil,
-                  "Array",
-                  List.Cons(elementType, List.Nil)
-                ) =>
-              if (node.openParen.sourceFile.isScala()) {
-                args match {
-                  case List.Nil =>
-                    diagnosticBag.reportArgumentCountMismatch(
-                      location,
-                      1,
-                      args.length
-                    )
-                    BoundExpression.Error
-                  case List.Cons(head, List.Nil) =>
-                    val arg = bindConversion(head, binder.intType)
-                    BoundExpression.IndexExpression(
-                      location,
-                      function,
-                      arg,
-                      elementType
-                    )
-                  case List.Cons(_, _) =>
-                    diagnosticBag.reportArgumentCountMismatch(
-                      location,
-                      1,
-                      args.length
-                    )
-                    BoundExpression.Error
-                }
-              } else {
-                diagnosticBag.reportNotCallable(location)
-                BoundExpression.Error
-              }
+          ???
 
-            case Type.Named(_, List.Nil, "string", List.Nil) =>
-              if (node.openParen.sourceFile.isScala()) {
-                args match {
-                  case List.Nil =>
-                    diagnosticBag.reportArgumentCountMismatch(
-                      location,
-                      1,
-                      args.length
-                    )
-                    BoundExpression.Error
-                  case List.Cons(head, List.Nil) =>
-                    val arg = bindConversion(head, binder.intType)
-                    BoundExpression.IndexExpression(
-                      location,
-                      function,
-                      arg,
-                      binder.charType
-                    )
-                  case List.Cons(_, _) =>
-                    diagnosticBag.reportArgumentCountMismatch(
-                      location,
-                      1,
-                      args.length
-                    )
-                    BoundExpression.Error
-                }
-              } else {
-                diagnosticBag.reportNotCallable(location)
-                BoundExpression.Error
-              }
-
-            case Type.Named(_, ns, name, genericTypeParameters) =>
-              findConstructor(ns, name) match {
-                case Option.Some(ctor) =>
-                  bindNewExpressionForSymbol(location, ctor, args, scope)
-
-                case Option.None =>
-                  diagnosticBag.reportNotCallable(location)
-                  BoundExpression.Error
-              }
-            case _ =>
-              diagnosticBag.reportNotCallable(location)
-              BoundExpression.Error
-          }
+//          val inference = new Inference(diagnosticBag)
+//          val methodType = inference.instantiate(
+//            DictionaryModule.empty(),
+//            binder.getType(function)
+//          )
+//          methodType match {
+//            case Type.Function(_, parameters, returnType) =>
+//              if (parameters.length != args.length) {
+//                diagnosticBag.reportArgumentCountMismatch(
+//                  location,
+//                  parameters.length,
+//                  args.length
+//                )
+//                BoundExpression.Error
+//              } else {
+//                val paramTypes = getParameterTypes(parameters)
+//                val constraints =
+//                  buildConstraints(paramTypes, argTypes, List.Nil)
+//                val func = inference.inferFunction(
+//                  constraints,
+//                  Type.Function(location, parameters, returnType)
+//                )
+//
+//                BoundExpression.CallExpression(
+//                  location,
+//                  function,
+//                  List.Nil,
+//                  args,
+//                  func.returnType
+//                )
+//              }
+//            case Type.Error => BoundExpression.Error
+//            case Type.Class(
+//                  _,
+//                  List.Nil,
+//                  "Array",
+//                  List.Cons(elementType, List.Nil)
+//                ) =>
+//              if (node.openParen.sourceFile.isScala()) {
+//                args match {
+//                  case List.Nil =>
+//                    diagnosticBag.reportArgumentCountMismatch(
+//                      location,
+//                      1,
+//                      args.length
+//                    )
+//                    BoundExpression.Error
+//                  case List.Cons(head, List.Nil) =>
+//                    val arg = bindConversion(head, binder.intType)
+//                    BoundExpression.IndexExpression(
+//                      location,
+//                      function,
+//                      arg,
+//                      elementType
+//                    )
+//                  case List.Cons(_, _) =>
+//                    diagnosticBag.reportArgumentCountMismatch(
+//                      location,
+//                      1,
+//                      args.length
+//                    )
+//                    BoundExpression.Error
+//                }
+//              } else {
+//                diagnosticBag.reportNotCallable(location)
+//                BoundExpression.Error
+//              }
+//
+//            case Type.Class(_, List.Nil, "string", List.Nil) =>
+//              if (node.openParen.sourceFile.isScala()) {
+//                args match {
+//                  case List.Nil =>
+//                    diagnosticBag.reportArgumentCountMismatch(
+//                      location,
+//                      1,
+//                      args.length
+//                    )
+//                    BoundExpression.Error
+//                  case List.Cons(head, List.Nil) =>
+//                    val arg = bindConversion(head, binder.intType)
+//                    BoundExpression.IndexExpression(
+//                      location,
+//                      function,
+//                      arg,
+//                      binder.charType
+//                    )
+//                  case List.Cons(_, _) =>
+//                    diagnosticBag.reportArgumentCountMismatch(
+//                      location,
+//                      1,
+//                      args.length
+//                    )
+//                    BoundExpression.Error
+//                }
+//              } else {
+//                diagnosticBag.reportNotCallable(location)
+//                BoundExpression.Error
+//              }
+//
+//            case Type.Class(_, ns, name, genericTypeParameters) =>
+//              findConstructor(ns, name) match {
+//                case Option.Some(ctor) =>
+//                  bindNewExpressionForSymbol(location, ctor, args, scope)
+//
+//                case Option.None =>
+//                  diagnosticBag.reportNotCallable(location)
+//                  BoundExpression.Error
+//              }
+//            case _ =>
+//              diagnosticBag.reportNotCallable(location)
+//              BoundExpression.Error
+//          }
         }
       }
     }
@@ -571,20 +581,22 @@ case class ExprBinder(
         )
         val methodType = inference.instantiate(
           instantiation,
-          functionType match {
-            case Type.GenericType(_, _, _, uninstantiatedType) =>
-              uninstantiatedType
-            case t => t
-          }
+          ???
+//          functionType match {
+//            case Type.GenericType(_, _, _, uninstantiatedType) =>
+//              uninstantiatedType
+//            case t => t
+//          }
         )
         val instantiatedParentType =
           inference.instantiate(
             instantiation,
-            parentType match {
-              case Type.GenericType(_, _, _, uninstantiatedType) =>
-                uninstantiatedType
-              case t => t
-            }
+            ???
+//            parentType match {
+//              case Type.GenericType(_, _, _, uninstantiatedType) =>
+//                uninstantiatedType
+//              case t => t
+//            }
           )
 
         methodType match {
@@ -757,7 +769,20 @@ case class ExprBinder(
       node: Expression.IdentifierName,
       scope: Scope
   ): BoundExpression = {
-    val identifier = node.value.identifier
+    node.value match {
+      case SimpleNameSyntax.IdentifierNameSyntax(identifier) =>
+        bindIdentifier(identifier, scope)
+      case generic: SimpleNameSyntax.GenericNameSyntax => ???
+      case SimpleNameSyntax.ScalaAliasSyntax(open, name, arrow, alias, close) =>
+        ???
+      case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) => ???
+    }
+  }
+
+  def bindIdentifier(
+      identifier: SyntaxToken,
+      scope: Scope
+  ): BoundExpression = {
     scope.lookup(identifier.text) match {
       case Option.None =>
         diagnosticBag.reportSymbolNotFound(identifier.location, identifier.text)
@@ -807,12 +832,6 @@ case class ExprBinder(
     }
   }
 
-  def bindIndexExpression(
-      node: Expression.IndexExpression,
-      scope: Scope
-  ): BoundExpression =
-    boundErrorExpression("bindIndexExpression")
-
   def bindLiteralExpression(
       node: Expression.LiteralExpression,
       scope: Scope
@@ -837,19 +856,27 @@ case class ExprBinder(
       scope: Scope
   ): BoundExpression = {
     val left = bind(node.left, scope)
-    val right = node.right.identifier
-    val memberName = right.text
-    val leftType = binder.getType(left)
 
-    bindMemberForSymbolAndType(leftType, right) match {
-      case Option.None => BoundExpression.Error
-      case Option.Some(Tuple2(member, typ)) =>
-        BoundExpression.MemberAccess(
-          right.location,
-          left,
-          member,
-          typ
-        )
+    node.right match {
+      case SimpleNameSyntax.GenericNameSyntax(identifier, typeArgumentlist) =>
+        ???
+      case SimpleNameSyntax.ScalaAliasSyntax(open, name, arrow, alias, close) =>
+        ???
+      case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) => ???
+      case SimpleNameSyntax.IdentifierNameSyntax(right)         =>
+        //    val memberName = right.text
+        val leftType = binder.getType(left)
+
+        bindMemberForSymbolAndType(leftType, right) match {
+          case Option.None => BoundExpression.Error
+          case Option.Some(Tuple2(member, typ)) =>
+            BoundExpression.MemberAccess(
+              right.location,
+              left,
+              member,
+              typ
+            )
+        }
     }
   }
 
@@ -858,16 +885,7 @@ case class ExprBinder(
       right: SyntaxToken
   ): Option[Tuple2[Symbol, Type]] = {
     leftType match {
-      case Type.GenericType(location, generics, traits, uninstantiatedType) =>
-        bindMemberForSymbolAndType(uninstantiatedType, right) match {
-          case Option.None => Option.None
-          case Option.Some(Tuple2(member, typ)) =>
-            Option.Some(
-              Tuple2(member, Type.GenericType(location, generics, traits, typ))
-            )
-        }
-
-      case Type.Named(_, ns, name, _) =>
+      case Type.Class(_, ns, name, _) =>
         rootSymbol.findSymbol(ns, name) match {
           case Option.None =>
             diagnosticBag.reportSymbolNotFoundForType(
@@ -916,7 +934,7 @@ case class ExprBinder(
   ): BoundExpression = {
     val name = binder.bindTypeName(node.name, scope)
     name match {
-      case Type.Named(_, ns, name, args) =>
+      case Type.Class(_, ns, name, args) =>
         findConstructor(ns, name) match {
           case Option.None =>
             diagnosticBag.reportSymbolNotFound(

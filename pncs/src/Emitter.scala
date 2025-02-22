@@ -123,7 +123,7 @@ case class Emitter(
 //    queueSymbolSignature(symbol)
 //  }
 
-//  private def getSymbolSignature(symbol: Symbol) = {
+//  def getSymbolSignature(symbol: Symbol) = {
 //    val typ = checker.getTypeOfSymbol(symbol)
 //    val sig = new SignatureBuilder()
 //    emitTypeSignature(typ, sig)
@@ -174,14 +174,14 @@ case class Emitter(
 //    }
 //  }
 //
-//  private def emitTypeArraySignature(parameters: Array[Type], sig: SignatureBuilder) = {
+//  def emitTypeArraySignature(parameters: Array[Type], sig: SignatureBuilder) = {
 //    sig.writeTypeArray(parameters.length)
 //    for (i <- 0 to (parameters.length - 1)) {
 //      emitTypeSignature(parameters(i), sig)
 //    }
 //  }
 
-  private def emitPrimitiveTypeSignature(
+  def emitPrimitiveTypeSignature(
       name: string,
       sig: SignatureBuilder
   ): unit = {
@@ -254,13 +254,13 @@ case class Emitter(
     }
   }
 
-  private def i4Instruction(chunk: Chunk, offset: int, name: string): int = {
+  def i4Instruction(chunk: Chunk, offset: int, name: string): int = {
     val value = chunk.readI4(offset + 1)
     println(name + " " + string(value))
     offset + 2
   }
 
-  private def simpleInstruction(name: string, offset: int): int = {
+  def simpleInstruction(name: string, offset: int): int = {
     println(name)
     offset + 1
   }

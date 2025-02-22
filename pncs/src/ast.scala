@@ -16,11 +16,17 @@ case class ArrayInitializerExpressionSyntax(
 )
 
 enum SimpleNameSyntax {
+  
+    // name[type1, type2, ...]
     case GenericNameSyntax(identifier: SyntaxToken,
                            typeArgumentlist: TypeArgumentListSyntax)
+    
+    // name
     case IdentifierNameSyntax(identifier: SyntaxToken)
 
+    // {name => alias}    
     case ScalaAliasSyntax(open: SyntaxToken, name: SyntaxToken, arrow: SyntaxToken, alias: SyntaxToken, close: SyntaxToken)
+    // name as alias
     case AliasSyntax(name: SyntaxToken, asKeyword: SyntaxToken, alias: SyntaxToken)
 }
 
@@ -73,7 +79,7 @@ enum Expression {
                           openParen: SyntaxToken,
                           expression: Expression,
                           closeParen: SyntaxToken)
-    case IdentifierName(value: SimpleNameSyntax.IdentifierNameSyntax)
+    case IdentifierName(value: SimpleNameSyntax)
     case If(
                        ifKeyword: SyntaxToken,
                        openParen: SyntaxToken,
@@ -81,16 +87,11 @@ enum Expression {
                        closeParen: SyntaxToken,
                        thenExpr: Expression,
                        elseExpr: Option[ElseSyntax])
-    case IndexExpression(
-                          left: Expression,
-                          openBracket: SyntaxToken,
-                          index: Expression,
-                          closeBracket: SyntaxToken)
     case LiteralExpression(token: SyntaxToken, value: SyntaxTokenValue)
     case MemberAccessExpression(
                                  left: Expression,
                                  dotToken: SyntaxToken,
-                                 right: SimpleNameSyntax.IdentifierNameSyntax)
+                                 right: SimpleNameSyntax)
     case MatchExpression(expression: Expression, matchKeyword: SyntaxToken, openBrace: SyntaxToken, cases : Array[MatchCaseSyntax], closeBrace: SyntaxToken)
     case NewExpression(
                         newKeyword: SyntaxToken,
@@ -327,18 +328,16 @@ object AstUtils {
       case Expression.GroupExpression(openParen, expression, closeParen) =>
         openParen.location.merge(closeParen.location)
       case Expression.IdentifierName(value) =>
-        value.identifier.location
+        locationOfSimpleName(value)
       case Expression.If(ifKeyword, _, _, _, expression, elseExpr) =>
         ifKeyword.location.merge(locationOfExpression(elseExpr match {
           case Option.Some(value) => value.expression
           case Option.None => expression
         }))
-      case Expression.IndexExpression(left, openBracket, index, closeBracket) =>
-        locationOfExpression(left).merge(closeBracket.location)
       case Expression.LiteralExpression(token, value) =>
         token.location
       case Expression.MemberAccessExpression(left, dotToken, right) =>
-        locationOfExpression(left).merge(right.identifier.location)
+        locationOfExpression(left).merge(locationOfSimpleName(right))
       case Expression.MatchExpression(expression, _, _, _, closeBrace) =>
         locationOfExpression(expression).merge(closeBrace.location)
       case Expression.NewExpression(newKeyword, _, _, _, closeParen) =>

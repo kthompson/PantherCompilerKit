@@ -399,10 +399,8 @@ case class Transpiler(
       case value: Expression.GroupExpression =>
         transpileGroupExpression(value, context)
       case Expression.IdentifierName(value) =>
-        transpileIdentifierName(value, context)
+        transpileSimpleName(value, context)
       case value: Expression.If => transpileIfExpression(value, context)
-      case value: Expression.IndexExpression =>
-        transpileIndexExpression(value, context)
       case value: Expression.LiteralExpression =>
         transpileLiteralExpression(value, context)
       case value: Expression.MatchExpression =>
@@ -613,11 +611,6 @@ case class Transpiler(
     transpileExpression(expr.expression, context)
   }
 
-  def transpileIndexExpression(
-      expr: Expression.IndexExpression,
-      context: TranspilerContext
-  ): unit = panic("todo")
-
   def transpileLiteralExpression(
       expr: Expression.LiteralExpression,
       context: TranspilerContext
@@ -630,7 +623,7 @@ case class Transpiler(
   ): unit = {
     transpileExpression(expr.left, context)
     transpileToken(expr.dotToken, context)
-    transpileIdentifierName(expr.right, context)
+    transpileSimpleName(expr.right, context)
   }
 
   def transpileNewExpression(

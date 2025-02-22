@@ -1,7 +1,8 @@
-import AstPrinter._
 import panther._
 
 case class SymbolTreePrinter(binder: Binder) {
+  val printer = new AstPrinter(true, true)
+  
   def printSymbols(symbols: List[Symbol], indent: string): unit = {
     symbols match {
       case List.Nil => ()
@@ -18,13 +19,13 @@ case class SymbolTreePrinter(binder: Binder) {
   def _printSymbol(symbol: Symbol, indent: string, last: bool): unit = {
     val marker = if (last) "└──" else "├──"
 
-    printColor(ColorPalette.Comment)
+    printer.writeColor(ColorPalette.Comment)
     print(indent)
     print(marker)
     print(ANSI.Clear)
 
     val kind = symbol.kind
-    AstPrinter.printSymbolKind(kind)
+    printer.printSymbolKind(kind)
     print(" ")
 
     if (
@@ -33,14 +34,14 @@ case class SymbolTreePrinter(binder: Binder) {
       val typ = binder.getSymbolType(symbol)
       typ match {
         case Option.Some(value) =>
-          printType(value)
+          printer.printType(value)
         case Option.None =>
           print(symbol.qualifiedName())
       }
     } else {
       print(symbol.name)
     }
-    printColor(ColorPalette.Punctuation)
+    printer.writeColor(ColorPalette.Punctuation)
 
     if (
       symbol.kind != SymbolKind.Namespace &&
@@ -56,11 +57,11 @@ case class SymbolTreePrinter(binder: Binder) {
             case SymbolKind.TypeParameter(_) =>
             case _ =>
               print(": ")
-              printType(value)
+              printer.printType(value)
           }
         case Option.None =>
           print(": ")
-          printColor(ColorPalette.Error)
+          printer.writeColor(ColorPalette.Error)
           print("[missing type]")
           print(ANSI.Clear)
       }
@@ -69,13 +70,13 @@ case class SymbolTreePrinter(binder: Binder) {
         symbol.kind == SymbolKind.Constructor || symbol.kind == SymbolKind.Method
       ) {
         val hasBody = binder.functionBodies.contains(symbol)
-        printColor(ColorPalette.Punctuation)
+        printer.writeColor(ColorPalette.Punctuation)
         print(" = ")
         if (!hasBody) {
-          printColor(ColorPalette.Error)
+          printer.writeColor(ColorPalette.Error)
           print("[no body]")
         } else {
-          printColor(ColorPalette.Keyword)
+          printer.writeColor(ColorPalette.Keyword)
           print("[body]")
         }
         print(ANSI.Clear)

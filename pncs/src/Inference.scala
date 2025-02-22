@@ -50,17 +50,20 @@ case class Inference(diagnostics: DiagnosticBag) {
         else t
       case Type.Function(loc, p, r) =>
         Type.Function(loc, substituteParameters(p), substitute(r))
-      case Type.Named(loc, ns, name, args) =>
-        Type.Named(loc, ns, name, substituteList(args))
 
-      case Type.GenericType(loc, generics, traits, uninstantiatedType) =>
-        Type.GenericType(
+      case Type.GenericFunction(loc, generics, traits, parameters, returnType) =>
+        Type.GenericFunction(
           loc,
           generics,
           substituteList(traits),
-          substitute(uninstantiatedType)
+          substituteParameters(parameters),
+          substitute(returnType)
         )
+        
+      case Type.Class(loc, ns, name, args) =>
+        Type.Class(loc, ns, name, substituteList(args))
 
+      case _: Type.GenericClass => t
       case Type.Error => t
       case Type.Any => t
       case Type.Never => t
@@ -106,13 +109,13 @@ case class Inference(diagnostics: DiagnosticBag) {
         unifyConstraint(Constraint.Equality(r1, r2))
 
       case Constraint.Equality(
-      Type.Named(loc1, ns1, name1, args1),
-      Type.Named(loc2, ns2, name2, args2)
+      Type.Class(loc1, ns1, name1, args1),
+      Type.Class(loc2, ns2, name2, args2)
       ) =>
         if (name1 == name2 && namespaceEquals(ns1, ns2)) {
           unifyConstraints(buildConstraints(args1, args2, List.Nil))
         } else {
-          panic("Type mismatch1: " + substitute(Type.Named(loc1, ns1, name1, args1)) + " vs. " + substitute(Type.Named(loc2, ns2, name2, args2)))
+          panic("Type mismatch1: " + substitute(Type.Class(loc1, ns1, name1, args1)) + " vs. " + substitute(Type.Class(loc2, ns2, name2, args2)))
         }
       case Constraint.Equality(Type.Any, Type.Any) =>
       case Constraint.Equality(param, arg) =>
@@ -165,8 +168,8 @@ case class Inference(diagnostics: DiagnosticBag) {
         unify(r1, r2)
 
       case Tuple2(
-      Type.Named(loc1, ns1, name1, args1),
-      Type.Named(loc2, ns2, name2, args2)
+      Type.Class(loc1, ns1, name1, args1),
+      Type.Class(loc2, ns2, name2, args2)
       ) =>
         if (name1 == name2 && namespaceEquals(ns1, ns2)) {
           unifyLists(args1, args2)
@@ -243,10 +246,12 @@ case class Inference(diagnostics: DiagnosticBag) {
       case Type.Variable(loc, i) => i == index
       case Type.Function(loc, p, r) =>
         occursInType(index, r) || occursInTypes(index, paramTypes(p))
-      case Type.Named(loc, _, _, args) =>
+      case Type.GenericFunction(loc, generics, traits, parameters, returnType) =>
+        occursInTypes(index, traits) || occursInTypes(index, paramTypes(parameters)) || occursInType(index, returnType)
+      case Type.Class(loc, _, _, args) =>
         occursInTypes(index, args)
-      case Type.GenericType(loc, generics, traits, uninstantiatedType) =>
-        occursInTypes(index, traits) || occursInType(index, uninstantiatedType)
+
+      case _: Type.GenericClass => false
       case Type.Any => false
       case Type.Never => false
       case Type.Error => false
@@ -278,37 +283,38 @@ case class Inference(diagnostics: DiagnosticBag) {
    * @return
    */
   def instantiate(instantiation: Dictionary[string, Type], t: Type): Type = {
-    t match {
-      case Type.GenericType(loc, generics, traits, uninstantiatedType) =>
-        if (generics.length == 0) {
-          uninstantiatedType
-        } else {
-          val newInstantiation =
-            instantiateGenerics(generics, DictionaryModule.empty())
-          val typ = instantiate(newInstantiation, uninstantiatedType)
-          // TODO: traits
-          // val newTraits = traits.map(instantiate(newInstantiation, _))
-          typ
-        }
-      case _ if instantiation.length == 0 => t
-      case Type.Function(loc, p, r) =>
-        Type.Function(loc, instantiateParameters(instantiation, p), instantiate(instantiation, r))
-      case Type.Variable(_, i) if has(i) => instantiate(instantiation, get(i))
-      case Type.Named(loc, ns, name, args) =>
-        instantiation.get(name) match {
-          case Option.Some(instantiationType) =>
-            if (args.length > 0) {
-              panic("diagnostics.reportHigherKindedType(t)")
-            }
-            instantiationType
-          case Option.None =>
-            Type.Named(loc, ns, name, instantiateList(instantiation, args))
-        }
-      case v: Type.Variable => v
-      case Type.Any => Type.Any
-      case Type.Never => Type.Never
-      case Type.Error => Type.Error
-    }
+    ???
+//    t match {
+////      case Type.GenericType(loc, generics, traits, uninstantiatedType) =>
+////        if (generics.length == 0) {
+////          uninstantiatedType
+////        } else {
+////          val newInstantiation =
+////            instantiateGenerics(generics, DictionaryModule.empty())
+////          val typ = instantiate(newInstantiation, uninstantiatedType)
+////          // TODO: traits
+////          // val newTraits = traits.map(instantiate(newInstantiation, _))
+////          typ
+////        }
+//      case _ if instantiation.length == 0 => t
+//      case Type.Function(loc, p, r) =>
+//        Type.Function(loc, instantiateParameters(instantiation, p), instantiate(instantiation, r))
+//      case Type.Variable(_, i) if has(i) => instantiate(instantiation, get(i))
+//      case Type.Class(loc, ns, name, args) =>
+//        instantiation.get(name) match {
+//          case Option.Some(instantiationType) =>
+//            if (args.length > 0) {
+//              panic("diagnostics.reportHigherKindedType(t)")
+//            }
+//            instantiationType
+//          case Option.None =>
+//            Type.Class(loc, ns, name, instantiateList(instantiation, args))
+//        }
+//      case v: Type.Variable => v
+//      case Type.Any => Type.Any
+//      case Type.Never => Type.Never
+//      case Type.Error => Type.Error
+//    }
   }
 
   def instantiateParameters(
@@ -366,8 +372,8 @@ case class Inference(diagnostics: DiagnosticBag) {
       case List.Nil => instantiateGenerics(generics, dict)
       case List.Cons(head, tail) =>
         head match {
-          case Type.GenericType(_, moreGenerics, _, _) =>
-            instantiateGenericsFromTypes(tail, ListModule.concat(generics, moreGenerics), dict)
+//          case Type.GenericType(_, moreGenerics, _, _) =>
+//            instantiateGenericsFromTypes(tail, ListModule.concat(generics, moreGenerics), dict)
           case _ =>
             instantiateGenericsFromTypes(tail, generics, dict)
         }
@@ -418,9 +424,9 @@ case class Inference(diagnostics: DiagnosticBag) {
    * @param typ         should already be an instantiated type
    * @return
    */
-  def inferNamed(constraints: List[Constraint], typ: Type.Named): Type.Named = {
+  def inferNamed(constraints: List[Constraint], typ: Type.Class): Type.Class = {
     unifyConstraints(constraints)
 
-    Type.Named(typ.location, typ.ns, typ.name, substituteList(typ.args))
+    Type.Class(typ.location, typ.ns, typ.name, substituteList(typ.args))
   }
 }

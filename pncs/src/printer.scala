@@ -5,7 +5,23 @@ import StatementSyntax._
 import SimpleNameSyntax._
 import NameSyntax._
 
-object AstPrinter {
+class AstPrinter(withColor: bool, toConsole: bool) {
+  var buffer = ""
+
+  override def toString(): String = buffer
+
+  def write(text: string): unit = {
+    if (toConsole) {
+      print(text)
+    } else {
+      buffer = buffer + text
+    }
+  }
+
+  def writeln(text: string): unit = {
+    write(text)
+    write("\n")
+  }
 
   def printCompilationUnit(compilationUnit: CompilationUnitSyntax): unit = {
     printNamespaceDeclaration(compilationUnit.namespaceDeclaration)
@@ -172,15 +188,13 @@ object AstPrinter {
         printArrayCreationExpression(value)
       case value: Expression.AssignmentExpression =>
         printAssignmentExpression(value)
-      case value: Expression.BinaryExpression => printBinaryExpression(value)
-      case value: Expression.BlockExpression  => printBlockExpression(value)
-      case value: Expression.CallExpression   => printCallExpression(value)
-      case value: Expression.ForExpression    => printForExpression(value)
-      case value: Expression.GroupExpression  => printGroupExpression(value)
-      case IdentifierName(value) =>
-        printIdentifierName(value, ColorPalette.Identifier)
+      case value: Expression.BinaryExpression  => printBinaryExpression(value)
+      case value: Expression.BlockExpression   => printBlockExpression(value)
+      case value: Expression.CallExpression    => printCallExpression(value)
+      case value: Expression.ForExpression     => printForExpression(value)
+      case value: Expression.GroupExpression   => printGroupExpression(value)
+      case IdentifierName(value)               => printSimpleName(value)
       case value: Expression.If                => printIfExpression(value)
-      case value: Expression.IndexExpression   => printIndexExpression(value)
       case value: Expression.LiteralExpression => printLiteralExpression(value)
       case value: MatchExpression => panic("MatchExpression not implemented")
       case value: Expression.MemberAccessExpression =>
@@ -291,13 +305,6 @@ object AstPrinter {
     }
   }
 
-  def printIndexExpression(node: Expression.IndexExpression): unit = {
-    printExpression(node.left)
-    printToken(node.openBracket)
-    printExpression(node.index)
-    printToken(node.closeBracket)
-  }
-
   def printLiteralExpression(node: Expression.LiteralExpression): unit = {
     printToken(node.token)
   }
@@ -307,7 +314,7 @@ object AstPrinter {
   ): unit = {
     printExpression(node.left)
     printToken(node.dotToken)
-    printIdentifierName(node.right, ColorPalette.Identifier)
+    printSimpleName(node.right)
   }
 
   def printNewExpression(node: Expression.NewExpression): unit = {
@@ -508,8 +515,8 @@ object AstPrinter {
 
   def printTrivia(node: SyntaxTrivia): unit = {
     printKindColor(node.kind)
-    print(node.text)
-    printClear()
+    write(node.text)
+    writeClear()
   }
 
   def printTokens(nodes: Array[SyntaxToken]): unit = {
@@ -527,16 +534,16 @@ object AstPrinter {
   def printToken(token: SyntaxToken): unit = {
     printTriviaArray(token.leading)
     printKindColor(token.kind)
-    print(token.text)
-    printClear()
+    write(token.text)
+    writeClear()
     printTriviaArray(token.trailing)
   }
 
   def printTokenWithColor(token: SyntaxToken, color: string): unit = {
     printTriviaArray(token.leading)
-    printColor(color)
-    print(token.text)
-    printClear()
+    writeColor(color)
+    write(token.text)
+    writeClear()
     printTriviaArray(token.trailing)
   }
 
@@ -545,11 +552,11 @@ object AstPrinter {
 
   def _printTypes(types: List[Type], first: bool): unit =
     types match {
-      case List.Nil => printClear()
+      case List.Nil => writeClear()
       case List.Cons(typ, tail) =>
         if (!first) {
-          printColor(ColorPalette.Punctuation)
-          print(", ")
+          writeColor(ColorPalette.Punctuation)
+          write(", ")
         }
         _printType(typ, false)
         _printTypes(tail, false)
@@ -563,13 +570,13 @@ object AstPrinter {
       case List.Nil => ()
       case List.Cons(param, tail) =>
         if (printedFirst) {
-          printColor(ColorPalette.Punctuation)
-          print(", ")
+          writeColor(ColorPalette.Punctuation)
+          write(", ")
         } else {}
-        printColor(ColorPalette.Identifier)
-        print(param.name)
-        printColor(ColorPalette.Punctuation)
-        print(": ")
+        writeColor(ColorPalette.Identifier)
+        write(param.name)
+        writeColor(ColorPalette.Punctuation)
+        write(": ")
         _printType(param.typ, false)
         _printTypedParameters(true, tail)
     }
@@ -578,22 +585,22 @@ object AstPrinter {
   def _printType(typ: Type, clear: bool): unit = {
     typ match {
       case Type.Function(_, parameters, returnType) =>
-        printColor(ColorPalette.Punctuation)
-        print("(")
+        writeColor(ColorPalette.Punctuation)
+        write("(")
         _printTypedParameters(false, parameters)
-        printColor(ColorPalette.Punctuation)
-        print(") -> ")
+        writeColor(ColorPalette.Punctuation)
+        write(") -> ")
         _printType(returnType, false)
       case Type.GenericFunction(_, genParams, traits, parameters, returnType) =>
-        printColor(ColorPalette.Punctuation)
-        print("<")
+        writeColor(ColorPalette.Punctuation)
+        write("<")
         _printGenTypes(genParams, true)
-        printColor(ColorPalette.Punctuation)
-        print(">")
-        print("(")
+        writeColor(ColorPalette.Punctuation)
+        write(">")
+        write("(")
         _printTypedParameters(false, parameters)
-        printColor(ColorPalette.Punctuation)
-        print(") -> ")
+        writeColor(ColorPalette.Punctuation)
+        write(") -> ")
         _printType(returnType, false)
 
       case Type.Class(_, ns, name, args) =>
@@ -602,15 +609,15 @@ object AstPrinter {
             ColorPalette.Keyword
           else ColorPalette.Identifier
 
-        printColor(color)
-        print(typ._name(ns, name))
+        writeColor(color)
+        write(typ._name(ns, name))
 
         args match {
           case List.Nil =>
           case List.Cons(typ, tail) =>
-            print("<")
+            write("<")
             _printTypes(args, true)
-            print(">")
+            write(">")
         }
 
       case Type.GenericClass(_, ns, name, args) =>
@@ -619,58 +626,58 @@ object AstPrinter {
             ColorPalette.Keyword
           else ColorPalette.Identifier
 
-        printColor(color)
-        print(typ._name(ns, name))
+        writeColor(color)
+        write(typ._name(ns, name))
 
         args match {
           case List.Nil =>
           case List.Cons(typ, tail) =>
-            print("<")
+            write("<")
             _printGenTypes(args, true)
-            print(">")
+            write(">")
         }
       case Type.Variable(_, i) =>
-        printColor(ColorPalette.Keyword)
-        print("$" + i)
+        writeColor(ColorPalette.Keyword)
+        write("$" + i)
       case Type.Any =>
-        printColor(ColorPalette.Keyword)
-        print("any")
+        writeColor(ColorPalette.Keyword)
+        write("any")
       case Type.Never =>
-        printColor(ColorPalette.Keyword)
-        print("never")
+        writeColor(ColorPalette.Keyword)
+        write("never")
       case Type.Error =>
-        printColor(ColorPalette.Error)
-        print("error")
+        writeColor(ColorPalette.Error)
+        write("error")
     }
 
-    if (clear) printClear() else ()
+    if (clear) writeClear() else ()
   }
 
   def _printGenTypes(types: List[GenericTypeParameter], first: bool): unit = {
     types match {
-      case List.Nil => printClear()
+      case List.Nil => writeClear()
       case List.Cons(typ, tail) =>
         if (!first) {
-          printColor(ColorPalette.Punctuation)
-          print(", ")
+          writeColor(ColorPalette.Punctuation)
+          write(", ")
         }
 
         typ.variance match {
           case Variance.Covariant =>
-            printColor(ColorPalette.Keyword)
-            print("out ")
+            writeColor(ColorPalette.Keyword)
+            write("out ")
           case Variance.Contravariant =>
-            printColor(ColorPalette.Keyword)
-            print("in ")
+            writeColor(ColorPalette.Keyword)
+            write("in ")
           case _ =>
         }
 
-        printColor(ColorPalette.Identifier)
-        print(typ.name)
+        writeColor(ColorPalette.Identifier)
+        write(typ.name)
         typ.upperBound match {
           case Option.Some(value) =>
-            printColor(ColorPalette.Punctuation)
-            print(" <: ")
+            writeColor(ColorPalette.Punctuation)
+            write(" <: ")
             _printType(value, false)
           case Option.None =>
         }
@@ -682,58 +689,58 @@ object AstPrinter {
   def printSymbolKind(kind: SymbolKind): unit = {
     kind match {
       case SymbolKind.Namespace =>
-        printColor(ColorPalette.Keyword)
-        print("Namespace")
+        writeColor(ColorPalette.Keyword)
+        write("Namespace")
       case SymbolKind.Class =>
-        printColor(ColorPalette.Keyword)
-        print("Class")
+        writeColor(ColorPalette.Keyword)
+        write("Class")
       case SymbolKind.Object =>
-        printColor(ColorPalette.Keyword)
-        print("Object")
+        writeColor(ColorPalette.Keyword)
+        write("Object")
       case SymbolKind.Enum =>
-        printColor(ColorPalette.Keyword)
-        print("Enum")
+        writeColor(ColorPalette.Keyword)
+        write("Enum")
       case SymbolKind.TypeParameter(_) =>
-        printColor(ColorPalette.TypeParameter)
-        print("TypeParameter")
+        writeColor(ColorPalette.TypeParameter)
+        write("TypeParameter")
       case SymbolKind.Field =>
-        printColor(ColorPalette.Field)
-        print("Field")
+        writeColor(ColorPalette.Field)
+        write("Field")
       case SymbolKind.Method =>
-        printColor(ColorPalette.Method)
-        print("Method")
+        writeColor(ColorPalette.Method)
+        write("Method")
       case SymbolKind.Constructor =>
-        printColor(ColorPalette.Method)
-        print("Constructor")
+        writeColor(ColorPalette.Method)
+        write("Constructor")
       case SymbolKind.Block =>
-        printColor(ColorPalette.Identifier)
-        print("Block")
+        writeColor(ColorPalette.Identifier)
+        write("Block")
       case SymbolKind.Parameter =>
-        printColor(ColorPalette.Identifier)
-        print("Parameter")
+        writeColor(ColorPalette.Identifier)
+        write("Parameter")
       case SymbolKind.Local =>
-        printColor(ColorPalette.Identifier)
-        print("Local")
+        writeColor(ColorPalette.Identifier)
+        write("Local")
     }
 
-    print(ANSI.Clear)
+    write(ANSI.Clear)
   }
 
   def printKindColor(kind: int): unit = {
     if (kind == SyntaxKind.NumberToken) {
-      printColor(ColorPalette.Number)
+      writeColor(ColorPalette.Number)
     } else if (SyntaxFacts.isKeywordKind(kind)) {
-      printColor(ColorPalette.Keyword)
+      writeColor(ColorPalette.Keyword)
     } else if (kind == SyntaxKind.StringToken || kind == SyntaxKind.CharToken) {
-      printColor(ColorPalette.String)
+      writeColor(ColorPalette.String)
     } else if (kind == SyntaxKind.DashToken) {
-      printColor(ColorPalette.Punctuation)
+      writeColor(ColorPalette.Punctuation)
     } else if (
       kind == SyntaxKind.LineCommentTrivia || kind == SyntaxKind.BlockCommentTrivia
     ) {
-      printColor(ColorPalette.Comment)
+      writeColor(ColorPalette.Comment)
     } else if (kind == SyntaxKind.IdentifierToken) {
-      printColor(ColorPalette.Identifier)
+      writeColor(ColorPalette.Identifier)
     } else if (
       kind == SyntaxKind.OpenBraceToken || kind == SyntaxKind.OpenParenToken || kind == SyntaxKind.OpenBracketToken ||
       kind == SyntaxKind.CloseBraceToken || kind == SyntaxKind.CloseParenToken || kind == SyntaxKind.CloseBracketToken
@@ -759,31 +766,30 @@ object AstPrinter {
     if (
       kind == SyntaxKind.OpenBraceToken || kind == SyntaxKind.OpenParenToken || kind == SyntaxKind.OpenBracketToken
     ) {
-      printColor(ColorPalette.Brackets(bracketDepth))
+      writeColor(ColorPalette.Brackets(bracketDepth))
       updateBracketDepth(bracketDepth + 1)
     } else {
       updateBracketDepth(bracketDepth - 1)
-      printColor(ColorPalette.Brackets(bracketDepth))
+      writeColor(ColorPalette.Brackets(bracketDepth))
     }
   }
 
   def printTokenInfo(token: SyntaxToken): unit =
-    println(
+    writeln(
       token.location.toString() + "[" + SyntaxFacts.getKindName(
         token.kind
       ) + "]: " + "\"" + token.text + "\""
     )
 
-  def padRight(value: string, len: int): string = {
-    var padded = value
-    while (padded.length < len) {
-      padded = padded + " "
+  def writeColor(value: string): unit = {
+    if (withColor) {
+      write(ANSI.foregroundColor(value))
     }
-
-    padded
   }
 
-  def printColor(value: string): unit = print(ANSI.foregroundColor(value))
-
-  def printClear(): unit = print(ANSI.Clear)
+  def writeClear(): unit = {
+    if (withColor) {
+      write(ANSI.Clear)
+    }
+  }
 }
