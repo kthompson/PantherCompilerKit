@@ -44,7 +44,6 @@ object pncs extends PantherCompilerKitModule {
       .sources() ++ metadata.sources() ++ runtime.sources())
       .map(_.path)
       .flatMap(os.list(_))
-      .filterNot(_.endsWith(RelPath("SyntaxVisitor.scala")))
       .filterNot(_.endsWith(RelPath("panther.scala")))
       .toList
   }

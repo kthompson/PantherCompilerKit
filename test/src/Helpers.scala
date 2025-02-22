@@ -2,6 +2,13 @@ import panther._
 
 object Helpers {
 
+  def mkTokens(text: string): Array[SyntaxToken] = {
+    val sourceFile = new SourceFile(text, "test.pn")
+    val diagnostics = new DiagnosticBag()
+    val lexer = new Lexer(sourceFile, diagnostics)
+    MakeTokenList.create(lexer)
+  }
+
   def mkSyntaxTree(text: string): SyntaxTree =
     MakeSyntaxTree.parseContent(text)
 
@@ -15,9 +22,19 @@ object Helpers {
     assertAssignmentExpr(expression)
   }
 
+  def mkCallExpr(text: string): Expression.CallExpression = {
+    val expression = mkSyntaxTreeExpr(text)
+    assertCallExpr(expression)
+  }
+
   def mkIfExpr(text: string): Expression.If = {
     val expression = mkSyntaxTreeExpr(text)
     assertIfExpr(expression)
+  }
+
+  def mkWhileExpr(text: string): Expression.WhileExpression = {
+    val expression = mkSyntaxTreeExpr(text)
+    assertWhileExpr(expression)
   }
 
   def mkUnaryExpr(text: string): Expression.UnaryExpression = {
@@ -47,6 +64,24 @@ object Helpers {
     expression match {
       case expr: Expression.If => expr
       case _                   => panic("expected assignment expression")
+    }
+  }
+
+  def assertCallExpr(
+      expression: Expression
+  ): Expression.CallExpression = {
+    expression match {
+      case expr: Expression.CallExpression => expr
+      case _                               => panic("expected call expression")
+    }
+  }
+
+  def assertWhileExpr(
+      expression: Expression
+  ): Expression.WhileExpression = {
+    expression match {
+      case expr: Expression.WhileExpression => expr
+      case _ => panic("expected while expression")
     }
   }
 
@@ -89,13 +124,20 @@ object Helpers {
   }
 
   def mkSyntaxTreeStatement(text: string): StatementSyntax = {
-    mkSyntaxTreeMember(text) match {
+    mkMember(text) match {
       case MemberSyntax.GlobalStatementSyntax(statement) => statement
       case _ => panic("Expected statement")
     }
   }
 
-  def mkSyntaxTreeMember(text: string): MemberSyntax = {
+  def mkFunctionMember(text: string): MemberSyntax.FunctionDeclarationSyntax = {
+    mkMember(text) match {
+      case member: MemberSyntax.FunctionDeclarationSyntax => member
+      case _ => panic("Expected function declaration")
+    }
+  }
+
+  def mkMember(text: string): MemberSyntax = {
     val tree = mkSyntaxTree(text)
     Assert.single(tree.root.members)
   }
@@ -136,7 +178,19 @@ object Helpers {
             SimpleNameSyntax.IdentifierNameSyntax(token)
           ) =>
         Assert.stringEqual(expected, token.text)
-      case _ => panic("Expected number expression")
+      case _ => panic("Expected identifier expression")
+    }
+  }
+
+  def assertGenericIdentifierExpr(
+      expression: Expression
+  ): SimpleNameSyntax.GenericNameSyntax = {
+    expression match {
+      case Expression.IdentifierName(
+            a: SimpleNameSyntax.GenericNameSyntax
+          ) =>
+        a
+      case _ => panic("Expected generic identifier expression")
     }
   }
 
@@ -158,5 +212,11 @@ object Helpers {
       case stmt: StatementSyntax.VariableDeclarationStatement => stmt
       case _ => panic("Expected variable declaration")
     }
+  }
+
+  def assertName(expected: string, actual: NameSyntax): unit = {
+    val printer = new AstPrinter(false, false)
+    printer.printName(actual)
+    Assert.stringEqual(expected, Trim.both(printer.toString()))
   }
 }
