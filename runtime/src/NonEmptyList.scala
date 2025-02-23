@@ -1,11 +1,11 @@
 import panther._
 
-case class NonEmptyList[T](head: T, list: List[T]) {
-  val length = 1 + list.length
+case class NonEmptyList[T](head: T, tail: List[T]) {
+  val length: int = 1 + tail.length
 
   def last(): T =
-    if (list.isEmpty) head
-    else list.lastUnsafe()
+    if (tail.isEmpty) head
+    else tail.lastUnsafe()
 }
 
 object NonEmptyListModule {

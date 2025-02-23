@@ -23,6 +23,9 @@ object Assert {
       panic("expected empty list, found " + list.length + " items")
   }
 
+  def equal[A, B](expected: A, actual: B): unit =
+    assert(expected == actual, "expected " + expected + ", got: " + actual)
+
   def stringEqual(expected: string, actual: string): unit =
     assert(expected == actual, "expected " + expected + ", got: " + actual)
 

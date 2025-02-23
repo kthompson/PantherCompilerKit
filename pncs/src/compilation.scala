@@ -35,6 +35,8 @@ case class Compilation(
     binder: Binder,
     diagnostics: Diagnostics
 ) {
+  def getSymbols(): Chain[Symbol] = SymbolChain.fromList(root.members())
+
   def printSymbols(): unit = SymbolTreePrinter(binder).printSymbol(root)
 
   def emit(output: string): unit = {

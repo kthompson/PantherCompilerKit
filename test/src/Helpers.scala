@@ -9,6 +9,51 @@ object Helpers {
     MakeTokenList.create(lexer)
   }
 
+  def mkCompilation(text: string): Compilation = {
+    val tree = MakeSyntaxTree.parseContent(text)
+    val comp = MakeCompilation.create(ListModule.one(tree))
+    if (comp.diagnostics.count() > 0) {
+      comp.diagnostics.printDiagnostics()
+      panic("Compilation failed")
+    }
+    comp
+  }
+
+  def assertExprType(expression: string, expectedType: string): Unit = {
+    val comp = mkCompilation("val x = " + expression)
+    val symbols = enumNonBuiltinSymbols(comp)
+    val x = assertSymbol(symbols, SymbolKind.Field, "x")
+
+    assertSymbolType(comp, x, expectedType)
+    assertNoSymbol(symbols)
+  }
+
+  def enumSymbols(compilation: Compilation): ChainEnumerator[Symbol] =
+    new ChainEnumerator(compilation.getSymbols())
+
+  def enumNonBuiltinSymbols(
+      compilation: Compilation
+  ): ChainEnumerator[Symbol] = {
+    val enumerator = new ChainEnumerator(compilation.getSymbols())
+
+    Assert.isTrue(enumerator.moveNext())
+    Assert.isTrue(enumerator.moveNext())
+    Assert.isTrue(enumerator.moveNext())
+    Assert.isTrue(enumerator.moveNext())
+    Assert.isTrue(enumerator.moveNext())
+    Assert.isTrue(enumerator.moveNext())
+    Assert.isTrue(enumerator.moveNext())
+    Assert.isTrue(enumerator.moveNext())
+    Assert.isTrue(enumerator.moveNext())
+    Assert.isTrue(enumerator.moveNext())
+    Assert.isTrue(enumerator.moveNext())
+    Assert.isTrue(enumerator.moveNext())
+    Assert.isTrue(enumerator.moveNext())
+    Assert.isTrue(enumerator.moveNext())
+
+    enumerator
+  }
+
   def mkSyntaxTree(text: string): SyntaxTree =
     MakeSyntaxTree.parseContent(text)
 
@@ -103,6 +148,41 @@ object Helpers {
     expr match {
       case expr: Expression.UnaryExpression => expr
       case _ => panic("expected unary expression")
+    }
+  }
+
+  def assertSymbol(
+      enumerator: ChainEnumerator[Symbol],
+      kind: SymbolKind,
+      name: string
+  ): Symbol = {
+    Assert.isTrue(enumerator.moveNext())
+    val symbol = enumerator.current()
+    Assert.equal(kind, symbol.kind)
+    Assert.equal(name, symbol.name)
+    symbol
+  }
+
+  def assertSymbolType(comp: Compilation, symbol: Symbol, typ: string): unit = {
+    val symbolType = comp.binder.getSymbolType(symbol)
+    symbolType match {
+      case Option.Some(value) =>
+        Assert.stringEqual(typ, value.toString())
+      case Option.None =>
+        panic(
+          "Expected symbol " + symbol.name + " to have a type " + typ
+            .toString() + " but got none"
+        )
+    }
+  }
+
+  def assertNoSymbol(
+      enumerator: ChainEnumerator[Symbol]
+  ): unit = {
+    if (enumerator.moveNext()) {
+      val symbol = enumerator.current()
+      panic("Unexpected symbol: " + symbol.kind + " " + symbol.name)
+      Assert.isFalse(true)
     }
   }
 
