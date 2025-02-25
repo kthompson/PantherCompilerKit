@@ -22,7 +22,7 @@ object BinderTests {
     assertSymbol(symbols, SymbolKind.Class, "unit")
     assertSymbol(symbols, SymbolKind.Class, "Array")
     assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
-    assertSymbol(symbols, SymbolKind.Object, "predef")
+//    assertSymbol(symbols, SymbolKind.Object, "predef")
     assertSymbol(symbols, SymbolKind.Method, "println")
     assertSymbol(symbols, SymbolKind.Parameter, "message")
     assertSymbol(symbols, SymbolKind.Method, "print")

@@ -22,6 +22,10 @@ class ConversionClassifier(binder: Binder) {
       Conversion.Explicit
     } else if (toType == binder.stringType) {
       Conversion.Explicit
+    } else if (from == binder.intType && toType == binder.charType) {
+      Conversion.Explicit
+    } else if (from == binder.charType && toType == binder.intType) {
+      Conversion.Implicit
     } else {
       Conversion.None
     }

@@ -162,10 +162,12 @@ class Binder(
     None
   )
 
-  val predef = pantherNamespace.defineObject(
-    "predef",
-    TextLocationFactory.empty()
-  )
+  // TODO: move these to the panther namespace .enter("predef")
+  val predef = pantherNamespace
+//    .defineObject(
+//    "predef",
+//    TextLocationFactory.empty()
+//  )
 
   // println(message: string): unit
   val printlnSymbol = predef.defineMethod(
@@ -176,7 +178,7 @@ class Binder(
     printlnSymbol,
     Type.Function(
       noLoc,
-      List.Cons(BoundParameter("message", stringType), List.Nil),
+      List.Cons(BoundParameter("message", anyType), List.Nil),
       unitType
     ),
     None
@@ -199,7 +201,7 @@ class Binder(
     printSymbol,
     Type.Function(
       noLoc,
-      List.Cons(BoundParameter("message", stringType), List.Nil),
+      List.Cons(BoundParameter("message", anyType), List.Nil),
       unitType
     ),
     None

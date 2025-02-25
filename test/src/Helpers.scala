@@ -19,7 +19,27 @@ object Helpers {
     comp
   }
 
-  def assertExprType(expression: string, expectedType: string): Unit = {
+  def assertExprTypeWithSetup(
+      setup: string,
+      expression: string,
+      expectedType: string
+  ): unit = {
+    val comp = mkCompilation(setup + "\n\nval typeTestSymbol = " + expression)
+    val symbol = Assert.some(comp.root.lookup("typeTestSymbol"))
+    assertSymbolType(comp, symbol, expectedType)
+  }
+
+  def assertExprAssignableWithSetup(
+      setup: string,
+      expression: string,
+      expectedType: string
+  ): unit = {
+    mkCompilation(
+      setup + "\n\nval typeTestSymbol: " + expectedType + " = " + expression
+    )
+  }
+
+  def assertExprType(expression: string, expectedType: string): unit = {
     val comp = mkCompilation("val x = " + expression)
     val symbols = enumNonBuiltinSymbols(comp)
     val x = assertSymbol(symbols, SymbolKind.Field, "x")
@@ -45,7 +65,7 @@ object Helpers {
     Assert.isTrue(enumerator.moveNext())
     Assert.isTrue(enumerator.moveNext())
     Assert.isTrue(enumerator.moveNext())
-    Assert.isTrue(enumerator.moveNext())
+//    Assert.isTrue(enumerator.moveNext())
     Assert.isTrue(enumerator.moveNext())
     Assert.isTrue(enumerator.moveNext())
     Assert.isTrue(enumerator.moveNext())

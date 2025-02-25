@@ -780,7 +780,7 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     } else if (kind == SyntaxKind.WhileKeyword) {
       parseWhileExpression()
     } else {
-      // once we stablize make this a diagnostic
+      // once we stabilize make this a diagnostic
       diagnostics.reportExpectedExpression(current().location, kind)
       parseLiteralExpression()
       //            todo("parse_prefix_expression")
