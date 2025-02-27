@@ -6,10 +6,10 @@ object InferenceTests extends TestSuite {
   val tests = Tests {
 
     val empty = TextLocationFactory.empty()
-    val intType = Type.Class(empty, List.Nil, "int", List.Nil)
-    val boolType = Type.Class(empty, List.Nil, "bool", List.Nil)
+    val intType = Type.Class(empty, List.Nil, "int", List.Nil, Option.None)
+    val boolType = Type.Class(empty, List.Nil, "bool", List.Nil, Option.None)
 
-    def named(name: string): Type = Type.Class(empty, List.Nil, name, List.Nil)
+    def named(name: string): Type = Type.Class(empty, List.Nil, name, List.Nil, Option.None)
 
     def genericArg(name: string): GenericTypeParameter = GenericTypeParameter(
       empty,

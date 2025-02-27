@@ -603,7 +603,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
         write(") -> ")
         _printType(returnType, false)
 
-      case Type.Class(_, ns, name, args) =>
+      case Type.Class(_, ns, name, args, _) =>
         val color =
           if (ns.isEmpty && SyntaxFacts.isBuiltinType(name))
             ColorPalette.Keyword
@@ -620,7 +620,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
             write(">")
         }
 
-      case Type.GenericClass(_, ns, name, args) =>
+      case Type.GenericClass(_, ns, name, args, _) =>
         val color =
           if (ns.isEmpty && SyntaxFacts.isBuiltinType(name))
             ColorPalette.Keyword

@@ -66,8 +66,8 @@ case class Inference(diagnostics: DiagnosticBag) {
           substitute(returnType)
         )
 
-      case Type.Class(loc, ns, name, args) =>
-        Type.Class(loc, ns, name, substituteList(args))
+      case Type.Class(loc, ns, name, args, superClass) =>
+        Type.Class(loc, ns, name, substituteList(args), superClass)
 
       case _: Type.GenericClass => t
       case Type.Error           => t
@@ -121,16 +121,18 @@ case class Inference(diagnostics: DiagnosticBag) {
         unifyConstraint(Constraint.Equality(r1, r2))
 
       case Constraint.Equality(
-            Type.Class(loc1, ns1, name1, args1),
-            Type.Class(loc2, ns2, name2, args2)
+            Type.Class(loc1, ns1, name1, args1, _),
+            Type.Class(loc2, ns2, name2, args2, _)
           ) =>
         if (name1 == name2 && namespaceEquals(ns1, ns2)) {
           unifyConstraints(buildConstraints(args1, args2, List.Nil))
         } else {
           panic(
             "Type mismatch1: " + substitute(
-              Type.Class(loc1, ns1, name1, args1)
-            ) + " vs. " + substitute(Type.Class(loc2, ns2, name2, args2))
+              Type.Class(loc1, ns1, name1, args1, Option.None)
+            ) + " vs. " + substitute(
+              Type.Class(loc2, ns2, name2, args2, Option.None)
+            )
           )
         }
       case Constraint.Equality(Type.Any, Type.Any) =>
@@ -191,15 +193,15 @@ case class Inference(diagnostics: DiagnosticBag) {
         unifyLists(paramTypes(p1), paramTypes(p2))
         unify(r1, r2)
 
-      case Tuple2(
-            Type.Class(loc1, ns1, name1, args1),
-            Type.Class(loc2, ns2, name2, args2)
-          ) =>
-        if (name1 == name2 && namespaceEquals(ns1, ns2)) {
-          unifyLists(args1, args2)
-        } else {
-          panic("Type mismatch1: " + substitute(t1) + " vs. " + substitute(t2))
-        }
+//      case Tuple2(
+//            Type.Class(loc1, ns1, name1, args1),
+//            Type.Class(loc2, ns2, name2, args2)
+//          ) =>
+//        if (name1 == name2 && namespaceEquals(ns1, ns2)) {
+//          unifyLists(args1, args2)
+//        } else {
+//          panic("Type mismatch1: " + substitute(t1) + " vs. " + substitute(t2))
+//        }
       case Tuple2(Type.Any, Type.Any) =>
       case _ =>
         panic("Type mismatch2: " + substitute(t1) + " vs. " + substitute(t2))
@@ -281,7 +283,7 @@ case class Inference(diagnostics: DiagnosticBag) {
           index,
           paramTypes(parameters)
         ) || occursInType(index, returnType)
-      case Type.Class(loc, _, _, args) =>
+      case Type.Class(loc, _, _, args, _) =>
         occursInTypes(index, args)
 
       case _: Type.GenericClass => false
@@ -472,6 +474,12 @@ case class Inference(diagnostics: DiagnosticBag) {
   def inferNamed(constraints: List[Constraint], typ: Type.Class): Type.Class = {
     unifyConstraints(constraints)
 
-    Type.Class(typ.location, typ.ns, typ.name, substituteList(typ.args))
+    Type.Class(
+      typ.location,
+      typ.ns,
+      typ.name,
+      substituteList(typ.args),
+      typ.superClass
+    )
   }
 }

@@ -1,13 +1,15 @@
+import panther._
+
 enum Conversion {
   case Implicit
   case Explicit
   case Identity
   case None
 
-  val isImplicit: Boolean = this == Implicit
-  val isExplicit: Boolean = this == Explicit
-  val isIdentity: Boolean = this == Identity
-  val Exists: Boolean = this != None
+  val isImplicit: bool = this == Implicit
+  val isExplicit: bool = this == Explicit
+  val isIdentity: bool = this == Identity
+  val Exists: bool = this != None
 }
 
 class ConversionClassifier(binder: Binder) {
@@ -27,7 +29,14 @@ class ConversionClassifier(binder: Binder) {
     } else if (from == binder.charType && toType == binder.intType) {
       Conversion.Implicit
     } else {
-      Conversion.None
+      from match {
+        // from is assignable to toType if it is a subtype of toType
+        case Type.Class(_, _, _, _, Option.Some(superClass)) =>
+          classify(superClass, toType)
+        case _ =>
+          println("No conversion from " + from + " to " + toType)
+          Conversion.None
+      }
     }
   }
 }

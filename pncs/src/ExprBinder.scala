@@ -73,107 +73,107 @@ case class ExprBinder(
 
   val operators = new BinaryOperators(binder)
 
-  /**   1. Base rules:
-    *      - Never is a subtype of all types.
-    *      - All types are subtypes of Any.
-    *      - A type is a subtype of itself.
-    *        2. Function Subtyping:
-    *   - Function types are covariant in the return type and contravariant in
-    *     the parameter types:
-    *     - (A1, A2) => R1 is a subtype of (B1, B2) => R2 if:
-    *     - B1 is a subtype of A1 (contravariant in parameters),
-    *     - B2 is a subtype of A2 (contravariant in parameters), and
-    *     - R1 is a subtype of R2 (covariant in the return type).
-    *
-    *   3. Array Subtyping:
-    *      - ArrayType(T1) is a subtype of ArrayType(T2) if T1 is a subtype of
-    *        T2.
-    *        4. Option Subtyping:
-    *      - OptionType(T1) is a subtype of OptionType(T2) if T1 is a subtype of
-    *        T2.
-    *        5. Reference Types:
-    *      - Reference(S1) is a subtype of Reference(S2) if they refer to the
-    *        same symbol (assuming no polymorphism in this example).
-    */
-  def isSubtype(t1: Type, t2: Type): bool = {
-    // Reflexivity: a type is a subtype of itself
-    if (t1 == t2) true
-    else {
-      TypePair(t1, t2) match {
-        // `Never` is a subtype of everything
-        case TypePair(Type.Never, _) => true
+//  /**   1. Base rules:
+//    *      - Never is a subtype of all types.
+//    *      - All types are subtypes of Any.
+//    *      - A type is a subtype of itself.
+//    *        2. Function Subtyping:
+//    *   - Function types are covariant in the return type and contravariant in
+//    *     the parameter types:
+//    *     - (A1, A2) => R1 is a subtype of (B1, B2) => R2 if:
+//    *     - B1 is a subtype of A1 (contravariant in parameters),
+//    *     - B2 is a subtype of A2 (contravariant in parameters), and
+//    *     - R1 is a subtype of R2 (covariant in the return type).
+//    *
+//    *   3. Array Subtyping:
+//    *      - ArrayType(T1) is a subtype of ArrayType(T2) if T1 is a subtype of
+//    *        T2.
+//    *        4. Option Subtyping:
+//    *      - OptionType(T1) is a subtype of OptionType(T2) if T1 is a subtype of
+//    *        T2.
+//    *        5. Reference Types:
+//    *      - Reference(S1) is a subtype of Reference(S2) if they refer to the
+//    *        same symbol (assuming no polymorphism in this example).
+//    */
+//  def isSubtype(t1: Type, t2: Type): bool = {
+//    // Reflexivity: a type is a subtype of itself
+//    if (t1 == t2) true
+//    else {
+//      TypePair(t1, t2) match {
+//        // `Never` is a subtype of everything
+//        case TypePair(Type.Never, _) => true
+//
+//        // Everything is a subtype of `Any`
+//        case TypePair(_, Type.Any) => true
+//
+//        // Function subtyping: contravariant in parameters, covariant in return type
+//        case TypePair(
+//              Type.Function(_, params1, return1),
+//              Type.Function(_, params2, return2)
+//            ) =>
+//          isSubtype(return1, return2) && areParametersSubtype(params2, params1)
+//
+//        // Array subtyping: inner types must be subtypes
+//        case TypePair(
+//              Type.Class(_, ns1, name1, args1),
+//              Type.Class(_, ns2, name2, args2)
+//            ) =>
+//          if (ns1 == ns2 && name1 == name2) {
+//            areArgsSubtype(args1, args2)
+//          } else {
+//            false
+//          }
+//
+//        // Error type: not a subtype of anything
+//        case TypePair(Type.Error, _) => false
+//
+//        // Otherwise, not a subtype
+//        case _ => false
+//      }
+//    }
+//  }
 
-        // Everything is a subtype of `Any`
-        case TypePair(_, Type.Any) => true
+//  def areArgsSubtype(args1: List[Type], args2: List[Type]): bool = {
+//    args1 match {
+//      case List.Nil =>
+//        args2 match {
+//          case List.Nil        => true
+//          case List.Cons(_, _) => false
+//        }
+//      case List.Cons(head1, tail1) =>
+//        args2 match {
+//          case List.Nil => false
+//          case List.Cons(head2, tail2) =>
+//            if (isSubtype(head1, head2)) {
+//              areArgsSubtype(tail1, tail2)
+//            } else {
+//              false
+//            }
+//        }
+//    }
+//  }
 
-        // Function subtyping: contravariant in parameters, covariant in return type
-        case TypePair(
-              Type.Function(_, params1, return1),
-              Type.Function(_, params2, return2)
-            ) =>
-          isSubtype(return1, return2) && areParametersSubtype(params2, params1)
-
-        // Array subtyping: inner types must be subtypes
-        case TypePair(
-              Type.Class(_, ns1, name1, args1),
-              Type.Class(_, ns2, name2, args2)
-            ) =>
-          if (ns1 == ns2 && name1 == name2) {
-            areArgsSubtype(args1, args2)
-          } else {
-            false
-          }
-
-        // Error type: not a subtype of anything
-        case TypePair(Type.Error, _) => false
-
-        // Otherwise, not a subtype
-        case _ => false
-      }
-    }
-  }
-
-  def areArgsSubtype(args1: List[Type], args2: List[Type]): bool = {
-    args1 match {
-      case List.Nil =>
-        args2 match {
-          case List.Nil        => true
-          case List.Cons(_, _) => false
-        }
-      case List.Cons(head1, tail1) =>
-        args2 match {
-          case List.Nil => false
-          case List.Cons(head2, tail2) =>
-            if (isSubtype(head1, head2)) {
-              areArgsSubtype(tail1, tail2)
-            } else {
-              false
-            }
-        }
-    }
-  }
-
-  def areParametersSubtype(
-      params1: List[BoundParameter],
-      params2: List[BoundParameter]
-  ): bool = {
-    params1 match {
-      case List.Nil =>
-        params2 match {
-          case List.Nil        => true
-          case List.Cons(_, _) => false
-        }
-      case List.Cons(parameter, tail) =>
-        params2 match {
-          case List.Nil => false
-          case List.Cons(parameter2, tail2) =>
-            isSubtype(parameter.typ, parameter2.typ) && areParametersSubtype(
-              tail,
-              tail2
-            )
-        }
-    }
-  }
+//  def areParametersSubtype(
+//      params1: List[BoundParameter],
+//      params2: List[BoundParameter]
+//  ): bool = {
+//    params1 match {
+//      case List.Nil =>
+//        params2 match {
+//          case List.Nil        => true
+//          case List.Cons(_, _) => false
+//        }
+//      case List.Cons(parameter, tail) =>
+//        params2 match {
+//          case List.Nil => false
+//          case List.Cons(parameter2, tail2) =>
+//            isSubtype(parameter.typ, parameter2.typ) && areParametersSubtype(
+//              tail,
+//              tail2
+//            )
+//        }
+//    }
+//  }
 
   def bindUnaryOperator(token: SyntaxToken): UnaryOperatorKind = {
     token.kind match {
@@ -440,7 +440,7 @@ case class ExprBinder(
       functionType match {
         case func: Type.Function =>
           bindFunctionCall(function, func, args, scope)
-        case Type.Class(_, ns, name, _) =>
+        case Type.Class(_, ns, name, _, _) =>
           val location = AstUtils.locationOfBoundExpression(function)
           findConstructor(ns, name) match {
             case Option.None =>
@@ -909,7 +909,7 @@ case class ExprBinder(
       right: SyntaxToken
   ): Option[Tuple2[Symbol, Type]] = {
     leftType match {
-      case Type.Class(_, ns, name, _) =>
+      case Type.Class(_, ns, name, _, _) =>
         rootSymbol.findSymbol(ns, name) match {
           case Option.None =>
             diagnosticBag.reportSymbolNotFoundForType(
@@ -958,7 +958,7 @@ case class ExprBinder(
   ): BoundExpression = {
     val instantiationType = binder.bindTypeName(node.name, scope)
     instantiationType match {
-      case Type.Class(_, ns, name, args) =>
+      case Type.Class(_, ns, name, args, _) =>
         findConstructor(ns, name) match {
           case Option.None =>
             diagnosticBag.reportSymbolNotFound(

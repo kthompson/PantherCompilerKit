@@ -22,14 +22,16 @@ enum Type {
       location: TextLocation,
       ns: List[string],
       name: string,
-      args: List[Type]
+      args: List[Type],
+      superClass: Option[Type]
   )
 
   case GenericClass(
       location: TextLocation,
       ns: List[string],
       name: string,
-      args: List[GenericTypeParameter]
+      args: List[GenericTypeParameter],
+      superClass: Option[Type]
   )
 
   /** A generic function is a type that has type parameters. this gets converted
@@ -72,9 +74,9 @@ enum Type {
 
   def getLocation(): Option[TextLocation] = {
     this match {
-      case Class(location, _, _, _)              => Option.Some(location)
+      case Class(location, _, _, _, _)           => Option.Some(location)
       case Function(location, _, _)              => Option.Some(location)
-      case GenericClass(location, _, _, _)       => Option.Some(location)
+      case GenericClass(location, _, _, _, _)    => Option.Some(location)
       case GenericFunction(location, _, _, _, _) => Option.Some(location)
       case Variable(location, _)                 => Option.Some(location)
       case Any                                   => Option.None
@@ -134,12 +136,12 @@ enum Type {
       case Type.Function(_, parameters, returnType) =>
         val paramStr = _params("", parameters)
         "(" + paramStr + ") -> " + returnType.toString
-      case Type.Class(_, ns, name, args) =>
+      case Type.Class(_, ns, name, args, _) =>
         val argStr = _args("", args)
         val tail = if (argStr.isEmpty) "" else "<" + argStr + ">"
         _name(ns, name) + tail
 
-      case Type.GenericClass(_, ns, name, generics) =>
+      case Type.GenericClass(_, ns, name, generics, _) =>
         val argStr = _genArgs("", generics)
         val tail = if (argStr.isEmpty) "" else "<" + argStr + ">"
         _name(ns, name) + tail
