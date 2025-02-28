@@ -356,8 +356,7 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   def parseGenericTypeParameters(): Option[GenericParametersSyntax] = {
     debugPrint("parseGenericTypeParameters")
 
-    val start = (scala && currentKind() == SyntaxKind.OpenBracketToken) ||
-      currentKind() == SyntaxKind.LessThanToken
+    val start = currentKind() == SyntaxKind.OpenBracketToken
 
     if (start) {
       val close =
