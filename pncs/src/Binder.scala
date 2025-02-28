@@ -80,15 +80,14 @@ class Binder(
 
   val noLoc = TextLocationFactory.empty()
 
-  val anyType = new Type.Class(noLoc, List.Nil, "any", List.Nil, Option.None)
+  val anyType = Type.Any
   val stringType =
     new Type.Class(noLoc, List.Nil, "string", List.Nil, Option.None)
   val intType = new Type.Class(noLoc, List.Nil, "int", List.Nil, Option.None)
   val charType = new Type.Class(noLoc, List.Nil, "char", List.Nil, Option.None)
   val boolType = new Type.Class(noLoc, List.Nil, "bool", List.Nil, Option.None)
   val unitType = new Type.Class(noLoc, List.Nil, "unit", List.Nil, Option.None)
-  val neverType =
-    new Type.Class(noLoc, List.Nil, "never", List.Nil, Option.None)
+  val neverType = Type.Never
   val noneType =
     new Type.Class(
       noLoc,
@@ -844,17 +843,28 @@ class Binder(
                 // funky happened and that shouldn't be possible panic for
                 // now
                 ???
+              case Option.Some(Type.Class(location, ns, name, _, superClass)) =>
+                new Type.Class(
+                  location,
+                  ns,
+                  name,
+                  typeArguments,
+                  superClass
+                )
+              case Option.Some(
+                    Type.GenericClass(location, ns, name, _, superClass)
+                  ) =>
+                new Type.Class(
+                  location,
+                  ns,
+                  name,
+                  typeArguments,
+                  superClass
+                )
               case Option.Some(value) =>
                 panic("TODO: return a type with the type arguments")
 
-                new Type.Class(
-                  symbol.location,
-                  symbol.ns(),
-                  symbol.name,
-                  typeArguments,
-                  ???
-                )
-//                value
+                value
             }
         }
       case SimpleNameSyntax.IdentifierNameSyntax(identifier) =>

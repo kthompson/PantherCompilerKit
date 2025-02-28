@@ -167,7 +167,7 @@ enum Type {
 //          case Option.None => varianceStr + name
 //        }
       case Type.Variable(_, i) => "$" + string(i)
-      case Type.Any            => "Any"
+      case Type.Any            => "any"
       case Type.Never          => "Never"
       case Type.Error          => "Error"
     }

@@ -8,6 +8,7 @@ object TypeTests {
     unary()
     groups()
     variables()
+    conversions()
     ifs()
     casts()
     whiles()
@@ -67,6 +68,13 @@ object TypeTests {
     assertExprTypeWithSetup("val x = 12", "x + 12", "int")
     assertExprTypeWithSetup("val x = 12", "12 == x", "bool")
     assertExprTypeWithSetup("var x = 12", "x = 10", "unit")
+  }
+
+  def conversions(): unit = {
+    assertAssignableTo("12", "any")
+    assertAssignableTo("true", "any")
+    assertAssignableTo("\"hello\"", "any")
+    assertAssignableTo("'a'", "any")
   }
 
   def calls(): unit = {
@@ -216,8 +224,8 @@ object TypeTests {
       "  case Bar(x: int)\n" +
       "  case Baz(y: string)\n" +
       "}"
-    assertExprAssignableWithSetup(setup, "Foo.Bar(12)", "Foo")
-    assertExprAssignableWithSetup(setup, "Foo.Baz(\"taco\")", "Foo")
+    assertAssignableToWithSetup(setup, "Foo.Bar(12)", "Foo")
+    assertAssignableToWithSetup(setup, "Foo.Baz(\"taco\")", "Foo")
   }
 
   def classes(): unit = {

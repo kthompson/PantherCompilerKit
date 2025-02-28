@@ -29,7 +29,7 @@ object Helpers {
     assertSymbolType(comp, symbol, expectedType)
   }
 
-  def assertExprAssignableWithSetup(
+  def assertAssignableToWithSetup(
       setup: string,
       expression: string,
       expectedType: string
@@ -38,6 +38,9 @@ object Helpers {
       setup + "\n\nval typeTestSymbol: " + expectedType + " = " + expression
     )
   }
+  
+  def assertAssignableTo(expression: string, assignableTo: string): unit =
+    mkCompilation("val typeTestSymbol: " + assignableTo + " = " + expression)
 
   def assertExprType(expression: string, expectedType: string): unit = {
     val comp = mkCompilation("val x = " + expression)
