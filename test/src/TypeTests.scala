@@ -9,6 +9,7 @@ object TypeTests {
     groups()
     variables()
     conversions()
+//    genericConversions()
     ifs()
     casts()
     whiles()
@@ -75,6 +76,51 @@ object TypeTests {
     assertAssignableTo("true", "any")
     assertAssignableTo("\"hello\"", "any")
     assertAssignableTo("'a'", "any")
+
+    assertAssignableTo("panic(\"\")", "never")
+    assertAssignableTo("panic(\"\")", "int")
+    assertAssignableTo("panic(\"\")", "bool")
+    assertAssignableTo("panic(\"\")", "string")
+    assertAssignableTo("panic(\"\")", "char")
+    assertAssignableTo("panic(\"\")", "unit")
+  }
+
+  def genericConversions(): unit = {
+    genericConversionsOptions()
+    genericConversionsEithers()
+  }
+  
+  def genericConversionsEithers(): unit = {
+    val setup = "enum Either[L, R] {\n" +
+      "  case Left(value: L)\n" +
+      "  case Right(value: R)\n" +
+      "}"
+    
+    assertAssignableToWithSetup(setup, "Either.Left[int](12)", "Either[int, bool]")
+    assertAssignableToWithSetup(setup, "Either.Right[bool](true)", "Either[int, bool]")
+    assertAssignableToWithSetup(setup, "Either.Left[bool](true)", "Either[bool, bool]")
+    assertAssignableToWithSetup(setup, "Either.Right[int](12)", "Either[bool, int]")
+  }
+
+  def genericConversionsOptions(): unit = {
+    val setup = "enum Option[T] {\n" +
+      "  case Some(value: T)\n" +
+      "  case None\n" +
+      "}"
+    assertAssignableToWithSetup(setup, "new Option.Some[int](12)", "Option[int]")
+    assertAssignableToWithSetup(
+      setup,
+      "Option.Some[bool](true)",
+      "Option[bool]"
+    )
+    assertAssignableToWithSetup(
+      setup,
+      "Option.Some(\"hello\")",
+      "Option[string]"
+    )
+    assertAssignableToWithSetup(setup, "Option.Some('a')", "Option[char]")
+    assertAssignableToWithSetup(setup, "Option.None", "Option[int]")
+    assertAssignableToWithSetup(setup, "Option.None", "Option[bool]")
   }
 
   def calls(): unit = {
@@ -197,6 +243,7 @@ object TypeTests {
     enumWithoutArgs()
     enumWithArgs()
     enumCheckAssignments()
+//    enumsWithGenerics()
   }
 
   def enumWithoutArgs(): unit = {
@@ -228,6 +275,23 @@ object TypeTests {
     assertAssignableToWithSetup(setup, "Foo.Baz(\"taco\")", "Foo")
   }
 
+  def enumsWithGenerics(): unit = {
+    val setup = "enum Option[T] {\n" +
+      "  case Some(value: T)\n" +
+      "  case None\n" +
+      "}"
+    val typ = assertTypeWithSetup(setup, "Option.None")
+    val cls = assertClassSymbolType(typ)
+    ???
+//    val superClass = Assert.some(cls.superClass)
+//    assertType("Option[never]", superClass)
+//    
+//    val typ2 = assertTypeWithSetup(setup, "new Option.Some[int](12)")
+//    val cls2 = assertClassSymbolType(typ2)
+//    val superClass2 = Assert.some(cls2.superClass)
+//    assertType("Option[int]", superClass2)
+  }
+  
   def classes(): unit = {
     classWithoutArgs()
     classWithArgs()

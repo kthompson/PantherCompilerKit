@@ -29,6 +29,15 @@ object Helpers {
     assertSymbolType(comp, symbol, expectedType)
   }
 
+  def assertTypeWithSetup(
+      setup: string,
+      expression: string
+  ): Type = {
+    val comp = mkCompilation(setup + "\n\nval typeTestSymbol = " + expression)
+    val symbol = Assert.some(comp.root.lookup("typeTestSymbol"))
+    Assert.some(comp.binder.getSymbolType(symbol))
+  }
+
   def assertAssignableToWithSetup(
       setup: string,
       expression: string,
@@ -38,7 +47,7 @@ object Helpers {
       setup + "\n\nval typeTestSymbol: " + expectedType + " = " + expression
     )
   }
-  
+
   def assertAssignableTo(expression: string, assignableTo: string): unit =
     mkCompilation("val typeTestSymbol: " + assignableTo + " = " + expression)
 
@@ -69,6 +78,8 @@ object Helpers {
     Assert.isTrue(enumerator.moveNext())
     Assert.isTrue(enumerator.moveNext())
 //    Assert.isTrue(enumerator.moveNext())
+    Assert.isTrue(enumerator.moveNext())
+    Assert.isTrue(enumerator.moveNext())
     Assert.isTrue(enumerator.moveNext())
     Assert.isTrue(enumerator.moveNext())
     Assert.isTrue(enumerator.moveNext())
@@ -186,15 +197,29 @@ object Helpers {
     symbol
   }
 
+  def assertType(expected: string, actual: Type): unit =
+    Assert.stringEqual(expected, actual.toString())
+
   def assertSymbolType(comp: Compilation, symbol: Symbol, typ: string): unit = {
     val symbolType = comp.binder.getSymbolType(symbol)
     symbolType match {
-      case Option.Some(value) =>
-        Assert.stringEqual(typ, value.toString())
+      case Option.Some(value) => assertType(typ, value)
       case Option.None =>
         panic(
           "Expected symbol " + symbol.name + " to have a type " + typ
             .toString() + " but got none"
+        )
+    }
+  }
+
+  def assertClassSymbolType(typ: Type): Type.Class = {
+    typ match {
+      case value: Type.Class =>
+        value
+      case value =>
+        panic(
+          "Expected type to be a class type but got " + value
+            .toString()
         )
     }
   }

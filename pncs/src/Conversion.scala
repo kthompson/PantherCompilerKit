@@ -31,8 +31,8 @@ class ConversionClassifier(binder: Binder) {
     } else {
       from match {
         // from is assignable to toType if it is a subtype of toType
-        case Type.Class(_, _, _, _, Option.Some(superClass)) =>
-          classify(superClass, toType)
+//        case Type.Class(_, _, _, _, Option.Some(superClass)) =>
+//          classify(superClass, toType)
         case _ =>
           println("No conversion from " + from + " to " + toType)
           Conversion.None

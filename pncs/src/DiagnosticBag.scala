@@ -128,6 +128,19 @@ case class DiagnosticBag() {
   ): unit =
     report(location, "Symbol " + name + " not found for type " + left)
 
+  
+  
+  def reportInvalidNumberOfTypeArguments(
+      location: TextLocation,
+      name: string,
+      paramCount: int,
+      argCount: int
+  ): unit =
+    report(
+      location,
+      "Invalid number of type arguments for " + name + ". Expected " + paramCount + " but got " + argCount
+    )
+
   def reportSymbolNotFound(location: TextLocation, name: string): unit =
     report(location, "Symbol " + name + " not found")
 

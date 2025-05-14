@@ -27,6 +27,8 @@ object BinderTests {
     assertSymbol(symbols, SymbolKind.Parameter, "message")
     assertSymbol(symbols, SymbolKind.Method, "print")
     assertSymbol(symbols, SymbolKind.Parameter, "message")
+    assertSymbol(symbols, SymbolKind.Method, "panic")
+    assertSymbol(symbols, SymbolKind.Parameter, "message")
     assertNoSymbol(symbols)
   }
 

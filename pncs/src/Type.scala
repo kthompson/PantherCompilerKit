@@ -13,25 +13,25 @@ case class GenericTypeParameter(
     upperBound: Option[Type]
 )
 
+/** A type variable used in type inference.
+  */
+case class TypeVariable(
+    location: TextLocation,
+    name: string,
+    variance: Variance,
+    upperBound: Option[Type]
+)
+
 enum Type {
 
   /** A named type can have zero or more type arguments. E.g. `List[Int]` ->
     * Named("panther", "List", Types.Cons(Named("", "Int"), Types.Empty))
     */
-  case Class(
-      location: TextLocation,
-      ns: List[string],
-      name: string,
-      args: List[Type],
-      superClass: Option[Type]
-  )
+  case Class(symbol: Symbol, args: List[Tuple2[TypeVariable, Type]])
 
   case GenericClass(
-      location: TextLocation,
-      ns: List[string],
-      name: string,
-      args: List[GenericTypeParameter],
-      superClass: Option[Type]
+      symbol: Symbol,
+      genericTypeParameters: List[TypeVariable]
   )
 
   /** A generic function is a type that has type parameters. this gets converted
@@ -39,7 +39,7 @@ enum Type {
     */
   case GenericFunction(
       location: TextLocation,
-      generics: List[GenericTypeParameter],
+      generics: List[TypeVariable],
       traits: List[Type],
       parameters: List[BoundParameter],
       returnType: Type
@@ -60,10 +60,6 @@ enum Type {
 //   */
 //  case Generic(location: TextLocation, name: string, variance: Variance, upperBound: Option[Type])
 
-  /** A type variable used in type inference.
-    */
-  case Variable(location: TextLocation, id: int)
-
   /** Built-in "top" type */
   case Any
 
@@ -74,11 +70,11 @@ enum Type {
 
   def getLocation(): Option[TextLocation] = {
     this match {
-      case Class(location, _, _, _, _)           => Option.Some(location)
+      case Class(symbol, _)                      => Option.Some(symbol.location)
       case Function(location, _, _)              => Option.Some(location)
-      case GenericClass(location, _, _, _, _)    => Option.Some(location)
+      case GenericClass(symbol, _)            => Option.Some(symbol.location)
       case GenericFunction(location, _, _, _, _) => Option.Some(location)
-      case Variable(location, _)                 => Option.Some(location)
+//      case Variable(location, _, _, _)           => Option.Some(location)
       case Any                                   => Option.None
       case Never                                 => Option.None
       case Error                                 => Option.None
@@ -94,7 +90,7 @@ enum Type {
     }
   }
 
-  def _args(str: string, args: List[Type]): string =
+  def _args(str: string, args: List[Tuple2[TypeVariable, Type]]): string =
     args match {
       case List.Nil => str
       case List.Cons(typ, tail) =>
@@ -110,7 +106,7 @@ enum Type {
     }
   }
 
-  def _genArgs(str: string, items: List[GenericTypeParameter]): string = {
+  def _genArgs(str: string, items: List[TypeVariable]): string = {
     items match {
       case List.Nil => str
       case List.Cons(item, tail) =>
@@ -136,15 +132,15 @@ enum Type {
       case Type.Function(_, parameters, returnType) =>
         val paramStr = _params("", parameters)
         "(" + paramStr + ") -> " + returnType.toString
-      case Type.Class(_, ns, name, args, _) =>
+      case Type.Class(symbol, args) =>
         val argStr = _args("", args)
-        val tail = if (argStr.isEmpty) "" else "<" + argStr + ">"
-        _name(ns, name) + tail
+        val tail = if (argStr.isEmpty) "" else "[" + argStr + "]"
+        symbol.qualifiedName() + tail
 
-      case Type.GenericClass(_, ns, name, generics, _) =>
+      case Type.GenericClass(symbol, generics) =>
         val argStr = _genArgs("", generics)
-        val tail = if (argStr.isEmpty) "" else "<" + argStr + ">"
-        _name(ns, name) + tail
+        val tail = if (argStr.isEmpty) "" else "[" + argStr + "]"
+        _name(symbol.ns(), symbol.name) + tail
 
       case Type.GenericFunction(_, generics, traits, parameters, returnType) =>
         val paramStr = _params("", parameters)
@@ -166,10 +162,9 @@ enum Type {
 //          case Option.Some(value) => varianceStr + name + " : " + value.toString
 //          case Option.None => varianceStr + name
 //        }
-      case Type.Variable(_, i) => "$" + string(i)
-      case Type.Any            => "any"
-      case Type.Never          => "Never"
-      case Type.Error          => "Error"
+      case Type.Any                     => "any"
+      case Type.Never                   => "never"
+      case Type.Error                   => "Error"
     }
   }
 }

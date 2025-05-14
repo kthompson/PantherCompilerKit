@@ -550,7 +550,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
   def printType(typ: Type): unit =
     _printType(typ, true)
 
-  def _printTypes(types: List[Type], first: bool): unit =
+  def _printTypes(types: List[Tuple2[TypeVariable, Type]], first: bool): unit =
     types match {
       case List.Nil => writeClear()
       case List.Cons(typ, tail) =>
@@ -558,7 +558,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
           writeColor(ColorPalette.Punctuation)
           write(", ")
         }
-        _printType(typ, false)
+        _printType(typ._2, false)
         _printTypes(tail, false)
     }
 
@@ -603,14 +603,14 @@ class AstPrinter(withColor: bool, toConsole: bool) {
         write(") -> ")
         _printType(returnType, false)
 
-      case Type.Class(_, ns, name, args, _) =>
+      case Type.Class(symbol, args) =>
         val color =
-          if (ns.isEmpty && SyntaxFacts.isBuiltinType(name))
+          if (symbol.ns().isEmpty && SyntaxFacts.isBuiltinType(symbol.name))
             ColorPalette.Keyword
           else ColorPalette.Identifier
 
         writeColor(color)
-        write(typ._name(ns, name))
+        write(symbol.qualifiedName())
 
         args match {
           case List.Nil =>
@@ -620,14 +620,14 @@ class AstPrinter(withColor: bool, toConsole: bool) {
             write(">")
         }
 
-      case Type.GenericClass(_, ns, name, args, _) =>
+      case Type.GenericClass(symbol, args) =>
         val color =
-          if (ns.isEmpty && SyntaxFacts.isBuiltinType(name))
+          if (symbol.ns().isEmpty && SyntaxFacts.isBuiltinType(symbol.name))
             ColorPalette.Keyword
           else ColorPalette.Identifier
 
         writeColor(color)
-        write(typ._name(ns, name))
+        write(typ._name(symbol.ns(), symbol.name))
 
         args match {
           case List.Nil =>
@@ -636,9 +636,6 @@ class AstPrinter(withColor: bool, toConsole: bool) {
             _printGenTypes(args, true)
             write(">")
         }
-      case Type.Variable(_, i) =>
-        writeColor(ColorPalette.Keyword)
-        write("$" + i)
       case Type.Any =>
         writeColor(ColorPalette.Keyword)
         write("any")
@@ -652,8 +649,22 @@ class AstPrinter(withColor: bool, toConsole: bool) {
 
     if (clear) writeClear() else ()
   }
+  
+  def printTypeVariable(variable: TypeVariable): unit = {
+    variable.variance match {
+      case Variance.Covariant =>
+        writeColor(ColorPalette.Keyword)
+        write("out ")
+      case Variance.Contravariant =>
+        writeColor(ColorPalette.Keyword)
+        write("in ")
+      case _ =>
+    }
+    writeColor(ColorPalette.Identifier)
+    write(variable.name)
+  }
 
-  def _printGenTypes(types: List[GenericTypeParameter], first: bool): unit = {
+  def _printGenTypes(types: List[TypeVariable], first: bool): unit = {
     types match {
       case List.Nil => writeClear()
       case List.Cons(typ, tail) =>

@@ -95,6 +95,7 @@ enum BoundExpression {
       location: TextLocation,
       left: BoundExpression,
       member: Symbol,
+      genericArguments: List[Type],
       resultType: Type
   )
   case NewExpression(

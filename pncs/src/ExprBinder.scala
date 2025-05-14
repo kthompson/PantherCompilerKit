@@ -436,35 +436,18 @@ case class ExprBinder(
     val argTypes = binder.getTypes(args)
     if (typesWithError(List.Cons(functionType, argTypes))) {
       BoundExpression.Error
-    } else
+    } else {
       functionType match {
         case func: Type.Function =>
           bindFunctionCall(function, func, args, scope)
-        case Type.Class(_, ns, name, _, _) =>
+        case cls: Type.Class =>
           val location = AstUtils.locationOfBoundExpression(function)
-          findConstructor(ns, name) match {
-            case Option.None =>
-              diagnosticBag.reportNotCallable(location)
-              BoundExpression.Error
-            case Option.Some(ctor) =>
-              binder.getSymbolType(ctor) match {
-                case Option.Some(Type.Function(loc, params, _)) =>
-                  bindNewExpressionForSymbol(
-                    location,
-                    ctor,
-                    Type.Function(loc, params, functionType),
-                    args,
-                    scope
-                  )
-                case _ =>
-                  diagnosticBag.reportNotCallable(location)
-                  BoundExpression.Error
-              }
-          }
+          bindClassCall(location, cls, args, scope)
 
         case _ =>
           boundErrorExpression("bindCallExpression")
       }
+    }
     //    {
     //          val inference = new Inference(diagnosticBag)
     //          val methodType = inference.instantiate(
@@ -581,6 +564,46 @@ case class ExprBinder(
     //    }
   }
 
+  def bindClassCall(
+      location: TextLocation,
+      cls: Type.Class,
+      args: List[BoundExpression],
+      scope: Scope
+  ) = {
+    val classArgs = cls.args
+    findConstructor(cls.symbol) match {
+      case Option.None =>
+        diagnosticBag.reportSymbolNotFound(location, cls.symbol.name)
+        BoundExpression.Error
+      case Option.Some(ctor) =>
+        binder.getSymbolType(ctor) match {
+          case Option.Some(Type.Function(loc, params, _)) =>
+            bindNewExpressionForSymbol(
+              location,
+              ctor,
+              Type.Function(loc, params, cls),
+              args,
+              scope
+            )
+          case Option.Some(func: Type.GenericFunction) =>
+            val mapper = new TypeMapper(diagnosticBag, func.generics, classArgs)
+            val returnType = mapper.substitute(cls)
+            val ctorType = mapper.mapFunction(func)
+
+            bindNewExpressionForSymbol(
+              location,
+              ctor,
+              Type.Function(ctorType.location, ctorType.parameters, returnType),
+              args,
+              scope
+            )
+          case other =>
+            diagnosticBag.reportNotCallable(location)
+            BoundExpression.Error
+        }
+    }
+  }
+
   def bindFunctionCall(
       function: BoundExpression,
       functionType: Type.Function,
@@ -660,13 +683,8 @@ case class ExprBinder(
     }
   }
 
-  def findConstructor(ns: List[string], name: string): Option[Symbol] = {
-    rootSymbol.findSymbol(ns, name) match {
-      case Option.Some(symbol) =>
-        symbol.lookupMember(".ctor")
-      case Option.None => Option.None
-    }
-  }
+  def findConstructor(symbol: Symbol): Option[Symbol] =
+    symbol.lookupMember(".ctor")
 
   def bindCast(
       expression: Expression.CallExpression,
@@ -882,13 +900,31 @@ case class ExprBinder(
     val left = bind(node.left, scope)
 
     node.right match {
-      case SimpleNameSyntax.GenericNameSyntax(identifier, typeArgumentlist) =>
-        ???
+      case SimpleNameSyntax.GenericNameSyntax(right, typeArgumentlist) =>
+        val genericArgs =
+          binder.bindTypeArgumentList(typeArgumentlist.arguments, scope)
+        val leftType = binder.getType(left)
+
+        bindMemberForSymbolAndType(leftType, right) match {
+          case Option.None => BoundExpression.Error
+          case Option.Some(Tuple2(member, typ)) =>
+            val instantiatedType = binder.bindGenericArgumentsToType(
+              right.location,
+              typ,
+              genericArgs
+            )
+            BoundExpression.MemberAccess(
+              right.location,
+              left,
+              member,
+              genericArgs,
+              instantiatedType
+            )
+        }
       case SimpleNameSyntax.ScalaAliasSyntax(open, name, arrow, alias, close) =>
         ???
       case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) => ???
-      case SimpleNameSyntax.IdentifierNameSyntax(right)         =>
-        //    val memberName = right.text
+      case SimpleNameSyntax.IdentifierNameSyntax(right) =>
         val leftType = binder.getType(left)
 
         bindMemberForSymbolAndType(leftType, right) match {
@@ -898,6 +934,7 @@ case class ExprBinder(
               right.location,
               left,
               member,
+              List.Nil,
               typ
             )
         }
@@ -909,8 +946,8 @@ case class ExprBinder(
       right: SyntaxToken
   ): Option[Tuple2[Symbol, Type]] = {
     leftType match {
-      case Type.Class(_, ns, name, _, _) =>
-        rootSymbol.findSymbol(ns, name) match {
+      case Type.Class(symbol, _) =>
+        symbol.lookupMember(right.text) match {
           case Option.None =>
             diagnosticBag.reportSymbolNotFoundForType(
               right.location,
@@ -918,23 +955,14 @@ case class ExprBinder(
               right.text
             )
             Option.None
-          case Option.Some(symbol) =>
-            symbol.lookupMember(right.text) match {
-              case Option.None =>
-                diagnosticBag.reportSymbolNotFoundForType(
-                  right.location,
-                  leftType,
-                  right.text
-                )
-                Option.None
-              case Option.Some(member) =>
-                binder.getSymbolType(member) match {
-                  case Option.None => Option.None
-                  case Option.Some(typ) =>
-                    Option.Some(Tuple2(member, typ))
-                }
+          case Option.Some(member) =>
+            binder.getSymbolType(member) match {
+              case Option.None => Option.None
+              case Option.Some(typ) =>
+                Option.Some(Tuple2(member, typ))
             }
         }
+
       case Type.Error => Option.None
       case _ =>
         diagnosticBag.reportSymbolNotFoundForType(
@@ -958,36 +986,13 @@ case class ExprBinder(
   ): BoundExpression = {
     val instantiationType = binder.bindTypeName(node.name, scope)
     instantiationType match {
-      case Type.Class(_, ns, name, args, _) =>
-        findConstructor(ns, name) match {
-          case Option.None =>
-            diagnosticBag.reportSymbolNotFound(
-              AstUtils.locationOfName(node.name),
-              name
-            )
-            BoundExpression.Error
-          case Option.Some(ctor) =>
-            val args = bindExpressions(
-              fromExpressionList(node.arguments.expressions),
-              scope
-            )
-            val location = AstUtils.locationOfExpression(node)
-
-            val ctorType = binder.getSymbolType(ctor)
-            ctorType match {
-              case Option.Some(Type.Function(loc, params, _)) =>
-                bindNewExpressionForSymbol(
-                  location,
-                  ctor,
-                  Type.Function(loc, params, instantiationType),
-                  args,
-                  scope
-                )
-              case _ =>
-                diagnosticBag.reportNotCallable(location)
-                BoundExpression.Error
-            }
-        }
+      case cls: Type.Class =>
+        val args = bindExpressions(
+          fromExpressionList(node.arguments.expressions),
+          scope
+        )
+        val location = AstUtils.locationOfName(node.name)
+        bindClassCall(location, cls, args, scope)
       case Type.Error => BoundExpression.Error
       case _ =>
         panic("expected named type, got " + instantiationType)
