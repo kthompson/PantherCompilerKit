@@ -1,0 +1,11 @@
+import panther.int
+
+case class TextSpan(start: int, length: int) {
+  val end: int = start + length
+
+  def merge(span: TextSpan): TextSpan = {
+    val start = Math.min(this.start, span.start)
+    val end = Math.max(this.end, span.end)
+    new TextSpan(start, end - start)
+  }
+}

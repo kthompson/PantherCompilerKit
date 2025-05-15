@@ -35,13 +35,13 @@ object runtime extends PantherCompilerKitModule {}
 object pncs extends PantherCompilerKitModule {
   override def mainClass: T[Option[String]] = Some("Program")
 
-  override def moduleDeps: Seq[JavaModule] = Seq(runtime, metadata)
+  override def moduleDeps: Seq[JavaModule] = Seq(runtime, metadata, text)
 
   def transpileOutputPath = T.source(pnc.millSourcePath / "src")
 
   def transpileSources = T {
     (super
-      .sources() ++ metadata.sources() ++ runtime.sources())
+      .sources() ++ metadata.sources() ++ runtime.sources() ++ text.sources())
       .map(_.path)
       .flatMap(os.list(_))
       .filterNot(_.endsWith(RelPath("panther.scala")))
@@ -87,12 +87,19 @@ object metadata extends PantherCompilerKitModule {
   override def moduleDeps: Seq[JavaModule] = Seq(runtime)
 }
 
-/** Panther Interpreter in Scala
-  *
-  * Runs PVM bytecode
-  */
+/** Panther Text library shared code in Scala
+ */
+object text extends PantherCompilerKitModule {
+  override def moduleDeps: Seq[JavaModule] = Seq(runtime)
+}
+
+/**
+ * Panther Interpreter in Scala
+ *
+ * Runs PVM bytecode
+ */
 object `panthers` extends PantherCompilerKitModule {
-  override def moduleDeps: Seq[JavaModule] = Seq(runtime, metadata)
+  override def moduleDeps: Seq[JavaModule] = Seq(runtime, metadata, text)
 }
 
 ///**
