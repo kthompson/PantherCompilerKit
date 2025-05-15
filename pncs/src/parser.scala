@@ -179,6 +179,20 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       accept()
     } else {
       diagnostics.reportUnexpectedToken(curr.location, curr.kind, kind)
+
+      recoverKind(kind, _position, CompilerSettings.kindRecoveryAttempts)
+    }
+  }
+
+  def recoverKind(kind: int, mark: int, attempts: int): SyntaxToken = {
+    // enter recovery mode
+    // lets search for the desired token kind assuming we already reported an error
+    if (attempts == 0) {
+      // we could not find the desired token kind so lets reset our position
+      _position = mark
+
+      val curr = current()
+
       new SyntaxToken(
         sourceFile,
         kind,
@@ -188,6 +202,15 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
         new Array[SyntaxTrivia](0),
         new Array[SyntaxTrivia](0)
       )
+    } else {
+      next() // skip the current token as it is not a match
+      if (currentKind() == kind) {
+        // we found the token lets proceed
+        accept()
+      } else {
+        // try again
+        recoverKind(kind, mark, attempts - 1)
+      }
     }
   }
 

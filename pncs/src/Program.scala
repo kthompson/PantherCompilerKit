@@ -42,14 +42,16 @@ object Program {
 
     // verify no diagnostics from parse trees
     if (hasDiagnostics(trees)) {
+      var parseErrors = 0
       while (trees != List.Nil) {
         trees match {
           case List.Nil => ()
           case List.Cons(head, tail) =>
-            head.diagnostics._printDiagnostics(0)
+            parseErrors = head.diagnostics._printDiagnostics(parseErrors)
             trees = tail
         }
       }
+      println("found " + string(parseErrors) + " diagnostics")
     } else {
       val compilation = MakeCompilation.create(trees)
       compilation.diagnostics match {

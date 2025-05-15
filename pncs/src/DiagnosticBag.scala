@@ -9,6 +9,8 @@ case class Diagnostic(location: TextLocation, message: string) {
   }
 }
 
+/** A sorted list of compiler errors. Sorting is handled by the DiagnosticBag
+  */
 enum Diagnostics {
   case Empty
   case Node(left: Diagnostics, head: Diagnostic, tail: Diagnostics)
@@ -33,7 +35,7 @@ enum Diagnostics {
       case Diagnostics.Empty => count
       case Diagnostics.Node(left, head, right) =>
         val leftCount = left._printDiagnostics(count)
-        if (leftCount <= 40) {
+        if (leftCount <= CompilerSettings.diagnosticsToPrint) {
           printDiagnostic(head)
         }
         right._printDiagnostics(leftCount + 1)
