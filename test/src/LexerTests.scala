@@ -1,19 +1,45 @@
 import panther._
 import Helpers._
+import TestFramework._
 
 object LexerTests {
   def run(): unit = {
+
+    suite("Lexer Tests")
+    test("singleToken")
     singleToken()
+
+    test("multipleTokens")
     multipleTokens()
+
+    test("whitespace")
     whitespace()
+
+    test("comments")
     comments()
+
+    test("strings")
     strings()
+
+    test("numbers")
     numbers()
+
+    test("identifiers")
     identifiers()
+
+    test("keywords")
     keywords()
+
+    test("operators")
     operators()
+
+    test("parentheses")
     parentheses()
+
+    test("braces")
     braces()
+
+    test("brackets")
     brackets()
   }
 

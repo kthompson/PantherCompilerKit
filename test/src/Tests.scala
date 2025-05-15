@@ -1,4 +1,5 @@
 import panther._
+import TestFramework._
 
 object Tests {
   def main(args: Array[String]): Unit = {
@@ -6,6 +7,7 @@ object Tests {
     ParserTests.run()
     BinderTests.run()
     TypeTests.run()
-    println("All tests passed")
+
+    complete()
   }
 }

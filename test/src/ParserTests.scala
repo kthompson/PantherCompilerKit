@@ -1,8 +1,10 @@
 import panther._
 import Helpers._
+import TestFramework._
 
 object ParserTests {
   def run(): unit = {
+    suite("Parser Tests")
     expressions()
     functions()
   }
@@ -21,6 +23,7 @@ object ParserTests {
   }
 
   def binary(): unit = {
+    test("1 + 2")
     val expr = mkBinaryExpr("1 + 2")
     assertNumberExpr(1, expr.left)
     assertNumberExpr(2, expr.right)
@@ -28,12 +31,14 @@ object ParserTests {
   }
 
   def unary(): unit = {
+    test("-1")
     val expr = mkUnaryExpr("-1")
     assertTokenKind(SyntaxKind.DashToken, expr.operator)
     assertNumberExpr(1, expr.expression)
   }
 
   def groups(): unit = {
+    test("(12)")
     val expr = mkGroupExpr("(12)")
     assertTokenKind(SyntaxKind.OpenParenToken, expr.openParen)
     assertNumberExpr(12, expr.expression)
@@ -41,6 +46,7 @@ object ParserTests {
   }
 
   def precedence(): unit = {
+    test("1 + 2 * 3")
     val expr = mkBinaryExpr("1 + 2 * 3")
     assertNumberExpr(1, expr.left)
     assertTokenKind(SyntaxKind.PlusToken, expr.operator)
@@ -51,6 +57,7 @@ object ParserTests {
   }
 
   def associativity(): unit = {
+    test("1 - 2 - 3")
     val expr = mkBinaryExpr("1 - 2 - 3")
     val left = assertBinaryExpr(expr.left)
     assertNumberExpr(1, left.left)
@@ -61,6 +68,7 @@ object ParserTests {
   }
 
   def assignment(): unit = {
+    test("a = 1")
     val expr = mkAssignmentExpr("a = 1")
 
     assertTokenKind(SyntaxKind.EqualsToken, expr.equals)
@@ -76,6 +84,7 @@ object ParserTests {
   }
 
   def callWithNoArguments(): unit = {
+    test("f()")
     val expr = mkCallExpr("f()")
     assertIdentifierExpr("f", expr.name)
     Assert.none(expr.genericArguments)
@@ -85,6 +94,7 @@ object ParserTests {
   }
 
   def callWithOneArgument(): unit = {
+    test("f(1)")
     val expr = mkCallExpr("f(1)")
     assertIdentifierExpr("f", expr.name)
     Assert.none(expr.genericArguments)
@@ -95,6 +105,7 @@ object ParserTests {
   }
 
   def callWithMultipleArguments(): unit = {
+    test("f(1, 2)")
     val expr = mkCallExpr("f(1, 2)")
     assertIdentifierExpr("f", expr.name)
     val args = expr.arguments
@@ -103,6 +114,7 @@ object ParserTests {
   }
 
   def callWithGenericArguments(): unit = {
+    test("f[int](1)")
     val expr = mkCallExpr("f[int](1)")
     val ident = assertGenericIdentifierExpr(expr.name)
     assertTokenText("f", ident.identifier)
@@ -124,6 +136,7 @@ object ParserTests {
   }
 
   def ifs(): unit = {
+    test("if (true) 1 else 2")
     val expr = mkIfExpr("if (true) 1 else 2")
 
     assertTokenKind(SyntaxKind.IfKeyword, expr.ifKeyword)
@@ -136,6 +149,7 @@ object ParserTests {
   }
 
   def whiles(): unit = {
+    test("while (true) 1")
     val expr = mkWhileExpr("while (true) 1")
 
     assertTokenKind(SyntaxKind.WhileKeyword, expr.whileKeyword)
@@ -151,6 +165,7 @@ object ParserTests {
   }
 
   def blockWithExpression(): unit = {
+    test("{ 1 }")
     val expr = mkBlockExpr("{ 1 }")
     assertTokenKind(SyntaxKind.OpenBraceToken, expr.openBrace)
     Assert.empty(expr.block.statements)
@@ -160,6 +175,7 @@ object ParserTests {
   }
 
   def blockWithStatement(): unit = {
+    test("{  val a = 1;  a }")
     val expr = mkBlockExpr(
       "{\n" +
         "  val a = 1\n" +
@@ -193,6 +209,7 @@ object ParserTests {
   }
 
   def functionWithNoParameters(): unit = {
+    test("def f() = { 1 }")
     val fn = mkFunctionMember("def f() = { 1 }")
     assertTokenKind(SyntaxKind.DefKeyword, fn.defKeyword)
     assertTokenText("f", fn.identifier)
@@ -210,6 +227,7 @@ object ParserTests {
   }
 
   def functionWithParameters(): unit = {
+    test("def f(a: int, b: int) = { a + b }")
     val fn = mkFunctionMember("def f(a: int, b: int) = { a + b }")
     assertTokenKind(SyntaxKind.DefKeyword, fn.defKeyword)
     assertTokenText("f", fn.identifier)
@@ -241,6 +259,7 @@ object ParserTests {
   }
 
   def functionWithReturnType(): unit = {
+    test("def f(): int = { 1 }")
     val fn = mkFunctionMember("def f(): int = { 1 }")
     assertTokenKind(SyntaxKind.DefKeyword, fn.defKeyword)
     assertTokenText("f", fn.identifier)

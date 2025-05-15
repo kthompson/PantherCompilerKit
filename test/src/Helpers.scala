@@ -1,4 +1,5 @@
 import panther._
+import TestFramework._
 
 object Helpers {
 
@@ -38,9 +39,14 @@ object Helpers {
       setup + "\n\nval typeTestSymbol: " + expectedType + " = " + expression
     )
   }
-  
+
   def assertAssignableTo(expression: string, assignableTo: string): unit =
     mkCompilation("val typeTestSymbol: " + assignableTo + " = " + expression)
+
+  def assertExprTypeTest(expression: string, expectedType: string): unit = {
+    test(expression.replaceAll("\n", " "))
+    assertExprType(expression, expectedType)
+  }
 
   def assertExprType(expression: string, expectedType: string): unit = {
     val comp = mkCompilation("val x = " + expression)

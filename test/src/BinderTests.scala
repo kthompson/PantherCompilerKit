@@ -1,8 +1,10 @@
 import Helpers._
 import panther._
+import TestFramework._
 
 object BinderTests {
   def run(): unit = {
+    suite("Binder Tests")
     builtinSymbols()
     topLevelFields()
     methods()
@@ -11,6 +13,7 @@ object BinderTests {
   }
 
   def builtinSymbols(): unit = {
+    test("builtin symbols")
     val comp = mkCompilation("")
     val symbols = enumSymbols(comp)
     assertSymbol(symbols, SymbolKind.Class, "any")
@@ -31,6 +34,7 @@ object BinderTests {
   }
 
   def topLevelFields(): unit = {
+    test("top level fields")
     val comp = mkCompilation("val x = 12")
     val symbols = enumNonBuiltinSymbols(comp)
     assertSymbol(symbols, SymbolKind.Field, "x")
@@ -38,6 +42,7 @@ object BinderTests {
   }
 
   def methods(): unit = {
+    test("methods")
     val comp = mkCompilation("def foo() = 12")
     val symbols = enumNonBuiltinSymbols(comp)
     val foo = assertSymbol(symbols, SymbolKind.Method, "foo")
@@ -50,6 +55,7 @@ object BinderTests {
   }
 
   def classWithoutArgs(): Unit = {
+    test("class without args")
     val comp = mkCompilation("class Foo()")
     val symbols = enumNonBuiltinSymbols(comp)
     assertSymbol(symbols, SymbolKind.Class, "Foo")
@@ -59,6 +65,7 @@ object BinderTests {
   }
 
   def classWithArgs(): unit = {
+    test("class with args")
     val comp = mkCompilation("class Foo(x: int, y: int)")
     val symbols = enumNonBuiltinSymbols(comp)
     assertSymbol(symbols, SymbolKind.Class, "Foo")
@@ -77,6 +84,7 @@ object BinderTests {
   }
 
   def enumWithoutArgs(): Unit = {
+    test("enum without args")
     val comp = mkCompilation(
       "enum Foo {\n" +
         "  case Bar\n" +
@@ -91,6 +99,7 @@ object BinderTests {
   }
 
   def enumWithArgs(): Unit = {
+    test("enum with args")
     val comp = mkCompilation(
       "enum Foo {\n" +
         "  case Bar(x: int)\n" +

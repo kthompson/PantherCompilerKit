@@ -1,8 +1,10 @@
 import Helpers._
 import panther._
+import TestFramework._
 
 object TypeTests {
   def run(): unit = {
+    suite("Type Tests")
     primitives()
     binary()
     unary()
@@ -23,50 +25,64 @@ object TypeTests {
   }
 
   def primitives(): unit = {
-    assertExprType("12", "int")
-    assertExprType("0", "int")
-    assertExprType("true", "bool")
-    assertExprType("false", "bool")
-    assertExprType("\"hello\"", "string")
-    assertExprType("'a'", "char")
-    assertExprType("()", "unit")
+    assertExprTypeTest("12", "int")
+    assertExprTypeTest("0", "int")
+    assertExprTypeTest("true", "bool")
+    assertExprTypeTest("false", "bool")
+    assertExprTypeTest("\"hello\"", "string")
+    assertExprTypeTest("'a'", "char")
+    assertExprTypeTest("()", "unit")
   }
 
   def binary(): unit = {
-    assertExprType("1 + 2", "int")
-    assertExprType("1 - 2", "int")
-    assertExprType("1 * 2", "int")
-    assertExprType("1 / 2", "int")
-    assertExprType("1 % 2", "int")
-    assertExprType("1 == 2", "bool")
-    assertExprType("1 != 2", "bool")
-    assertExprType("1 < 2", "bool")
-    assertExprType("1 <= 2", "bool")
-    assertExprType("1 > 2", "bool")
-    assertExprType("1 >= 2", "bool")
-    assertExprType("true && false", "bool")
-    assertExprType("true || false", "bool")
+    assertExprTypeTest("1 + 2", "int")
+    assertExprTypeTest("1 - 2", "int")
+    assertExprTypeTest("1 * 2", "int")
+    assertExprTypeTest("1 / 2", "int")
+    assertExprTypeTest("1 % 2", "int")
+    assertExprTypeTest("1 == 2", "bool")
+    assertExprTypeTest("1 != 2", "bool")
+    assertExprTypeTest("1 < 2", "bool")
+    assertExprTypeTest("1 <= 2", "bool")
+    assertExprTypeTest("1 > 2", "bool")
+    assertExprTypeTest("1 >= 2", "bool")
+    assertExprTypeTest("true && false", "bool")
+    assertExprTypeTest("true || false", "bool")
   }
 
   def unary(): unit = {
-    assertExprType("-1", "int")
-    assertExprType("+1", "int")
+    assertExprTypeTest("-1", "int")
+    assertExprTypeTest("+1", "int")
 // FIXME:   assertExprType("~7", "int")
-    assertExprType("!true", "bool")
+    assertExprTypeTest("!true", "bool")
   }
 
   def groups(): unit = {
-    assertExprType("(12)", "int")
-    assertExprType("(true)", "bool")
+    assertExprTypeTest("(12)", "int")
+    assertExprTypeTest("(true)", "bool")
   }
 
   def variables(): unit = {
+
+    test("int variable")
     assertExprTypeWithSetup("val x = 12", "x", "int")
+
+    test("bool variable")
     assertExprTypeWithSetup("val x = true", "x", "bool")
+
+    test("string variable")
     assertExprTypeWithSetup("val x = \"hello\"", "x", "string")
+
+    test("char variable")
     assertExprTypeWithSetup("val x = 'a'", "x", "char")
+
+    test("variable addition")
     assertExprTypeWithSetup("val x = 12", "x + 12", "int")
+
+    test("variable equality")
     assertExprTypeWithSetup("val x = 12", "12 == x", "bool")
+
+    test("variable assignment")
     assertExprTypeWithSetup("var x = 12", "x = 10", "unit")
   }
 
@@ -78,55 +94,55 @@ object TypeTests {
   }
 
   def calls(): unit = {
-    assertExprType("println(12)", "unit")
-    assertExprType("print(12)", "unit")
-    assertExprType("print(\"hello\")", "unit")
-    assertExprType("print('a')", "unit")
-    assertExprType("print(true)", "unit")
-    assertExprType("print(12 + 12)", "unit")
-    assertExprType("print(12 == 12)", "unit")
-    assertExprType("print(12 < 12)", "unit")
-    assertExprType("print(true && false)", "unit")
-    assertExprType("print(true || false)", "unit")
+    assertExprTypeTest("println(12)", "unit")
+    assertExprTypeTest("print(12)", "unit")
+    assertExprTypeTest("print(\"hello\")", "unit")
+    assertExprTypeTest("print('a')", "unit")
+    assertExprTypeTest("print(true)", "unit")
+    assertExprTypeTest("print(12 + 12)", "unit")
+    assertExprTypeTest("print(12 == 12)", "unit")
+    assertExprTypeTest("print(12 < 12)", "unit")
+    assertExprTypeTest("print(true && false)", "unit")
+    assertExprTypeTest("print(true || false)", "unit")
   }
 
   def casts(): unit = {
-    assertExprType("char('a')", "char")
-    assertExprType("char(12)", "char")
-    assertExprType("int('a')", "int")
-    assertExprType("int(12)", "int")
-    assertExprType("string('a')", "string")
-    assertExprType("string(12)", "string")
-    assertExprType("string(\"hello\")", "string")
-    assertExprType("string(true)", "string")
+    assertExprTypeTest("char('a')", "char")
+    assertExprTypeTest("char(12)", "char")
+    assertExprTypeTest("int('a')", "int")
+    assertExprTypeTest("int(12)", "int")
+    assertExprTypeTest("string('a')", "string")
+    assertExprTypeTest("string(12)", "string")
+    assertExprTypeTest("string(\"hello\")", "string")
+    assertExprTypeTest("string(true)", "string")
   }
 
   def blocks(): unit = {
-    assertExprType("{ 1 }", "int")
-    assertExprType("{ true }", "bool")
-    assertExprType("{  }", "unit")
-    assertExprType(
+    assertExprTypeTest("{ 1 }", "int")
+    assertExprTypeTest("{ true }", "bool")
+    assertExprTypeTest("{  }", "unit")
+    assertExprTypeTest(
       "{\n" +
         "  1\n" +
         "  2\n" +
         "}",
       "int"
     )
-    assertExprType(
+    assertExprTypeTest(
       "{\n" +
         "true\n" +
         "false\n" +
         "}",
       "bool"
     )
-    assertExprType(
+    assertExprTypeTest(
       "{\n" +
         "  1\n" +
         "  true\n" +
         "}",
       "bool"
     )
-    assertExprType(
+    assertExprTypeTest(
       "{\n" +
         "  true\n" +
         "  1\n" +
@@ -136,24 +152,24 @@ object TypeTests {
   }
 
   def ifs(): unit = {
-    assertExprType("if (true) 1 else 2", "int")
-    assertExprType("if (false) 1 else 2", "int")
-    assertExprType("if (true) true else false", "bool")
-    assertExprType("if (false) true else false", "bool")
-    assertExprType("if (false) true", "unit")
+    assertExprTypeTest("if (true) 1 else 2", "int")
+    assertExprTypeTest("if (false) 1 else 2", "int")
+    assertExprTypeTest("if (true) true else false", "bool")
+    assertExprTypeTest("if (false) true else false", "bool")
+    assertExprTypeTest("if (false) true", "unit")
   }
 
   def whiles(): unit = {
-    assertExprType("while (true) 1", "unit")
-    assertExprType("while (false) 1", "unit")
+    assertExprTypeTest("while (true) 1", "unit")
+    assertExprTypeTest("while (false) 1", "unit")
   }
 
   def matches(): unit = {
-    assertExprType("1 match { case 1 => 1 }", "int")
-    assertExprType("1 match { case 2 => 1 }", "int")
-    assertExprType("1 match { case 1 => true }", "bool")
-    assertExprType("1 match { case 2 => true }", "bool")
-    assertExprType("1 match { case 1 => }", "unit")
+    assertExprTypeTest("1 match { case 1 => 1 }", "int")
+    assertExprTypeTest("1 match { case 2 => 1 }", "int")
+    assertExprTypeTest("1 match { case 1 => true }", "bool")
+    assertExprTypeTest("1 match { case 2 => true }", "bool")
+    assertExprTypeTest("1 match { case 1 => }", "unit")
   }
 
   def methods(): unit = {
