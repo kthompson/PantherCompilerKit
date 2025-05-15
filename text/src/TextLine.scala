@@ -1,6 +1,6 @@
 import panther.int
 
 case class TextLine(start: int, length: int, lengthWithLineBreaks: int) {
-  val end: int = start + length + 1
+  val end: int = start + length // + 1
   val span: TextSpan = new TextSpan(start, length)
 }

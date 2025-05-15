@@ -73,7 +73,7 @@ enum Diagnostics {
       print(ANSI.Clear)
       println(suffix)
 
-      for (c <- 0 to (prefixSpan.length - 2)) {
+      for (c <- 0 to (prefixSpan.length - 1)) {
         print('-')
       }
       println('^')
