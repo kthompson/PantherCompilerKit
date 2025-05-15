@@ -35,8 +35,7 @@ object system {
     }
 
     object Path {
-      // TODO: support path separators other than '/'
-      val separator = '/'
+      val separator: char = java.io.File.separator.charAt(0)
 
       def combine(path1: string, path2: string): string = {
         if (path1 == "") path2
