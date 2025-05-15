@@ -3,9 +3,9 @@ obj/
 /packages/
 riderModule.iml
 /_ReSharper.Caches/
-.idea/workspace.xml
-.idea/usage.statistics.xml
-.idea/tasks.xml 
 out
 .DS_Store
 mill.*
+
+# IntelliJ project files to ignore. regenerate with `mill mill.idea.GenIdea/idea`
+.idea/
