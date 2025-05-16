@@ -110,6 +110,7 @@ class Binder(
 
   val arrayCtorSymbol =
     arraySymbol.defineMethod(".ctor", noLoc)
+  arrayCtorSymbol.extern = true
   val arraySizeSymbol: Symbol = param(arrayCtorSymbol, "size", intType)
 
   setSymbolType(
@@ -230,6 +231,7 @@ class Binder(
 
   def method(parent: Symbol, name: string): Symbol = {
     val symbol = parent.defineMethod(name, noLoc)
+    symbol.extern = true
     symbol
   }
 

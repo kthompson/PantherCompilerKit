@@ -69,15 +69,18 @@ case class SymbolTreePrinter(binder: Binder) {
       if (
         symbol.kind == SymbolKind.Constructor || symbol.kind == SymbolKind.Method
       ) {
-        val hasBody = binder.functionBodies.contains(symbol)
+
         printer.writeColor(ColorPalette.Punctuation)
         print(" = ")
-        if (!hasBody) {
-          printer.writeColor(ColorPalette.Error)
-          print("[no body]")
-        } else {
+        if (symbol.extern) {
+          printer.writeColor(ColorPalette.Keyword)
+          print("[extern]")
+        } else if (binder.functionBodies.contains(symbol)) {
           printer.writeColor(ColorPalette.Keyword)
           print("[body]")
+        } else {
+          printer.writeColor(ColorPalette.Error)
+          print("[no body]")
         }
         print(ANSI.Clear)
       }

@@ -10,6 +10,7 @@ case class Symbol(
   // used in binder
   var _id: int = -1
   var _blockId: int = -1
+  var extern: bool = false
 
   var _children: Dictionary[string, Symbol] = DictionaryModule.empty()
 
