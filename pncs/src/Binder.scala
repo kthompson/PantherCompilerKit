@@ -12,13 +12,6 @@ case class Members(
     globalStatements: List[MemberSyntax.GlobalStatementSyntax]
 )
 
-case class Entry(
-    program: Option[MemberSyntax.ObjectDeclarationSyntax],
-    main: Option[MemberSyntax.FunctionDeclarationSyntax],
-    extraStatements: List[MemberSyntax.GlobalStatementSyntax],
-    members: Members
-)
-
 case class Namespaced[A](ns: List[string], value: A)
 
 enum BindingMember {
@@ -78,7 +71,7 @@ class Binder(
       case Option.Some(value) => Some(value.typ)
     }
 
-  val noLoc = TextLocationFactory.empty()
+  val noLoc: TextLocation = TextLocationFactory.empty()
 
   val anyType = Type.Any
   val stringType =
@@ -100,46 +93,24 @@ class Binder(
   val pantherNamespace =
     rootSymbol // TODO: move these to the panther namespace .enter("panther")
 
-  val anySymbol =
-    pantherNamespace.defineClass("any", TextLocationFactory.empty())
+  val anySymbol = pantherNamespace.defineClass("any", noLoc)
   symbolTypes =
     symbolTypes.put(getSymbolId(anySymbol), SymbolLinks(anyType, None))
 
-  val intSymbol =
-    pantherNamespace.defineClass("int", TextLocationFactory.empty())
-  setSymbolType(intSymbol, intType, Some(anySymbol))
-
-  val stringSymbol = pantherNamespace.defineClass(
-    "string",
-    TextLocationFactory.empty()
-  )
-  setSymbolType(stringSymbol, stringType, Some(anySymbol))
-
-  val boolSymbol = pantherNamespace.defineClass(
-    "bool",
-    TextLocationFactory.empty()
-  )
-  setSymbolType(boolSymbol, boolType, Some(anySymbol))
-
-  val charSymbol = pantherNamespace.defineClass(
-    "char",
-    TextLocationFactory.empty()
-  )
-  setSymbolType(charSymbol, charType, Some(anySymbol))
-
-  val unitSymbol = pantherNamespace.defineClass(
-    "unit",
-    TextLocationFactory.empty()
-  )
-  setSymbolType(unitSymbol, unitType, Some(anySymbol))
+  val intSymbol = cls(pantherNamespace, "int", intType)
+  val stringSymbol = cls(pantherNamespace, "string", stringType)
+  val boolSymbol = cls(pantherNamespace, "bool", boolType)
+  val charSymbol = cls(pantherNamespace, "char", charType)
+  val unitSymbol = cls(pantherNamespace, "unit", unitType)
 
   val arraySymbol = pantherNamespace.defineClass(
     "Array",
-    TextLocationFactory.empty()
+    noLoc
   )
 
   val arrayCtorSymbol =
-    arraySymbol.defineMethod(".ctor", TextLocationFactory.empty())
+    arraySymbol.defineMethod(".ctor", noLoc)
+  val arraySizeSymbol: Symbol = param(arrayCtorSymbol, "size", intType)
 
   setSymbolType(
     arrayCtorSymbol,
@@ -147,7 +118,7 @@ class Binder(
       noLoc,
       List.Cons(
         BoundParameter(
-          arrayCtorSymbol.defineParameter("size", TextLocationFactory.empty()),
+          arraySizeSymbol,
           intType
         ),
         List.Nil
@@ -175,7 +146,7 @@ class Binder(
   setSymbolType(
     stringSymbol.defineField(
       "length",
-      TextLocationFactory.empty()
+      noLoc
     ),
     intType,
     None
@@ -189,12 +160,8 @@ class Binder(
 //  )
 
   // println(message: string): unit
-  val printlnSymbol = predef.defineMethod(
-    "println",
-    TextLocationFactory.empty()
-  )
-  val printlnMessageSymbol =
-    printlnSymbol.defineParameter("message", TextLocationFactory.empty())
+  val printlnSymbol = method(predef, "println")
+  val printlnMessageSymbol = param(printlnSymbol, "message", stringType)
 
   setSymbolType(
     printlnSymbol,
@@ -208,15 +175,10 @@ class Binder(
     ),
     None
   )
-  setSymbolType(printlnMessageSymbol, stringType, None)
 
   // print(message: string): unit
-  val printSymbol = predef.defineMethod(
-    "print",
-    TextLocationFactory.empty()
-  )
-  val printMessageSymbol: Symbol =
-    printSymbol.defineParameter("message", TextLocationFactory.empty())
+  val printSymbol = method(predef, "print")
+  val printMessageSymbol: Symbol = param(printSymbol, "message", stringType)
 
   setSymbolType(
     printSymbol,
@@ -230,8 +192,6 @@ class Binder(
     ),
     None
   )
-
-  setSymbolType(printMessageSymbol, stringType, None)
 
   /** These are the methods and fields that need to be bound/symbolized
     */
@@ -261,6 +221,23 @@ class Binder(
   val classifier = new ConversionClassifier(this)
   val exprBinder: ExprBinder =
     new ExprBinder(rootSymbol, this, classifier, diagnosticBag)
+
+  def cls(parent: Symbol, name: string, typ: Type): Symbol = {
+    val symbol = parent.defineClass(name, noLoc)
+    setSymbolType(symbol, typ, Some(anySymbol))
+    symbol
+  }
+
+  def method(parent: Symbol, name: string): Symbol = {
+    val symbol = parent.defineMethod(name, noLoc)
+    symbol
+  }
+
+  def param(parent: Symbol, name: string, typ: Type): Symbol = {
+    val symbol = parent.defineParameter(name, noLoc)
+    setSymbolType(symbol, typ, None)
+    symbol
+  }
 
   def bind(): BoundAssembly = {
     // take ast, extract top level statements
