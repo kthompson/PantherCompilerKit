@@ -156,7 +156,9 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       kind == SyntaxKind.GreaterThanToken || kind == SyntaxKind.GreaterThanEqualsToken
     ) 6
     else if (kind == SyntaxKind.PlusToken || kind == SyntaxKind.DashToken) 7
-    else if (kind == SyntaxKind.StarToken || kind == SyntaxKind.SlashToken) 8
+    else if (
+      kind == SyntaxKind.StarToken || kind == SyntaxKind.SlashToken || kind == SyntaxKind.PercentToken
+    ) 8
     // unary/prefix is 9
     else if (
       kind == SyntaxKind.OpenParenToken || kind == SyntaxKind.OpenBracketToken

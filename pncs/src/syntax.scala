@@ -129,12 +129,13 @@ object SyntaxKind {
   val LessThanDashToken = 54
   val LessThanEqualsToken = 55
   val LessThanToken = 56
-  val PipePipeToken = 57
-  val PipeToken = 58
-  val PlusToken = 59
-  val SlashToken = 60
-  val StarToken = 61
-  val TildeToken = 62
+  val PercentToken = 57
+  val PipePipeToken = 58
+  val PipeToken = 59
+  val PlusToken = 60
+  val SlashToken = 61
+  val StarToken = 62
+  val TildeToken = 63
 
   // grouping tokens
   val CloseParenToken = 70
@@ -292,6 +293,7 @@ object SyntaxFacts {
     else if (kind == SyntaxKind.OpenParenToken) "OpenParenToken"
     else if (kind == SyntaxKind.OutKeyword) "OutKeyword"
     else if (kind == SyntaxKind.Parameter) "Parameter"
+    else if (kind == SyntaxKind.PercentToken) "PercentToken"
     else if (kind == SyntaxKind.PipePipeToken) "PipePipeToken"
     else if (kind == SyntaxKind.PipeToken) "PipeToken"
     else if (kind == SyntaxKind.PlusToken) "PlusToken"
@@ -365,6 +367,7 @@ object SyntaxFacts {
       case SyntaxKind.GreaterThanToken    => BinaryOperatorKind.GreaterThan
       case SyntaxKind.LessThanEqualsToken => BinaryOperatorKind.LessThanOrEqual
       case SyntaxKind.LessThanToken       => BinaryOperatorKind.LessThan
+      case SyntaxKind.PercentToken        => BinaryOperatorKind.Modulus
       case SyntaxKind.PipePipeToken       => BinaryOperatorKind.LogicalOr
       case SyntaxKind.PlusToken           => BinaryOperatorKind.Plus
       case SyntaxKind.SlashToken          => BinaryOperatorKind.Divide
@@ -396,6 +399,7 @@ object SyntaxFacts {
       kind == SyntaxKind.GreaterThanToken ||
       kind == SyntaxKind.LessThanEqualsToken ||
       kind == SyntaxKind.LessThanToken ||
+      kind == SyntaxKind.PercentToken ||
       kind == SyntaxKind.PipePipeToken ||
       kind == SyntaxKind.PipeToken ||
       kind == SyntaxKind.PlusToken ||

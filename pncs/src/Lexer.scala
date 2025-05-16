@@ -139,6 +139,8 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       scanSimpleOne(SyntaxKind.DashToken)
     } else if (curr == '/') {
       scanSimpleOne(SyntaxKind.SlashToken)
+    } else if (curr == '%') {
+      scanSimpleOne(SyntaxKind.PercentToken)
     } else if (curr == '*') {
       scanSimpleOne(SyntaxKind.StarToken)
     } else if (curr == '&' && look == '&') {
@@ -383,6 +385,7 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       next()
     }
     val span = makeSpan(start)
+    panic("FIXME: This shouldnt be an identifier.... ")
     new SimpleToken(
       SyntaxKind.IdentifierToken,
       start,

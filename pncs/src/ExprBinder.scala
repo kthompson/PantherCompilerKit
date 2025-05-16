@@ -198,6 +198,7 @@ case class ExprBinder(
       case SyntaxKind.GreaterThanToken    => BinaryOperatorKind.GreaterThan
       case SyntaxKind.LessThanEqualsToken => BinaryOperatorKind.LessThanOrEqual
       case SyntaxKind.LessThanToken       => BinaryOperatorKind.LessThan
+      case SyntaxKind.PercentToken        => BinaryOperatorKind.Modulus
       case SyntaxKind.PipePipeToken       => BinaryOperatorKind.LogicalOr
       case SyntaxKind.PlusToken           => BinaryOperatorKind.Plus
       case SyntaxKind.SlashToken          => BinaryOperatorKind.Divide
