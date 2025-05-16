@@ -1,5 +1,4 @@
-import panther.string
-import panther.int
+import panther.{int, panic, string}
 import utest.*
 
 object InferenceTests extends TestSuite {
@@ -9,7 +8,8 @@ object InferenceTests extends TestSuite {
     val intType = Type.Class(empty, List.Nil, "int", List.Nil, Option.None)
     val boolType = Type.Class(empty, List.Nil, "bool", List.Nil, Option.None)
 
-    def named(name: string): Type = Type.Class(empty, List.Nil, name, List.Nil, Option.None)
+    def named(name: string): Type =
+      Type.Class(empty, List.Nil, name, List.Nil, Option.None)
 
     def genericArg(name: string): GenericTypeParameter = GenericTypeParameter(
       empty,
@@ -41,8 +41,10 @@ object InferenceTests extends TestSuite {
         returnType
       )
 
-    def param(name: string, typ: Type): BoundParameter =
-      BoundParameter(name, typ)
+    def param(name: string, typ: Type): BoundParameter = {
+      panic("FIXME")
+//      BoundParameter(name, typ)
+    }
 
     def variable(index: int): Type = Type.Variable(empty, index)
 

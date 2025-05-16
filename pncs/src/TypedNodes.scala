@@ -3,13 +3,8 @@ import panther._
 case class BoundAssembly(
     definitions: List[BoundDefinition],
     diagnostics: Diagnostics,
-    entryPoint: Option[BoundEntry]
-)
-
-case class BoundEntry(
-    program: BoundDefinition.Object,
-    main: BoundMember.Method,
-    extraStatements: List[MemberSyntax.GlobalStatementSyntax]
+    functionBodies: Dictionary[Symbol, BoundExpression],
+    entryPoint: Option[Symbol]
 )
 
 enum BoundDefinition {
@@ -21,14 +16,14 @@ enum BoundDefinition {
 enum BoundMember {
   case Field(symbol: Symbol, typ: Type)
   case Method(
-      name: string,
+      symbol: Symbol,
       parameters: List[BoundParameter],
       returnType: Type,
       body: BoundExpression
   )
 }
 
-case class BoundParameter(name: string, typ: Type)
+case class BoundParameter(symbol: Symbol, typ: Type)
 
 enum BoundStatement {
   case Error

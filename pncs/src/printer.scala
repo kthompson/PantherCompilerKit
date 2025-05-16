@@ -574,7 +574,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
           write(", ")
         } else {}
         writeColor(ColorPalette.Identifier)
-        write(param.name)
+        write(param.symbol.name)
         writeColor(ColorPalette.Punctuation)
         write(": ")
         _printType(param.typ, false)

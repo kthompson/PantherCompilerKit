@@ -1,6 +1,7 @@
-import Helpers._
-import panther._
-import TestFramework._
+import Helpers.*
+import SymbolKind.Parameter
+import panther.*
+import TestFramework.*
 
 object BinderTests {
   def run(): unit = {
@@ -25,28 +26,36 @@ object BinderTests {
     assertSymbol(symbols, SymbolKind.Class, "unit")
     assertSymbol(symbols, SymbolKind.Class, "Array")
     assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
+    assertSymbol(symbols, SymbolKind.Parameter, "size")
 //    assertSymbol(symbols, SymbolKind.Object, "predef")
     assertSymbol(symbols, SymbolKind.Method, "println")
     assertSymbol(symbols, SymbolKind.Parameter, "message")
     assertSymbol(symbols, SymbolKind.Method, "print")
     assertSymbol(symbols, SymbolKind.Parameter, "message")
-    assertNoSymbol(symbols)
+    assertSymbol(symbols, SymbolKind.Object, "$Program")
+    assertSymbol(symbols, SymbolKind.Method, "main")
+    assertNoSymbols(symbols)
   }
 
   def topLevelFields(): unit = {
     test("top level fields")
     val comp = mkCompilation("val x = 12")
     val symbols = enumNonBuiltinSymbols(comp)
+    assertProgramSymbol(symbols)
     assertSymbol(symbols, SymbolKind.Field, "x")
-    assertNoSymbol(symbols)
+    assertSymbol(symbols, SymbolKind.Method, "main")
+    assertNoSymbols(symbols)
   }
 
   def methods(): unit = {
     test("methods")
     val comp = mkCompilation("def foo() = 12")
     val symbols = enumNonBuiltinSymbols(comp)
-    val foo = assertSymbol(symbols, SymbolKind.Method, "foo")
-    assertNoSymbol(symbols)
+
+    assertProgramSymbol(symbols)
+    assertSymbol(symbols, SymbolKind.Method, "foo")
+    assertMainSymbol(symbols)
+    assertNoSymbols(symbols)
   }
 
   def classes(): unit = {
@@ -60,8 +69,9 @@ object BinderTests {
     val symbols = enumNonBuiltinSymbols(comp)
     assertSymbol(symbols, SymbolKind.Class, "Foo")
     assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
-
-    assertNoSymbol(symbols)
+    assertProgramSymbol(symbols)
+    assertMainSymbol(symbols)
+    assertNoSymbols(symbols)
   }
 
   def classWithArgs(): unit = {
@@ -75,7 +85,10 @@ object BinderTests {
     assertSymbol(symbols, SymbolKind.Parameter, "x")
     assertSymbol(symbols, SymbolKind.Parameter, "y")
 
-    assertNoSymbol(symbols)
+    assertProgramSymbol(symbols)
+    assertMainSymbol(symbols)
+
+    assertNoSymbols(symbols)
   }
 
   def enums(): unit = {
@@ -95,7 +108,11 @@ object BinderTests {
     assertSymbol(symbols, SymbolKind.Enum, "Foo")
     assertSymbol(symbols, SymbolKind.Class, "Bar")
     assertSymbol(symbols, SymbolKind.Class, "Baz")
-    assertNoSymbol(symbols)
+
+    assertProgramSymbol(symbols)
+    assertMainSymbol(symbols)
+
+    assertNoSymbols(symbols)
   }
 
   def enumWithArgs(): Unit = {
@@ -117,6 +134,10 @@ object BinderTests {
     assertSymbol(symbols, SymbolKind.Field, "y")
     assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
     assertSymbol(symbols, SymbolKind.Parameter, "y")
-    assertNoSymbol(symbols)
+
+    assertProgramSymbol(symbols)
+    assertMainSymbol(symbols)
+
+    assertNoSymbols(symbols)
   }
 }

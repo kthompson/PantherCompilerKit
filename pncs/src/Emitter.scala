@@ -1,9 +1,13 @@
 import panther._
 import system.io._
 
+case class EmitResult(chunk: Chunk, metadata: Metadata)
+
 case class Emitter(
     syntaxTrees: List[SyntaxTree],
-    root: Symbol, /*checker: Checker,*/ outputFile: string
+    root: Symbol,
+    assembly: BoundAssembly
+    /*, checker: Checker*/
 ) {
 
   var indent = ""
@@ -34,7 +38,7 @@ case class Emitter(
     symbolsToProcessSignaturesCount = symbolsToProcessSignaturesCount + 1
   }
 
-//  def emit(): unit = {
+  def emit(): EmitResult = {
 //
 //    // setup metadata
 //    // 1. setup some space for static fields
@@ -66,7 +70,7 @@ case class Emitter(
 //      }
 //    }
 //
-//    val chunk = new Chunk()
+    val chunk = new Chunk()
 //
 //    chunk.emitOpcode(Opcode.LdcI4, 123)
 //    chunk.emitI4(30, 123)
@@ -76,7 +80,8 @@ case class Emitter(
 //    while (offset < chunk.size) {
 //      offset = disassembleInstruction(chunk, offset)
 //    }
-//  }
+    EmitResult(chunk, metadata)
+  }
 //
 //  def emitMembersMetadata(members: Scope): unit =
 //    emitSymbolsMetadata(members.symbols())

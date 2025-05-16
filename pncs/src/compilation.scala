@@ -23,24 +23,32 @@ object MakeCompilation {
     // root symbol table
     val binder = new Binder(trees, rootSymbol, diagnosticBag)
 
-    val boundTree = binder.bind()
+    val assembly = binder.bind()
 
-    new Compilation(trees, rootSymbol, binder, diagnosticBag.diagnostics)
+    new Compilation(
+      trees,
+      diagnosticBag.diagnostics,
+      rootSymbol,
+      binder,
+      assembly
+    )
   }
 }
 
 case class Compilation(
     syntaxTrees: List[SyntaxTree],
+    diagnostics: Diagnostics,
     root: Symbol,
     binder: Binder,
-    diagnostics: Diagnostics
+    assembly: BoundAssembly
 ) {
   def getSymbols(): Chain[Symbol] = SymbolChain.fromList(root.members())
 
   def printSymbols(): unit = SymbolTreePrinter(binder).printSymbol(root)
 
   def emit(output: string): unit = {
-    val emitter = new Emitter(syntaxTrees, root, /* checker, */ output)
+    val emitter =
+      new Emitter(syntaxTrees, root, assembly /*, checker */ )
     //        emitter.emit()
   }
 

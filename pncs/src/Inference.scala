@@ -77,22 +77,22 @@ case class Inference(diagnostics: DiagnosticBag) {
   }
 
   def unifyConstraint(constraint: Constraint): unit = {
-    constraint match
-//      case Constraint.SubType(Type.Variable(_, i), Type.Variable(_, arg)) if i == arg =>
+    constraint match {
+      //      case Constraint.SubType(Type.Variable(_, i), Type.Variable(_, arg)) if i == arg =>
       case Constraint.Equality(Type.Variable(_, i), Type.Variable(_, arg))
           if i == arg =>
       case Constraint.Equality(Type.Variable(_, i), arg) if has(i) =>
         unifyConstraint(Constraint.Equality(get(i), arg))
-//      case Constraint.SubType(Type.Variable(_, i), arg) if has(i) =>
-//        unifyConstraint(Constraint.SubType(get(i), arg))
+      //      case Constraint.SubType(Type.Variable(_, i), arg) if has(i) =>
+      //        unifyConstraint(Constraint.SubType(get(i), arg))
       case Constraint.Equality(param, Type.Variable(_, i)) if has(i) =>
         unifyConstraint(
           Constraint.Equality(param, get(i))
         )
-//      case Constraint.SubType(param, Type.Variable(_, i)) if has(i) => unifyConstraint(
-//        Constraint.SubType(
-//          param, get(i))
-//      )
+      //      case Constraint.SubType(param, Type.Variable(_, i)) if has(i) => unifyConstraint(
+      //        Constraint.SubType(
+      //          param, get(i))
+      //      )
       case Constraint.Equality(Type.Variable(_, i), arg) =>
         if (occursInType(i, arg)) {
           // circularity
@@ -142,6 +142,7 @@ case class Inference(diagnostics: DiagnosticBag) {
             param
           )
         )
+    }
   }
 
   def buildConstraints(
@@ -252,7 +253,7 @@ case class Inference(diagnostics: DiagnosticBag) {
     parameters match {
       case List.Nil => List.Nil
       case List.Cons(parameter, tail) =>
-        val newHead = BoundParameter(parameter.name, substitute(parameter.typ))
+        val newHead = BoundParameter(parameter.symbol, substitute(parameter.typ))
         List.Cons(newHead, substituteParameters(tail))
     }
   }
@@ -361,7 +362,7 @@ case class Inference(diagnostics: DiagnosticBag) {
       case List.Cons(parameter, tail) =>
         List.Cons(
           BoundParameter(
-            parameter.name,
+            parameter.symbol,
             instantiate(instantiation, parameter.typ)
           ),
           instantiateParameters(instantiation, tail)

@@ -138,11 +138,20 @@ class Binder(
     TextLocationFactory.empty()
   )
 
+  val arrayCtorSymbol =
+    arraySymbol.defineMethod(".ctor", TextLocationFactory.empty())
+
   setSymbolType(
-    arraySymbol.defineMethod(".ctor", TextLocationFactory.empty()),
+    arrayCtorSymbol,
     Type.Function(
       noLoc,
-      List.Cons(BoundParameter("size", intType), List.Nil),
+      List.Cons(
+        BoundParameter(
+          arrayCtorSymbol.defineParameter("size", TextLocationFactory.empty()),
+          intType
+        ),
+        List.Nil
+      ),
       unitType
     ),
     Option.None
@@ -184,47 +193,45 @@ class Binder(
     "println",
     TextLocationFactory.empty()
   )
+  val printlnMessageSymbol =
+    printlnSymbol.defineParameter("message", TextLocationFactory.empty())
+
   setSymbolType(
     printlnSymbol,
     Type.Function(
       noLoc,
-      List.Cons(BoundParameter("message", anyType), List.Nil),
+      List.Cons(
+        BoundParameter(printlnMessageSymbol, anyType),
+        List.Nil
+      ),
       unitType
     ),
     None
   )
-  setSymbolType(
-    printlnSymbol.defineParameter(
-      "message",
-      TextLocationFactory.empty()
-    ),
-    stringType,
-    None
-  )
+  setSymbolType(printlnMessageSymbol, stringType, None)
 
   // print(message: string): unit
   val printSymbol = predef.defineMethod(
     "print",
     TextLocationFactory.empty()
   )
+  val printMessageSymbol: Symbol =
+    printSymbol.defineParameter("message", TextLocationFactory.empty())
+
   setSymbolType(
     printSymbol,
     Type.Function(
       noLoc,
-      List.Cons(BoundParameter("message", anyType), List.Nil),
+      List.Cons(
+        BoundParameter(printMessageSymbol, anyType),
+        List.Nil
+      ),
       unitType
     ),
     None
   )
 
-  setSymbolType(
-    printSymbol.defineParameter(
-      "message",
-      TextLocationFactory.empty()
-    ),
-    stringType,
-    None
-  )
+  setSymbolType(printMessageSymbol, stringType, None)
 
   /** These are the methods and fields that need to be bound/symbolized
     */
@@ -265,45 +272,21 @@ class Binder(
       members.globalStatements
     )
 
-    // find Program class
-    val program = getProgramObject(members.objects)
-
-    // find main method
-    val mainAsGlobal = getMainMethod(members.functions)
-    val mainFromProgram = program match {
-      case Option.Some(p) =>
-        val members =
-          splitMembers(p.ns, p.value.template.members)
-        getMainMethod(members.functions)
-      case Option.None => Option.None
-    }
-    val mainMethod = Tuple2(mainAsGlobal, mainFromProgram) match {
-      case Tuple2(Option.Some(global), Option.None)  => Option.Some(global)
-      case Tuple2(Option.None, Option.Some(program)) => Option.Some(program)
-
-      case Tuple2(Option.Some(global), Option.Some(program)) =>
-        // report error if we have two mains
-        diagnosticBag.reportMultipleEntryPoints(
-          AstUtils.locationOfMember(global),
-          AstUtils.locationOfMember(program)
-        )
-        Option.Some(global)
-      case Tuple2(Option.None, Option.None) => Option.None
-    }
-
-    val objects = removeProgram(members.objects)
-    val functions = removeMain(members.functions)
-    val enums = members.enums
-
     // start binding/typing analysis
     val rootScope = Scope(rootSymbol, List.Nil)
 
     // bind all objects and classes first
-    bindClassesObjectAndEnums(members.classes, objects, enums, rootScope)
+    bindClassesObjectAndEnums(
+      members.classes,
+      members.objects,
+      members.enums,
+      rootScope
+    )
+
+    val program = getProgramSymbol(rootSymbol)
 
     // bind global statements, fields, and functions
-    addStatementsToBind(rootSymbol, members.globalStatements)
-    addMembersToBind(rootSymbol, functions, members.fields, List.Nil)
+    addMembersToBind(program, members.functions, members.fields, List.Nil)
 
     //    println("Binding complete")
 //    val counts = countMembersToBind(membersToBind.list, 0, 0)
@@ -312,6 +295,10 @@ class Binder(
 
     // bind all members function & field types with type annotations
     membersToType = bindMembers(membersToBind.list, 1, DictionaryModule.empty())
+
+    val main = getMainMethod(program)
+
+    addStatementsToBind(main, members.globalStatements)
 
 //    panic("need to create ctors for classes")
 
@@ -329,11 +316,12 @@ class Binder(
 
     // then bind all function bodies
 
-    // bind entry point
-    //    val main =
-    //      bindEntry(program, mainMethod, functions, members.globalStatements)
-
-    BoundAssembly(List.Nil, diagnosticBag.diagnostics, Option.None)
+    BoundAssembly(
+      List.Nil,
+      diagnosticBag.diagnostics,
+      functionBodies,
+      Option.Some(main)
+    )
   }
 
   def bindConstructorSignatures(
@@ -744,7 +732,7 @@ class Binder(
           case Either.Right(symbol) =>
             setSymbolType(symbol, typ, None)
             List.Cons(
-              BoundParameter(head.identifier.text, typ),
+              BoundParameter(symbol, typ),
               bindParameters(tail, scope)
             )
         }
@@ -1397,47 +1385,27 @@ class Binder(
     }
   }
 
-  def bindEntry(
-      program: Option[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
-      main: Option[MemberSyntax.FunctionDeclarationSyntax],
-      programMethods: List[MemberSyntax.FunctionDeclarationSyntax],
-      statements: List[MemberSyntax.GlobalStatementSyntax]
-  ): BoundEntry = {
-
-    // if program class does not exist, create it
-    // if main method does not exist, create it
-
-    // move all top level functions to Program class
-
-    // move all top level statements to main method and bind main
-    ???
-  }
-
   def getMainMethod(
-      functions: List[MemberSyntax.FunctionDeclarationSyntax]
-  ): Option[MemberSyntax.FunctionDeclarationSyntax] = {
-    functions match {
-      case List.Nil => Option.None
-      case List.Cons(head, tail) =>
-        if (head.identifier.text == "main") {
-          Option.Some(head)
-        } else {
-          getMainMethod(tail)
-        }
+      program: Symbol
+  ): Symbol = {
+    program.lookup("main") match {
+      case Option.None =>
+        // no main method so lets create one
+        program.defineMethod("main", TextLocationFactory.empty())
+      case Option.Some(symbol) =>
+        // TODO: we should probably verify that this is a Method symbol
+        symbol
     }
   }
 
-  def getProgramObject(
-      objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]]
-  ): Option[Namespaced[MemberSyntax.ObjectDeclarationSyntax]] = {
-    objects match {
-      case List.Nil => Option.None
-      case List.Cons(head, tail) =>
-        if (head.value.identifier.text == "Program") {
-          Option.Some(head)
-        } else {
-          getProgramObject(tail)
-        }
+  def getProgramSymbol(root: Symbol): Symbol = {
+    root.lookup("Program") match {
+      case Option.None =>
+        // no program symbol so lets create one
+        root.defineObject("$Program", TextLocationFactory.empty())
+      case Option.Some(symbol) =>
+        // TODO: we should probably verify that this is a Object symbol
+        symbol
     }
   }
 

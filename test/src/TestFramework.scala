@@ -61,7 +61,13 @@ object TestFramework {
 //          ) + " " + currentTest + ": " + reason
 //        )
 
-        TestSuite(suiteName, List.Cons(TestCase(currentTest, false), tests))
+        TestSuite(
+          suiteName,
+          List.Cons(
+            TestCase(currentTest + " - " + foregroundColor(reason, Red), false),
+            tests
+          )
+        )
       case _ =>
         panic("No current test to fail")
     }

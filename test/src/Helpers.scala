@@ -15,7 +15,7 @@ object Helpers {
     val comp = MakeCompilation.create(ListModule.one(tree))
     if (comp.diagnostics.count() > 0) {
       comp.diagnostics.printDiagnostics()
-      panic("Compilation failed")
+      failed("Compilation failed")
     }
     comp
   }
@@ -26,7 +26,8 @@ object Helpers {
       expectedType: string
   ): unit = {
     val comp = mkCompilation(setup + "\n\nval typeTestSymbol = " + expression)
-    val symbol = Assert.some(comp.root.lookup("typeTestSymbol"))
+    val program = Assert.some(comp.root.lookup("$Program"))
+    val symbol = Assert.some(program.lookup("typeTestSymbol"))
     assertSymbolType(comp, symbol, expectedType)
   }
 
@@ -51,34 +52,53 @@ object Helpers {
   def assertExprType(expression: string, expectedType: string): unit = {
     val comp = mkCompilation("val x = " + expression)
     val symbols = enumNonBuiltinSymbols(comp)
-    val x = assertSymbol(symbols, SymbolKind.Field, "x")
 
+    assertProgramSymbol(symbols)
+
+    val x = assertSymbol(symbols, SymbolKind.Field, "x")
     assertSymbolType(comp, x, expectedType)
-    assertNoSymbol(symbols)
+
+    assertMainSymbol(symbols)
+    assertNoSymbols(symbols)
   }
 
   def enumSymbols(compilation: Compilation): ChainEnumerator[Symbol] =
     new ChainEnumerator(compilation.getSymbols())
+
+  def assertProgramSymbol(
+      enumerator: ChainEnumerator[Symbol]
+  ): Symbol = {
+    Assert.isTrue(enumerator.moveNext())
+    val symbol = enumerator.current()
+    Assert.equal(SymbolKind.Object, symbol.kind)
+
+    Assert.assert(
+      symbol.name == "$Program" || symbol.name == "Program",
+      "expected 'Program' or '$Program', got: " + symbol.name
+    )
+    symbol
+  }
 
   def enumNonBuiltinSymbols(
       compilation: Compilation
   ): ChainEnumerator[Symbol] = {
     val enumerator = new ChainEnumerator(compilation.getSymbols())
 
-    Assert.isTrue(enumerator.moveNext())
-    Assert.isTrue(enumerator.moveNext())
-    Assert.isTrue(enumerator.moveNext())
-    Assert.isTrue(enumerator.moveNext())
-    Assert.isTrue(enumerator.moveNext())
-    Assert.isTrue(enumerator.moveNext())
-    Assert.isTrue(enumerator.moveNext())
-    Assert.isTrue(enumerator.moveNext())
-    Assert.isTrue(enumerator.moveNext())
-//    Assert.isTrue(enumerator.moveNext())
-    Assert.isTrue(enumerator.moveNext())
-    Assert.isTrue(enumerator.moveNext())
-    Assert.isTrue(enumerator.moveNext())
-    Assert.isTrue(enumerator.moveNext())
+    assertSymbol(enumerator, SymbolKind.Class, "any")
+    assertSymbol(enumerator, SymbolKind.Class, "int")
+    assertSymbol(enumerator, SymbolKind.Class, "string")
+    assertSymbol(enumerator, SymbolKind.Field, "length")
+    assertSymbol(enumerator, SymbolKind.Class, "bool")
+    assertSymbol(enumerator, SymbolKind.Class, "char")
+    assertSymbol(enumerator, SymbolKind.Class, "unit")
+    assertSymbol(enumerator, SymbolKind.Class, "Array")
+    assertSymbol(enumerator, SymbolKind.Constructor, ".ctor")
+    assertSymbol(enumerator, SymbolKind.Parameter, "size")
+    //    assertSymbol(enumerator, SymbolKind.Object, "predef")
+    assertSymbol(enumerator, SymbolKind.Method, "println")
+    assertSymbol(enumerator, SymbolKind.Parameter, "message")
+    assertSymbol(enumerator, SymbolKind.Method, "print")
+    assertSymbol(enumerator, SymbolKind.Parameter, "message")
 
     enumerator
   }
@@ -119,7 +139,7 @@ object Helpers {
   def assertBinaryExpr(expression: Expression): Expression.BinaryExpression = {
     expression match {
       case expr: Expression.BinaryExpression => expr
-      case _ => panic("expected binary expression")
+      case _ => failed("expected binary expression")
     }
   }
 
@@ -128,7 +148,7 @@ object Helpers {
   ): Expression.AssignmentExpression = {
     expression match {
       case expr: Expression.AssignmentExpression => expr
-      case _ => panic("expected assignment expression")
+      case _ => failed("expected assignment expression")
     }
   }
 
@@ -137,7 +157,7 @@ object Helpers {
   ): Expression.If = {
     expression match {
       case expr: Expression.If => expr
-      case _                   => panic("expected assignment expression")
+      case _                   => failed("expected assignment expression")
     }
   }
 
@@ -146,7 +166,7 @@ object Helpers {
   ): Expression.CallExpression = {
     expression match {
       case expr: Expression.CallExpression => expr
-      case _                               => panic("expected call expression")
+      case _                               => failed("expected call expression")
     }
   }
 
@@ -155,28 +175,28 @@ object Helpers {
   ): Expression.WhileExpression = {
     expression match {
       case expr: Expression.WhileExpression => expr
-      case _ => panic("expected while expression")
+      case _ => failed("expected while expression")
     }
   }
 
   def assertGroupExpr(expr: Expression): Expression.GroupExpression = {
     expr match {
       case expr: Expression.GroupExpression => expr
-      case _ => panic("expected group expression")
+      case _ => failed("expected group expression")
     }
   }
 
   def assertBlockExpr(expr: Expression): Expression.BlockExpression = {
     expr match {
       case expr: Expression.BlockExpression => expr
-      case _ => panic("expected block expression")
+      case _ => failed("expected block expression")
     }
   }
 
   def assertUnaryExpr(expr: Expression): Expression.UnaryExpression = {
     expr match {
       case expr: Expression.UnaryExpression => expr
-      case _ => panic("expected unary expression")
+      case _ => failed("expected unary expression")
     }
   }
 
@@ -187,8 +207,8 @@ object Helpers {
   ): Symbol = {
     Assert.isTrue(enumerator.moveNext())
     val symbol = enumerator.current()
-    Assert.equal(kind, symbol.kind)
     Assert.equal(name, symbol.name)
+    Assert.equal(kind, symbol.kind)
     symbol
   }
 
@@ -198,19 +218,22 @@ object Helpers {
       case Option.Some(value) =>
         Assert.stringEqual(typ, value.toString())
       case Option.None =>
-        panic(
+        failed(
           "Expected symbol " + symbol.name + " to have a type " + typ
             .toString() + " but got none"
         )
     }
   }
 
-  def assertNoSymbol(
+  def assertMainSymbol(enumerator: ChainEnumerator[Symbol]): Symbol =
+    assertSymbol(enumerator, SymbolKind.Method, "main")
+
+  def assertNoSymbols(
       enumerator: ChainEnumerator[Symbol]
   ): unit = {
     if (enumerator.moveNext()) {
       val symbol = enumerator.current()
-      panic("Unexpected symbol: " + symbol.kind + " " + symbol.name)
+      failed("Unexpected symbol: " + symbol.kind + " " + symbol.name)
       Assert.isFalse(true)
     }
   }
@@ -223,7 +246,7 @@ object Helpers {
   def mkSyntaxTreeExpr(text: string): Expression = {
     mkSyntaxTreeStatement(text) match {
       case StatementSyntax.ExpressionStatement(expr) => expr
-      case _ => panic("Expected expression")
+      case _ => failed("Expected expression")
     }
   }
 
@@ -235,14 +258,14 @@ object Helpers {
   def mkSyntaxTreeStatement(text: string): StatementSyntax = {
     mkMember(text) match {
       case MemberSyntax.GlobalStatementSyntax(statement) => statement
-      case _ => panic("Expected statement")
+      case _ => failed("Expected statement")
     }
   }
 
   def mkFunctionMember(text: string): MemberSyntax.FunctionDeclarationSyntax = {
     mkMember(text) match {
       case member: MemberSyntax.FunctionDeclarationSyntax => member
-      case _ => panic("Expected function declaration")
+      case _ => failed("Expected function declaration")
     }
   }
 
@@ -255,7 +278,7 @@ object Helpers {
     expression match {
       case Expression.LiteralExpression(_, SyntaxTokenValue.Number(n)) =>
         Assert.intEqual(expected, n)
-      case _ => panic("Expected number expression")
+      case _ => failed("Expected number expression")
     }
   }
 
@@ -263,21 +286,21 @@ object Helpers {
     expression match {
       case Expression.LiteralExpression(_, SyntaxTokenValue.Boolean(b)) =>
         Assert.boolEqual(expected, b)
-      case _ => panic("Expected boolean expression")
+      case _ => failed("Expected boolean expression")
     }
   }
 
   def assertTrueExpr(expression: Expression): unit = {
     expression match {
       case Expression.LiteralExpression(_, SyntaxTokenValue.Boolean(true)) =>
-      case _ => panic("Expected true expression")
+      case _ => failed("Expected true expression")
     }
   }
 
   def assertFalseExpr(expression: Expression): unit = {
     expression match {
       case Expression.LiteralExpression(_, SyntaxTokenValue.Boolean(false)) =>
-      case _ => panic("Expected false expression")
+      case _ => failed("Expected false expression")
     }
   }
 
@@ -287,7 +310,7 @@ object Helpers {
             SimpleNameSyntax.IdentifierNameSyntax(token)
           ) =>
         Assert.stringEqual(expected, token.text)
-      case _ => panic("Expected identifier expression")
+      case _ => failed("Expected identifier expression")
     }
   }
 
@@ -299,14 +322,14 @@ object Helpers {
             a: SimpleNameSyntax.GenericNameSyntax
           ) =>
         a
-      case _ => panic("Expected generic identifier expression")
+      case _ => failed("Expected generic identifier expression")
     }
   }
 
   def assertTokenKind(expected: int, token: SyntaxToken): unit =
     if (expected == token.kind) ()
     else
-      panic(
+      failed(
         "expected " + SyntaxFacts.getKindName(expected) + ", got " + SyntaxFacts
           .getKindName(token.kind)
       )
@@ -319,7 +342,7 @@ object Helpers {
   ): StatementSyntax.VariableDeclarationStatement = {
     statement match {
       case stmt: StatementSyntax.VariableDeclarationStatement => stmt
-      case _ => panic("Expected variable declaration")
+      case _ => failed("Expected variable declaration")
     }
   }
 
