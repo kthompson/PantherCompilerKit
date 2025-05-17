@@ -164,7 +164,9 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       kind == SyntaxKind.OpenParenToken || kind == SyntaxKind.OpenBracketToken
     ) 10
     else if (kind == SyntaxKind.DotToken) 10
-    else if (kind == SyntaxKind.MatchKeyword) 11
+    else if (kind == SyntaxKind.MatchKeyword)
+      // TODO: I think this is wrong. ex: -7 match { ... } should be (-7) match { ... } not -(7 match { ... })
+      11
     else OperatorPrecedence.Lowest
   }
 
@@ -769,7 +771,7 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
 
   def parseUnaryExpression(): Expression = {
     val unaryOp = accept()
-    val expr = parseExpression(OperatorPrecedence.Lowest)
+    val expr = parseExpression(OperatorPrecedence.Prefix)
 
     new Expression.UnaryExpression(unaryOp, expr)
   }

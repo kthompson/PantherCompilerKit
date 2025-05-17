@@ -10,6 +10,7 @@ object VmTests {
     unary()
     binary()
     binaryPrecedence()
+    unaryPrecedence()
 
   }
 
@@ -72,6 +73,8 @@ object VmTests {
     assertExecValueInt("2 * 3", 6)
     assertExecValueInt("3 / 2", 1)
     assertExecValueInt("3 % 2", 1)
+    assertExecValueInt("2 & 3", 2)
+    assertExecValueInt("-2 & 3", 2)
 
     assertExecValueBool("1 == 1", true)
     assertExecValueBool("1 == 2", false)
@@ -96,5 +99,18 @@ object VmTests {
     assertExecValueBool("1 < 2 || 2 < 3", true)
     assertExecValueBool("1 < 2 || 2 > 3", true)
     assertExecValueBool("1 < 2 || 2 > 3 && 3 < 4", true)
+  }
+
+  def unaryPrecedence(): unit = {
+    assertExecValueInt("1 + -2", -1)
+    assertExecValueInt("1 + ~2", -2)
+    assertExecValueInt("1 + -2 * 3", -5)
+    assertExecValueInt("1 + -2 / 3", 1)
+    assertExecValueInt("1 + -2 % 3", -1)
+    assertExecValueInt("1 + -2 & 3", 3)
+    assertExecValueInt("1 + -2 | 3", -1)
+    assertExecValueInt("1 + -2 ^ 3", -4)
+    assertExecValueBool("!true && true", false)
+    assertExecValueBool("!true || true", true)
   }
 }
