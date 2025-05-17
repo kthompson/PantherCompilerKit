@@ -150,10 +150,10 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       kind == SyntaxKind.EqualsEqualsToken || kind == SyntaxKind.BangEqualsToken
     ) 5
     else if (
-      kind == SyntaxKind.LessThanToken || kind == SyntaxKind.LessThanEqualsToken
+      kind == SyntaxKind.LessThanToken || kind == SyntaxKind.LessThanEqualsToken || kind == SyntaxKind.LessThanLessThanToken
     ) 6
     else if (
-      kind == SyntaxKind.GreaterThanToken || kind == SyntaxKind.GreaterThanEqualsToken
+      kind == SyntaxKind.GreaterThanToken || kind == SyntaxKind.GreaterThanEqualsToken || kind == SyntaxKind.GreaterThanGreaterThanToken
     ) 6
     else if (kind == SyntaxKind.PlusToken || kind == SyntaxKind.DashToken) 7
     else if (

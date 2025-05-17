@@ -105,22 +105,25 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       scanSimpleOne(SyntaxKind.ColonToken)
     } else if (curr == ',') {
       scanSimpleOne(SyntaxKind.CommaToken)
-    } else if (curr == '<' && look == '=') {
-      scanSimpleTwo(SyntaxKind.LessThanEqualsToken)
-    } else if (curr == '<' && look == '-') {
-      scanSimpleTwo(SyntaxKind.LessThanDashToken)
     } else if (curr == '<') {
-      scanSimpleOne(SyntaxKind.LessThanToken)
-    } else if (curr == '>' && look == '=') {
-      scanSimpleTwo(SyntaxKind.GreaterThanEqualsToken)
+      look match {
+        case '=' => scanSimpleTwo(SyntaxKind.LessThanEqualsToken)
+        case '-' => scanSimpleTwo(SyntaxKind.LessThanDashToken)
+        case '<' => scanSimpleTwo(SyntaxKind.LessThanLessThanToken)
+        case _   => scanSimpleOne(SyntaxKind.LessThanToken)
+      }
     } else if (curr == '>') {
-      scanSimpleOne(SyntaxKind.GreaterThanToken)
-    } else if (curr == '=' && look == '>') {
-      scanSimpleTwo(SyntaxKind.EqualsGreaterThanToken)
-    } else if (curr == '=' && look == '=') {
-      scanSimpleTwo(SyntaxKind.EqualsEqualsToken)
+      look match {
+        case '=' => scanSimpleTwo(SyntaxKind.GreaterThanEqualsToken)
+        case '>' => scanSimpleTwo(SyntaxKind.GreaterThanGreaterThanToken)
+        case _   => scanSimpleOne(SyntaxKind.GreaterThanToken)
+      }
     } else if (curr == '=') {
-      scanSimpleOne(SyntaxKind.EqualsToken)
+      look match {
+        case '>' => scanSimpleTwo(SyntaxKind.EqualsGreaterThanToken)
+        case '=' => scanSimpleTwo(SyntaxKind.EqualsEqualsToken)
+        case _   => scanSimpleOne(SyntaxKind.EqualsToken)
+      }
     } else if (curr == '!' && look == '=') {
       scanSimpleTwo(SyntaxKind.BangEqualsToken)
     } else if (curr == '!') {
@@ -143,6 +146,8 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       scanSimpleOne(SyntaxKind.PercentToken)
     } else if (curr == '*') {
       scanSimpleOne(SyntaxKind.StarToken)
+    } else if (curr == '~') {
+      scanSimpleOne(SyntaxKind.TildeToken)
     } else if (curr == '&' && look == '&') {
       scanSimpleTwo(SyntaxKind.AmpersandAmpersandToken)
     } else if (curr == '&') {
@@ -151,6 +156,8 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       scanSimpleTwo(SyntaxKind.PipePipeToken)
     } else if (curr == '|') {
       scanSimpleOne(SyntaxKind.PipeToken)
+    } else if (curr == '^') {
+      scanSimpleOne(SyntaxKind.CaretToken)
     } else if (curr == '\"') {
       scanString()
     } else if (curr == '\'') {
@@ -385,7 +392,7 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       next()
     }
     val span = makeSpan(start)
-    panic("FIXME: This shouldnt be an identifier.... ")
+    panic("FIXME: This shouldnt be an identifier.... '" + span + "'")
     new SimpleToken(
       SyntaxKind.IdentifierToken,
       start,

@@ -190,19 +190,25 @@ case class ExprBinder(
   def bindBinaryOperator(token: SyntaxToken): BinaryOperatorKind = {
     token.kind match {
       case SyntaxKind.AmpersandAmpersandToken => BinaryOperatorKind.LogicalAnd
+      case SyntaxKind.AmpersandToken          => BinaryOperatorKind.BitwiseAnd
       case SyntaxKind.BangEqualsToken         => BinaryOperatorKind.NotEquals
+      case SyntaxKind.CaretToken              => BinaryOperatorKind.BitwiseXor
       case SyntaxKind.DashToken               => BinaryOperatorKind.Minus
       case SyntaxKind.EqualsEqualsToken       => BinaryOperatorKind.Equals
       case SyntaxKind.GreaterThanEqualsToken =>
         BinaryOperatorKind.GreaterThanOrEqual
-      case SyntaxKind.GreaterThanToken    => BinaryOperatorKind.GreaterThan
+      case SyntaxKind.GreaterThanToken => BinaryOperatorKind.GreaterThan
+      case SyntaxKind.GreaterThanGreaterThanToken =>
+        BinaryOperatorKind.ShiftRight
       case SyntaxKind.LessThanEqualsToken => BinaryOperatorKind.LessThanOrEqual
       case SyntaxKind.LessThanToken       => BinaryOperatorKind.LessThan
-      case SyntaxKind.PercentToken        => BinaryOperatorKind.Modulus
-      case SyntaxKind.PipePipeToken       => BinaryOperatorKind.LogicalOr
-      case SyntaxKind.PlusToken           => BinaryOperatorKind.Plus
-      case SyntaxKind.SlashToken          => BinaryOperatorKind.Divide
-      case SyntaxKind.StarToken           => BinaryOperatorKind.Multiply
+      case SyntaxKind.LessThanLessThanToken => BinaryOperatorKind.ShiftLeft
+      case SyntaxKind.PercentToken          => BinaryOperatorKind.Modulus
+      case SyntaxKind.PipePipeToken         => BinaryOperatorKind.LogicalOr
+      case SyntaxKind.PipeToken             => BinaryOperatorKind.BitwiseOr
+      case SyntaxKind.PlusToken             => BinaryOperatorKind.Plus
+      case SyntaxKind.SlashToken            => BinaryOperatorKind.Divide
+      case SyntaxKind.StarToken             => BinaryOperatorKind.Multiply
       case _ =>
         diagnosticBag.reportInvalidOperator(token.location, token.text)
         BinaryOperatorKind.Error

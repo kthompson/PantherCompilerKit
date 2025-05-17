@@ -197,24 +197,38 @@ case class Emitter(
       case BinaryOperatorKind.LogicalAnd =>
         chunk.emitOpcode(Opcode.And, expr.location.startLine)
 
-      case BinaryOperatorKind.BitwiseAnd =>
-        chunk.emitOpcode(Opcode.And, expr.location.startLine)
-
       case BinaryOperatorKind.LogicalOr =>
         chunk.emitOpcode(Opcode.Or, expr.location.startLine)
+
+      case BinaryOperatorKind.BitwiseAnd =>
+        chunk.emitOpcode(Opcode.And, expr.location.startLine)
 
       case BinaryOperatorKind.BitwiseOr =>
         chunk.emitOpcode(Opcode.Or, expr.location.startLine)
 
+      case BinaryOperatorKind.BitwiseXor =>
+        chunk.emitOpcode(Opcode.Xor, expr.location.startLine)
+
+      case BinaryOperatorKind.ShiftLeft =>
+        chunk.emitOpcode(Opcode.Shl, expr.location.startLine)
+
+      case BinaryOperatorKind.ShiftRight =>
+        chunk.emitOpcode(Opcode.Shr, expr.location.startLine)
+
       case BinaryOperatorKind.Error => ???
     }
-
   }
+
   def emitBlock(expr: BoundExpression.Block): unit = {
     emitStatements(expr.statements)
     emitExpression(expr.expression)
   }
-  def emitBooleanLiteral(expr: BoundExpression.BooleanLiteral): unit = ???
+
+  def emitBooleanLiteral(expr: BoundExpression.BooleanLiteral): unit = {
+    val value = if (expr.value) 1 else 0
+    emitLoadConstant(value, expr.location.startLine)
+  }
+
   def emitCallExpression(expr: BoundExpression.CallExpression): unit = ???
   def emitCastExpression(expr: BoundExpression.CastExpression): unit = ???
   def emitCharacterLiteral(expr: BoundExpression.CharacterLiteral): unit = ???
@@ -228,7 +242,23 @@ case class Emitter(
   def emitMemberAccess(expr: BoundExpression.MemberAccess): unit = ???
   def emitNewExpression(expr: BoundExpression.NewExpression): unit = ???
   def emitStringLiteral(expr: BoundExpression.StringLiteral): unit = ???
-  def emitUnaryExpression(expr: BoundExpression.UnaryExpression): unit = ???
+  def emitUnaryExpression(expr: BoundExpression.UnaryExpression): unit = {
+    emitExpression(expr.operand)
+    expr.operator match {
+      case UnaryOperatorKind.Identity => // do nothing
+      case UnaryOperatorKind.Negation => // -x
+        chunk.emitOpcode(Opcode.Neg, expr.location.startLine)
+
+      case UnaryOperatorKind.LogicalNegation => // !x
+        emitLoadConstant(0, expr.location.startLine)
+        chunk.emitOpcode(Opcode.Ceq, expr.location.startLine)
+
+      case UnaryOperatorKind.BitwiseNegation => // ~x
+        chunk.emitOpcode(Opcode.Not, expr.location.startLine)
+
+      case UnaryOperatorKind.Error => ???
+    }
+  }
   def emitUnitExpression(expr: BoundExpression.UnitExpression): unit = {
     chunk.emitOpcode(Opcode.Nop, expr.location.startLine)
   }

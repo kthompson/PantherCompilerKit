@@ -12,14 +12,22 @@ case class BinaryOperators(binder: Binder) {
   unaryOp(binder.boolType, UnaryOperatorKind.LogicalNegation)
 
   // initialize binary operators
-  simpleOp(binder.intType, BinaryOperatorKind.Plus)
-  simpleOp(binder.intType, BinaryOperatorKind.Minus)
-  simpleOp(binder.intType, BinaryOperatorKind.Multiply)
+  simpleOp(binder.intType, BinaryOperatorKind.BitwiseAnd)
+  simpleOp(binder.intType, BinaryOperatorKind.BitwiseOr)
+  simpleOp(binder.intType, BinaryOperatorKind.BitwiseXor)
   simpleOp(binder.intType, BinaryOperatorKind.Divide)
+  simpleOp(binder.intType, BinaryOperatorKind.Minus)
   simpleOp(binder.intType, BinaryOperatorKind.Modulus)
+  simpleOp(binder.intType, BinaryOperatorKind.Multiply)
+  simpleOp(binder.intType, BinaryOperatorKind.Plus)
+  simpleOp(binder.intType, BinaryOperatorKind.ShiftLeft)
+  simpleOp(binder.intType, BinaryOperatorKind.ShiftRight)
 
   simpleOp(binder.boolType, BinaryOperatorKind.LogicalOr)
   simpleOp(binder.boolType, BinaryOperatorKind.LogicalAnd)
+  simpleOp(binder.boolType, BinaryOperatorKind.BitwiseAnd)
+  simpleOp(binder.boolType, BinaryOperatorKind.BitwiseOr)
+  simpleOp(binder.boolType, BinaryOperatorKind.BitwiseXor)
 
   equalityOp(binder.charType, BinaryOperatorKind.Equals)
   equalityOp(binder.charType, BinaryOperatorKind.NotEquals)

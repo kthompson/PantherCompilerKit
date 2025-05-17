@@ -126,16 +126,18 @@ object SyntaxKind {
   val EqualsToken = 51
   val GreaterThanEqualsToken = 52
   val GreaterThanToken = 53
-  val LessThanDashToken = 54
-  val LessThanEqualsToken = 55
-  val LessThanToken = 56
-  val PercentToken = 57
-  val PipePipeToken = 58
-  val PipeToken = 59
-  val PlusToken = 60
-  val SlashToken = 61
-  val StarToken = 62
-  val TildeToken = 63
+  val GreaterThanGreaterThanToken = 54
+  val LessThanDashToken = 55
+  val LessThanLessThanToken = 56
+  val LessThanEqualsToken = 57
+  val LessThanToken = 58
+  val PercentToken = 59
+  val PipePipeToken = 60
+  val PipeToken = 61
+  val PlusToken = 62
+  val SlashToken = 63
+  val StarToken = 64
+  val TildeToken = 65
 
   // grouping tokens
   val CloseParenToken = 70
@@ -277,6 +279,7 @@ object SyntaxFacts {
     else if (kind == SyntaxKind.LessThanDashToken) "LessThanDashToken"
     else if (kind == SyntaxKind.LessThanEqualsToken) "LessThanEqualsToken"
     else if (kind == SyntaxKind.LessThanToken) "LessThanToken"
+    else if (kind == SyntaxKind.LessThanLessThanToken) "LessThanLessThanToken"
     else if (kind == SyntaxKind.LineCommentTrivia) "LineCommentTrivia"
     else if (kind == SyntaxKind.LiteralExpression) "LiteralExpression"
     else if (kind == SyntaxKind.MatchKeyword) "MatchKeyword"
@@ -364,27 +367,19 @@ object SyntaxFacts {
       case SyntaxKind.EqualsEqualsToken       => BinaryOperatorKind.Equals
       case SyntaxKind.GreaterThanEqualsToken =>
         BinaryOperatorKind.GreaterThanOrEqual
-      case SyntaxKind.GreaterThanToken    => BinaryOperatorKind.GreaterThan
+      case SyntaxKind.GreaterThanToken => BinaryOperatorKind.GreaterThan
+      case SyntaxKind.GreaterThanGreaterThanToken =>
+        BinaryOperatorKind.ShiftRight
       case SyntaxKind.LessThanEqualsToken => BinaryOperatorKind.LessThanOrEqual
       case SyntaxKind.LessThanToken       => BinaryOperatorKind.LessThan
-      case SyntaxKind.PercentToken        => BinaryOperatorKind.Modulus
-      case SyntaxKind.PipePipeToken       => BinaryOperatorKind.LogicalOr
-      case SyntaxKind.PlusToken           => BinaryOperatorKind.Plus
-      case SyntaxKind.SlashToken          => BinaryOperatorKind.Divide
-      case SyntaxKind.StarToken           => BinaryOperatorKind.Multiply
+      case SyntaxKind.LessThanLessThanToken =>
+        BinaryOperatorKind.ShiftLeft
+      case SyntaxKind.PercentToken  => BinaryOperatorKind.Modulus
+      case SyntaxKind.PipePipeToken => BinaryOperatorKind.LogicalOr
+      case SyntaxKind.PlusToken     => BinaryOperatorKind.Plus
+      case SyntaxKind.SlashToken    => BinaryOperatorKind.Divide
+      case SyntaxKind.StarToken     => BinaryOperatorKind.Multiply
 
-//        case SyntaxKind.AmpersandToken =>
-//        case SyntaxKind.BangToken =>
-//        case SyntaxKind.CaretToken =>
-//        case SyntaxKind.ColonToken =>
-//        case SyntaxKind.DotToken =>
-//        case SyntaxKind.EqualsGreaterThanToken =>
-//        case SyntaxKind.EqualsToken =>
-//        case SyntaxKind.LessThanDashToken =>
-//        case SyntaxKind.PipeToken =>
-//        case SyntaxKind.TildeToken =>
-
-//        case "%" => BinaryOperatorKind.Modulus
       case _ => BinaryOperatorKind.Error
     }
 
@@ -397,8 +392,10 @@ object SyntaxFacts {
       kind == SyntaxKind.EqualsEqualsToken ||
       kind == SyntaxKind.GreaterThanEqualsToken ||
       kind == SyntaxKind.GreaterThanToken ||
+      kind == SyntaxKind.GreaterThanGreaterThanToken ||
       kind == SyntaxKind.LessThanEqualsToken ||
       kind == SyntaxKind.LessThanToken ||
+      kind == SyntaxKind.LessThanLessThanToken ||
       kind == SyntaxKind.PercentToken ||
       kind == SyntaxKind.PipePipeToken ||
       kind == SyntaxKind.PipeToken ||

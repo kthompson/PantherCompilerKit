@@ -14,6 +14,9 @@ enum BinaryOperatorKind {
   case LogicalOr
   case BitwiseAnd // numbers
   case BitwiseOr
+  case BitwiseXor
+  case ShiftLeft
+  case ShiftRight
 
   case Error
 }
@@ -21,9 +24,9 @@ enum BinaryOperatorKind {
 enum UnaryOperatorKind {
 
   case Identity
-  case Negation // -
-  case LogicalNegation // !
-  case BitwiseNegation // ~
+  case Negation // -x => neg
+  case LogicalNegation // !  => x == 0
+  case BitwiseNegation // ~  => not
 
   case Error
 }
