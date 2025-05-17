@@ -1,0 +1,5 @@
+case class SyntaxTree(
+    file: SourceFile,
+    root: CompilationUnitSyntax,
+    diagnostics: Diagnostics
+)

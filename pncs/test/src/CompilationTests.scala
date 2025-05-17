@@ -1,5 +1,5 @@
 import panther.string
-import utest.*
+import utest._
 
 object CompilationTests extends TestSuite {
   val tests = Tests {

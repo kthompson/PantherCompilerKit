@@ -1,4 +1,4 @@
-import panther.*
+import panther._
 
 enum Constraint {
   case Equality(param: Type, arg: Type)

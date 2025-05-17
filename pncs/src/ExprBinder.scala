@@ -1,4 +1,4 @@
-import panther.*
+import panther._
 //import Type.Reference
 
 // object TypeSchemeKind {

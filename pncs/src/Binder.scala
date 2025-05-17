@@ -1,4 +1,4 @@
-import panther.*
+import panther._
 
 case class Members(
     objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],

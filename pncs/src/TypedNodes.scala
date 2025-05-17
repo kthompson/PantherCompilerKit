@@ -117,27 +117,4 @@ enum BoundExpression {
       condition: BoundExpression,
       body: BoundExpression
   )
-
-  //
-  //  case ArrayCreationExpression(typ: Type,
-  //                               newKeyword: SyntaxToken,
-  //                               name: NameSyntax,
-  //                               openBracket: SyntaxToken,
-  //                               arrayRank: Option[TypedExpression],
-  //                               closeBracket: SyntaxToken,
-  //                               initializer: Option[ArrayInitializerExpressionSyntax])
-
-  //  case AssignmentExpression(location: TextLocation, expression: Expression.AssignmentExpression)
-
-  //  case BlockExpression(location: TextLocation, expression: Expression.BlockExpression)
-  //  case ForExpression(location: TextLocation, expression: Expression.ForExpression)
-  //  case GroupExpression(location: TextLocation, expression: Expression.GroupExpression)
-  //  case IdentifierName(location: TextLocation, expression: Expression.IdentifierName)
-  //  case IndexExpression(location: TextLocation, expression: Expression.IndexExpression)
-  //  case LiteralExpression(location: TextLocation, expression: Expression.LiteralExpression)
-  //  case MemberAccessExpression(location: TextLocation, expression: Expression.MemberAccessExpression)
-  //  case MatchExpression(location: TextLocation, expression: Expression.MatchExpression)
-  //  case NewExpression(location: TextLocation, expression: Expression.NewExpression)
-  //  case UnitExpression(location: TextLocation, expression: Expression.UnitExpression)
-
 }

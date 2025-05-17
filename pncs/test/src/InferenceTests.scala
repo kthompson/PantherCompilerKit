@@ -1,5 +1,5 @@
 import panther.{int, panic, string}
-import utest.*
+import utest._
 
 object InferenceTests extends TestSuite {
   val tests = Tests {

@@ -1,0 +1,15 @@
+import panther.unit
+
+case class SyntaxTriviaList() {
+  var _items: List[SyntaxTrivia] = List.Nil
+
+  def add(trivia: SyntaxTrivia): unit = {
+    _items = List.Cons(trivia, _items)
+  }
+
+  def toArray(): Array[SyntaxTrivia] = {
+    val result: Array[SyntaxTrivia] = new Array[SyntaxTrivia](_items.length)
+    ListModule.fillReverse(result, _items.length - 1, _items)
+    result
+  }
+}

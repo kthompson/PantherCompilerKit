@@ -1,24 +1,10 @@
-import Expression.*
-import panther.*
-import system.io.*
-import MemberSyntax.*
-import PatternSyntax.*
-import NameSyntax.*
-import SimpleNameSyntax.*
-
-case class StringBuilder() {
-  var content = ""
-
-  def append(value: string): unit = {
-    content = content + value
-  }
-
-  def appendLine(value: string): unit = {
-    content = content + value + "\n"
-  }
-
-  override def toString(): string = content
-}
+import Expression._
+import panther._
+import system.io._
+import MemberSyntax._
+import PatternSyntax._
+import NameSyntax._
+import SimpleNameSyntax._
 
 case class TranspilerContext(sb: StringBuilder)
 

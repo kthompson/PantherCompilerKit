@@ -1,4 +1,3 @@
-import scala.annotation.tailrec
 import panther._
 
 object Math {
@@ -11,7 +10,6 @@ object Math {
     _pow(base, exponent, 1)
   }
 
-  @tailrec
   def _pow(base: int, exponent: int, value: int): int = {
     if (exponent > 0) _pow(base, exponent - 1, value * base)
     else value

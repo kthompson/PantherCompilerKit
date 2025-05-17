@@ -1,7 +1,7 @@
-import Helpers.*
+import Helpers._
 import SymbolKind.Parameter
-import panther.*
-import TestFramework.*
+import panther._
+import TestFramework._
 
 object BinderTests {
   def run(): unit = {
