@@ -31,7 +31,7 @@ case class Metadata() {
     strings.get(token)
   }
 
-  def addField(name: string, flags: int, sigId: int): FieldToken = {
+  def addField(name: string, flags: MetadataFlags, sigId: int): FieldToken = {
     val nameId = strings.addBlob(name)
     lastField = fields.addField(nameId, flags, sigId)
     FieldToken(lastField)
@@ -40,7 +40,7 @@ case class Metadata() {
   def addSignature(signature: Signature): int =
     signatures.addBlob(signature.value, signature.value.length)
 
-  def addParam(name: string, flags: int, sigId: int): ParamToken = {
+  def addParam(name: string, flags: MetadataFlags, sigId: int): ParamToken = {
     val nameId = strings.addBlob(name)
     lastParam = params.addParam(nameId, flags, sigId)
     ParamToken(lastParam)
@@ -48,7 +48,7 @@ case class Metadata() {
 
   def addMethod(
       name: string,
-      flags: int,
+      flags: MetadataFlags,
       sigId: int,
       locals: int,
       address: int
@@ -59,7 +59,7 @@ case class Metadata() {
     lastMethod
   }
 
-  def addTypeDef(name: string, ns: string, flags: int): TypeDefToken = {
+  def addTypeDef(name: string, ns: string, flags: MetadataFlags): TypeDefToken = {
     val nameId = strings.addBlob(name)
     val namespaceId = strings.addBlob(ns)
     val typeDef =

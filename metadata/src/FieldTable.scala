@@ -21,7 +21,7 @@ case class FieldTable() {
     } else ()
   }
 
-  def addField(name: StringToken, flags: int, fieldSig: int): int = {
+  def addField(name: StringToken, flags: MetadataFlags, fieldSig: int): int = {
     // ensure fields capacity
     ensureSpace(1)
 
@@ -35,7 +35,7 @@ case class FieldTable() {
     buffer.add(size)
     for (i <- 0 to (size - 1)) {
       buffer.add(fields(i).name.token)
-      buffer.add(fields(i).flags)
+      buffer.add(MetadataFlagsHelpers.toInt(fields(i).flags))
       buffer.add(fields(i).fieldSig)
     }
   }
@@ -53,7 +53,8 @@ case class FieldTable() {
       val name = StringToken(buffer.read(recordOffset + 0))
       val flags = buffer.read(recordOffset + 1)
       val fieldSig = buffer.read(recordOffset + 2)
-      fields(i) = FieldMetadata(name, flags, fieldSig)
+      fields(i) =
+        FieldMetadata(name, MetadataFlagsHelpers.fromInt(flags), fieldSig)
     }
 
     // return offset after reading the table

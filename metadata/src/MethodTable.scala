@@ -25,7 +25,7 @@ case class MethodTable() {
 
   def addMethod(
       name: StringToken,
-      flags: int,
+      flags: MetadataFlags,
       methodSig: int,
       paramList: int,
       locals: int,
@@ -45,7 +45,7 @@ case class MethodTable() {
     buffer.add(size)
     for (i <- 0 to (size - 1)) {
       buffer.add(methods(i).name.token)
-      buffer.add(methods(i).flags)
+      buffer.add(MetadataFlagsHelpers.toInt(methods(i).flags))
       buffer.add(methods(i).methodSig)
       buffer.add(methods(i).paramList)
       buffer.add(methods(i).locals)
@@ -70,8 +70,14 @@ case class MethodTable() {
       val locals = buffer.read(recordOffset + 4)
       val address = buffer.read(recordOffset + 5)
 
-      methods(i) =
-        MethodMetadata(name, flags, methodSig, paramList, locals, address)
+      methods(i) = MethodMetadata(
+        name,
+        MetadataFlagsHelpers.fromInt(flags),
+        methodSig,
+        paramList,
+        locals,
+        address
+      )
     }
 
     // return offset after reading the table

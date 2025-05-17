@@ -24,7 +24,7 @@ case class TypeDefTable() {
   def addTypeDef(
       name: StringToken,
       ns: StringToken,
-      flags: int,
+      flags: MetadataFlags,
       fieldList: int,
       methodList: MethodToken
   ): int = {
@@ -42,7 +42,7 @@ case class TypeDefTable() {
     for (i <- 0 to (size - 1)) {
       buffer.add(typeDefs(i).name.token)
       buffer.add(typeDefs(i).ns.token)
-      buffer.add(typeDefs(i).flags)
+      buffer.add(MetadataFlagsHelpers.toInt(typeDefs(i).flags))
       buffer.add(typeDefs(i).fieldList)
       buffer.add(typeDefs(i).methodList.token)
     }
@@ -63,7 +63,13 @@ case class TypeDefTable() {
       val flags = buffer.read(recordOffset + 2)
       val fieldList = buffer.read(recordOffset + 3)
       val methodList = MethodToken(buffer.read(recordOffset + 4))
-      typeDefs(i) = TypeDefMetadata(name, ns, flags, fieldList, methodList)
+      typeDefs(i) = TypeDefMetadata(
+        name,
+        ns,
+        MetadataFlagsHelpers.fromInt(flags),
+        fieldList,
+        methodList
+      )
     }
 
     // return offset after reading the table

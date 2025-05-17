@@ -1,3 +1,3 @@
 import panther._
 
-case class FieldMetadata(name: StringToken, flags: int, var fieldSig: int)
+case class FieldMetadata(name: StringToken, flags: MetadataFlags, var fieldSig: int)
