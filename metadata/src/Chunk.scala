@@ -43,6 +43,16 @@ case class Chunk() {
     size = size + 1
   }
 
-  def readI4(offset: int): int = content(offset)
-  def readLine(offset: int): int = lines(offset)
+  def readI4(offset: int): int = {
+    checkBounds(offset)
+    content(offset)
+  }
+
+  def readLine(offset: int): int = {
+    checkBounds(offset)
+    lines(offset)
+  }
+
+  def checkBounds(offset: int): unit =
+    assert(offset >= 0 && offset < size, "Invalid offset " + string(offset))
 }

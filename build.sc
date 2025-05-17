@@ -19,7 +19,7 @@ trait PantherCompilerKitModule extends ScalaModule with ScalafmtModule {
 object test extends PantherCompilerKitModule {
   override def mainClass: T[Option[String]] = Some("Tests")
 
-  override def moduleDeps: Seq[JavaModule] = Seq(runtime, pncs)
+  override def moduleDeps: Seq[JavaModule] = Seq(runtime, pncs, panthers)
 }
 
 object mvu extends PantherCompilerKitModule {
@@ -35,7 +35,8 @@ object runtime extends PantherCompilerKitModule {}
 object pncs extends PantherCompilerKitModule {
   override def mainClass: T[Option[String]] = Some("Program")
 
-  override def moduleDeps: Seq[JavaModule] = Seq(runtime, metadata, text)
+  override def moduleDeps: Seq[JavaModule] =
+    Seq(runtime, metadata, text, panthers)
 
   def transpileOutputPath = T.source(pnc.millSourcePath / "src")
 
@@ -88,16 +89,15 @@ object metadata extends PantherCompilerKitModule {
 }
 
 /** Panther Text library shared code in Scala
- */
+  */
 object text extends PantherCompilerKitModule {
   override def moduleDeps: Seq[JavaModule] = Seq(runtime)
 }
 
-/**
- * Panther Interpreter in Scala
- *
- * Runs PVM bytecode
- */
+/** Panther Interpreter in Scala
+  *
+  * Runs PVM bytecode
+  */
 object `panthers` extends PantherCompilerKitModule {
   override def moduleDeps: Seq[JavaModule] = Seq(runtime, metadata, text)
 }

@@ -41,6 +41,65 @@ object Helpers {
     )
   }
 
+  def execValue(program: string): Value = {
+    val compilation = mkCompilation(program)
+    compilation.exec() match {
+      case InterpretResult.OkValue(value) =>
+        value
+      case result =>
+        failed("Expected exec result, got: " + result)
+    }
+  }
+
+  def assertValueInt(value: Value, expected: int): unit = {
+    value match {
+      case Value.Int(v) =>
+        Assert.intEqual(expected, v)
+      case _ =>
+        failed("Expected " + string(expected) + ", got: " + value)
+    }
+  }
+
+  def assertValueBool(value: Value, expected: bool): unit = {
+    assertValueInt(value, if (expected) 1 else 0)
+  }
+
+  def assertValueString(value: Value, expected: string): unit = {
+    value match {
+      case Value.String(v) =>
+        Assert.stringEqual(expected, v)
+      case _ =>
+        failed("Expected string value, got: " + value)
+    }
+  }
+
+  def assertExecValueInt(
+      program: string,
+      expected: int
+  ): unit = {
+    test(program)
+    val value = execValue(program)
+    assertValueInt(value, expected)
+  }
+
+  def assertExecValueBool(
+      program: string,
+      expected: bool
+  ): unit = {
+    test(program)
+    val value = execValue(program)
+    assertValueBool(value, expected)
+  }
+
+  def assertExecValueString(
+      program: string,
+      expected: string
+  ): unit = {
+    test(program)
+    val value = execValue(program)
+    assertValueString(value, expected)
+  }
+
   def assertAssignableTo(expression: string, assignableTo: string): unit =
     mkCompilation("val typeTestSymbol: " + assignableTo + " = " + expression)
 

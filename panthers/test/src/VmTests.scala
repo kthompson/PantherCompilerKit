@@ -24,12 +24,17 @@ object VmTests extends TestSuite {
       binary(opcode, Value.Int(a), Value.Int(b), Value.Int(c))
 
     def binaryBoolBool(opcode: Int, a: Boolean, b: Boolean, c: Boolean): Unit =
-      binary(opcode, Value.Bool(a), Value.Bool(b), Value.Bool(c))
+      binary(
+        opcode,
+        Value.Int(if (a) 1 else 0),
+        Value.Int(if (b) 1 else 0),
+        Value.Int(if (c) 1 else 0)
+      )
 
     def binaryIntBool(opcode: Int, a: Int, b: Int, c: Boolean): Unit =
-      binary(opcode, Value.Int(a), Value.Int(b), Value.Bool(c))
+      binary(opcode, Value.Int(a), Value.Int(b), Value.Int(if (c) 1 else 0))
 
-    def unary(opcode: Int, a: Int, b: Int): Unit ={
+    def unary(opcode: Int, a: Int, b: Int): Unit = {
       val stack = new Array[Value](10)
       val heap = new Array[Value](0)
       val chunk = Chunk()
@@ -45,8 +50,7 @@ object VmTests extends TestSuite {
       assert(stack(0) == Value.Int(b))
     }
 
-
-    def ldci4(a: Int): Unit ={
+    def ldci4(a: Int): Unit = {
       val stack = new Array[Value](10)
       val heap = new Array[Value](0)
       val chunk = Chunk()
@@ -75,7 +79,6 @@ object VmTests extends TestSuite {
       assert(vm.run() == InterpretResult.Ok)
       assert(stack(0) == Value.String(a))
     }
-
 
     def concatStrings(a: String, b: String): Unit = {
       val stack = new Array[Value](10)
@@ -112,17 +115,17 @@ object VmTests extends TestSuite {
 
     test("1 < 2") - binaryIntBool(Opcode.Clt, 1, 2, true)
     test("2 < 1") - binaryIntBool(Opcode.Clt, 2, 1, false)
-    test("1 <= 2") - binaryIntBool(Opcode.Cle, 1, 2, true)
-    test("2 <= 1") - binaryIntBool(Opcode.Cle, 2, 1, false)
+//    test("1 <= 2") - binaryIntBool(Opcode.Cle, 1, 2, true)
+//    test("2 <= 1") - binaryIntBool(Opcode.Cle, 2, 1, false)
     test("1 > 2") - binaryIntBool(Opcode.Cgt, 1, 2, false)
     test("2 > 1") - binaryIntBool(Opcode.Cgt, 2, 1, true)
-    test("1 >= 2") - binaryIntBool(Opcode.Cge, 1, 2, false)
-    test("2 >= 1") - binaryIntBool(Opcode.Cge, 2, 1, true)
+//    test("1 >= 2") - binaryIntBool(Opcode.Cge, 1, 2, false)
+//    test("2 >= 1") - binaryIntBool(Opcode.Cge, 2, 1, true)
 
     test("1 == 1") - binaryIntBool(Opcode.Ceq, 1, 1, true)
     test("1 == 2") - binaryIntBool(Opcode.Ceq, 1, 2, false)
-    test("1 != 2") - binaryIntBool(Opcode.Cne, 1, 2, true)
-    test("1 != 1") - binaryIntBool(Opcode.Cne, 1, 1, false)
+//    test("1 != 2") - binaryIntBool(Opcode.Cne, 1, 2, true)
+//    test("1 != 1") - binaryIntBool(Opcode.Cne, 1, 1, false)
 
     test("-(-1)") - unary(Opcode.Neg, -1, 1)
     test("-1") - unary(Opcode.Neg, 1, -1)
@@ -163,7 +166,6 @@ object VmTests extends TestSuite {
     test("ldstr \"hello\"") - ldstr("hello")
     test("ldstr \"world\"") - ldstr("world")
     test("ldstr \"\"") - ldstr("")
-
 
     // TODO: dup, swap, pop
     // TODO: local variables

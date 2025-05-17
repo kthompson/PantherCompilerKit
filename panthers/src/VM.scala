@@ -1,8 +1,11 @@
-import panther._
+import panther.*
 
 enum InterpretResult {
   case Continue // will continue running
   case Ok // completed running the program
+  case OkValue(
+      value: Value
+  ) // completed running the program and returned a value
   case CompileError
   case RuntimeError
 }
@@ -75,6 +78,9 @@ case class VM(
     InterpretResult.Continue
   }
 
+  def pushBool(value: bool): InterpretResult =
+    push(Value.Int(if (value) 1 else 0))
+
   def pop(): Value = {
     sp -= 1
     stack(sp)
@@ -93,34 +99,11 @@ case class VM(
       op: (int, int) => bool,
       opName: string
   ): InterpretResult = {
+    trace(opName)
     val b = popInt()
     val a = popInt()
-    trace(opName + " " + a + ", " + b)
-    push(Value.Bool(op(a, b)))
+    pushBool(op(a, b))
     InterpretResult.Continue
-  }
-
-  def binaryBoolOrIntOp(
-      intOp: (int, int) => int,
-      boolOp: (bool, bool) => bool,
-      opName: string
-  ): InterpretResult = {
-    val b = pop()
-    val a = pop()
-    trace(opName + " " + a + ", " + b)
-    a match {
-      case Value.Int(a) =>
-        b match {
-          case Value.Int(b) => push(Value.Int(intOp(a, b)))
-          case _            => runtimeError("Expected int on stack")
-        }
-      case Value.Bool(a) =>
-        b match {
-          case Value.Bool(b) => push(Value.Bool(boolOp(a, b)))
-          case _             => runtimeError("Expected bool on stack")
-        }
-      case _ => runtimeError("Expected int or bool on stack")
-    }
   }
 
   def binaryStrOrIntOp(
@@ -147,16 +130,16 @@ case class VM(
   }
 
   def binaryIntOp(op: (int, int) => int, opName: string): InterpretResult = {
+    trace(opName)
     val b = popInt()
     val a = popInt()
-    trace(opName + " " + a + ", " + b)
     push(Value.Int(op(a, b)))
     InterpretResult.Continue
   }
 
   def unaryOp(op: int => int, opName: string): InterpretResult = {
+    trace(opName)
     val a = popInt()
-    trace(opName + " " + a)
     push(Value.Int(op(a)))
     InterpretResult.Continue
   }
@@ -165,7 +148,7 @@ case class VM(
     val value = pop()
     value match {
       case Value.Int(i) => i
-      case _            => panic("Expected int on stack")
+      case _            => panic("Expected int on stack, found " + value)
     }
   }
 
@@ -187,6 +170,9 @@ case class VM(
   def step(): InterpretResult = {
     val instruction = readI4()
     instruction match {
+      case Opcode.Nop =>
+        InterpretResult.Continue
+
       // function ops
       case Opcode.Ret =>
         trace("ret")
@@ -196,15 +182,21 @@ case class VM(
           // if localp is 0, then we are at the top level and have never entered a function
           // in this case argsp is also zero and the return address
           stack(argsp) = pop()
-          return InterpretResult.Ok
+          if (sp == 0) {
+            // if the stack is empty, then we are done
+            InterpretResult.OkValue(stack(0))
+          } else {
+            InterpretResult.Ok
+          }
+        } else {
+          val retAddr = stackAsInt(endFrame - 3)
+          stack(argsp) = pop()
+          sp = argsp + 1
+          argsp = stackAsInt(endFrame - 1)
+          localp = stackAsInt(endFrame - 2)
+          ip = retAddr
+          InterpretResult.Continue
         }
-        val retAddr = stackAsInt(endFrame - 3)
-        stack(argsp) = pop()
-        sp = argsp + 1
-        argsp = stackAsInt(endFrame - 1)
-        localp = stackAsInt(endFrame - 2)
-        ip = retAddr
-        InterpretResult.Continue
       case Opcode.Call =>
         val methodTok = readMethodToken()
         val numArgs = metadata.getMethodParameterCount(methodTok)
@@ -298,9 +290,9 @@ case class VM(
       case Opcode.Rem =>
         binaryIntOp((a, b) => a % b, "rem")
       case Opcode.And =>
-        binaryBoolOrIntOp((a, b) => a & b, (a, b) => a & b, "and")
+        binaryIntOp((a, b) => a & b, "and")
       case Opcode.Or =>
-        binaryBoolOrIntOp((a, b) => a | b, (a, b) => a | b, "or")
+        binaryIntOp((a, b) => a | b, "or")
       case Opcode.Xor =>
         binaryIntOp((a, b) => a ^ b, "xor")
       case Opcode.Shl =>
@@ -309,14 +301,8 @@ case class VM(
         binaryIntOp((a, b) => a >> b, "shr")
       case Opcode.Ceq =>
         binaryIntBoolOp((a, b) => a == b, "ceq")
-      case Opcode.Cne =>
-        binaryIntBoolOp((a, b) => a != b, "cne")
-      case Opcode.Cge =>
-        binaryIntBoolOp((a, b) => a >= b, "cge")
       case Opcode.Cgt =>
         binaryIntBoolOp((a, b) => a > b, "cgt")
-      case Opcode.Cle =>
-        binaryIntBoolOp((a, b) => a <= b, "cle")
       case Opcode.Clt =>
         binaryIntBoolOp((a, b) => a < b, "clt")
 
@@ -340,35 +326,14 @@ case class VM(
         push(a)
         push(b)
 
-      case Opcode.Nop =>
-        InterpretResult.Continue
-
       // conversion ops
-      case Opcode.ConvI4 =>
-        val a = pop()
-        a match {
-          case Value.Bool(b) =>
-            trace("conv.i4 " + b)
-            push(Value.Int(if (b) 1 else 0))
-            InterpretResult.Continue
-          case Value.Int(i) =>
-            trace("conv.i4 " + i)
-            push(Value.Int(i))
-            InterpretResult.Continue
-          case _ => runtimeError("conv.i4 requires a bool or int")
-        }
-
       case Opcode.ConvStr =>
         val a = pop()
         a match {
           case Value.Int(i) =>
             trace("conv.str " + i)
             // TODO: may need native function here
-            push(Value.String(i.toString))
-            InterpretResult.Continue
-          case Value.Bool(b) =>
-            trace("conv.str " + b)
-            push(Value.String(if (b) "true" else "false"))
+            push(Value.String(i.toString()))
             InterpretResult.Continue
           case Value.String(s) =>
             trace("conv.str " + s)

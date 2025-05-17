@@ -68,11 +68,8 @@ object Opcode {
 
   // compare
   val Ceq = 100
-  val Cne = 101
-  val Cge = 102
-  val Cgt = 103
-  val Cle = 104
-  val Clt = 105
+  val Cgt = 101
+  val Clt = 102
 
   // conversion
   val ConvI4 = 110

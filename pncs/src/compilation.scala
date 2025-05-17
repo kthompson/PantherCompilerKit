@@ -47,9 +47,19 @@ case class Compilation(
   def printSymbols(): unit = SymbolTreePrinter(binder).printSymbol(root)
 
   def emit(output: string): unit = {
-    val emitter =
-      new Emitter(syntaxTrees, root, assembly /*, checker */ )
-    //        emitter.emit()
+    val emitter = new Emitter(syntaxTrees, root, assembly /*, checker, */ )
+//    emitter.emit()
+  }
+
+  def exec(): InterpretResult = {
+    val emitter = new Emitter(syntaxTrees, root, assembly /*, checker */ )
+    val emitResult = emitter.emit()
+
+    val stack = new Array[Value](CompilerSettings.defaultStackSize)
+    val heap = new Array[Value](CompilerSettings.defaultHeapSize)
+
+    val vm = VM(emitResult.chunk, emitResult.metadata, stack, heap)
+    vm.run()
   }
 
   def transpile(outputPath: string): unit = {
