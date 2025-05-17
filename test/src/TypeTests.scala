@@ -63,7 +63,6 @@ object TypeTests {
   }
 
   def variables(): unit = {
-
     test("int variable")
     assertExprTypeWithSetup("val x = 12", "x", "int")
 

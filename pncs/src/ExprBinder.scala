@@ -1125,6 +1125,19 @@ case class ExprBinder(
     BoundStatement.ExpressionStatement(expr)
   }
 
+  def bindGlobalStatements(
+      statements: List[MemberSyntax.GlobalStatementSyntax],
+      scope: Scope
+  ): List[BoundStatement] = {
+    statements match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        val boundHead = bindStatement(head.statement, scope)
+        val boundTail = bindGlobalStatements(tail, scope)
+        List.Cons(boundHead, boundTail)
+    }
+  }
+
   def bindStatements(
       statements: List[StatementSyntax],
       scope: Scope

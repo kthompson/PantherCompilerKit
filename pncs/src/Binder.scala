@@ -200,8 +200,8 @@ class Binder(
     DictionaryModule.empty()
 
   /** statementsToBind represent the statements that occur in the body of a
-    * class, these statements will be converted into a constructor for the
-    * class/enum/object
+    * class/object, these statements will be converted into a constructor for
+    * the class/enum/object
     */
   var statementsToBind
       : Dictionary[Symbol, List[MemberSyntax.GlobalStatementSyntax]] =
@@ -270,7 +270,6 @@ class Binder(
     //    println("Binding complete")
 //    val counts = countMembersToBind(membersToBind.list, 0, 0)
 //    println(string(counts._1 + counts._2) + " members to bind")
-    //    printStatementsToBind(statementsToBind.list)
 
     // bind all members function & field types with type annotations
     membersToType = bindMembers(membersToBind.list, 1, DictionaryModule.empty())
@@ -278,8 +277,6 @@ class Binder(
     val main = getMainMethod(program)
 
     addStatementsToBind(main, members.globalStatements)
-
-//    panic("need to create ctors for classes")
 
     // TODO: this method still needs to register the field assignments as ctor statements
     bindConstructorSignatures(ctorsToBind.list)
@@ -291,6 +288,9 @@ class Binder(
 
     // bind all `statementsToBind` as constructor bodies
 
+//    printStatementsToBind(statementsToBind.list)
+    buildConstructorBodies()
+
 //    panic("the type above probably should include the symbols we started to type, as well as all the parameters for methods")
 
     // then bind all function bodies
@@ -301,6 +301,57 @@ class Binder(
       functionBodies,
       Option.Some(main)
     )
+  }
+
+  def buildConstructorBodies(): unit = {
+    statementsToBind.list match {
+      case List.Nil => ()
+      case List.Cons(KeyValue(symbol, statements), tail) =>
+        buildConstructorBody(symbol, statements)
+        buildConstructorBodies()
+    }
+  }
+
+  def buildConstructorBody(
+      symbol: Symbol,
+      globalStatements: List[MemberSyntax.GlobalStatementSyntax]
+  ): unit = {
+    statementsToBind = statementsToBind.remove(symbol)
+    val ctor = findCtorSymbol(symbol)
+    val scope = Scope(ctor, List.Nil) // todo: add imports
+    val ctorBody = functionBodies.get(ctor) match {
+      case Option.None =>
+        val statements =
+          exprBinder.bindGlobalStatements(globalStatements, scope)
+        functionBodies = functionBodies.put(
+          ctor,
+          BoundExpression.Block(
+            statements,
+            BoundExpression.UnitExpression(noLoc)
+          )
+        )
+      case Option.Some(value) =>
+        val statements =
+          exprBinder.bindGlobalStatements(globalStatements, scope)
+        functionBodies = functionBodies.put(
+          ctor,
+          BoundExpression.Block(
+            statements,
+            value
+          )
+        )
+    }
+  }
+
+  def findCtorSymbol(symbol: Symbol): Symbol = {
+    if (symbol.kind == SymbolKind.Method) {
+      symbol
+    } else {
+      symbol.lookupMember(".ctor") match {
+        case Option.None        => symbol.defineMethod(".ctor", symbol.location)
+        case Option.Some(value) => value
+      }
+    }
   }
 
   def bindConstructorSignatures(
@@ -379,6 +430,7 @@ class Binder(
   ): Type = {
     options match {
       case FieldOptions.TypeAndExpression(fieldType, expression) =>
+        // TODO: this expression needs to be added to the symbol's constructor body
         val expr = exprBinder.bindConversionExpr(expression, fieldType, scope)
         setSymbolType(symbol, fieldType, None)
       case FieldOptions.TypeOnly(fieldType) =>
@@ -1370,7 +1422,10 @@ class Binder(
     program.lookup("main") match {
       case Option.None =>
         // no main method so lets create one
-        program.defineMethod("main", TextLocationFactory.empty())
+        val location = noLoc
+        val main = program.defineMethod("main", location)
+        setSymbolType(main, Type.Function(location, List.Nil, unitType), None)
+        main
       case Option.Some(symbol) =>
         // TODO: we should probably verify that this is a Method symbol
         symbol
@@ -1381,7 +1436,7 @@ class Binder(
     root.lookup("Program") match {
       case Option.None =>
         // no program symbol so lets create one
-        root.defineObject("$Program", TextLocationFactory.empty())
+        root.defineObject("$Program", noLoc)
       case Option.Some(symbol) =>
         // TODO: we should probably verify that this is a Object symbol
         symbol
