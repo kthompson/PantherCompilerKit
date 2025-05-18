@@ -1,0 +1,270 @@
+using panther
+
+class Diagnostic(location: TextLocation, message: string) {
+  def toString(): string = location.toString() + ": " + message
+  def compareTo(other: Diagnostic): int = {
+    val i = location.compareTo(other.location)
+    if (i != 0) i
+    else message.compareTo(other.message)
+  }
+}
+
+/** A sorted list of compiler errors. Sorting is handled by the DiagnosticBag
+  */
+enum Diagnostics {
+  case Empty
+  case Node(left: Diagnostics, head: Diagnostic, tail: Diagnostics)
+
+  def count(): int = _count(List.Cons(this, List.Nil), 0)
+
+  def _count(items: List<Diagnostics>, count: int): int =
+    items match {
+      case List.Nil => count
+      case List.Cons(head, tail) =>
+        head match {
+          case Diagnostics.Empty => _count(tail, count)
+          case Diagnostics.Node(left, _, right) =>
+            _count(List.Cons(left, List.Cons(right, tail)), count + 1)
+        }
+    }
+
+  def printDiagnostics(): int = _printDiagnostics(0)
+
+  def _printDiagnostics(count: int): int =
+    this match {
+      case Diagnostics.Empty => count
+      case Diagnostics.Node(left, head, right) =>
+        val leftCount = left._printDiagnostics(count)
+        if (leftCount <= CompilerSettings.diagnosticsToPrint) {
+          printDiagnostic(head)
+        }
+        right._printDiagnostics(leftCount + 1)
+    }
+
+  def printDiagnostic(diagnostic: Diagnostic): unit = {
+    val location = diagnostic.location
+    val span = location.span
+    val sourceFile = location.sourceFile
+
+    println(diagnostic.toString())
+
+    for (currentLine <- location.startLine to location.endLine) {
+      val line = sourceFile.getLine(currentLine)
+      val startInCurrent = sourceFile.getLineIndex(span.start) == currentLine
+      val endInCurrent = sourceFile.getLineIndex(span.end) == currentLine
+
+      val prefixEnd =
+        if (startInCurrent) span.start
+        else line.start
+
+      val suffixStart =
+        if (endInCurrent) span.end
+        else line.end
+
+      val prefixSpan = TextSpanFactory.fromBounds(line.start, prefixEnd)
+      val errorSpan = TextSpanFactory.fromBounds(prefixEnd, suffixStart)
+      val suffixSpan = TextSpanFactory.fromBounds(suffixStart, line.end)
+
+      val prefix = sourceFile.substringFromSpan(prefixSpan)
+      val error = sourceFile.substringFromSpan(errorSpan)
+      val suffix = sourceFile.substringFromSpan(suffixSpan)
+
+      print(prefix)
+      print(ANSI.foregroundColor("e06c75"))
+      print(error)
+      print(ANSI.Clear)
+      println(suffix)
+
+      for (c <- 0 to (prefixSpan.length - 1)) {
+        print('-')
+      }
+      println('^')
+    }
+
+    println()
+  }
+}
+
+class DiagnosticBag() {
+  var count: int = 0
+  var diagnostics: Diagnostics = Diagnostics.Empty
+
+  def report(location: TextLocation, message: string): unit = add(
+    new Diagnostic(location, message)
+  )
+
+  def reportNotCallable(location: TextLocation): unit =
+    report(location, "expression is not callable")
+
+  def reportTypeMismatch(
+      location: TextLocation,
+      expected: Type,
+      actual: Type
+  ): unit =
+    report(location, "Expected " + expected + " but got " + actual)
+
+  def reportTypeCircularity(location: TextLocation, name: Type): unit =
+    report(location, "Circular use of variable in type" + name)
+
+  def reportExpressionIsNotAssignable(location: TextLocation): unit =
+    report(location, "expression is not assignable")
+
+  def reportArgumentCountMismatch(
+      location: TextLocation,
+      expected: int,
+      actual: int
+  ): unit =
+    report(location, "Expected " + expected + " arguments, but got " + actual)
+
+  def reportCannotConvert(
+      location: TextLocation,
+      from: Type,
+      toType: Type
+  ): unit =
+    report(location, "Cannot convert from " + from + " to " + toType)
+
+  def reportSymbolNotFoundForType(
+      location: TextLocation,
+      left: Type,
+      name: string
+  ): unit =
+    report(location, "Symbol " + name + " not found for type " + left)
+
+  def reportSymbolNotFound(location: TextLocation, name: string): unit =
+    report(location, "Symbol " + name + " not found")
+
+  def reportTypeNotDefined(location: TextLocation, name: string): unit =
+    report(location, "Type " + name + " not defined")
+
+  def reportInvalidOperator(location: TextLocation, op: string): unit =
+    report(location, "Invalid operator: " + op)
+
+  def reportBugUnknownType(location: TextLocation, name: string): unit =
+    report(location, "Bug: type could not be determined for variable " + name)
+
+  def reportNoOperatorForOperands(
+      location: TextLocation,
+      op: string,
+      left: Type,
+      right: Type
+  ): unit =
+    report(
+      location,
+      "No operator '" + op + "' for operands " + left + " and " + right
+    )
+
+  def reportNoOperatorForOperand(
+      location: TextLocation,
+      op: string,
+      operand: Type
+  ): unit =
+    report(location, "No operator '" + op + "' for operand " + operand)
+
+  def reportTopLevelStatementsInMultipleFiles(
+      firstLocation: TextLocation,
+      secondLocation: TextLocation
+  ): unit =
+    report(
+      firstLocation,
+      "Top-level statements in multiple files " + firstLocation
+        .toString() + " and " + secondLocation.toString()
+    )
+
+  def reportDuplicateDefinition(
+      name: string,
+      first: TextLocation,
+      second: TextLocation
+  ): unit =
+    report(
+      first,
+      "Duplicate definition of " + name + " at " + second.toString()
+    )
+
+  def reportMultipleEntryPoints(
+      first: TextLocation,
+      second: TextLocation
+  ): unit =
+    report(
+      first,
+      "Multiple entry points in files " + first.toString() + " and " + second
+        .toString()
+    )
+
+  def reportInvalidNamespace(location: TextLocation): unit =
+    report(location, "Invalid namespace")
+
+  def reportBadCharacter(location: TextLocation, value: char): unit =
+    report(location, "Invalid character in input: " + string(value))
+
+  def reportEmptyCharLiteral(location: TextLocation): unit =
+    report(location, "Empty character literal")
+
+  def reportUnterminatedBlockComment(location: TextLocation): unit =
+    report(location, "Unterminated block comment")
+
+  def reportUnterminatedChar(location: TextLocation): unit =
+    report(location, "Unterminated character literal")
+
+  def reportUnterminatedString(location: TextLocation): unit =
+    report(location, "Unterminated string literal")
+
+  def reportExpectedExpression(location: TextLocation, currentKind: int): unit =
+    report(
+      location,
+      "Unexpected token " + SyntaxFacts.getKindName(
+        currentKind
+      ) + ", expected expression"
+    )
+
+  def reportUnexpectedToken(
+      location: TextLocation,
+      currentKind: int,
+      expectedKind: int
+  ): unit =
+    report(
+      location,
+      "Unexpected token " + SyntaxFacts.getKindName(
+        currentKind
+      ) + ", expected " + SyntaxFacts.getKindName(expectedKind)
+    )
+
+  def reportInvalidEscapeSequence(location: TextLocation, current: char): unit =
+    report(location, "Invalid character in escape sequence: " + string(current))
+
+  def reportExpectedPattern(location: TextLocation, currentKind: int): unit =
+    report(
+      location,
+      "Unexpected token " + SyntaxFacts.getKindName(
+        currentKind
+      ) + ", expected pattern"
+    )
+
+  def add(diagnostic: Diagnostic): unit = {
+    count = count + 1
+    diagnostics = _insert(diagnostics, diagnostic)
+  }
+
+  def _insert(node: Diagnostics, diagnostic: Diagnostic): Diagnostics = {
+    node match {
+      case Diagnostics.Empty =>
+        Diagnostics.Node(Diagnostics.Empty, diagnostic, Diagnostics.Empty)
+      case Diagnostics.Node(left, head, tail) =>
+        val cmp = diagnostic.compareTo(head)
+        if (cmp == 0) {
+          node
+        } else if (diagnostic.compareTo(head) < 0) {
+          Diagnostics.Node(_insert(left, diagnostic), head, tail)
+        } else {
+          Diagnostics.Node(left, head, _insert(tail, diagnostic))
+        }
+    }
+  }
+
+  def addDiagnostics(more: Diagnostics): unit = more match {
+    case Diagnostics.Empty => ()
+    case Diagnostics.Node(left, head, right) =>
+      add(head)
+      addDiagnostics(left)
+      addDiagnostics(right)
+  }
+}

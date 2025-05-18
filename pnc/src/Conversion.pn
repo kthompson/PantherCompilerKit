@@ -1,0 +1,42 @@
+using panther
+
+enum Conversion {
+  case Implicit
+  case Explicit
+  case Identity
+  case None
+
+  val isImplicit: bool = this == Implicit
+  val isExplicit: bool = this == Explicit
+  val isIdentity: bool = this == Identity
+  val Exists: bool = this != None
+}
+
+class ConversionClassifier(binder: Binder) {
+  def classify(from: Type, toType: Type): Conversion = {
+    if (from == toType) {
+      Conversion.Identity
+    } else if (toType == binder.anyType || toType == binder.unitType) {
+      Conversion.Implicit
+    } else if (from == binder.neverType) {
+      Conversion.Implicit
+    } else if (from == binder.anyType) {
+      Conversion.Explicit
+    } else if (toType == binder.stringType) {
+      Conversion.Explicit
+    } else if (from == binder.intType && toType == binder.charType) {
+      Conversion.Explicit
+    } else if (from == binder.charType && toType == binder.intType) {
+      Conversion.Implicit
+    } else {
+      from match {
+        // from is assignable to toType if it is a subtype of toType
+        case Type.Class(_, _, _, _, Option.Some(superClass)) =>
+          classify(superClass, toType)
+        case _ =>
+          println("No conversion from " + from + " to " + toType)
+          Conversion.None
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+using panther
+
+object OperatorPrecedence {
+  val Lowest = 0
+  val Prefix = 9
+}

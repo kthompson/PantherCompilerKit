@@ -1,4 +1,4 @@
-import panther._
+using panther
 //import Type.Reference
 
 // object TypeSchemeKind {
@@ -62,9 +62,9 @@ import panther._
 
 // will be connected to a Declaration or an Expression
 
-case class TypePair(t1: Type, t2: Type)
+class TypePair(t1: Type, t2: Type)
 
-case class ExprBinder(
+class ExprBinder(
     rootSymbol: Symbol,
     binder: Binder,
     conversionClassifier: ConversionClassifier,
@@ -400,7 +400,7 @@ case class ExprBinder(
     }
   }
 
-  def typesWithError(list: List[Type]): bool = {
+  def typesWithError(list: List<Type>): bool = {
     list match {
       case List.Nil => false
       case List.Cons(head, tail) =>
@@ -429,7 +429,7 @@ case class ExprBinder(
 
   def bindCall(
       function: BoundExpression,
-      args: List[BoundExpression],
+      args: List<BoundExpression>,
       scope: Scope
   ): BoundExpression = {
     // cases:
@@ -591,7 +591,7 @@ case class ExprBinder(
   def bindFunctionCall(
       function: BoundExpression,
       functionType: Type.Function,
-      args: List[BoundExpression],
+      args: List<BoundExpression>,
       scope: Scope
   ): BoundExpression = {
     val location = AstUtils.locationOfBoundExpression(function)
@@ -645,7 +645,7 @@ case class ExprBinder(
       location: TextLocation,
       ctor: Symbol,
       ctorType: Type.Function,
-      args: List[BoundExpression],
+      args: List<BoundExpression>,
       scope: Scope
   ): BoundExpression = {
     if (ctorType.parameters.length != args.length) {
@@ -667,7 +667,7 @@ case class ExprBinder(
     }
   }
 
-  def findConstructor(ns: List[string], name: string): Option[Symbol] = {
+  def findConstructor(ns: List<string>, name: string): Option<Symbol> = {
     rootSymbol.findSymbol(ns, name) match {
       case Option.Some(symbol) =>
         symbol.lookupMember(".ctor")
@@ -710,7 +710,7 @@ case class ExprBinder(
     }
   }
 
-  def getParameterTypes(parameters: List[BoundParameter]): List[Type] = {
+  def getParameterTypes(parameters: List<BoundParameter>): List<Type> = {
     parameters match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
@@ -719,10 +719,10 @@ case class ExprBinder(
   }
 
   def bindArguments(
-      parameters: List[BoundParameter],
-      arguments: List[BoundExpression],
+      parameters: List<BoundParameter>,
+      arguments: List<BoundExpression>,
       scope: Scope
-  ): List[BoundExpression] = {
+  ): List<BoundExpression> = {
     parameters match {
       case List.Nil =>
         arguments match {
@@ -742,8 +742,8 @@ case class ExprBinder(
   }
 
   def fromExpressionList(
-      list: List[ExpressionItemSyntax]
-  ): List[Expression] =
+      list: List<ExpressionItemSyntax>
+  ): List<Expression> =
     list match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
@@ -752,9 +752,9 @@ case class ExprBinder(
     }
 
   def bindExpressions(
-      list: List[Expression],
+      list: List<Expression>,
       scope: Scope
-  ): List[BoundExpression] =
+  ): List<BoundExpression> =
     list match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
@@ -870,9 +870,9 @@ case class ExprBinder(
     node.value match {
       case SyntaxTokenValue.Number(value) =>
         BoundExpression.IntLiteral(node.token.location, value)
-      case SyntaxTokenValue.Boolean(value) =>
+      case SyntaxTokenValue.bool(value) =>
         BoundExpression.BooleanLiteral(node.token.location, value)
-      case SyntaxTokenValue.String(value) =>
+      case SyntaxTokenValue.string(value) =>
         BoundExpression.StringLiteral(node.token.location, value)
       case SyntaxTokenValue.Character(value) =>
         BoundExpression.CharacterLiteral(node.token.location, value)
@@ -914,7 +914,7 @@ case class ExprBinder(
   def bindMemberForSymbolAndType(
       leftType: Type,
       right: SyntaxToken
-  ): Option[Tuple2[Symbol, Type]] = {
+  ): Option<Tuple2<Symbol, Type>> = {
     leftType match {
       case Type.Class(_, ns, name, _, _) =>
         rootSymbol.findSymbol(ns, name) match {
@@ -1132,9 +1132,9 @@ case class ExprBinder(
   }
 
   def bindGlobalStatements(
-      statements: List[MemberSyntax.GlobalStatementSyntax],
+      statements: List<MemberSyntax.GlobalStatementSyntax>,
       scope: Scope
-  ): List[BoundStatement] = {
+  ): List<BoundStatement> = {
     statements match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
@@ -1145,9 +1145,9 @@ case class ExprBinder(
   }
 
   def bindStatements(
-      statements: List[StatementSyntax],
+      statements: List<StatementSyntax>,
       scope: Scope
-  ): List[BoundStatement] = {
+  ): List<BoundStatement> = {
     statements match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>

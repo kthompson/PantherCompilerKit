@@ -1,4 +1,4 @@
-import panther.string
+import panther._
 import system.io.File
 
 object MakeSourceFile {

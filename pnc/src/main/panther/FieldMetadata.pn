@@ -1,3 +1,0 @@
-using panther
-
-class FieldMetadata(name: StringToken, flags: int, fieldSig: int)

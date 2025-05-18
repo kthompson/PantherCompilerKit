@@ -1,4 +1,4 @@
-import panther.string
+import panther._
 import utest._
 
 object CompilationTests extends TestSuite {

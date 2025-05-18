@@ -1,6 +1,6 @@
-import panther._
+using panther
 
-case class Result(isSuccess: bool, value: any)
+class Result(isSuccess: bool, value: any)
 
 object MakeResult {
   val fail: Result = new Result(false, 0)
@@ -8,7 +8,7 @@ object MakeResult {
   def success(value: any): Result = new Result(true, value)
 }
 
-case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
+class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   var _position: int = 0
   var debug: bool = false
 
@@ -299,7 +299,7 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       SyntaxKind.StringToken,
       start,
       span,
-      SyntaxTokenValue.String(value)
+      SyntaxTokenValue.string(value)
     )
   }
 
@@ -416,7 +416,7 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     )
   }
 
-  def scanTrivia(leading: bool): Array[SyntaxTrivia] = {
+  def scanTrivia(leading: bool): Array<SyntaxTrivia> = {
     val trivia = new SyntaxTriviaList()
     _scanTrivia(leading, trivia)
   }
@@ -424,7 +424,7 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   def _scanTrivia(
       leading: bool,
       trivia: SyntaxTriviaList
-  ): Array[SyntaxTrivia] = {
+  ): Array<SyntaxTrivia> = {
     if (current() == '\u0000') {
       trivia.toArray()
     } else if (isNewLine(current())) {

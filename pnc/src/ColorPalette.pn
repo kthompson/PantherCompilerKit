@@ -1,11 +1,11 @@
-import panther._
+using panther
 
 object ColorPalette {
 
   //  Colors taken from IntelliJ IDEA's dark theme language defaults
   val Keyword = "CF8E6D"
   val Number = "2AACB8"
-  val String = "6AAB73"
+  val string = "6AAB73"
   val Identifier = "BCBEC4"
   val Punctuation = "BCBEC4"
   val Method = "57AAF7"
@@ -15,7 +15,7 @@ object ColorPalette {
 
   val Error = "F75464"
 
-  val Brackets = new Array[string](3)
+  val Brackets = new Array<string>(3)
   Brackets(0) = "d19a66"
   Brackets(1) = "c678dd"
   Brackets(2) = "56b6c2"

@@ -1,3 +1,0 @@
-using panther
-
-class MethodMetadata(name: StringToken, flags: int, methodSig: int, paramList: int, locals: int, address: int)
