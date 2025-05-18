@@ -20,6 +20,9 @@ object VmTests {
     assertExecValueInt("178", 178)
     assertExecValueBool("true", true)
     assertExecValueBool("false", false)
+    assertExecValueString("\"hello\"", "hello")
+    assertExecValueString("\"hello world\"", "hello world")
+    assertExecValueString("\"hello \\\"world\\\"\"", "hello \"world\"")
   }
 
   def unary(): unit = {

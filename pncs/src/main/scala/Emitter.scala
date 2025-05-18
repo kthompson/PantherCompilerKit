@@ -241,7 +241,11 @@ case class Emitter(
   }
   def emitMemberAccess(expr: BoundExpression.MemberAccess): unit = ???
   def emitNewExpression(expr: BoundExpression.NewExpression): unit = ???
-  def emitStringLiteral(expr: BoundExpression.StringLiteral): unit = ???
+  def emitStringLiteral(expr: BoundExpression.StringLiteral): unit = {
+    val token = metadata.addString(expr.value)
+    chunk.emitOpcode(Opcode.Ldstr, expr.location.startLine)
+    chunk.emitI4(token.token, expr.location.startLine)
+  }
   def emitUnaryExpression(expr: BoundExpression.UnaryExpression): unit = {
     emitExpression(expr.operand)
     expr.operator match {

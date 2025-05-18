@@ -582,13 +582,8 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   def parseLiteralExpression(): Expression = {
     debugPrint("parseLiteralExpression")
     val token = accept()
-    val tokenValue =
-      if (token.kind == SyntaxKind.NumberToken)
-        SyntaxTokenValue.Number(int(token.text))
-      else if (token.kind == SyntaxKind.CharToken)
-        SyntaxTokenValue.Character(token.text(0))
-      else SyntaxTokenValue.String(token.text)
-    new Expression.LiteralExpression(token, tokenValue)
+
+    new Expression.LiteralExpression(token, token.value)
   }
 
   def parseIfExpression(): Expression = {
