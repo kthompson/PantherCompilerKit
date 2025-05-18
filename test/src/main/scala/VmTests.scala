@@ -89,6 +89,13 @@ object VmTests {
     assertExecValueBool("1 >= 2", false)
     assertExecValueBool("1 <= 1", true)
     assertExecValueBool("1 >= 1", true)
+
+    assertExecValueString("\"\" + \"\"", "")
+    assertExecValueString("\"hello\" + \"\"", "hello")
+    assertExecValueString("\"\" + \"world\"", "world")
+
+    assertExecValueString("\"hello\" + \" world\"", "hello world")
+    assertExecValueString("\"hello\" + \" world\" + \"!\"", "hello world!")
   }
 
   def binaryPrecedence(): unit = {
