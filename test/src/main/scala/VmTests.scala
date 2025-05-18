@@ -11,6 +11,12 @@ object VmTests {
     binary()
     binaryPrecedence()
     unaryPrecedence()
+    // TODO: dup, swap, pop
+    // TODO: local variables
+    // TODO: arguments
+    // TODO: call, ret
+    // TODO: branch
+    // TODO: conv
 
   }
 

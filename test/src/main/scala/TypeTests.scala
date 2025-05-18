@@ -22,6 +22,8 @@ object TypeTests {
 
     enums()
     classes()
+
+//    generics()
   }
 
   def primitives(): unit = {
@@ -174,7 +176,20 @@ object TypeTests {
   def methods(): unit = {
     methodWithoutReturnType()
     methodWithParameters()
+  }
+
+  def generics(): unit = {
     methodWithGenericArguments()
+    enumWithGenericType()
+  }
+
+  def enumWithGenericType(): unit = {
+    val setup = "enum Option<T> {\n" +
+      "  case Some(value: T)\n" +
+      "  case None\n" +
+      "}"
+    assertExprTypeWithSetup(setup, "new Option.Some(12)", "Option<int>")
+    assertExprTypeWithSetup(setup, "Option.None", "Option<never>")
   }
 
   def methodWithoutReturnType(): Unit = {
@@ -203,13 +218,13 @@ object TypeTests {
 
   def methodWithGenericArguments(): Unit = {
 //    FIXME: this is throwing an error atm
-//    val comp = mkCompilation("def foo[T](x: T) = 12")
-//    val symbols = enumNonBuiltinSymbols(comp)
-//    val foo = assertSymbol(symbols, SymbolKind.Method, "foo")
-//    assertSymbolType(comp, foo, "[T](x: T) -> int")
-//    val x = assertSymbol(symbols, SymbolKind.Parameter, "x")
-//    assertSymbolType(comp, x, "T")
-//    assertNoSymbol(symbols)
+    val comp = mkCompilation("def foo[T](x: T) = 12")
+    val symbols = enumNonBuiltinSymbols(comp)
+    val foo = assertSymbol(symbols, SymbolKind.Method, "foo")
+    assertSymbolType(comp, foo, "[T](x: T) -> int")
+    val x = assertSymbol(symbols, SymbolKind.Parameter, "x")
+    assertSymbolType(comp, x, "T")
+    assertNoSymbols(symbols)
   }
 
   def enums(): unit = {

@@ -25,6 +25,7 @@ object Helpers {
       expression: string,
       expectedType: string
   ): unit = {
+    test("typeof " + expression + " is " + expectedType)
     val comp = mkCompilation(setup + "\n\nval typeTestSymbol = " + expression)
     val program = Assert.some(comp.root.lookup("$Program"))
     val symbol = Assert.some(program.lookup("typeTestSymbol"))
