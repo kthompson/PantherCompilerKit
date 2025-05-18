@@ -1,4 +1,4 @@
-import panther.{bool, char, int, string}
+import panther._
 
 enum SyntaxTokenValue {
   case Boolean(value: bool)

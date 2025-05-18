@@ -5,6 +5,7 @@ riderModule.iml
 /_ReSharper.Caches/
 out
 .DS_Store
+target/
 mill.*
 
 # IntelliJ project files to ignore. regenerate with `mill mill.idea.GenIdea/idea`

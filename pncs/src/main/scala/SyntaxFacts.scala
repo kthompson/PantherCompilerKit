@@ -1,4 +1,4 @@
-import panther.{bool, int, panic, string}
+import panther._
 
 object SyntaxFacts {
   def isBuiltinType(name: string): bool =

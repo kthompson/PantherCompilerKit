@@ -1,4 +1,4 @@
-import panther.{bool, int, string}
+import panther._
 
 case class SyntaxToken(
     sourceFile: SourceFile,

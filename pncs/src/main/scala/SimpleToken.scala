@@ -1,4 +1,4 @@
-import panther.{int, string}
+import panther._
 
 case class SimpleToken(
     kind: int,

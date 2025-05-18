@@ -1,4 +1,4 @@
-import panther.{string, unit}
+import panther._
 
 case class StringBuilder() {
   var content = ""

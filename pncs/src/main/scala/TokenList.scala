@@ -1,4 +1,4 @@
-import panther.{int, unit}
+import panther._
 
 case class TokenList() {
   var _items: Array[SyntaxToken] = new Array[SyntaxToken](0)
