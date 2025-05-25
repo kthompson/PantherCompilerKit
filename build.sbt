@@ -24,10 +24,10 @@ lazy val text = project
 
 /** Panther Compiler in Scala
   *
-  * Compiles to PVM bytecode
+  * Compiles to PVM bytecode, Executes PVM bytecode
   */
 lazy val pncs = project
-  .dependsOn(runtime, metadata, text, panthers)
+  .dependsOn(runtime, metadata, text)
   .settings(
     mainClass := Some("Program$"),
     transpile := {
@@ -65,7 +65,7 @@ lazy val pncs = project
   * TODO: add compile logic for pnc(probably run pncs using .pn sources)
   */
 lazy val pnc = project
-  .dependsOn(runtime, metadata, text, panthers, pncs)
+  .dependsOn(runtime, metadata, text, pncs)
   .settings(
     // Prevent normal Scala compilation
     Compile / sources := Seq.empty,
@@ -110,12 +110,5 @@ lazy val pnc = project
     }.value
   )
 
-/** Panther Interpreter in Scala
-  *
-  * Executes PVM bytecode
-  */
-lazy val panthers = project
-  .dependsOn(runtime, metadata, text)
-
 lazy val test = project
-  .dependsOn(runtime, pncs, panthers)
+  .dependsOn(runtime, pncs)
