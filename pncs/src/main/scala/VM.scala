@@ -1,4 +1,5 @@
-import panther._
+import Value.Ref
+import panther.*
 
 enum InterpretResult {
   case Continue // will continue running
@@ -42,7 +43,6 @@ a ret instruction pops values off the stack in the following order:
   2. saved FP
   3. return address
   4. parameters
-
  */
 
 case class VM(
@@ -55,6 +55,27 @@ case class VM(
   var ip = 0 // instruction pointer
   var argsp = 0 // argument stack pointer
   var localp = 0 // local variable pointer
+  var heapp = 0 // heap pointer
+
+  // setup metadata
+  // 1. setup some space for static fields
+  //    a. count the number of static fields, and assign them an index
+  //    b. record number of static fields in the Chunk header
+  // 2. iterate through all the class symbols and record their fields
+  //    a. each field for each class will get an index that we can reference
+  //
+
+  def setupHeap(): unit = {}
+
+  // allocates space on the heap for an object
+  def alloc(size: int): int = {
+    if (heapp + size > heap.length) {
+      panic("Heap overflow")
+    }
+    val addr = heapp
+    heapp += size
+    addr
+  }
 
   def readI4(): int = {
     val value = chunk.readI4(ip)
@@ -342,6 +363,20 @@ case class VM(
           case Value.Unit =>
             trace("conv.str unit")
             push(Value.String("unit"))
+            InterpretResult.Continue
+          case ref: Value.Ref =>
+            trace("conv.str ref " + ref)
+            val typeDef = metadata.typeDefs.typeDefs(ref.token.token)
+            val ns = metadata.getString(typeDef.ns)
+            val typeName = metadata.getString(typeDef.name)
+
+            val fullName = if (ns.nonEmpty) {
+              ns + "." + typeName
+            } else {
+              typeName
+            }
+
+            push(Value.String(fullName))
             InterpretResult.Continue
         }
       case _ =>

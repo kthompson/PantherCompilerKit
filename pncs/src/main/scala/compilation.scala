@@ -48,7 +48,7 @@ case class Compilation(
 
   def emit(output: string): unit = {
     val emitter = new Emitter(syntaxTrees, root, binder, assembly)
-//    emitter.emit()
+    emitter.emit()
   }
 
   def exec(): InterpretResult = {

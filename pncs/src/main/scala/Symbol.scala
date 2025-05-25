@@ -14,7 +14,21 @@ case class Symbol(
 
   var _children: Dictionary[string, Symbol] = DictionaryModule.empty()
 
-  def members(): List[Symbol] = _children.values()
+  def members(): List[Symbol] = {
+    _children.values()
+  }
+
+  def fullName(): string = _fullName(name)
+
+  def _fullName(rhs: string): string = {
+    parent match {
+      case Option.None => rhs
+      case Option.Some(p) =>
+        p._fullName(
+          if (p.name == "") rhs else p.name + "." + rhs
+        )
+    }
+  }
 
   def tryDefine(
       name: string,

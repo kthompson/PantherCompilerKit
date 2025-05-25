@@ -27,9 +27,8 @@ case class Metadata() {
   def addString(value: string): StringToken =
     strings.addBlob(value)
 
-  def getString(token: StringToken): string = {
+  def getString(token: StringToken): string =
     strings.get(token)
-  }
 
   def addField(name: string, flags: MetadataFlags, sigId: int): FieldToken = {
     val nameId = strings.addBlob(name)
@@ -59,7 +58,11 @@ case class Metadata() {
     lastMethod
   }
 
-  def addTypeDef(name: string, ns: string, flags: MetadataFlags): TypeDefToken = {
+  def addTypeDef(
+      name: string,
+      ns: string,
+      flags: MetadataFlags
+  ): TypeDefToken = {
     val nameId = strings.addBlob(name)
     val namespaceId = strings.addBlob(ns)
     val typeDef =

@@ -1,7 +1,11 @@
 import panther._
 import system.io._
 
-case class EmitResult(chunk: Chunk, metadata: Metadata)
+case class EmitResult(
+    chunk: Chunk,
+    metadata: Metadata,
+    entry: Option[MethodToken]
+)
 
 case class Emitter(
     syntaxTrees: List[SyntaxTree],
@@ -19,107 +23,124 @@ case class Emitter(
   val metadata = new Metadata()
   val chunk = new Chunk()
 
-  val typeTokens: Dictionary[Symbol, TypeDefToken] =
+  var typeTokens: Dictionary[Symbol, TypeDefToken] =
     DictionaryModule.empty[Symbol, TypeDefToken]()
 
-  val methodTokens: Dictionary[Symbol, MethodToken] =
+  var methodTokens: Dictionary[Symbol, MethodToken] =
     DictionaryModule.empty[Symbol, MethodToken]()
 
-  val fieldTokens: Dictionary[Symbol, FieldToken] =
+  var fieldTokens: Dictionary[Symbol, FieldToken] =
     DictionaryModule.empty[Symbol, FieldToken]()
 
-  val paramTokens: Dictionary[Symbol, ParamToken] =
+  var paramTokens: Dictionary[Symbol, ParamToken] =
     DictionaryModule.empty[Symbol, ParamToken]()
 
-  var symbolsToProcessSignatures = new Array[Symbol](0)
-  var symbolsToProcessSignaturesCount = 0
+  var symbolsToProcessSignatures: List[Symbol] = List.Nil
 
   def queueSymbolSignature(symbol: Symbol): unit = {
-    // ensure symbolsToProcessSignatures is large enough
-    if (symbolsToProcessSignaturesCount == symbolsToProcessSignatures.length) {
-      val newLength =
-        if (symbolsToProcessSignatures.length == 0) 4
-        else symbolsToProcessSignatures.length * 2
-      val newArray = new Array[Symbol](newLength)
-      for (i <- 0 to (symbolsToProcessSignatures.length - 1)) {
-        newArray(i) = symbolsToProcessSignatures(i)
-      }
-      symbolsToProcessSignatures = newArray
-    } else ()
-
-    symbolsToProcessSignatures(symbolsToProcessSignaturesCount) = symbol
-    symbolsToProcessSignaturesCount = symbolsToProcessSignaturesCount + 1
+    symbolsToProcessSignatures = List.Cons(symbol, symbolsToProcessSignatures)
   }
 
   def emit(): EmitResult = {
-
-    // setup metadata
-    // 1. setup some space for static fields
-    //    a. count the number of static fields, and assign them an index
-    //    b. record number of static fields in the Chunk header
-    // 2. iterate through all the class symbols and record their fields
-    //    a. each field for each class will get an index that we can reference
-    //
-
+    // populate symbol metadata
     emitSymbolMetadata(root)
-//
-//    // build signatures for all symbols
-//
-//    for (i <- 0 to (symbolsToProcessSignaturesCount - 1)) {
-//      val symbol = symbolsToProcessSignatures(i)
-//      val links = checker.getSymbolLinks(symbol)
-//
-//      val sig = getSymbolSignature(symbol)
-//      val sigId = metadata.addSignature(sig)
-//
-//      if (symbol.kind == SymbolKind.Field) {
-//        metadata.fields.fields(links.fieldId).fieldSig = sigId
-//      } else if (symbol.kind == SymbolKind.Method || symbol.kind == SymbolKind.Constructor) {
-//        metadata.methods.methods(links.methodId).methodSig = sigId
-//      } else if (symbol.kind == SymbolKind.Parameter) {
-//        metadata.params.params(links.paramId).paramSig = sigId
-//      } else {
-//        ()
-//      }
-//    }
-//
 
-    assembly.entryPoint match {
-      case Option.None        => ()
-      case Option.Some(entry) => emitMethod(entry)
+    // update field, method, and parameter tokens with their signatures
+    buildSignatures(symbolsToProcessSignatures)
+
+    // update methods local count, body address within chunk
+    emitMethodBodies(methodTokens)
+
+    val entryMethod = assembly.entryPoint match {
+      case Option.None => Option.None
+      case Option.Some(entry) =>
+        methodTokens.get(entry) match {
+          case Option.None =>
+            println(entry.toString())
+            ???
+          case Option.Some(value) => Option.Some(value)
+        }
     }
-//
-//    chunk.emitOpcode(Opcode.LdcI4, 123)
-//    chunk.emitI4(30, 123)
-//    chunk.emitOpcode(Opcode.Ret, 123)
-//
-//    var offset = 0
-//    while (offset < chunk.size) {
-//      offset = disassembleInstruction(chunk, offset)
-//    }
-    EmitResult(chunk, metadata)
+
+    EmitResult(chunk, metadata, entryMethod)
   }
 
-//  def emitMethodSymbol(symbol: Symbol, chunk: Chunk): unit = {
-//    val links = checker.getSymbolLinks(symbol)
-//    val sig = getSymbolSignature(symbol)
-//    val sigId = metadata.addSignature(sig)
-//
-//    links.methodId = metadata.addMethod(
-//      symbol.name,
-//      MetadataFlags.None,
-//      sigId
-//    )
+  def emitMethodBodies(value: Dictionary[Symbol, MethodToken]): unit = {
+    value.list match {
+      case List.Nil => ()
+      case List.Cons(KeyValue(key, value), tail) =>
+        val method = metadata.methods.methods(value.token)
+        val addr = chunk.size
 
-//  def emitMembersMetadata(members: Scope): unit =
-//    emitSymbolsMetadata(members.symbols())
+        if (emitMethod(key)) {
+          method.address = addr
+          // todo set locals
+        }
+        emitMethodBodies(Dictionary(tail))
+    }
+  }
 
-  def emitMethod(symbol: Symbol): unit = {
+  def buildSignature(symbol: Symbol): unit = {
+    val sig = getSymbolSignature(symbol)
+    val sigId = metadata.addSignature(sig)
+
+    if (symbol.kind == SymbolKind.Field) {
+      fieldTokens.get(symbol) match {
+        case Option.None => ???
+        case Option.Some(value) =>
+          metadata.fields.fields(value.token).fieldSig = sigId
+      }
+    } else if (
+      symbol.kind == SymbolKind.Method || symbol.kind == SymbolKind.Constructor
+    ) {
+      methodTokens.get(symbol) match {
+        case Option.None =>
+          println("buildSignature: no method token for " + symbol)
+          ???
+        case Option.Some(value) =>
+          metadata.methods.methods(value.token).methodSig = sigId
+      }
+    } else if (symbol.kind == SymbolKind.Parameter) {
+      paramTokens.get(symbol) match {
+        case Option.None => ???
+        case Option.Some(value) =>
+          metadata.params.params(value.token).paramSig = sigId
+      }
+    } else {
+      ???
+    }
+  }
+
+  def buildSignatures(symbols: List[Symbol]): unit = {
+    symbols match {
+      case List.Nil =>
+      case List.Cons(head, tail) =>
+        buildSignature(head)
+        buildSignatures(tail)
+    }
+  }
+
+  //  def emitMethodSymbol(symbol: Symbol, chunk: Chunk): unit = {
+  //    val links = checker.getSymbolLinks(symbol)
+  //    val sig = getSymbolSignature(symbol)
+  //    val sigId = metadata.addSignature(sig)
+  //
+  //    links.methodId = metadata.addMethod(
+  //      symbol.name,
+  //      MetadataFlags.None,
+  //      sigId
+  //    )
+
+  //  def emitMembersMetadata(members: Scope): unit =
+  //    emitSymbolsMetadata(members.symbols())
+
+  def emitMethod(symbol: Symbol): bool = {
     assembly.functionBodies.get(symbol) match {
-      case Option.None => ???
+      case Option.None => false
       case Option.Some(value) =>
         emitExpression(value)
         chunk.emitOpcode(Opcode.Ret, symbol.location.endLine)
+        true
     }
   }
 
@@ -150,6 +171,7 @@ case class Emitter(
   }
 
   def emitAssignment(expr: BoundExpression.Assignment): unit = ???
+
   def emitBinaryExpression(expr: BoundExpression.BinaryExpression): unit = {
     emitExpression(expr.left)
     emitExpression(expr.right)
@@ -328,7 +350,11 @@ case class Emitter(
   }
 
   def emitSymbolMetadata(symbol: Symbol): unit = {
-    if (symbol.kind == SymbolKind.Class) {
+    if (symbol.kind == SymbolKind.Namespace) {
+      emitSymbolsMetadata(symbol.members())
+    } else if (
+      symbol.kind == SymbolKind.Class || symbol.kind == SymbolKind.Object
+    ) {
       emitClassMetadata(symbol)
     } else if (symbol.kind == SymbolKind.Field) {
       emitFieldMetadata(symbol)
@@ -339,7 +365,8 @@ case class Emitter(
     } else if (symbol.kind == SymbolKind.Parameter) {
       emitParameterMetadata(symbol)
     } else {
-      ()
+      println("emitSymbolMetadata: unknown symbol kind " + symbol.kind)
+      ???
     }
   }
 
@@ -355,12 +382,12 @@ case class Emitter(
   }
 
   def emitClassMetadata(symbol: Symbol): unit = {
-    val flags = MetadataFlags.None
-//      if ((symbol.flags & SymbolFlags.Static) == SymbolFlags.Static)
-//        MetadataFlags.Static
-//      else MetadataFlags.None
+    val flags =
+      if (symbol.kind == SymbolKind.Object)
+        MetadataFlags.Static
+      else MetadataFlags.None
 
-    typeTokens.put(
+    typeTokens = typeTokens.put(
       symbol,
       metadata.addTypeDef(symbol.name, ns(symbol.ns()), flags)
     )
@@ -374,17 +401,21 @@ case class Emitter(
 //        MetadataFlags.Static
 //      else MetadataFlags.None
 
-    fieldTokens.put(symbol, metadata.addField(symbol.name, flags, 0))
+    fieldTokens = fieldTokens.put(symbol, metadata.addField(symbol.name, flags, 0))
 
     queueSymbolSignature(symbol)
   }
 
-//  def getSymbolSignature(symbol: Symbol) = {
-//    val typ = checker.getTypeOfSymbol(symbol)
-//    val sig = new SignatureBuilder()
-//    emitTypeSignature(typ, sig)
-//    sig.toSignature()
-//  }
+  def getSymbolSignature(symbol: Symbol) = {
+    binder.getSymbolType(symbol) match {
+      case Option.None =>
+        panic("getSymbolSignature: no type for symbol " + symbol.name)
+      case Option.Some(typ) =>
+        val sig = new SignatureBuilder()
+        emitTypeSignature(typ, sig)
+        sig.toSignature()
+    }
+  }
 
   def emitMethodMetadata(symbol: Symbol) = {
     val flags = MetadataFlags.None
@@ -392,7 +423,8 @@ case class Emitter(
 //        MetadataFlags.Static
 //      else MetadataFlags.None
 
-    methodTokens.put(symbol, metadata.addMethod(symbol.name, flags, 0, 0, 0))
+    methodTokens =
+      methodTokens.put(symbol, metadata.addMethod(symbol.name, flags, 0, 0, 0))
 
     queueSymbolSignature(symbol)
 
@@ -402,33 +434,36 @@ case class Emitter(
   def emitParameterMetadata(symbol: Symbol): unit = {
     val flags = MetadataFlags.None
 
-    paramTokens.put(symbol, metadata.addParam(symbol.name, flags, 0))
+    paramTokens =
+      paramTokens.put(symbol, metadata.addParam(symbol.name, flags, 0))
 
     queueSymbolSignature(symbol)
   }
 
-//  def emitTypeSignature(typ: Type, sig: SignatureBuilder): unit = {
-//    if (typ.kind == TypeKind.Primitive) {
-//      emitPrimitiveTypeSignature(typ.primitive.get.name, sig)
-//    } else if (typ.kind == TypeKind.Function) {
-//      sig.writeFunction()
-//      emitTypeSignature(typ.function.get.returnType, sig)
-//      emitTypeArraySignature(typ.function.get.parameters, sig)
-//    } else if (typ.kind == TypeKind.Option) {
-//      sig.writeOption()
-//      emitTypeSignature(typ.option.get.inner, sig)
-//    } else if (typ.kind == TypeKind.Array) {
-//      sig.writeArray()
-//      emitTypeSignature(typ.array.get.inner, sig)
-//    } else if (typ.kind == TypeKind.TypeConstructor) {
-//      sig.writeTypeConstructor()
-//      val links = checker.getSymbolLinks(typ.symbol.get)
-//      sig.write(links.classId)
-//      emitTypeArraySignature(typ.typeConstructor.get.parameters, sig)
-//    } else {
-//      panic("unknown type kind: " + string(typ.kind))
-//    }
-//  }
+  def emitTypeSignature(typ: Type, sig: SignatureBuilder): unit = {
+    typ match {
+      case t: Type.Class           => emitClassTypeSignature(t, sig)
+      case t: Type.GenericClass    => emitGenericClassTypeSignature(t, sig)
+      case t: Type.GenericFunction => emitGenericFunctionTypeSignature(t, sig)
+      case t: Type.Function        => emitFunctionTypeSignature(t, sig)
+      case t: Type.Variable        => emitVariableTypeSignature(t, sig)
+      case Type.Any                => emitAnyTypeSignature(sig)
+      case Type.Never              => emitNeverTypeSignature(sig)
+      case Type.Error              => emitErrorTypeSignature(sig)
+    }
+  }
+
+  def emitClassTypeSignature(typ: Type, sig: SignatureBuilder): unit = {}
+  def emitGenericClassTypeSignature(typ: Type, sig: SignatureBuilder): unit = {}
+  def emitGenericFunctionTypeSignature(
+      typ: Type.GenericFunction,
+      sig: SignatureBuilder
+  ): unit = {}
+  def emitFunctionTypeSignature(typ: Type, sig: SignatureBuilder): unit = {}
+  def emitVariableTypeSignature(typ: Type, sig: SignatureBuilder): unit = {}
+  def emitAnyTypeSignature(sig: SignatureBuilder): unit = {}
+  def emitNeverTypeSignature(sig: SignatureBuilder): unit = {}
+  def emitErrorTypeSignature(sig: SignatureBuilder): unit = {}
 //
 //  def emitTypeArraySignature(parameters: Array[Type], sig: SignatureBuilder) = {
 //    sig.writeTypeArray(parameters.length)
@@ -436,27 +471,6 @@ case class Emitter(
 //      emitTypeSignature(parameters(i), sig)
 //    }
 //  }
-
-  def emitPrimitiveTypeSignature(
-      name: string,
-      sig: SignatureBuilder
-  ): unit = {
-    if (name == "int") {
-      sig.writeInt()
-    } else if (name == "bool") {
-      sig.writeBool()
-    } else if (name == "char") {
-      sig.writeChar()
-    } else if (name == "string") {
-      sig.writeString()
-    } else if (name == "unit") {
-      sig.writeUnit()
-    } else if (name == "any") {
-      sig.writeAny()
-    } else {
-      panic("unknown primitive type: " + name)
-    }
-  }
 
   def disassembleInstruction(chunk: Chunk, offset: int): int = {
     print(Pad.left(Hex.toString(offset), 4, '0') + " ")
