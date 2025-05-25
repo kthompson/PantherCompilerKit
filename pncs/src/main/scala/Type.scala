@@ -16,7 +16,7 @@ case class GenericTypeParameter(
 enum Type {
 
   /** A named type can have zero or more type arguments. E.g. `List[Int]` ->
-    * Named("panther", "List", Types.Cons(Named("", "Int"), Types.Empty))
+    * Named("panther", "List", List.Cons(Named("", "Int"), List.Nil))
     */
   case Class(
       location: TextLocation,
