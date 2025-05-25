@@ -47,12 +47,12 @@ case class Compilation(
   def printSymbols(): unit = SymbolTreePrinter(binder).printSymbol(root)
 
   def emit(output: string): unit = {
-    val emitter = new Emitter(syntaxTrees, root, assembly /*, checker, */ )
+    val emitter = new Emitter(syntaxTrees, root, binder, assembly)
 //    emitter.emit()
   }
 
   def exec(): InterpretResult = {
-    val emitter = new Emitter(syntaxTrees, root, assembly /*, checker */ )
+    val emitter = new Emitter(syntaxTrees, root, binder, assembly)
     val emitResult = emitter.emit()
 
     val stack = new Array[Value](CompilerSettings.defaultStackSize)

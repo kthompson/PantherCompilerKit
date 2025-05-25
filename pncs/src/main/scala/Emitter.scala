@@ -6,8 +6,8 @@ case class EmitResult(chunk: Chunk, metadata: Metadata)
 case class Emitter(
     syntaxTrees: List[SyntaxTree],
     root: Symbol,
+    binder: Binder,
     assembly: BoundAssembly
-    /*, checker: Checker*/
 ) {
 
   var indent = ""
@@ -230,22 +230,32 @@ case class Emitter(
   }
 
   def emitCallExpression(expr: BoundExpression.CallExpression): unit = ???
+
   def emitCastExpression(expr: BoundExpression.CastExpression): unit = ???
+
   def emitCharacterLiteral(expr: BoundExpression.CharacterLiteral): unit = ???
+
   def emitForExpression(expr: BoundExpression.ForExpression): unit = ???
+
   def emitIfExpression(expr: BoundExpression.IfExpression): unit = ???
+
   def emitIndexExpression(expr: BoundExpression.IndexExpression): unit = ???
+
   def emitIntLiteral(expr: BoundExpression.IntLiteral): unit = {
     chunk.emitOpcode(Opcode.LdcI4, expr.location.startLine)
     chunk.emitI4(expr.value, expr.location.startLine)
   }
+
   def emitMemberAccess(expr: BoundExpression.MemberAccess): unit = ???
+
   def emitNewExpression(expr: BoundExpression.NewExpression): unit = ???
+
   def emitStringLiteral(expr: BoundExpression.StringLiteral): unit = {
     val token = metadata.addString(expr.value)
     chunk.emitOpcode(Opcode.Ldstr, expr.location.startLine)
     chunk.emitI4(token.token, expr.location.startLine)
   }
+
   def emitUnaryExpression(expr: BoundExpression.UnaryExpression): unit = {
     emitExpression(expr.operand)
     expr.operator match {
@@ -263,10 +273,13 @@ case class Emitter(
       case UnaryOperatorKind.Error => ???
     }
   }
+
   def emitUnitExpression(expr: BoundExpression.UnitExpression): unit = {
     chunk.emitOpcode(Opcode.Nop, expr.location.startLine)
   }
+
   def emitVariable(expr: BoundExpression.Variable): unit = ???
+
   def emitWhileExpression(expr: BoundExpression.WhileExpression): unit = ???
 
   def emitLoadConstant(i: int, startLine: int): unit = {
