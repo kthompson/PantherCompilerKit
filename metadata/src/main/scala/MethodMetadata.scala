@@ -5,6 +5,6 @@ case class MethodMetadata(
     flags: MetadataFlags,
     var methodSig: int,
     paramList: int,
-    locals: int,
+    var locals: int,
     var address: int
 )

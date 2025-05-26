@@ -58,7 +58,7 @@ case class Compilation(
     val stack = new Array[Value](CompilerSettings.defaultStackSize)
     val heap = new Array[Value](CompilerSettings.defaultHeapSize)
 
-    val vm = VM(emitResult.chunk, emitResult.metadata, stack, heap)
+    val vm = VM(emitResult.chunk, emitResult.metadata, emitResult.entry, stack, heap)
     vm.run()
   }
 

@@ -11,13 +11,21 @@ object VmTests {
     binary()
     binaryPrecedence()
     unaryPrecedence()
+    locals()
     // TODO: dup, swap, pop
-    // TODO: local variables
     // TODO: arguments
     // TODO: call, ret
     // TODO: branch
     // TODO: conv
 
+  }
+
+  def locals(): unit = {
+    assertExecValueIntWithSetup("val x = 12", "x", 12)
+    assertExecValueIntWithSetup("val x = 12", "x + 7", 19)
+    assertExecValueIntWithSetup("val x = 12", "7 + x", 19)
+    assertExecValueIntWithSetup("val x = 12\nval y = x + 1", "x", 12)
+    assertExecValueIntWithSetup("val x = 12\nval y = x + 1", "y", 13)
   }
 
   def constants(): unit = {

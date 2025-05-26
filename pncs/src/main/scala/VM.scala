@@ -48,6 +48,7 @@ a ret instruction pops values off the stack in the following order:
 case class VM(
     chunk: Chunk,
     metadata: Metadata,
+    entry: Option[MethodToken],
     stack: Array[Value],
     heap: Array[Value]
 ) {
@@ -181,7 +182,12 @@ case class VM(
   }
 
   def run(): InterpretResult = {
-    var result = InterpretResult.Continue
+    var result = entry match {
+      case Option.None => InterpretResult.Continue
+      case Option.Some(value) =>
+        callMethod(value, -1)
+    }
+
     while (result == InterpretResult.Continue) {
       result = step()
     }
@@ -199,62 +205,27 @@ case class VM(
       case Opcode.Ret =>
         trace("ret")
         val endFrame = localp
-        if (localp == 0) {
+
+        val retAddr = stackAsInt(endFrame - 3)
+        stack(argsp) = pop()
+        sp = argsp + 1
+        argsp = stackAsInt(endFrame - 1)
+        localp = stackAsInt(endFrame - 2)
+        ip = retAddr
+
+        if (ip == -1) {
           // special case for tests.
-          // if localp is 0, then we are at the top level and have never entered a function
-          // in this case argsp is also zero and the return address
-          stack(argsp) = pop()
-          if (sp == 0) {
-            // if the stack is empty, then we are done
-            InterpretResult.OkValue(stack(0))
-          } else {
-            InterpretResult.Ok
-          }
+          // if ip is -1, then we are at the top level and have just completed main
+          // in this case argsp is also zero and the return address/value
+          InterpretResult.OkValue(stack(0))
         } else {
-          val retAddr = stackAsInt(endFrame - 3)
-          stack(argsp) = pop()
-          sp = argsp + 1
-          argsp = stackAsInt(endFrame - 1)
-          localp = stackAsInt(endFrame - 2)
-          ip = retAddr
           InterpretResult.Continue
         }
+
       case Opcode.Call =>
-        trace("call")
-        val methodTok = readMethodToken()
-        val numArgs = metadata.getMethodParameterCount(methodTok)
-        val addr = metadata.getMethodAddress(methodTok)
-        val localCount = metadata.getMethodLocals(methodTok)
-        val returnAddress = ip + 1
-        push(Value.Int(returnAddress))
-
-        // save this frames segments
-        push(Value.Int(localp))
-        push(Value.Int(argsp))
-
-        // set up the new frame
-        argsp = sp - numArgs - 3
-        localp = sp
-
-        // push the locals onto the stack
-        for (i <- 0 to (localCount - 1)) {
-          push(Value.Unit)
-        }
-
-        // argsp  = arg0            ━━━┓
-        //          arg1               ┃━━━> count
-        //          arg2               ┃
-        //          argN            ━━━┛
-        //          return address
-        //          saved localp
-        //          saved argsp
-        // localp = local0          ━━━┓
-        //          local1             ┃━━━> localCount
-        //          localN          ━━━┛
-        // sp     = stack top
-
-        ip = addr
-        InterpretResult.Continue
+        val token = readMethodToken()
+        // return after the current instruction
+        callMethod(token, ip + 1)
 
       // load constant
       case Opcode.LdcI4 =>
@@ -397,5 +368,45 @@ case class VM(
         trace("Unknown opcode " + instruction)
         InterpretResult.CompileError
     }
+  }
+
+  def callMethod(
+      methodTok: MethodToken,
+      returnAddress: int
+  ): InterpretResult = {
+    val name = metadata.getMethodName(methodTok)
+    trace("call " + name)
+    val numArgs = metadata.getMethodParameterCount(methodTok)
+    val addr = metadata.getMethodAddress(methodTok)
+    val localCount = metadata.getMethodLocals(methodTok)
+    push(Value.Int(returnAddress))
+
+    // save this frames segments
+    push(Value.Int(localp))
+    push(Value.Int(argsp))
+
+    // set up the new frame
+    argsp = sp - numArgs - 3
+    localp = sp
+
+    // push the locals onto the stack
+    for (i <- 0 to (localCount - 1)) {
+      push(Value.Unit)
+    }
+
+    // argsp  = arg0            ━━━┓
+    //          arg1               ┃━━━> count
+    //          arg2               ┃
+    //          argN            ━━━┛
+    //          return address
+    //          saved localp
+    //          saved argsp
+    // localp = local0          ━━━┓
+    //          local1             ┃━━━> localCount
+    //          localN          ━━━┛
+    // sp     = stack top
+
+    ip = addr
+    InterpretResult.Continue
   }
 }

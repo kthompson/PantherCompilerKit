@@ -74,6 +74,16 @@ object Helpers {
     }
   }
 
+  def assertExecValueIntWithSetup(
+      setup: string,
+      program: string,
+      expected: int
+  ): unit = {
+    test(program)
+    val value = execValue(setup + "\n\n" + program)
+    assertValueInt(value, expected)
+  }
+
   def assertExecValueInt(
       program: string,
       expected: int

@@ -70,6 +70,48 @@ case class Metadata() {
     TypeDefToken(typeDef)
   }
 
+  def findTypeDefForMethod(method: MethodToken): TypeDefToken = {
+    val token = _findTypeDefForMethod(method.token, 0, typeDefs.size - 1)
+    TypeDefToken(token)
+  }
+
+  def _findTypeDefForMethod(
+      method: int,
+      minTypeDef: int,
+      maxTypeDef: int
+  ): int = {
+    // method should be a number between the methodList of two typeDefs
+    // do a binary search to find the typeDef that contains the method
+    val minMethod = typeDefs.typeDefs(minTypeDef).methodList.token
+    val maxMethod = typeDefs.typeDefs(maxTypeDef).methodList.token
+
+    if (minTypeDef == maxTypeDef) {
+      minTypeDef
+    } else if (method >= maxMethod) {
+      maxTypeDef
+    } else {
+      val midTypeDef = (minTypeDef + maxTypeDef) / 2
+      val midMethod = typeDefs.typeDefs(midTypeDef).methodList.token
+
+      if (method < midMethod) {
+        _findTypeDefForMethod(method, minTypeDef, midTypeDef)
+      } else if (method > midMethod) {
+        _findTypeDefForMethod(method, midTypeDef, maxTypeDef)
+      } else {
+        midTypeDef
+      }
+    }
+  }
+
+  def getMethodName(method: MethodToken): string = {
+    val m = methods.get(method)
+    val name = strings.get(m.name)
+    val typeDef = findTypeDefForMethod(method)
+    val typeDefName = strings.get(typeDefs.get(typeDef).name)
+
+    typeDefName + "." + name
+  }
+
   def getMethodAddress(method: MethodToken): int =
     methods.get(method).address
 
@@ -80,7 +122,7 @@ case class Metadata() {
     val methodId = method.token
     val paramList = methods.get(method).paramList
     if (methodId + 1 >= methods.size) {
-      params.size - paramList
+      params.size - 1 - paramList
     } else {
       val nextMethod = methods.methods(methodId + 1)
       nextMethod.paramList - paramList

@@ -21,6 +21,8 @@ case class TypeDefTable() {
     } else ()
   }
 
+  def get(token: TypeDefToken): TypeDefMetadata = typeDefs(token.token)
+
   def addTypeDef(
       name: StringToken,
       ns: StringToken,
