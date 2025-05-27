@@ -192,6 +192,7 @@ case class VM(
     val instruction = readI4()
     instruction match {
       case Opcode.Nop =>
+        trace("nop")
         InterpretResult.Continue
 
       // function ops
@@ -219,6 +220,7 @@ case class VM(
           InterpretResult.Continue
         }
       case Opcode.Call =>
+        trace("call")
         val methodTok = readMethodToken()
         val numArgs = metadata.getMethodParameterCount(methodTok)
         val addr = metadata.getMethodAddress(methodTok)
@@ -267,35 +269,47 @@ case class VM(
 
       // load args
       case Opcode.Ldarg0 =>
+        trace("ldarg0")
         push(stack(argsp))
       case Opcode.Ldarg1 =>
+        trace("ldarg1")
         push(stack(argsp + 1))
       case Opcode.Ldarg2 =>
+        trace("ldarg2")
         push(stack(argsp + 2))
       case Opcode.Ldarg3 =>
+        trace("ldarg3")
         push(stack(argsp + 3))
 
       // load locals
       case Opcode.Ldloc0 =>
+        trace("ldloc0")
         push(stack(localp))
       case Opcode.Ldloc1 =>
+        trace("ldloc1")
         push(stack(localp + 1))
       case Opcode.Ldloc2 =>
+        trace("ldloc2")
         push(stack(localp + 2))
       case Opcode.Ldloc3 =>
+        trace("ldloc3")
         push(stack(localp + 3))
 
       // store locals
       case Opcode.Stloc0 =>
+        trace("stloc0")
         stack(localp) = pop()
         InterpretResult.Continue
       case Opcode.Stloc1 =>
+        trace("stloc1")
         stack(localp + 1) = pop()
         InterpretResult.Continue
       case Opcode.Stloc2 =>
+        trace("stloc2")
         stack(localp + 2) = pop()
         InterpretResult.Continue
       case Opcode.Stloc3 =>
+        trace("stloc3")
         stack(localp + 3) = pop()
         InterpretResult.Continue
 
