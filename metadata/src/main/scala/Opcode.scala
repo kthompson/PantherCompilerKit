@@ -5,15 +5,21 @@ object Opcode {
   val Ldarg1 = 2 // load argument 1
   val Ldarg2 = 3 // load argument 2
   val Ldarg3 = 4 // load argument 3
-  val Ldloc0 = 5 // load local 0
-  val Ldloc1 = 6 // load local 1
-  val Ldloc2 = 7 // load local 2
-  val Ldloc3 = 8 // load local 3
-  val Stloc0 = 9 // store local 0
-  val Stloc1 = 10 // store local 1
-  val Stloc2 = 11 // store local 2
-  val Stloc3 = 12 // store local 3
-  val Ret = 13 // return
+  val Ldargn = 5 // load argument n
+
+  val Ldloc0 = 6 // load local 0
+  val Ldloc1 = 7 // load local 1
+  val Ldloc2 = 8 // load local 2
+  val Ldloc3 = 9 // load local 3
+  val Ldlocn = 10 // load local n
+
+  val Stloc0 = 11 // store local 0
+  val Stloc1 = 12 // store local 1
+  val Stloc2 = 13 // store local 2
+  val Stloc3 = 14 // store local 3
+  val Stlocn = 15 // store local n
+
+  val Ret = 20 // return
 
   // i4 operand
   //  val Ldargn = 20 // load argument n
