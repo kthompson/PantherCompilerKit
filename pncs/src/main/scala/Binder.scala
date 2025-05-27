@@ -1548,91 +1548,98 @@ class Binder(
         }
 
       case List.Cons(member, tail) =>
-        member match {
-          case member: MemberSyntax.ObjectDeclarationSyntax =>
-            _splitMembers(
-              ns,
-              trees,
-              tail,
-              List.Cons(Namespaced(ns, member), objects),
-              classes,
-              enums,
-              fields,
-              functions,
-              globalStatements
+        // TODO: rework this so its more performant
+        // complete remaining members
+        val rest = _splitMembers(
+          ns,
+          trees,
+          tail,
+          objects,
+          classes,
+          enums,
+          fields,
+          functions,
+          globalStatements
+        )
+
+        addMember(ns, member, rest)
+    }
+  }
+
+  def addMember(
+      ns: List[string],
+      member: MemberSyntax,
+      rest: Members
+  ): Members = {
+    member match {
+      case member: MemberSyntax.ObjectDeclarationSyntax =>
+        Members(
+          List.Cons(Namespaced(ns, member), rest.objects),
+          rest.classes,
+          rest.functions,
+          rest.enums,
+          rest.fields,
+          rest.globalStatements
+        )
+      case member: MemberSyntax.ClassDeclarationSyntax =>
+        Members(
+          rest.objects,
+          List.Cons(Namespaced(ns, member), rest.classes),
+          rest.functions,
+          rest.enums,
+          rest.fields,
+          rest.globalStatements
+        )
+      case member: MemberSyntax.FunctionDeclarationSyntax =>
+        Members(
+          rest.objects,
+          rest.classes,
+          List.Cons(member, rest.functions),
+          rest.enums,
+          rest.fields,
+          rest.globalStatements
+        )
+      case member: MemberSyntax.EnumDeclarationSyntax =>
+        Members(
+          rest.objects,
+          rest.classes,
+          rest.functions,
+          List.Cons(Namespaced(ns, member), rest.enums),
+          rest.fields,
+          rest.globalStatements
+        )
+      case member: MemberSyntax.GlobalStatementSyntax =>
+        Members(
+          rest.objects,
+          rest.classes,
+          rest.functions,
+          rest.enums,
+          rest.fields,
+          List.Cons(member, rest.globalStatements)
+        )
+      case variable: MemberSyntax.VariableDeclaration =>
+        // convert variable declaration to a global statement
+        val statement = new MemberSyntax.GlobalStatementSyntax(
+          StatementSyntax.ExpressionStatement(
+            Expression.AssignmentExpression(
+              Expression.IdentifierName(
+                SimpleNameSyntax.IdentifierNameSyntax(variable.identifier)
+              ),
+              variable.equalToken,
+              variable.expression
             )
-          case member: MemberSyntax.ClassDeclarationSyntax =>
-            _splitMembers(
-              ns,
-              trees,
-              tail,
-              objects,
-              List.Cons(Namespaced(ns, member), classes),
-              enums,
-              fields,
-              functions,
-              globalStatements
-            )
-          case member: MemberSyntax.FunctionDeclarationSyntax =>
-            _splitMembers(
-              ns,
-              trees,
-              tail,
-              objects,
-              classes,
-              enums,
-              fields,
-              List.Cons(member, functions),
-              globalStatements
-            )
-          case member: MemberSyntax.EnumDeclarationSyntax =>
-            _splitMembers(
-              ns,
-              trees,
-              tail,
-              objects,
-              classes,
-              List.Cons(Namespaced(ns, member), enums),
-              fields,
-              functions,
-              globalStatements
-            )
-          case member: MemberSyntax.GlobalStatementSyntax =>
-            _splitMembers(
-              ns,
-              trees,
-              tail,
-              objects,
-              classes,
-              enums,
-              fields,
-              functions,
-              List.Cons(member, globalStatements)
-            )
-          case variable: MemberSyntax.VariableDeclaration =>
-            val statement = new MemberSyntax.GlobalStatementSyntax(
-              StatementSyntax.ExpressionStatement(
-                Expression.AssignmentExpression(
-                  Expression.IdentifierName(
-                    SimpleNameSyntax.IdentifierNameSyntax(variable.identifier)
-                  ),
-                  variable.equalToken,
-                  variable.expression
-                )
-              )
-            )
-            _splitMembers(
-              ns,
-              trees,
-              tail,
-              objects,
-              classes,
-              enums,
-              List.Cons(variable, fields),
-              functions,
-              List.Cons(statement, globalStatements)
-            )
-        }
+          )
+        )
+
+        // merge the variable into the other members
+        Members(
+          rest.objects,
+          rest.classes,
+          rest.functions,
+          rest.enums,
+          List.Cons(variable, rest.fields),
+          List.Cons(statement, rest.globalStatements)
+        )
     }
   }
 
