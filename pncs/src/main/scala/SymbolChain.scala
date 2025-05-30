@@ -6,15 +6,15 @@ object SymbolChain {
     if (symbol.kind == SymbolKind.Block) {
       fromList(symbol.members())
     } else {
-      ChainModule.concat(Chain.Singleton(symbol), fromList(symbol.members()))
+      fromList(symbol.members()).prepend(symbol)
     }
   }
 
   def fromList(symbols: List[Symbol]): Chain[Symbol] = {
     symbols match {
-      case List.Nil => Chain.Empty
+      case List.Nil => Chain.Empty()
       case List.Cons(head, tail) =>
-        ChainModule.concat(fromOne(head), fromList(tail))
+        fromOne(head).concat(fromList(tail))
     }
   }
 }

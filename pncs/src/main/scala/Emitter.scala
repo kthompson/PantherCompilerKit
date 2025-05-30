@@ -31,7 +31,7 @@ case class Emitter(
     syntaxTrees: List[SyntaxTree],
     root: Symbol,
     binder: Binder,
-    assembly: BoundAssembly
+    assembly: LoweredAssembly
 ) {
 
   var indent = ""
@@ -158,56 +158,50 @@ case class Emitter(
     assembly.functionBodies.get(symbol) match {
       case Option.None => false
       case Option.Some(value) =>
-        emitExpression(value, context)
+        emitBlock(value, context)
         chunk.emitOpcode(Opcode.Ret, symbol.location.endLine)
         context.method.address = context.startAddress
         true
     }
   }
 
-  def emitExpression(expr: BoundExpression, context: EmitContext): unit = {
+  def emitBlock(block: LoweredBlock, context: EmitContext): unit = {
+    emitStatements(block.statements, context)
+    emitExpression(block.expression, context)
+  }
+
+  def emitExpression(expr: LoweredExpression, context: EmitContext): unit = {
     expr match {
-      case BoundExpression.Error => panic("emitExpression: Error")
-      case value: BoundExpression.Assignment =>
-        emitAssignment(value, context)
-      case value: BoundExpression.BinaryExpression =>
+      case LoweredExpression.Error => panic("emitExpression: Error")
+      case value: LoweredExpression.BinaryExpression =>
         emitBinaryExpression(value, context)
-      case value: BoundExpression.Block => emitBlock(value, context)
-      case value: BoundExpression.BooleanLiteral =>
+      case value: LoweredExpression.BooleanLiteral =>
         emitBooleanLiteral(value, context)
-      case value: BoundExpression.CallExpression =>
+      case value: LoweredExpression.Call =>
         emitCallExpression(value, context)
-      case value: BoundExpression.CastExpression =>
+      case value: LoweredExpression.Cast =>
         emitCastExpression(value, context)
-      case value: BoundExpression.CharacterLiteral =>
+      case value: LoweredExpression.CharacterLiteral =>
         emitCharacterLiteral(value, context)
-      case value: BoundExpression.ForExpression =>
-        emitForExpression(value, context)
-      case value: BoundExpression.IfExpression =>
-        emitIfExpression(value, context)
-      case value: BoundExpression.IndexExpression =>
-        emitIndexExpression(value, context)
-      case value: BoundExpression.IntLiteral =>
+      case value: LoweredExpression.IntegerLiteral =>
         emitIntLiteral(value, context)
-      case value: BoundExpression.MemberAccess =>
+      case value: LoweredExpression.MemberAccess =>
         emitMemberAccess(value, context)
-      case value: BoundExpression.NewExpression =>
+      case value: LoweredExpression.New =>
         emitNewExpression(value, context)
-      case value: BoundExpression.StringLiteral =>
+      case value: LoweredExpression.StringLiteral =>
         emitStringLiteral(value, context)
-      case value: BoundExpression.UnaryExpression =>
+      case value: LoweredExpression.Unary =>
         emitUnaryExpression(value, context)
-      case value: BoundExpression.UnitExpression =>
-        emitUnitExpression(value, context)
-      case value: BoundExpression.Variable =>
+      case value: LoweredExpression.Variable =>
         emitVariable(value, context)
-      case value: BoundExpression.WhileExpression =>
-        emitWhileExpression(value, context)
+      case LoweredExpression.Unit =>
+        emitUnitExpression(context)
     }
   }
 
-  def emitAssignment(
-      expr: BoundExpression.Assignment,
+  def emitAssignmentStatement(
+      expr: LoweredStatement.Assignment,
       context: EmitContext
   ): unit = {
     emitExpression(expr.expression, context)
@@ -221,7 +215,7 @@ case class Emitter(
   }
 
   def emitBinaryExpression(
-      expr: BoundExpression.BinaryExpression,
+      expr: LoweredExpression.BinaryExpression,
       context: EmitContext
   ): unit = {
     emitExpression(expr.left, context)
@@ -292,13 +286,8 @@ case class Emitter(
     }
   }
 
-  def emitBlock(expr: BoundExpression.Block, context: EmitContext): unit = {
-    emitStatements(expr.statements, context)
-    emitExpression(expr.expression, context)
-  }
-
   def emitBooleanLiteral(
-      expr: BoundExpression.BooleanLiteral,
+      expr: LoweredExpression.BooleanLiteral,
       context: EmitContext
   ): unit = {
     val value = if (expr.value) 1 else 0
@@ -306,37 +295,22 @@ case class Emitter(
   }
 
   def emitCallExpression(
-      expr: BoundExpression.CallExpression,
+      expr: LoweredExpression.Call,
       context: EmitContext
   ): unit = ???
 
   def emitCastExpression(
-      expr: BoundExpression.CastExpression,
+      expr: LoweredExpression.Cast,
       context: EmitContext
   ): unit = ???
 
   def emitCharacterLiteral(
-      expr: BoundExpression.CharacterLiteral,
-      context: EmitContext
-  ): unit = ???
-
-  def emitForExpression(
-      expr: BoundExpression.ForExpression,
-      context: EmitContext
-  ): unit = ???
-
-  def emitIfExpression(
-      expr: BoundExpression.IfExpression,
-      context: EmitContext
-  ): unit = ???
-
-  def emitIndexExpression(
-      expr: BoundExpression.IndexExpression,
+      expr: LoweredExpression.CharacterLiteral,
       context: EmitContext
   ): unit = ???
 
   def emitIntLiteral(
-      expr: BoundExpression.IntLiteral,
+      expr: LoweredExpression.IntegerLiteral,
       context: EmitContext
   ): unit = {
     chunk.emitOpcode(Opcode.LdcI4, expr.location.startLine)
@@ -344,17 +318,17 @@ case class Emitter(
   }
 
   def emitMemberAccess(
-      expr: BoundExpression.MemberAccess,
+      expr: LoweredExpression.MemberAccess,
       context: EmitContext
   ): unit = ???
 
   def emitNewExpression(
-      expr: BoundExpression.NewExpression,
+      expr: LoweredExpression.New,
       context: EmitContext
   ): unit = ???
 
   def emitStringLiteral(
-      expr: BoundExpression.StringLiteral,
+      expr: LoweredExpression.StringLiteral,
       context: EmitContext
   ): unit = {
     val token = metadata.addString(expr.value)
@@ -363,7 +337,7 @@ case class Emitter(
   }
 
   def emitUnaryExpression(
-      expr: BoundExpression.UnaryExpression,
+      expr: LoweredExpression.Unary,
       context: EmitContext
   ): unit = {
     emitExpression(expr.operand, context)
@@ -384,13 +358,15 @@ case class Emitter(
   }
 
   def emitUnitExpression(
-      expr: BoundExpression.UnitExpression,
       context: EmitContext
   ): unit = {
-    chunk.emitOpcode(Opcode.Nop, expr.location.startLine)
+    chunk.emitOpcode(Opcode.Nop, -1)
   }
 
-  def emitVariable(expr: BoundExpression.Variable, context: EmitContext): unit = {
+  def emitVariable(
+      expr: LoweredExpression.Variable,
+      context: EmitContext
+  ): unit = {
     context.getLocalIndex(expr.symbol) match {
       case index if index < 4 =>
         chunk.emitOpcode(Opcode.Ldloc0 + index, expr.location.startLine)
@@ -400,41 +376,74 @@ case class Emitter(
     }
   }
 
-  def emitWhileExpression(
-      expr: BoundExpression.WhileExpression,
-      context: EmitContext
-  ): unit = ???
-
   def emitLoadConstant(i: int, startLine: int): unit = {
     chunk.emitOpcode(Opcode.LdcI4, startLine)
     chunk.emitI4(i, startLine)
   }
 
   def emitStatements(
-      statements: List[BoundStatement],
+      statements: Chain[LoweredStatement],
       context: EmitContext
   ): unit = {
-    statements match {
-      case List.Nil =>
-      case List.Cons(statement, rest) =>
+    statements.uncons() match {
+      case Option.None =>
+      case Option.Some(Tuple2(statement, rest)) =>
         emitStatement(statement, context)
         emitStatements(rest, context)
     }
   }
 
-  def emitStatement(statement: BoundStatement, context: EmitContext): unit = {
+  def emitStatement(statement: LoweredStatement, context: EmitContext): unit = {
     statement match {
-      case BoundStatement.Error => panic("emitStatement: Error")
+      case LoweredStatement.Error => panic("emitStatement: Error")
 
-      case value: BoundStatement.ExpressionStatement =>
+      case value: LoweredStatement.ExpressionStatement =>
         emitExpressionStatement(value, context)
-      case value: BoundStatement.VariableDeclaration =>
+      case value: LoweredStatement.VariableDeclaration =>
         emitVariableDeclaration(value, context)
+      case statement: LoweredStatement.Assignment =>
+        emitAssignmentStatement(statement, context)
+      case statement: LoweredStatement.ConditionalGoto =>
+        emitConditionalGotoStatement(statement, context)
+      case statement: LoweredStatement.Goto =>
+        emitGotoStatement(statement, context)
+      case statement: LoweredStatement.LabelDeclaration =>
+        emitLabelDeclarationStatement(statement, context)
+      case statement: LoweredStatement.Return =>
+        emitReturnStatement(statement, context)
     }
   }
 
+  def emitConditionalGotoStatement(
+      statement: LoweredStatement.ConditionalGoto,
+      context: EmitContext
+  ): unit = {
+    ???
+  }
+
+  def emitGotoStatement(
+      statement: LoweredStatement.Goto,
+      context: EmitContext
+  ): unit = {
+    ???
+  }
+
+  def emitLabelDeclarationStatement(
+      statement: LoweredStatement.LabelDeclaration,
+      context: EmitContext
+  ): unit = {
+    ???
+  }
+
+  def emitReturnStatement(
+      statement: LoweredStatement.Return,
+      context: EmitContext
+  ): unit = {
+    ???
+  }
+
   def emitExpressionStatement(
-      statement: BoundStatement.ExpressionStatement,
+      statement: LoweredStatement.ExpressionStatement,
       context: EmitContext
   ): unit = {
     emitExpression(statement.expression, context)
@@ -442,7 +451,7 @@ case class Emitter(
   }
 
   def emitVariableDeclaration(
-      statement: BoundStatement.VariableDeclaration,
+      statement: LoweredStatement.VariableDeclaration,
       context: EmitContext
   ): unit = ???
 
@@ -470,6 +479,8 @@ case class Emitter(
       emitMethodMetadata(symbol)
     } else if (symbol.kind == SymbolKind.Parameter) {
       emitParameterMetadata(symbol)
+    } else if (symbol.kind == SymbolKind.Local) {
+      // TODO: emit local metadata?
     } else {
       println("emitSymbolMetadata: unknown symbol kind " + symbol.kind)
       ???

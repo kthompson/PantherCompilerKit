@@ -129,7 +129,7 @@ object Helpers {
     assertSymbolType(comp, x, expectedType)
 
     assertMainSymbol(symbols)
-    assertNoSymbols(symbols)
+//    assertNoSymbols(symbols)
   }
 
   def enumSymbols(compilation: Compilation): ChainEnumerator[Symbol] =

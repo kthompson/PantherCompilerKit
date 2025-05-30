@@ -133,12 +133,6 @@ case class Symbol(
   ): Either[TextLocation, Symbol] =
     tryDefine(name, location, SymbolKind.Field)
 
-  def tryDefineLocal(
-      name: string,
-      location: TextLocation
-  ): Either[TextLocation, Symbol] =
-    tryDefine(name, location, SymbolKind.Local)
-
   def defineField(name: string, location: TextLocation): Symbol =
     tryDefineField(name, location) match {
       case Either.Left(_)       => panic("Symbol " + name + " already exists!")
@@ -169,6 +163,18 @@ case class Symbol(
 
   def defineParameter(name: string, location: TextLocation): Symbol =
     tryDefineParameter(name, location) match {
+      case Either.Left(_)       => panic("Symbol " + name + " already exists!")
+      case Either.Right(symbol) => symbol
+    }
+
+  def tryDefineLocal(
+                      name: string,
+                      location: TextLocation
+                    ): Either[TextLocation, Symbol] =
+    tryDefine(name, location, SymbolKind.Local)
+
+  def defineLocal(name: string, location: TextLocation): Symbol =
+    tryDefineLocal(name, location) match {
       case Either.Left(_)       => panic("Symbol " + name + " already exists!")
       case Either.Right(symbol) => symbol
     }

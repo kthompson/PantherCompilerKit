@@ -12,12 +12,43 @@ object VmTests {
     binaryPrecedence()
     unaryPrecedence()
     locals()
+
+//    ifExpressions()
+
     // TODO: dup, swap, pop
     // TODO: arguments
     // TODO: call, ret
     // TODO: branch
     // TODO: conv
+    // TODO: static field access
+    // TODO: instance creation
+    // TODO: instance field access
 
+  }
+
+  def ifExpressions(): unit = {
+    val setup = "val x = 12"
+    assertExecValueIntWithSetup(setup, "if (x == 12) 1 else 2", 1)
+    assertExecValueIntWithSetup(setup, "if (x != 12) 1 else 2", 2)
+    assertExecValueIntWithSetup(setup, "if (x < 12) 1 else 2", 2)
+    assertExecValueIntWithSetup(setup, "if (x > 12) 1 else 2", 2)
+    assertExecValueIntWithSetup(setup, "if (x <= 12) 1 else 2", 1)
+    assertExecValueIntWithSetup(setup, "if (x >= 12) 1 else 2", 1)
+    assertExecValueIntWithSetup(
+      setup,
+      "if (x < -10) -1 else if (x > -20) -2 else -3",
+      -1
+    )
+    assertExecValueIntWithSetup(
+      setup,
+      "if (x < -10) -1 else if (x > -20) -2 else -3 + x",
+      -13
+    )
+    assertExecValueIntWithSetup(
+      setup,
+      "if (x < -10) -1 else if (x > -20) -2 else -3 + x",
+      -13
+    )
   }
 
   def locals(): unit = {
