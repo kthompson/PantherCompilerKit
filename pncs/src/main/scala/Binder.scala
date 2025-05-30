@@ -296,7 +296,6 @@ class Binder(
     // then bind all function bodies
 
     BoundAssembly(
-      List.Nil,
       diagnosticBag.diagnostics,
       functionBodies,
       Option.Some(main)

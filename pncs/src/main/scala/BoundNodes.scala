@@ -1,7 +1,6 @@
 import panther._
 
 case class BoundAssembly(
-    definitions: List[BoundDefinition],
     diagnostics: Diagnostics,
     functionBodies: Dictionary[Symbol, BoundExpression],
     entryPoint: Option[Symbol]

@@ -22,6 +22,12 @@ enum Chain[+T] {
 }
 
 object ChainModule {
+  def append[A](left: Chain[A], right: A): Chain[A] =
+    left match {
+      case Chain.Empty => Chain.Singleton(right)
+      case _           => Chain.Append(left, Chain.Singleton(right))
+    }
+
   def concat[A](left: Chain[A], right: Chain[A]): Chain[A] =
     if (left.isEmpty()) right
     else if (right.isEmpty()) left

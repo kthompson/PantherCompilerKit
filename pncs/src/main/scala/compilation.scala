@@ -25,12 +25,15 @@ object MakeCompilation {
 
     val assembly = binder.bind()
 
+    val lowered = Lower.lower(assembly)
+
     new Compilation(
       trees,
       diagnosticBag.diagnostics,
       rootSymbol,
       binder,
-      assembly
+      assembly,
+      lowered
     )
   }
 }
@@ -40,7 +43,8 @@ case class Compilation(
     diagnostics: Diagnostics,
     root: Symbol,
     binder: Binder,
-    assembly: BoundAssembly
+    assembly: BoundAssembly,
+    lowered: LoweredAssembly
 ) {
   def getSymbols(): Chain[Symbol] = SymbolChain.fromList(root.members())
 
@@ -58,7 +62,8 @@ case class Compilation(
     val stack = new Array[Value](CompilerSettings.defaultStackSize)
     val heap = new Array[Value](CompilerSettings.defaultHeapSize)
 
-    val vm = VM(emitResult.chunk, emitResult.metadata, emitResult.entry, stack, heap)
+    val vm =
+      VM(emitResult.chunk, emitResult.metadata, emitResult.entry, stack, heap)
     vm.run()
   }
 
