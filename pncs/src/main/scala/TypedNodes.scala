@@ -54,7 +54,8 @@ enum BoundExpression {
   case BooleanLiteral(location: TextLocation, value: bool)
   case CallExpression(
       location: TextLocation,
-      method: BoundExpression,
+      receiver: Option[BoundExpression],
+      methodSymbol: Symbol,
       genericArguments: List[Type],
       arguments: List[BoundExpression],
       resultType: Type

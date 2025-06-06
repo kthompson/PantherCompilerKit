@@ -12,12 +12,27 @@ object VmTests {
     binaryPrecedence()
     unaryPrecedence()
     locals()
+    
+    calls()
     // TODO: dup, swap, pop
     // TODO: arguments
     // TODO: call, ret
     // TODO: branch
     // TODO: conv
 
+  }
+  
+  def calls(): unit = {
+    exec("println(12)")
+    exec("print(12)")
+    exec("print(\"hello\")")
+    exec("print('a')")
+    exec("print(true)")
+    exec("print(12 + 12)")
+    exec("print(12 == 12)")
+    exec("print(12 < 12)")
+    exec("print(true && false)")
+    exec("print(true || false)")
   }
 
   def locals(): unit = {

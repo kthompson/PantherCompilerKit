@@ -205,6 +205,17 @@ case class Emitter(
         emitWhileExpression(value, context)
     }
   }
+  def emitExpressions(
+      exprs: List[BoundExpression],
+      context: EmitContext
+  ): unit = {
+    exprs match {
+      case List.Nil =>
+      case List.Cons(expr, rest) =>
+        emitExpression(expr, context)
+        emitExpressions(rest, context)
+    }
+  }
 
   def emitAssignment(
       expr: BoundExpression.Assignment,
@@ -308,7 +319,13 @@ case class Emitter(
   def emitCallExpression(
       expr: BoundExpression.CallExpression,
       context: EmitContext
-  ): unit = ???
+  ): unit = {
+    // TODO: assuming all static atm
+//    emitExpression(expr.method)
+    emitExpressions(expr.arguments, context)
+
+    ???
+  }
 
   def emitCastExpression(
       expr: BoundExpression.CastExpression,
@@ -390,7 +407,10 @@ case class Emitter(
     chunk.emitOpcode(Opcode.Nop, expr.location.startLine)
   }
 
-  def emitVariable(expr: BoundExpression.Variable, context: EmitContext): unit = {
+  def emitVariable(
+      expr: BoundExpression.Variable,
+      context: EmitContext
+  ): unit = {
     context.getLocalIndex(expr.symbol) match {
       case index if index < 4 =>
         chunk.emitOpcode(Opcode.Ldloc0 + index, expr.location.startLine)

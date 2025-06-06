@@ -52,6 +52,16 @@ object Helpers {
     }
   }
 
+  def exec(program: string): unit = {
+    test(program)
+    val compilation = mkCompilation(program)
+    compilation.exec() match {
+      case InterpretResult.Ok =>
+      case result =>
+        failed("Expected exec no result, got: " + result)
+    }
+  }
+
   def assertValueInt(value: Value, expected: int): unit = {
     value match {
       case Value.Int(v) =>

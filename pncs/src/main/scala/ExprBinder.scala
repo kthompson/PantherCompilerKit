@@ -443,7 +443,7 @@ case class ExprBinder(
     val argTypes = binder.getTypes(args)
     if (typesWithError(List.Cons(functionType, argTypes))) {
       BoundExpression.Error
-    } else
+    } else {
       functionType match {
         case func: Type.Function =>
           bindFunctionCall(function, func, args, scope)
@@ -472,6 +472,7 @@ case class ExprBinder(
         case _ =>
           boundErrorExpression("bindCallExpression")
       }
+    }
     //    {
     //          val inference = new Inference(diagnosticBag)
     //          val methodType = inference.instantiate(
@@ -607,7 +608,8 @@ case class ExprBinder(
 
       BoundExpression.CallExpression(
         location,
-        function,
+        Option.Some(function),
+        ???,
         List.Nil,
         boundArgs,
         functionType.returnType
