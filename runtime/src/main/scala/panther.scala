@@ -18,7 +18,7 @@ object system {
       }
 
       def readAllText(file: string): string = {
-        val source = scala.io.Source.fromFile(file)
+        val source = scala.io.Source.fromFile(file, "utf-8")
         val lines =
           try source.mkString
           finally source.close()
