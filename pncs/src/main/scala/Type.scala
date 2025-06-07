@@ -90,7 +90,10 @@ enum Type {
       case List.Nil => paramsStr
       case List.Cons(param, tail) =>
         val sep = if (paramsStr == "") "" else ", "
-        _params(paramsStr + sep + param.symbol.name + ": " + param.typ.toString, tail)
+        _params(
+          paramsStr + sep + param.symbol.name + ": " + param.typ.toString,
+          tail
+        )
     }
   }
 

@@ -168,9 +168,9 @@ case class Symbol(
     }
 
   def tryDefineLocal(
-                      name: string,
-                      location: TextLocation
-                    ): Either[TextLocation, Symbol] =
+      name: string,
+      location: TextLocation
+  ): Either[TextLocation, Symbol] =
     tryDefine(name, location, SymbolKind.Local)
 
   def defineLocal(name: string, location: TextLocation): Symbol =

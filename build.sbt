@@ -76,12 +76,13 @@ lazy val pnc = project
 
     // Custom compile task
     Compile / compile := Def.taskDyn {
+      val cp = (pncs / Runtime / fullClasspath).value.files
+        .mkString(java.io.File.pathSeparator)
+      val log = streams.value.log
+
       (pncs / transpile).map { _ =>
-        val log = streams.value.log
         val sourceDir = sourceDirectory.value
         val pnFiles = (sourceDir ** "*.pn").get
-        val cp = (pncs / Runtime / fullClasspath).value.files
-          .mkString(java.io.File.pathSeparator)
         val mainCls = (pncs / Compile / mainClass).value
           .getOrElse(sys.error("No main class in pncs"))
 
