@@ -1,5 +1,5 @@
 object MakeTokenList {
-  def create(scanner: Lexer): Array<SyntaxToken> = {
+  def create(scanner: Lexer): Array[SyntaxToken] = {
     val tokenList = new TokenList()
     _buildTokenList(scanner, tokenList)
   }
@@ -7,7 +7,7 @@ object MakeTokenList {
   def _buildTokenList(
       scanner: Lexer,
       tokenList: TokenList
-  ): Array<SyntaxToken> = {
+  ): Array[SyntaxToken] = {
     val token = scanner.scan()
     tokenList.add(token)
     if (token.kind == SyntaxKind.EndOfInputToken) {

@@ -1,7 +1,7 @@
 using panther
 
 object Program {
-  def main(args: Array<string>): unit = {
+  def main(args: Array[string]): unit = {
     print("pncs")
     for (i <- 0 to (args.length - 1)) {
       print(" " + args(i))
@@ -17,7 +17,7 @@ object Program {
     }
   }
 
-  def hasDiagnostics(trees: List<SyntaxTree>): bool = {
+  def hasDiagnostics(trees: List[SyntaxTree]): bool = {
     trees match {
       case List.Nil => false
       case List.Cons(head, tail) =>
@@ -28,12 +28,12 @@ object Program {
     }
   }
 
-  def run(transpile: bool, args: Array<string>): unit = {
+  def run(transpile: bool, args: Array[string]): unit = {
     val firstFile = if (transpile) 2 else 1
     val numTrees = args.length - firstFile
     val outputFile = args(firstFile - 1)
     printLogo()
-    var trees: List<SyntaxTree> = List.Nil
+    var trees: List[SyntaxTree] = List.Nil
     for (x <- firstFile to (args.length - 1)) {
       print("parsing " + args(x) + "...")
       trees = List.Cons(MakeSyntaxTree.parseFile(args(x)), trees)

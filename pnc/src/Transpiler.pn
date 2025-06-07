@@ -9,7 +9,7 @@ using SimpleNameSyntax
 class TranspilerContext(sb: StringBuilder)
 
 class Transpiler(
-    syntaxTrees: List<SyntaxTree>,
+    syntaxTrees: List[SyntaxTree],
     outputPath: string
 ) {
   var inUsing = false
@@ -21,7 +21,7 @@ class Transpiler(
     _transpile(syntaxTrees)
   }
 
-  def _transpile(trees: List<SyntaxTree>): unit = {
+  def _transpile(trees: List[SyntaxTree]): unit = {
     trees match {
       case List.Nil => ()
       case List.Cons(tree, tail) =>
@@ -60,7 +60,7 @@ class Transpiler(
   }
 
   def transpileUsingDirectives(
-      usings: Array<UsingDirectiveSyntax>,
+      usings: Array[UsingDirectiveSyntax],
       context: TranspilerContext
   ): unit =
     for (x <- 0 to (usings.length - 1)) {
@@ -124,7 +124,7 @@ class Transpiler(
   }
 
   def transpileTrivia(
-      leading: Array<SyntaxTrivia>,
+      leading: Array[SyntaxTrivia],
       context: TranspilerContext
   ): unit = {
     for (x <- 0 to (leading.length - 1)) {
@@ -134,7 +134,7 @@ class Transpiler(
   }
 
   def transpileMembers(
-      members: List<MemberSyntax>,
+      members: List[MemberSyntax],
       context: TranspilerContext
   ): unit = {
     members match {
@@ -179,25 +179,25 @@ class Transpiler(
   }
 
   def transpileGenericParameters(
-      typeParameters: Option<GenericParametersSyntax>,
+      typeParameters: Option[GenericParametersSyntax],
       context: TranspilerContext
   ): unit = {
     typeParameters match {
       case Option.Some(value) =>
-        transpileTokenWithText(value.lessThanToken, "<", context)
+        transpileToken(value.lessThanToken, context)
         transpileGenericParameterArray(
           value.parameters.items,
           value.parameters.separators,
           context
         )
-        transpileTokenWithText(value.greaterThanToken, ">", context)
+        transpileToken(value.greaterThanToken, context)
       case Option.None =>
     }
   }
 
   def transpileGenericParameterArray(
-      items: List<GenericParameterSyntax>,
-      separators: List<SyntaxToken>,
+      items: List[GenericParameterSyntax],
+      separators: List[SyntaxToken],
       context: TranspilerContext
   ): unit = {
     items match {
@@ -231,7 +231,7 @@ class Transpiler(
   }
 
   def transpileEnumCases(
-      cases: Array<EnumCaseSyntax>,
+      cases: Array[EnumCaseSyntax],
       context: TranspilerContext
   ): unit = {
     for (x <- 0 to (cases.length - 1)) {
@@ -271,7 +271,7 @@ class Transpiler(
   }
 
   def transpileOptionalTemplate(
-      template: Option<TemplateSyntax>,
+      template: Option[TemplateSyntax],
       context: TranspilerContext
   ): unit =
     template match {
@@ -357,7 +357,7 @@ class Transpiler(
     transpileExpression(get.expression, context)
 
   def transpileOptionalExpression(
-      expression: Option<Expression>,
+      expression: Option[Expression],
       context: TranspilerContext
   ): unit =
     expression match {
@@ -416,7 +416,7 @@ class Transpiler(
   }
 
   def transpileMatchCases(
-      cases: Array<MatchCaseSyntax>,
+      cases: Array[MatchCaseSyntax],
       context: TranspilerContext
   ): unit = {
     for (x <- 0 to (cases.length - 1)) {
@@ -456,7 +456,7 @@ class Transpiler(
   }
 
   def transpilePatterns(
-      patterns: Array<PatternItemSyntax>,
+      patterns: Array[PatternItemSyntax],
       context: TranspilerContext
   ): unit = {
     for (x <- 0 to (patterns.length - 1)) {
@@ -507,7 +507,7 @@ class Transpiler(
   }
 
   def transpileStatements(
-      statements: List<StatementSyntax>,
+      statements: List[StatementSyntax],
       context: TranspilerContext
   ): unit = {
     statements match {
@@ -530,7 +530,7 @@ class Transpiler(
   }
 
   def transpileExpressionItems(
-      arguments: List<ExpressionItemSyntax>,
+      arguments: List[ExpressionItemSyntax],
       context: TranspilerContext
   ): unit = {
     arguments match {
@@ -684,7 +684,7 @@ class Transpiler(
   }
 
   def transpileOptionalFunctionBody(
-      body: Option<FunctionBodySyntax>,
+      body: Option[FunctionBodySyntax],
       context: TranspilerContext
   ): unit =
     body match {
@@ -709,7 +709,7 @@ class Transpiler(
   }
 
   def transpileOptionalTypeAnnotation(
-      typeAnnotation: Option<TypeAnnotationSyntax>,
+      typeAnnotation: Option[TypeAnnotationSyntax],
       context: TranspilerContext
   ): unit =
     typeAnnotation match {
@@ -719,7 +719,7 @@ class Transpiler(
     }
 
   def transpileParameters(
-      parameters: List<ParameterSyntax>,
+      parameters: List[ParameterSyntax],
       context: TranspilerContext
   ): unit = {
     parameters match {
@@ -742,7 +742,7 @@ class Transpiler(
   }
 
   def transpileOptionalToken(
-      modifier: Option<SyntaxToken>,
+      modifier: Option[SyntaxToken],
       context: TranspilerContext
   ): unit =
     modifier match {
@@ -751,7 +751,7 @@ class Transpiler(
     }
 
   def transpileNamespace(
-      namespaceDeclaration: Option<NamespaceDeclarationSyntax>,
+      namespaceDeclaration: Option[NamespaceDeclarationSyntax],
       context: TranspilerContext
   ): unit = {
     namespaceDeclaration match {
@@ -800,13 +800,13 @@ class Transpiler(
       context: TranspilerContext
   ): unit = {
     inGenericTypeArgumentList = true
-    transpileTokenWithText(typeArgumentlist.lessThanToken, "<", context)
+    transpileToken(typeArgumentlist.lessThanToken, context)
     for (x <- 0 to (typeArgumentlist.arguments.length - 1)) {
       val argument = typeArgumentlist.arguments(x)
       transpileName(argument.name, context)
       transpileOptionalToken(argument.separator, context)
     }
-    transpileTokenWithText(typeArgumentlist.greaterThanToken, ">", context)
+    transpileToken(typeArgumentlist.greaterThanToken, context)
     inGenericTypeArgumentList = false
   }
 

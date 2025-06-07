@@ -1,6 +1,6 @@
 using panther
 
-class Scope(current: Symbol, imports: List<Symbol>) {
+class Scope(current: Symbol, imports: List[Symbol]) {
 
   /** create or define a namespace
     *
@@ -19,50 +19,50 @@ class Scope(current: Symbol, imports: List<Symbol>) {
   def defineEnum(
       name: string,
       location: TextLocation
-  ): Either<TextLocation, Symbol> =
+  ): Either[TextLocation, Symbol] =
     current.tryDefineEnum(name, location)
 
   def defineObject(
       name: string,
       location: TextLocation
-  ): Either<TextLocation, Symbol> =
+  ): Either[TextLocation, Symbol] =
     current.tryDefineObject(name, location)
 
   def defineClass(
       name: string,
       location: TextLocation
-  ): Either<TextLocation, Symbol> =
+  ): Either[TextLocation, Symbol] =
     current.tryDefineClass(name, location)
 
   def defineTypeParameter(
       name: string,
       location: TextLocation,
       variance: Variance
-  ): Either<TextLocation, Symbol> =
+  ): Either[TextLocation, Symbol] =
     current.tryDefineTypeParameter(name, location, variance)
 
   def defineField(
       name: string,
       location: TextLocation
-  ): Either<TextLocation, Symbol> =
+  ): Either[TextLocation, Symbol] =
     current.tryDefineField(name, location)
 
   def defineLocal(
       name: string,
       location: TextLocation
-  ): Either<TextLocation, Symbol> =
+  ): Either[TextLocation, Symbol] =
     current.tryDefineLocal(name, location)
 
   def defineMethod(
       name: string,
       location: TextLocation
-  ): Either<TextLocation, Symbol> =
+  ): Either[TextLocation, Symbol] =
     current.tryDefineMethod(name, location)
 
   def defineParameter(
       name: string,
       location: TextLocation
-  ): Either<TextLocation, Symbol> =
+  ): Either[TextLocation, Symbol] =
     current.tryDefineParameter(name, location)
 
   /** add the symbol to the current scope
@@ -73,7 +73,7 @@ class Scope(current: Symbol, imports: List<Symbol>) {
   def use(symbol: Symbol): Scope =
     Scope(current, List.Cons(symbol, imports))
 
-  def lookup(name: string): Option<Symbol> = {
+  def lookup(name: string): Option[Symbol] = {
     // if our lookup in the current symbol fails, we look in the imported symbols
     current.lookup(name) match {
       case Option.Some(value) => Some(value)
@@ -81,7 +81,7 @@ class Scope(current: Symbol, imports: List<Symbol>) {
     }
   }
 
-  def _lookup(name: string, imports: List<Symbol>): Option<Symbol> = {
+  def _lookup(name: string, imports: List[Symbol]): Option[Symbol] = {
     imports match {
       case List.Nil => None
       case List.Cons(head, tail) =>
