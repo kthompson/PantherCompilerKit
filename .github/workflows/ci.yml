@@ -19,8 +19,11 @@ jobs:
     - name: Setup SBT
       uses: sbt/setup-sbt@v1
 
-    - name: build
-      run: sbt compile
+    - name: pncs compile
+      run: sbt pncs/compile
+
+    - name: pncs transpile
+      run: sbt pncs/transpile
 
     - name: test
       run: sbt test/run
