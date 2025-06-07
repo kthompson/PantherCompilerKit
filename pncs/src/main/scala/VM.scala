@@ -166,6 +166,15 @@ case class VM(
     InterpretResult.Continue
   }
 
+  def popBool(): bool = {
+    val value = pop()
+    value match {
+      case Value.Int(1) => true
+      case Value.Int(0) => false
+      case _            => panic("Expected bool on stack, found " + value)
+    }
+  }
+
   def popInt(): int = {
     val value = pop()
     value match {
@@ -201,7 +210,7 @@ case class VM(
         trace("nop")
         InterpretResult.Continue
 
-      // function ops
+      // control instructions
       case Opcode.Ret =>
         trace("ret")
         val endFrame = localp
@@ -226,6 +235,31 @@ case class VM(
         val token = readMethodToken()
         // return after the current instruction
         callMethod(token, ip + 1)
+
+      case Opcode.Br =>
+        val target = readI4()
+        trace("br " + target)
+
+        ip = target
+        InterpretResult.Continue
+
+      case Opcode.Brfalse =>
+        val target = readI4()
+        trace("brfalse " + target)
+
+        if (!popBool()) {
+          ip = target
+        }
+        InterpretResult.Continue
+
+      case Opcode.Brtrue =>
+        val target = readI4()
+        trace("brtrue " + target)
+
+        if (popBool()) {
+          ip = target
+        }
+        InterpretResult.Continue
 
       // load constant
       case Opcode.LdcI4 =>

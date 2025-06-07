@@ -35,10 +35,10 @@ object Opcode {
   //  val Stsfld = 43 // store static field of object
   //  val Newobj = 44 // new object
 
-  //  // branch
-  //  val Br = 50 // branch
-  //  val Brfalse = 51 // branch if false
-  //  val Brtrue = 52 // branch if true
+  // branch
+  val Br = 50 // branch
+  val Brfalse = 51 // branch if false
+  val Brtrue = 52 // branch if true
   //  val Beq = 53  // branch if equal
   //  val Bne = 54  // branch if not equal
   //  val Bge = 55  // branch if greater or equal

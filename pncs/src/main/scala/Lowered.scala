@@ -32,12 +32,12 @@ enum LoweredStatement {
   case Goto(location: TextLocation, label: Label)
   case LabelDeclaration(location: TextLocation, label: Label)
   case Return(location: TextLocation, expression: LoweredExpression)
-  case VariableDeclaration(
-      location: TextLocation,
-      variable: Symbol,
-      isReadOnly: Boolean,
-      typ: Type
-  )
+//  case VariableDeclaration(
+//      location: TextLocation,
+//      variable: Symbol,
+//      isReadOnly: Boolean,
+//      typ: Type
+//  )
 }
 
 enum LoweredExpression {
@@ -437,17 +437,18 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
 
         val variable = createTemporary()
 
-        val variableDeclaration = LoweredStatement.VariableDeclaration(
-          expr.location,
-          variable,
-          false,
-          expr.resultType
-        )
+//        val variableDeclaration = LoweredStatement.VariableDeclaration(
+//          expr.location,
+//          variable,
+//          false,
+//          expr.resultType
+//        )
 
         LoweredBlock(
-          ChainModule
-            .of(variableDeclaration)
-            .concat(condGoto)
+//          ChainModule
+//            .of(variableDeclaration)
+//            .concat(condGoto)
+          condGoto
             .concat(
               blockToAssignment(
                 AstUtils.locationOfBoundExpression(elseExpr),
@@ -605,14 +606,14 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
     val location = arg.expression.getLocation()
 
     val nextStatements = arg.statements
-      .append(
-        LoweredStatement.VariableDeclaration(
-          location,
-          temp,
-          false,
-          binder.getType(head)
-        )
-      )
+//      .append(
+//        LoweredStatement.VariableDeclaration(
+//          location,
+//          temp,
+//          false,
+//          binder.getType(head)
+//        )
+//      )
       .append(LoweredStatement.Assignment(location, temp, arg.expression))
 
     val nextArgs =

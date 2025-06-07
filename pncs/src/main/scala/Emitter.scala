@@ -8,10 +8,61 @@ case class EmitResult(
 )
 
 case class EmitContext(
-    startAddress: int,
+    chunk: Chunk,
     method: MethodMetadata,
+    // map of local symbols to their method local index
     var locals: Dictionary[Symbol, int]
 ) {
+
+  /** A map of labels to their instruction index.
+    *
+    * This is used to resolve branch targets during emission.
+    *
+    * If the branch target is not known at the time of emission, a Patch is
+    * created and added to the patches list.
+    */
+  var labels = DictionaryModule.empty[string, int]()
+  var patches: List[Patch] = List.Nil
+
+  val startAddress: int = chunk.size
+
+  def getBranchTarget(label: Label): int = {
+    labels.get(label.name) match {
+      case Option.None =>
+        // label not found, create a patch
+        patches = List.Cons(Patch(chunk.size, label), patches)
+        0 // return a filler value since target is not known yet
+      case Option.Some(value) => value
+    }
+  }
+
+  def saveLabel(label: Label): unit = {
+    if (labels.contains(label.name)) {
+      panic("BUG!!! Duplicate label " + label.name)
+    } else {
+      labels = labels.put(label.name, chunk.size)
+    }
+  }
+
+  def applyPatches(): unit = {
+    patches match {
+      case List.Nil =>
+      case List.Cons(patch, tail) =>
+        patches = tail
+        labels.get(patch.target.name) match {
+          case Option.None =>
+            panic(
+              "failed to patch label " + patch.target.name + " at " + patch.instructionIndex
+            )
+          case Option.Some(value) =>
+            // patch the instruction at the given index with the target address
+            chunk.patch(patch.instructionIndex, value)
+        }
+
+        applyPatches() // recursively apply remaining patches
+    }
+  }
+
   def getLocalIndex(symbol: Symbol): int = {
     locals.get(symbol) match {
       case Option.None        => _addLocal(symbol)
@@ -26,6 +77,17 @@ case class EmitContext(
     index
   }
 }
+
+/** Represents a patch to be applied to a branch instruction once we know the
+  * target label's instruction index.
+  *
+  * @param instructionIndex
+  * @param target
+  */
+case class Patch(
+    instructionIndex: int,
+    target: Label
+)
 
 case class Emitter(
     syntaxTrees: List[SyntaxTree],
@@ -90,11 +152,12 @@ case class Emitter(
       case List.Nil => ()
       case List.Cons(KeyValue(key, value), tail) =>
         val context = EmitContext(
-          chunk.size,
+          chunk,
           metadata.methods.methods(value.token),
           DictionaryModule.empty[Symbol, int]()
         )
         emitMethod(key, context)
+        context.applyPatches()
 
         emitMethodBodies(Dictionary(tail))
     }
@@ -160,6 +223,7 @@ case class Emitter(
       case Option.Some(value) =>
         emitBlock(value, context)
         chunk.emitOpcode(Opcode.Ret, symbol.location.endLine)
+
         context.method.address = context.startAddress
         true
     }
@@ -399,8 +463,8 @@ case class Emitter(
 
       case value: LoweredStatement.ExpressionStatement =>
         emitExpressionStatement(value, context)
-      case value: LoweredStatement.VariableDeclaration =>
-        emitVariableDeclaration(value, context)
+//      case value: LoweredStatement.VariableDeclaration =>
+//        emitVariableDeclaration(value, context)
       case statement: LoweredStatement.Assignment =>
         emitAssignmentStatement(statement, context)
       case statement: LoweredStatement.ConditionalGoto =>
@@ -418,21 +482,29 @@ case class Emitter(
       statement: LoweredStatement.ConditionalGoto,
       context: EmitContext
   ): unit = {
-    ???
+    emitExpression(statement.condition, context)
+    val op = if (statement.invert) Opcode.Brfalse else Opcode.Brtrue
+    chunk.emitOpcode(op, statement.location.startLine)
+
+    val target = context.getBranchTarget(statement.label)
+    chunk.emitI4(target, statement.location.startLine)
   }
 
   def emitGotoStatement(
       statement: LoweredStatement.Goto,
       context: EmitContext
   ): unit = {
-    ???
+    chunk.emitOpcode(Opcode.Br, statement.location.startLine)
+
+    val target = context.getBranchTarget(statement.label)
+    chunk.emitI4(target, statement.location.startLine)
   }
 
   def emitLabelDeclarationStatement(
       statement: LoweredStatement.LabelDeclaration,
       context: EmitContext
   ): unit = {
-    ???
+    context.saveLabel(statement.label)
   }
 
   def emitReturnStatement(
@@ -450,10 +522,10 @@ case class Emitter(
     // TODO: emit pop? or return
   }
 
-  def emitVariableDeclaration(
-      statement: LoweredStatement.VariableDeclaration,
-      context: EmitContext
-  ): unit = ???
+//  def emitVariableDeclaration(
+//      statement: LoweredStatement.VariableDeclaration,
+//      context: EmitContext
+//  ): unit = ???
 
   def emitSymbolsMetadata(symbols: List[Symbol]): unit = {
     symbols match {

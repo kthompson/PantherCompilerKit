@@ -13,7 +13,7 @@ object VmTests {
     unaryPrecedence()
     locals()
 
-//    ifExpressions()
+    ifExpressions()
 
     // TODO: dup, swap, pop
     // TODO: arguments
@@ -27,27 +27,52 @@ object VmTests {
   }
 
   def ifExpressions(): unit = {
+    val x = 12
     val setup = "val x = 12"
-    assertExecValueIntWithSetup(setup, "if (x == 12) 1 else 2", 1)
-    assertExecValueIntWithSetup(setup, "if (x != 12) 1 else 2", 2)
-    assertExecValueIntWithSetup(setup, "if (x < 12) 1 else 2", 2)
-    assertExecValueIntWithSetup(setup, "if (x > 12) 1 else 2", 2)
-    assertExecValueIntWithSetup(setup, "if (x <= 12) 1 else 2", 1)
-    assertExecValueIntWithSetup(setup, "if (x >= 12) 1 else 2", 1)
+    assertExecValueIntWithSetup(
+      setup,
+      "if (x == 12) 1 else 2",
+      if (x == 12) 1 else 2
+    )
+    assertExecValueIntWithSetup(
+      setup,
+      "if (x != 12) 1 else 2",
+      if (x != 12) 1 else 2
+    )
+    assertExecValueIntWithSetup(
+      setup,
+      "if (x < 12) 1 else 2",
+      if (x < 12) 1 else 2
+    )
+    assertExecValueIntWithSetup(
+      setup,
+      "if (x > 12) 1 else 2",
+      if (x > 12) 1 else 2
+    )
+    assertExecValueIntWithSetup(
+      setup,
+      "if (x <= 12) 1 else 2",
+      if (x <= 12) 1 else 2
+    )
+    assertExecValueIntWithSetup(
+      setup,
+      "if (x >= 12) 1 else 2",
+      if (x >= 12) 1 else 2
+    )
     assertExecValueIntWithSetup(
       setup,
       "if (x < -10) -1 else if (x > -20) -2 else -3",
-      -1
+      if (x < -10) -1 else if (x > -20) -2 else -3
     )
     assertExecValueIntWithSetup(
       setup,
       "if (x < -10) -1 else if (x > -20) -2 else -3 + x",
-      -13
+      if (x < -10) -1 else if (x > -20) -2 else -3 + x
     )
     assertExecValueIntWithSetup(
       setup,
       "if (x < -10) -1 else if (x > -20) -2 else -3 + x",
-      -13
+      if (x < -10) -1 else if (x > -20) -2 else -3 + x
     )
   }
 

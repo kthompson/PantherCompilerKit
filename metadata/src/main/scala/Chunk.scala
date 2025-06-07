@@ -53,6 +53,11 @@ case class Chunk() {
     lines(offset)
   }
 
+  def patch(offset: int, value: int): unit = {
+    checkBounds(offset)
+    content(offset) = value
+  }
+
   def checkBounds(offset: int): unit =
     assert(offset >= 0 && offset < size, "Invalid offset " + string(offset))
 }
