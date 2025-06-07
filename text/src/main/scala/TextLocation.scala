@@ -8,9 +8,9 @@ case class TextLocation(sourceFile: SourceFile, span: TextSpan) {
   val endCharacter: int = span.end - sourceFile.lineToOffset(endLine)
 
   override def toString(): string =
-    fileName + "(" + string(startLine + 1) + "," + string(
+    fileName + ":" + string(startLine + 1) + ":" + string(
       startCharacter + 1
-    ) + ")"
+    )
 
   def compareTo(other: TextLocation): int = {
     val i = sourceFile.fileName.compareTo(other.sourceFile.fileName)

@@ -74,13 +74,13 @@ case class VM(
       panic("Heap overflow")
     }
     val addr = heapp
-    heapp += size
+    heapp = heapp + size
     addr
   }
 
   def readI4(): int = {
     val value = chunk.readI4(ip)
-    ip += 1
+    ip = ip + 1
     value
   }
 
@@ -96,12 +96,31 @@ case class VM(
 
   def push(value: Value): InterpretResult = {
     stack(sp) = value
-    sp += 1
+    sp = sp + 1
     InterpretResult.Continue
   }
 
   def pushBool(value: bool): InterpretResult =
     push(Value.Int(if (value) 1 else 0))
+
+  def binaryAdd(): InterpretResult = {
+    val b = pop()
+    val a = pop()
+    trace("add " + a + ", " + b)
+    a match {
+      case Value.Int(a) =>
+        b match {
+          case Value.Int(b) => push(Value.Int(a + b))
+          case _            => runtimeError("Expected int on stack")
+        }
+      case Value.String(a) =>
+        b match {
+          case Value.String(b) => push(Value.String(a + b))
+          case _               => runtimeError("Expected bool on stack")
+        }
+      case _ => runtimeError("Expected int or bool on stack")
+    }
+  }
 
   def pop(): Value = {
     sp -= 1
@@ -130,35 +149,40 @@ case class VM(
     InterpretResult.Continue
   }
 
-  def binaryStrOrIntOp(
-      intOp: (int, int) => int,
-      strOp: (string, string) => string,
-      opName: string
-  ): InterpretResult = {
-    val b = pop()
-    val a = pop()
-    trace(opName + " " + a + ", " + b)
-    a match {
-      case Value.Int(a) =>
-        b match {
-          case Value.Int(b) => push(Value.Int(intOp(a, b)))
-          case _            => runtimeError("Expected int on stack")
-        }
-      case Value.String(a) =>
-        b match {
-          case Value.String(b) => push(Value.String(strOp(a, b)))
-          case _               => runtimeError("Expected bool on stack")
-        }
-      case _ => runtimeError("Expected int or bool on stack")
-    }
-  }
-
-  def binaryIntOp(op: (int, int) => int, opName: string): InterpretResult = {
+  def binaryIntOp(op: int, opName: string): InterpretResult = {
     trace(opName)
     val b = popInt()
     val a = popInt()
-    push(Value.Int(op(a, b)))
-    InterpretResult.Continue
+    val result = op match {
+      case Opcode.Sub =>
+        Option.Some(a - b)
+      case Opcode.Mul =>
+        Option.Some(a * b)
+      case Opcode.Div =>
+        Option.Some(a / b)
+      case Opcode.Rem =>
+        Option.Some(a % b)
+      case Opcode.And =>
+        Option.Some(a & b)
+      case Opcode.Or =>
+        Option.Some(a | b)
+      case Opcode.Xor =>
+        Option.Some(a ^ b)
+      case Opcode.Shl =>
+        Option.Some(a << b)
+      case Opcode.Shr =>
+        Option.Some(a >> b)
+      case _ =>
+        Option.None
+    }
+
+    result match {
+      case Option.None =>
+        runtimeError("Invalid operation: " + opName)
+      case Option.Some(value) =>
+        push(Value.Int(value))
+        InterpretResult.Continue
+    }
   }
 
   def unaryOp(op: int => int, opName: string): InterpretResult = {
@@ -322,25 +346,25 @@ case class VM(
 
       // binary ops
       case Opcode.Add =>
-        binaryStrOrIntOp((a, b) => a + b, (a, b) => a + b, "add")
+        binaryAdd()
       case Opcode.Sub =>
-        binaryIntOp((a, b) => a - b, "sub")
+        binaryIntOp(Opcode.Sub, "sub")
       case Opcode.Mul =>
-        binaryIntOp((a, b) => a * b, "mul")
+        binaryIntOp(Opcode.Mul, "mul")
       case Opcode.Div =>
-        binaryIntOp((a, b) => a / b, "div")
+        binaryIntOp(Opcode.Div, "div")
       case Opcode.Rem =>
-        binaryIntOp((a, b) => a % b, "rem")
+        binaryIntOp(Opcode.Rem, "rem")
       case Opcode.And =>
-        binaryIntOp((a, b) => a & b, "and")
+        binaryIntOp(Opcode.And, "and")
       case Opcode.Or =>
-        binaryIntOp((a, b) => a | b, "or")
+        binaryIntOp(Opcode.Or, "or")
       case Opcode.Xor =>
-        binaryIntOp((a, b) => a ^ b, "xor")
+        binaryIntOp(Opcode.Xor, "xor")
       case Opcode.Shl =>
-        binaryIntOp((a, b) => a << b, "shl")
+        binaryIntOp(Opcode.Shl, "shl")
       case Opcode.Shr =>
-        binaryIntOp((a, b) => a >> b, "shr")
+        binaryIntOp(Opcode.Shr, "shr")
       case Opcode.Ceq =>
         binaryIntBoolOp((a, b) => a == b, "ceq")
       case Opcode.Cgt =>
