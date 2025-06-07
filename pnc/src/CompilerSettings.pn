@@ -3,4 +3,5 @@ object CompilerSettings {
   val diagnosticsToPrint = 10
   val defaultStackSize = 10
   val defaultHeapSize = 0
+  val enableTracing = false
 }

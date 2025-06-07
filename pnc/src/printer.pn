@@ -30,13 +30,13 @@ class AstPrinter(withColor: bool, toConsole: bool) {
     printToken(compilationUnit.endToken)
   }
 
-  def printUsingDeclarations(nodes: Array<UsingDirectiveSyntax>): unit = {
+  def printUsingDeclarations(nodes: Array[UsingDirectiveSyntax]): unit = {
     for (x <- 0 to (nodes.length - 1)) {
       printUsingDeclaration(nodes(x))
     }
   }
 
-  def printMembers(nodes: List<MemberSyntax>): unit = {
+  def printMembers(nodes: List[MemberSyntax]): unit = {
     nodes match {
       case List.Nil => ()
       case List.Cons(x, xs) =>
@@ -66,7 +66,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
     printTemplate(node.template)
   }
 
-  def printOptionalTemplate(node: Option<TemplateSyntax>): unit =
+  def printOptionalTemplate(node: Option[TemplateSyntax]): unit =
     node match {
       case Option.Some(value) => printTemplate(value)
       case Option.None        =>
@@ -103,8 +103,8 @@ class AstPrinter(withColor: bool, toConsole: bool) {
   }
 
   def printGenericTypeParameterList(
-      items: List<GenericParameterSyntax>,
-      separators: List<SyntaxToken>
+      items: List[GenericParameterSyntax],
+      separators: List[SyntaxToken]
   ): unit = {
     items match {
       case List.Nil => ()
@@ -166,7 +166,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
     printOptionalToken(node.commaToken)
   }
 
-  def printOptionalTypeAnnotation(node: Option<TypeAnnotationSyntax>): unit =
+  def printOptionalTypeAnnotation(node: Option[TypeAnnotationSyntax]): unit =
     if (node.isDefined()) printTypeAnnotation(node.get()) else ()
 
   def printTypeAnnotation(node: TypeAnnotationSyntax): unit = {
@@ -174,7 +174,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
     printName(node.typ)
   }
 
-  def printOptionalFunctionBody(node: Option<FunctionBodySyntax>): unit =
+  def printOptionalFunctionBody(node: Option[FunctionBodySyntax]): unit =
     if (node.isDefined()) printFunctionBody(node.get()) else ()
 
   def printFunctionBody(node: FunctionBodySyntax): unit = {
@@ -206,7 +206,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
     }
   }
 
-  def printOptionalExpression(node: Option<Expression>): unit = {
+  def printOptionalExpression(node: Option[Expression]): unit = {
     if (node.isDefined()) {
       printExpression(node.get())
     }
@@ -224,7 +224,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
   }
 
   def printArrayInitializerExpressions(
-      node: Option<ArrayInitializerExpressionSyntax>
+      node: Option[ArrayInitializerExpressionSyntax]
   ): unit = {
     if (node.isDefined()) {
       printArrayInitializerExpression(node.get())
@@ -296,7 +296,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
     printElseExpression(node.elseExpr)
   }
 
-  def printElseExpression(node: Option<ElseSyntax>): unit = {
+  def printElseExpression(node: Option[ElseSyntax]): unit = {
     node match {
       case Option.Some(value) =>
         printToken(value.elseKeyword)
@@ -347,7 +347,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
     printExpressionItems(node.expressions)
   }
 
-  def printExpressionItems(nodes: List<ExpressionItemSyntax>): unit = {
+  def printExpressionItems(nodes: List[ExpressionItemSyntax]): unit = {
     nodes match {
       case List.Nil => ()
       case List.Cons(x, xs) =>
@@ -393,7 +393,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
     printExpression(node.expression)
   }
 
-  def printStatments(nodes: List<StatementSyntax>): unit = {
+  def printStatments(nodes: List[StatementSyntax]): unit = {
     nodes match {
       case List.Nil => ()
       case List.Cons(x, xs) =>
@@ -402,13 +402,13 @@ class AstPrinter(withColor: bool, toConsole: bool) {
     }
   }
 
-  def printExpressions(nodes: Array<Expression>): unit = {
+  def printExpressions(nodes: Array[Expression]): unit = {
     for (x <- 0 to (nodes.length - 1)) {
       printExpression(nodes(x))
     }
   }
 
-  def printParameters(nodes: List<ParameterSyntax>): unit = {
+  def printParameters(nodes: List[ParameterSyntax]): unit = {
     nodes match {
       case List.Nil =>
       case List.Cons(head, tail) =>
@@ -418,7 +418,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
   }
 
   def printNamespaceDeclaration(
-      decl: Option<NamespaceDeclarationSyntax>
+      decl: Option[NamespaceDeclarationSyntax]
   ): unit = {
     if (decl.isDefined()) {
       printToken(decl.get().namespaceKeyword)
@@ -468,7 +468,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
     printTokenWithColor(node.close, ColorPalette.Punctuation)
   }
 
-  def printTypeArgumentLists(nodes: Array<TypeArgumentListSyntax>): unit = {
+  def printTypeArgumentLists(nodes: Array[TypeArgumentListSyntax]): unit = {
     for (x <- 0 to (nodes.length - 1)) {
       printTypeArgumentList(nodes(x))
     }
@@ -480,7 +480,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
     printToken(node.greaterThanToken)
   }
 
-  def printTypeArgumentListItems(nodes: Array<TypeArgumentItemSyntax>): unit = {
+  def printTypeArgumentListItems(nodes: Array[TypeArgumentItemSyntax]): unit = {
     for (x <- 0 to (nodes.length - 1)) {
       printTypeArgumentListItem(nodes(x))
     }
@@ -492,7 +492,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
   }
 
   def printIdentifierNames(
-      nodes: Array<SimpleNameSyntax.IdentifierNameSyntax>,
+      nodes: Array[SimpleNameSyntax.IdentifierNameSyntax],
       color: string
   ): unit = {
     for (x <- 0 to (nodes.length - 1)) {
@@ -507,7 +507,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
     printTokenWithColor(node.identifier, color)
   }
 
-  def printTriviaArray(nodes: Array<SyntaxTrivia>): unit = {
+  def printTriviaArray(nodes: Array[SyntaxTrivia]): unit = {
     for (x <- 0 to (nodes.length - 1)) {
       printTrivia(nodes(x))
     }
@@ -519,13 +519,13 @@ class AstPrinter(withColor: bool, toConsole: bool) {
     writeClear()
   }
 
-  def printTokens(nodes: Array<SyntaxToken>): unit = {
+  def printTokens(nodes: Array[SyntaxToken]): unit = {
     for (x <- 0 to (nodes.length - 1)) {
       printToken(nodes(x))
     }
   }
 
-  def printOptionalToken(node: Option<SyntaxToken>): unit = {
+  def printOptionalToken(node: Option[SyntaxToken]): unit = {
     if (node.isDefined()) {
       printToken(node.get())
     } else ()
@@ -550,7 +550,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
   def printType(typ: Type): unit =
     _printType(typ, true)
 
-  def _printTypes(types: List<Type>, first: bool): unit =
+  def _printTypes(types: List[Type], first: bool): unit =
     types match {
       case List.Nil => writeClear()
       case List.Cons(typ, tail) =>
@@ -564,7 +564,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
 
   def _printTypedParameters(
       printedFirst: bool,
-      parameters: List<BoundParameter>
+      parameters: List[BoundParameter]
   ): unit = {
     parameters match {
       case List.Nil => ()
@@ -653,7 +653,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
     if (clear) writeClear() else ()
   }
 
-  def _printGenTypes(types: List<GenericTypeParameter>, first: bool): unit = {
+  def _printGenTypes(types: List[GenericTypeParameter], first: bool): unit = {
     types match {
       case List.Nil => writeClear()
       case List.Cons(typ, tail) =>

@@ -10,28 +10,28 @@ class GenericTypeParameter(
     location: TextLocation,
     name: string,
     variance: Variance,
-    upperBound: Option<Type>
+    upperBound: Option[Type]
 )
 
 enum Type {
 
   /** A named type can have zero or more type arguments. E.g. `List[Int]` ->
-    * Named("panther", "List", Types.Cons(Named("", "Int"), Types.Empty))
+    * Named("panther", "List", List.Cons(Named("", "Int"), List.Nil))
     */
   case Class(
       location: TextLocation,
-      ns: List<string>,
+      ns: List[string],
       name: string,
-      args: List<Type>,
-      superClass: Option<Type>
+      args: List[Type],
+      superClass: Option[Type]
   )
 
   case GenericClass(
       location: TextLocation,
-      ns: List<string>,
+      ns: List[string],
       name: string,
-      args: List<GenericTypeParameter>,
-      superClass: Option<Type>
+      args: List[GenericTypeParameter],
+      superClass: Option[Type]
   )
 
   /** A generic function is a type that has type parameters. this gets converted
@@ -39,9 +39,9 @@ enum Type {
     */
   case GenericFunction(
       location: TextLocation,
-      generics: List<GenericTypeParameter>,
-      traits: List<Type>,
-      parameters: List<BoundParameter>,
+      generics: List[GenericTypeParameter],
+      traits: List[Type],
+      parameters: List[BoundParameter],
       returnType: Type
   )
 
@@ -50,7 +50,7 @@ enum Type {
     */
   case Function(
       location: TextLocation,
-      parameters: List<BoundParameter>,
+      parameters: List[BoundParameter],
       returnType: Type
   )
 
@@ -72,7 +72,7 @@ enum Type {
 
   case Error
 
-  def getLocation(): Option<TextLocation> = {
+  def getLocation(): Option[TextLocation] = {
     this match {
       case Class(location, _, _, _, _)           => Option.Some(location)
       case Function(location, _, _)              => Option.Some(location)
@@ -85,16 +85,19 @@ enum Type {
     }
   }
 
-  def _params(paramsStr: string, parameters: List<BoundParameter>): string = {
+  def _params(paramsStr: string, parameters: List[BoundParameter]): string = {
     parameters match {
       case List.Nil => paramsStr
       case List.Cons(param, tail) =>
         val sep = if (paramsStr == "") "" else ", "
-        _params(paramsStr + sep + param.symbol.name + ": " + param.typ.toString, tail)
+        _params(
+          paramsStr + sep + param.symbol.name + ": " + param.typ.toString,
+          tail
+        )
     }
   }
 
-  def _args(str: string, args: List<Type>): string =
+  def _args(str: string, args: List[Type]): string =
     args match {
       case List.Nil => str
       case List.Cons(typ, tail) =>
@@ -102,7 +105,7 @@ enum Type {
         _args(str + sep + typ.toString, tail)
     }
 
-  def _name(list: List<string>, name: string): string = {
+  def _name(list: List[string], name: string): string = {
     list match {
       case List.Nil => name
       case List.Cons(head, tail) =>
@@ -110,7 +113,7 @@ enum Type {
     }
   }
 
-  def _genArgs(str: string, items: List<GenericTypeParameter>): string = {
+  def _genArgs(str: string, items: List[GenericTypeParameter]): string = {
     items match {
       case List.Nil => str
       case List.Cons(item, tail) =>

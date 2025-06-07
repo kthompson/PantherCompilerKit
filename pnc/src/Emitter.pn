@@ -1,13 +1,98 @@
 using panther
 using system.io
 
-class EmitResult(chunk: Chunk, metadata: Metadata)
+class EmitResult(
+    chunk: Chunk,
+    metadata: Metadata,
+    entry: Option[MethodToken]
+)
+
+class EmitContext(
+    chunk: Chunk,
+    method: MethodMetadata,
+locals: Dictionary[Symbol, int]
+) {
+
+  /** A map of labels to their instruction index.
+    *
+    * This is used to resolve branch targets during emission.
+    *
+    * If the branch target is not known at the time of emission, a Patch is
+    * created and added to the patches list.
+    */
+  var labels = DictionaryModule.empty[string, int]()
+  var patches: List[Patch] = List.Nil
+
+  val startAddress: int = chunk.size
+
+  def getBranchTarget(label: Label): int = {
+    labels.get(label.name) match {
+      case Option.None =>
+        // label not found, create a patch
+        patches = List.Cons(Patch(chunk.size, label), patches)
+        0 // return a filler value since target is not known yet
+      case Option.Some(value) => value
+    }
+  }
+
+  def saveLabel(label: Label): unit = {
+    if (labels.contains(label.name)) {
+      panic("BUG!!! Duplicate label " + label.name)
+    } else {
+      labels = labels.put(label.name, chunk.size)
+    }
+  }
+
+  def applyPatches(): unit = {
+    patches match {
+      case List.Nil =>
+      case List.Cons(patch, tail) =>
+        patches = tail
+        labels.get(patch.target.name) match {
+          case Option.None =>
+            panic(
+              "failed to patch label " + patch.target.name + " at " + patch.instructionIndex
+            )
+          case Option.Some(value) =>
+            // patch the instruction at the given index with the target address
+            chunk.patch(patch.instructionIndex, value)
+        }
+
+        applyPatches() // recursively apply remaining patches
+    }
+  }
+
+  def getLocalIndex(symbol: Symbol): int = {
+    locals.get(symbol) match {
+      case Option.None        => _addLocal(symbol)
+      case Option.Some(value) => value
+    }
+  }
+
+  def _addLocal(symbol: Symbol): int = {
+    val index = method.locals
+    locals = locals.put(symbol, index)
+    method.locals = method.locals + 1
+    index
+  }
+}
+
+/** Represents a patch to be applied to a branch instruction once we know the
+  * target label's instruction index.
+  *
+  * @param instructionIndex
+  * @param target
+  */
+class Patch(
+    instructionIndex: int,
+    target: Label
+)
 
 class Emitter(
-    syntaxTrees: List<SyntaxTree>,
+    syntaxTrees: List[SyntaxTree],
     root: Symbol,
-    assembly: BoundAssembly
-    /*, checker: Checker*/
+    binder: Binder,
+    assembly: LoweredAssembly
 ) {
 
   var indent = ""
@@ -19,140 +104,185 @@ class Emitter(
   val metadata = new Metadata()
   val chunk = new Chunk()
 
-  val typeTokens: Dictionary<Symbol, TypeDefToken> =
-    DictionaryModule.empty<Symbol, TypeDefToken>()
+  var typeTokens: Dictionary[Symbol, TypeDefToken] =
+    DictionaryModule.empty[Symbol, TypeDefToken]()
 
-  val methodTokens: Dictionary<Symbol, MethodToken> =
-    DictionaryModule.empty<Symbol, MethodToken>()
+  var methodTokens: Dictionary[Symbol, MethodToken] =
+    DictionaryModule.empty[Symbol, MethodToken]()
 
-  val fieldTokens: Dictionary<Symbol, FieldToken> =
-    DictionaryModule.empty<Symbol, FieldToken>()
+  var fieldTokens: Dictionary[Symbol, FieldToken] =
+    DictionaryModule.empty[Symbol, FieldToken]()
 
-  val paramTokens: Dictionary<Symbol, ParamToken> =
-    DictionaryModule.empty<Symbol, ParamToken>()
+  var paramTokens: Dictionary[Symbol, ParamToken] =
+    DictionaryModule.empty[Symbol, ParamToken]()
 
-  var symbolsToProcessSignatures = new Array<Symbol>(0)
-  var symbolsToProcessSignaturesCount = 0
+  var symbolsToProcessSignatures: List[Symbol] = List.Nil
 
   def queueSymbolSignature(symbol: Symbol): unit = {
-    // ensure symbolsToProcessSignatures is large enough
-    if (symbolsToProcessSignaturesCount == symbolsToProcessSignatures.length) {
-      val newLength =
-        if (symbolsToProcessSignatures.length == 0) 4
-        else symbolsToProcessSignatures.length * 2
-      val newArray = new Array<Symbol>(newLength)
-      for (i <- 0 to (symbolsToProcessSignatures.length - 1)) {
-        newArray(i) = symbolsToProcessSignatures(i)
-      }
-      symbolsToProcessSignatures = newArray
-    } else ()
-
-    symbolsToProcessSignatures(symbolsToProcessSignaturesCount) = symbol
-    symbolsToProcessSignaturesCount = symbolsToProcessSignaturesCount + 1
+    symbolsToProcessSignatures = List.Cons(symbol, symbolsToProcessSignatures)
   }
 
   def emit(): EmitResult = {
-
-    // setup metadata
-    // 1. setup some space for static fields
-    //    a. count the number of static fields, and assign them an index
-    //    b. record number of static fields in the Chunk header
-    // 2. iterate through all the class symbols and record their fields
-    //    a. each field for each class will get an index that we can reference
-    //
-
+    // populate symbol metadata
     emitSymbolMetadata(root)
-//
-//    // build signatures for all symbols
-//
-//    for (i <- 0 to (symbolsToProcessSignaturesCount - 1)) {
-//      val symbol = symbolsToProcessSignatures(i)
-//      val links = checker.getSymbolLinks(symbol)
-//
-//      val sig = getSymbolSignature(symbol)
-//      val sigId = metadata.addSignature(sig)
-//
-//      if (symbol.kind == SymbolKind.Field) {
-//        metadata.fields.fields(links.fieldId).fieldSig = sigId
-//      } else if (symbol.kind == SymbolKind.Method || symbol.kind == SymbolKind.Constructor) {
-//        metadata.methods.methods(links.methodId).methodSig = sigId
-//      } else if (symbol.kind == SymbolKind.Parameter) {
-//        metadata.params.params(links.paramId).paramSig = sigId
-//      } else {
-//        ()
-//      }
-//    }
-//
 
-    assembly.entryPoint match {
-      case Option.None        => ()
-      case Option.Some(entry) => emitMethod(entry)
+    // update field, method, and parameter tokens with their signatures
+    buildSignatures(symbolsToProcessSignatures)
+
+    // update methods local count, body address within chunk
+    emitMethodBodies(methodTokens)
+
+    val entryMethod = assembly.entryPoint match {
+      case Option.None => Option.None
+      case Option.Some(entry) =>
+        methodTokens.get(entry) match {
+          case Option.None =>
+            println(entry.toString())
+            ???
+          case Option.Some(value) => Option.Some(value)
+        }
     }
-//
-//    chunk.emitOpcode(Opcode.LdcI4, 123)
-//    chunk.emitI4(30, 123)
-//    chunk.emitOpcode(Opcode.Ret, 123)
-//
-//    var offset = 0
-//    while (offset < chunk.size) {
-//      offset = disassembleInstruction(chunk, offset)
-//    }
-    EmitResult(chunk, metadata)
+
+    EmitResult(chunk, metadata, entryMethod)
   }
 
-//  def emitMethodSymbol(symbol: Symbol, chunk: Chunk): unit = {
-//    val links = checker.getSymbolLinks(symbol)
-//    val sig = getSymbolSignature(symbol)
-//    val sigId = metadata.addSignature(sig)
-//
-//    links.methodId = metadata.addMethod(
-//      symbol.name,
-//      MetadataFlags.None,
-//      sigId
-//    )
+  def emitMethodBodies(value: Dictionary[Symbol, MethodToken]): unit = {
+    value.list match {
+      case List.Nil => ()
+      case List.Cons(KeyValue(key, value), tail) =>
+        val context = EmitContext(
+          chunk,
+          metadata.methods.methods(value.token),
+          DictionaryModule.empty[Symbol, int]()
+        )
+        emitMethod(key, context)
+        context.applyPatches()
 
-//  def emitMembersMetadata(members: Scope): unit =
-//    emitSymbolsMetadata(members.symbols())
+        emitMethodBodies(Dictionary(tail))
+    }
+  }
 
-  def emitMethod(symbol: Symbol): unit = {
+  def buildSignature(symbol: Symbol): unit = {
+    val sig = getSymbolSignature(symbol)
+    val sigId = metadata.addSignature(sig)
+
+    if (symbol.kind == SymbolKind.Field) {
+      fieldTokens.get(symbol) match {
+        case Option.None => ???
+        case Option.Some(value) =>
+          metadata.fields.fields(value.token).fieldSig = sigId
+      }
+    } else if (
+      symbol.kind == SymbolKind.Method || symbol.kind == SymbolKind.Constructor
+    ) {
+      methodTokens.get(symbol) match {
+        case Option.None =>
+          println("buildSignature: no method token for " + symbol)
+          ???
+        case Option.Some(value) =>
+          metadata.methods.methods(value.token).methodSig = sigId
+      }
+    } else if (symbol.kind == SymbolKind.Parameter) {
+      paramTokens.get(symbol) match {
+        case Option.None => ???
+        case Option.Some(value) =>
+          metadata.params.params(value.token).paramSig = sigId
+      }
+    } else {
+      ???
+    }
+  }
+
+  def buildSignatures(symbols: List[Symbol]): unit = {
+    symbols match {
+      case List.Nil =>
+      case List.Cons(head, tail) =>
+        buildSignature(head)
+        buildSignatures(tail)
+    }
+  }
+
+  //  def emitMethodSymbol(symbol: Symbol, chunk: Chunk): unit = {
+  //    val links = checker.getSymbolLinks(symbol)
+  //    val sig = getSymbolSignature(symbol)
+  //    val sigId = metadata.addSignature(sig)
+  //
+  //    links.methodId = metadata.addMethod(
+  //      symbol.name,
+  //      MetadataFlags.None,
+  //      sigId
+  //    )
+
+  //  def emitMembersMetadata(members: Scope): unit =
+  //    emitSymbolsMetadata(members.symbols())
+
+  def emitMethod(symbol: Symbol, context: EmitContext): bool = {
     assembly.functionBodies.get(symbol) match {
-      case Option.None => ???
+      case Option.None => false
       case Option.Some(value) =>
-        emitExpression(value)
+        emitBlock(value, context)
         chunk.emitOpcode(Opcode.Ret, symbol.location.endLine)
+
+        context.method.address = context.startAddress
+        true
     }
   }
 
-  def emitExpression(expr: BoundExpression): unit = {
+  def emitBlock(block: LoweredBlock, context: EmitContext): unit = {
+    emitStatements(block.statements, context)
+    emitExpression(block.expression, context)
+  }
+
+  def emitExpression(expr: LoweredExpression, context: EmitContext): unit = {
     expr match {
-      case BoundExpression.Error             => panic("emitExpression: Error")
-      case value: BoundExpression.Assignment => emitAssignment(value)
-      case value: BoundExpression.BinaryExpression =>
-        emitBinaryExpression(value)
-      case value: BoundExpression.Block          => emitBlock(value)
-      case value: BoundExpression.BooleanLiteral => emitBooleanLiteral(value)
-      case value: BoundExpression.CallExpression => emitCallExpression(value)
-      case value: BoundExpression.CastExpression => emitCastExpression(value)
-      case value: BoundExpression.CharacterLiteral =>
-        emitCharacterLiteral(value)
-      case value: BoundExpression.ForExpression   => emitForExpression(value)
-      case value: BoundExpression.IfExpression    => emitIfExpression(value)
-      case value: BoundExpression.IndexExpression => emitIndexExpression(value)
-      case value: BoundExpression.IntLiteral      => emitIntLiteral(value)
-      case value: BoundExpression.MemberAccess    => emitMemberAccess(value)
-      case value: BoundExpression.NewExpression   => emitNewExpression(value)
-      case value: BoundExpression.StringLiteral   => emitStringLiteral(value)
-      case value: BoundExpression.UnaryExpression => emitUnaryExpression(value)
-      case value: BoundExpression.UnitExpression  => emitUnitExpression(value)
-      case value: BoundExpression.Variable        => emitVariable(value)
-      case value: BoundExpression.WhileExpression => emitWhileExpression(value)
+      case LoweredExpression.Error => panic("emitExpression: Error")
+      case value: LoweredExpression.BinaryExpression =>
+        emitBinaryExpression(value, context)
+      case value: LoweredExpression.BooleanLiteral =>
+        emitBooleanLiteral(value, context)
+      case value: LoweredExpression.Call =>
+        emitCallExpression(value, context)
+      case value: LoweredExpression.Cast =>
+        emitCastExpression(value, context)
+      case value: LoweredExpression.CharacterLiteral =>
+        emitCharacterLiteral(value, context)
+      case value: LoweredExpression.IntegerLiteral =>
+        emitIntLiteral(value, context)
+      case value: LoweredExpression.MemberAccess =>
+        emitMemberAccess(value, context)
+      case value: LoweredExpression.New =>
+        emitNewExpression(value, context)
+      case value: LoweredExpression.StringLiteral =>
+        emitStringLiteral(value, context)
+      case value: LoweredExpression.Unary =>
+        emitUnaryExpression(value, context)
+      case value: LoweredExpression.Variable =>
+        emitVariable(value, context)
+      case LoweredExpression.unit =>
+        emitUnitExpression(context)
     }
   }
 
-  def emitAssignment(expr: BoundExpression.Assignment): unit = ???
-  def emitBinaryExpression(expr: BoundExpression.BinaryExpression): unit = {
-    emitExpression(expr.left)
-    emitExpression(expr.right)
+  def emitAssignmentStatement(
+      expr: LoweredStatement.Assignment,
+      context: EmitContext
+  ): unit = {
+    emitExpression(expr.expression, context)
+    val index = context.getLocalIndex(expr.variable)
+    if (index < 4) {
+      chunk.emitOpcode(Opcode.Stloc0 + index, expr.location.startLine)
+    } else {
+      chunk.emitOpcode(Opcode.Stlocn, expr.location.startLine)
+      chunk.emitI4(index, expr.location.startLine)
+    }
+  }
+
+  def emitBinaryExpression(
+      expr: LoweredExpression.BinaryExpression,
+      context: EmitContext
+  ): unit = {
+    emitExpression(expr.left, context)
+    emitExpression(expr.right, context)
     expr.operator match {
       case BinaryOperatorKind.Plus =>
         chunk.emitOpcode(Opcode.Add, expr.location.startLine)
@@ -219,31 +349,61 @@ class Emitter(
     }
   }
 
-  def emitBlock(expr: BoundExpression.Block): unit = {
-    emitStatements(expr.statements)
-    emitExpression(expr.expression)
-  }
-
-  def emitBooleanLiteral(expr: BoundExpression.BooleanLiteral): unit = {
+  def emitBooleanLiteral(
+      expr: LoweredExpression.BooleanLiteral,
+      context: EmitContext
+  ): unit = {
     val value = if (expr.value) 1 else 0
     emitLoadConstant(value, expr.location.startLine)
   }
 
-  def emitCallExpression(expr: BoundExpression.CallExpression): unit = ???
-  def emitCastExpression(expr: BoundExpression.CastExpression): unit = ???
-  def emitCharacterLiteral(expr: BoundExpression.CharacterLiteral): unit = ???
-  def emitForExpression(expr: BoundExpression.ForExpression): unit = ???
-  def emitIfExpression(expr: BoundExpression.IfExpression): unit = ???
-  def emitIndexExpression(expr: BoundExpression.IndexExpression): unit = ???
-  def emitIntLiteral(expr: BoundExpression.IntLiteral): unit = {
+  def emitCallExpression(
+      expr: LoweredExpression.Call,
+      context: EmitContext
+  ): unit = ???
+
+  def emitCastExpression(
+      expr: LoweredExpression.Cast,
+      context: EmitContext
+  ): unit = ???
+
+  def emitCharacterLiteral(
+      expr: LoweredExpression.CharacterLiteral,
+      context: EmitContext
+  ): unit = ???
+
+  def emitIntLiteral(
+      expr: LoweredExpression.IntegerLiteral,
+      context: EmitContext
+  ): unit = {
     chunk.emitOpcode(Opcode.LdcI4, expr.location.startLine)
     chunk.emitI4(expr.value, expr.location.startLine)
   }
-  def emitMemberAccess(expr: BoundExpression.MemberAccess): unit = ???
-  def emitNewExpression(expr: BoundExpression.NewExpression): unit = ???
-  def emitStringLiteral(expr: BoundExpression.StringLiteral): unit = ???
-  def emitUnaryExpression(expr: BoundExpression.UnaryExpression): unit = {
-    emitExpression(expr.operand)
+
+  def emitMemberAccess(
+      expr: LoweredExpression.MemberAccess,
+      context: EmitContext
+  ): unit = ???
+
+  def emitNewExpression(
+      expr: LoweredExpression.New,
+      context: EmitContext
+  ): unit = ???
+
+  def emitStringLiteral(
+      expr: LoweredExpression.StringLiteral,
+      context: EmitContext
+  ): unit = {
+    val token = metadata.addString(expr.value)
+    chunk.emitOpcode(Opcode.Ldstr, expr.location.startLine)
+    chunk.emitI4(token.token, expr.location.startLine)
+  }
+
+  def emitUnaryExpression(
+      expr: LoweredExpression.Unary,
+      context: EmitContext
+  ): unit = {
+    emitExpression(expr.operand, context)
     expr.operator match {
       case UnaryOperatorKind.Identity => // do nothing
       case UnaryOperatorKind.Negation => // -x
@@ -259,49 +419,114 @@ class Emitter(
       case UnaryOperatorKind.Error => ???
     }
   }
-  def emitUnitExpression(expr: BoundExpression.UnitExpression): unit = {
-    chunk.emitOpcode(Opcode.Nop, expr.location.startLine)
+
+  def emitUnitExpression(
+      context: EmitContext
+  ): unit = {
+    chunk.emitOpcode(Opcode.Nop, -1)
   }
-  def emitVariable(expr: BoundExpression.Variable): unit = ???
-  def emitWhileExpression(expr: BoundExpression.WhileExpression): unit = ???
+
+  def emitVariable(
+      expr: LoweredExpression.Variable,
+      context: EmitContext
+  ): unit = {
+    val index = context.getLocalIndex(expr.symbol)
+    if (index < 4) {
+      chunk.emitOpcode(Opcode.Ldloc0 + index, expr.location.startLine)
+    } else {
+      chunk.emitOpcode(Opcode.Ldlocn, expr.location.startLine)
+      chunk.emitI4(index, expr.location.startLine)
+    }
+  }
 
   def emitLoadConstant(i: int, startLine: int): unit = {
     chunk.emitOpcode(Opcode.LdcI4, startLine)
     chunk.emitI4(i, startLine)
   }
 
-  def emitStatements(statements: List<BoundStatement>): unit = {
-    statements match {
-      case List.Nil =>
-      case List.Cons(statement, rest) =>
-        emitStatement(statement)
-        emitStatements(rest)
+  def emitStatements(
+      statements: Chain[LoweredStatement],
+      context: EmitContext
+  ): unit = {
+    statements.uncons() match {
+      case Option.None =>
+      case Option.Some(Tuple2(statement, rest)) =>
+        emitStatement(statement, context)
+        emitStatements(rest, context)
     }
   }
 
-  def emitStatement(statement: BoundStatement): unit = {
+  def emitStatement(statement: LoweredStatement, context: EmitContext): unit = {
     statement match {
-      case BoundStatement.Error => panic("emitStatement: Error")
+      case LoweredStatement.Error => panic("emitStatement: Error")
 
-      case value: BoundStatement.ExpressionStatement =>
-        emitExpressionStatement(value)
-      case value: BoundStatement.VariableDeclaration =>
-        emitVariableDeclaration(value)
+      case value: LoweredStatement.ExpressionStatement =>
+        emitExpressionStatement(value, context)
+//      case value: LoweredStatement.VariableDeclaration =>
+//        emitVariableDeclaration(value, context)
+      case statement: LoweredStatement.Assignment =>
+        emitAssignmentStatement(statement, context)
+      case statement: LoweredStatement.ConditionalGoto =>
+        emitConditionalGotoStatement(statement, context)
+      case statement: LoweredStatement.Goto =>
+        emitGotoStatement(statement, context)
+      case statement: LoweredStatement.LabelDeclaration =>
+        emitLabelDeclarationStatement(statement, context)
+      case statement: LoweredStatement.Return =>
+        emitReturnStatement(statement, context)
     }
+  }
+
+  def emitConditionalGotoStatement(
+      statement: LoweredStatement.ConditionalGoto,
+      context: EmitContext
+  ): unit = {
+    emitExpression(statement.condition, context)
+    val op = if (statement.invert) Opcode.Brfalse else Opcode.Brtrue
+    chunk.emitOpcode(op, statement.location.startLine)
+
+    val target = context.getBranchTarget(statement.label)
+    chunk.emitI4(target, statement.location.startLine)
+  }
+
+  def emitGotoStatement(
+      statement: LoweredStatement.Goto,
+      context: EmitContext
+  ): unit = {
+    chunk.emitOpcode(Opcode.Br, statement.location.startLine)
+
+    val target = context.getBranchTarget(statement.label)
+    chunk.emitI4(target, statement.location.startLine)
+  }
+
+  def emitLabelDeclarationStatement(
+      statement: LoweredStatement.LabelDeclaration,
+      context: EmitContext
+  ): unit = {
+    context.saveLabel(statement.label)
+  }
+
+  def emitReturnStatement(
+      statement: LoweredStatement.Return,
+      context: EmitContext
+  ): unit = {
+    ???
   }
 
   def emitExpressionStatement(
-      statement: BoundStatement.ExpressionStatement
+      statement: LoweredStatement.ExpressionStatement,
+      context: EmitContext
   ): unit = {
-    emitExpression(statement.expression)
+    emitExpression(statement.expression, context)
     // TODO: emit pop? or return
   }
 
-  def emitVariableDeclaration(
-      statement: BoundStatement.VariableDeclaration
-  ): unit = ???
+//  def emitVariableDeclaration(
+//      statement: LoweredStatement.VariableDeclaration,
+//      context: EmitContext
+//  ): unit = ???
 
-  def emitSymbolsMetadata(symbols: List<Symbol>): unit = {
+  def emitSymbolsMetadata(symbols: List[Symbol]): unit = {
     symbols match {
       case List.Nil =>
       case List.Cons(symbol, rest) =>
@@ -311,7 +536,11 @@ class Emitter(
   }
 
   def emitSymbolMetadata(symbol: Symbol): unit = {
-    if (symbol.kind == SymbolKind.Class) {
+    if (symbol.kind == SymbolKind.Namespace) {
+      emitSymbolsMetadata(symbol.members())
+    } else if (
+      symbol.kind == SymbolKind.Class || symbol.kind == SymbolKind.Object
+    ) {
       emitClassMetadata(symbol)
     } else if (symbol.kind == SymbolKind.Field) {
       emitFieldMetadata(symbol)
@@ -321,14 +550,17 @@ class Emitter(
       emitMethodMetadata(symbol)
     } else if (symbol.kind == SymbolKind.Parameter) {
       emitParameterMetadata(symbol)
+    } else if (symbol.kind == SymbolKind.Local) {
+      // TODO: emit local metadata?
     } else {
-      ()
+      println("emitSymbolMetadata: unknown symbol kind " + symbol.kind)
+      ???
     }
   }
 
-  def ns(ns: List<string>): string = _ns(ns, "")
+  def ns(ns: List[string]): string = _ns(ns, "")
 
-  def _ns(names: List<string>, right: string): string = {
+  def _ns(names: List[string], right: string): string = {
     names match {
       case List.Nil => right
       case List.Cons(name, rest) =>
@@ -338,12 +570,12 @@ class Emitter(
   }
 
   def emitClassMetadata(symbol: Symbol): unit = {
-    val flags = MetadataFlags.None
-//      if ((symbol.flags & SymbolFlags.Static) == SymbolFlags.Static)
-//        MetadataFlags.Static
-//      else MetadataFlags.None
+    val flags =
+      if (symbol.kind == SymbolKind.Object)
+        MetadataFlags.Static
+      else MetadataFlags.None
 
-    typeTokens.put(
+    typeTokens = typeTokens.put(
       symbol,
       metadata.addTypeDef(symbol.name, ns(symbol.ns()), flags)
     )
@@ -357,17 +589,22 @@ class Emitter(
 //        MetadataFlags.Static
 //      else MetadataFlags.None
 
-    fieldTokens.put(symbol, metadata.addField(symbol.name, flags, 0))
+    fieldTokens =
+      fieldTokens.put(symbol, metadata.addField(symbol.name, flags, 0))
 
     queueSymbolSignature(symbol)
   }
 
-//  def getSymbolSignature(symbol: Symbol) = {
-//    val typ = checker.getTypeOfSymbol(symbol)
-//    val sig = new SignatureBuilder()
-//    emitTypeSignature(typ, sig)
-//    sig.toSignature()
-//  }
+  def getSymbolSignature(symbol: Symbol) = {
+    binder.getSymbolType(symbol) match {
+      case Option.None =>
+        panic("getSymbolSignature: no type for symbol " + symbol.name)
+      case Option.Some(typ) =>
+        val sig = new SignatureBuilder()
+        emitTypeSignature(typ, sig)
+        sig.toSignature()
+    }
+  }
 
   def emitMethodMetadata(symbol: Symbol) = {
     val flags = MetadataFlags.None
@@ -375,7 +612,8 @@ class Emitter(
 //        MetadataFlags.Static
 //      else MetadataFlags.None
 
-    methodTokens.put(symbol, metadata.addMethod(symbol.name, flags, 0, 0, 0))
+    methodTokens =
+      methodTokens.put(symbol, metadata.addMethod(symbol.name, flags, 0, 0, 0))
 
     queueSymbolSignature(symbol)
 
@@ -385,33 +623,36 @@ class Emitter(
   def emitParameterMetadata(symbol: Symbol): unit = {
     val flags = MetadataFlags.None
 
-    paramTokens.put(symbol, metadata.addParam(symbol.name, flags, 0))
+    paramTokens =
+      paramTokens.put(symbol, metadata.addParam(symbol.name, flags, 0))
 
     queueSymbolSignature(symbol)
   }
 
-//  def emitTypeSignature(typ: Type, sig: SignatureBuilder): unit = {
-//    if (typ.kind == TypeKind.Primitive) {
-//      emitPrimitiveTypeSignature(typ.primitive.get.name, sig)
-//    } else if (typ.kind == TypeKind.Function) {
-//      sig.writeFunction()
-//      emitTypeSignature(typ.function.get.returnType, sig)
-//      emitTypeArraySignature(typ.function.get.parameters, sig)
-//    } else if (typ.kind == TypeKind.Option) {
-//      sig.writeOption()
-//      emitTypeSignature(typ.option.get.inner, sig)
-//    } else if (typ.kind == TypeKind.Array) {
-//      sig.writeArray()
-//      emitTypeSignature(typ.array.get.inner, sig)
-//    } else if (typ.kind == TypeKind.TypeConstructor) {
-//      sig.writeTypeConstructor()
-//      val links = checker.getSymbolLinks(typ.symbol.get)
-//      sig.write(links.classId)
-//      emitTypeArraySignature(typ.typeConstructor.get.parameters, sig)
-//    } else {
-//      panic("unknown type kind: " + string(typ.kind))
-//    }
-//  }
+  def emitTypeSignature(typ: Type, sig: SignatureBuilder): unit = {
+    typ match {
+      case t: Type.Class           => emitClassTypeSignature(t, sig)
+      case t: Type.GenericClass    => emitGenericClassTypeSignature(t, sig)
+      case t: Type.GenericFunction => emitGenericFunctionTypeSignature(t, sig)
+      case t: Type.Function        => emitFunctionTypeSignature(t, sig)
+      case t: Type.Variable        => emitVariableTypeSignature(t, sig)
+      case Type.Any                => emitAnyTypeSignature(sig)
+      case Type.Never              => emitNeverTypeSignature(sig)
+      case Type.Error              => emitErrorTypeSignature(sig)
+    }
+  }
+
+  def emitClassTypeSignature(typ: Type, sig: SignatureBuilder): unit = {}
+  def emitGenericClassTypeSignature(typ: Type, sig: SignatureBuilder): unit = {}
+  def emitGenericFunctionTypeSignature(
+      typ: Type.GenericFunction,
+      sig: SignatureBuilder
+  ): unit = {}
+  def emitFunctionTypeSignature(typ: Type, sig: SignatureBuilder): unit = {}
+  def emitVariableTypeSignature(typ: Type, sig: SignatureBuilder): unit = {}
+  def emitAnyTypeSignature(sig: SignatureBuilder): unit = {}
+  def emitNeverTypeSignature(sig: SignatureBuilder): unit = {}
+  def emitErrorTypeSignature(sig: SignatureBuilder): unit = {}
 //
 //  def emitTypeArraySignature(parameters: Array[Type], sig: SignatureBuilder) = {
 //    sig.writeTypeArray(parameters.length)
@@ -419,27 +660,6 @@ class Emitter(
 //      emitTypeSignature(parameters(i), sig)
 //    }
 //  }
-
-  def emitPrimitiveTypeSignature(
-      name: string,
-      sig: SignatureBuilder
-  ): unit = {
-    if (name == "int") {
-      sig.writeInt()
-    } else if (name == "bool") {
-      sig.writeBool()
-    } else if (name == "char") {
-      sig.writeChar()
-    } else if (name == "string") {
-      sig.writeString()
-    } else if (name == "unit") {
-      sig.writeUnit()
-    } else if (name == "any") {
-      sig.writeAny()
-    } else {
-      panic("unknown primitive type: " + name)
-    }
-  }
 
   def disassembleInstruction(chunk: Chunk, offset: int): int = {
     print(Pad.left(Hex.toString(offset), 4, '0') + " ")

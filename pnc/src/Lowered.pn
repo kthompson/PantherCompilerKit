@@ -1,0 +1,788 @@
+using LoweredStatement.ExpressionStatement
+using panther
+
+class LoweredAssembly(
+    diagnostics: Diagnostics,
+    functionBodies: Dictionary[Symbol, LoweredBlock],
+    entryPoint: Option[Symbol]
+)
+
+class Label(name: string)
+class LabelToken(id: int)
+
+enum LoweredStatement {
+  case Error
+  case Assignment(
+      location: TextLocation,
+      variable: Symbol,
+      expression: LoweredExpression
+  )
+  case ConditionalGoto(
+      location: TextLocation,
+      label: Label,
+      condition: LoweredExpression,
+      invert: bool
+  )
+
+  // is this needed?
+  case ExpressionStatement(
+      location: TextLocation,
+      expression: LoweredExpression
+  )
+  case Goto(location: TextLocation, label: Label)
+  case LabelDeclaration(location: TextLocation, label: Label)
+  case Return(location: TextLocation, expression: LoweredExpression)
+//  case VariableDeclaration(
+//      location: TextLocation,
+//      variable: Symbol,
+//      isReadOnly: Boolean,
+//      typ: Type
+//  )
+}
+
+enum LoweredExpression {
+  case Error
+  case BinaryExpression(
+      location: TextLocation,
+      left: LoweredExpression,
+      operator: BinaryOperatorKind,
+      right: LoweredExpression,
+      resultType: Type
+  )
+  case BooleanLiteral(location: TextLocation, value: bool)
+  case Cast(
+      location: TextLocation,
+      operand: LoweredExpression,
+      resultType: Type
+  )
+  case Call(
+      location: TextLocation,
+      method: LoweredExpression,
+      genericArguments: List[Type],
+      arguments: Chain[LoweredExpression],
+      resultType: Type
+  )
+  case CharacterLiteral(location: TextLocation, value: char)
+  case IntegerLiteral(location: TextLocation, value: int)
+  case MemberAccess(
+      location: TextLocation,
+      left: LoweredExpression,
+      symbol: Symbol,
+      resultType: Type
+  )
+  case New(
+      location: TextLocation,
+      constructor: Symbol,
+      genericArguments: List[Type],
+      arguments: Chain[LoweredExpression],
+      resultType: Type
+  )
+  case StringLiteral(location: TextLocation, value: string)
+  case Unary(
+      location: TextLocation,
+      operand: LoweredExpression,
+      operator: UnaryOperatorKind,
+      resultType: Type
+  )
+  case unit
+  case Variable(location: TextLocation, symbol: Symbol)
+
+  def getLocation(): TextLocation = {
+    this match {
+      case LoweredExpression.Error => TextLocationFactory.empty()
+      case expr: LoweredExpression.BinaryExpression => expr.location
+      case expr: LoweredExpression.BooleanLiteral   => expr.location
+      case expr: LoweredExpression.Call             => expr.location
+      case expr: LoweredExpression.Cast             => expr.location
+      case expr: LoweredExpression.CharacterLiteral => expr.location
+      case expr: LoweredExpression.IntegerLiteral   => expr.location
+      case expr: LoweredExpression.MemberAccess     => expr.location
+      case expr: LoweredExpression.New              => expr.location
+      case expr: LoweredExpression.Variable         => expr.location
+      case expr: LoweredExpression.StringLiteral    => expr.location
+      case expr: LoweredExpression.Unary            => expr.location
+      case LoweredExpression.unit => TextLocationFactory.empty()
+    }
+  }
+}
+
+class LoweredBlock(
+    statements: Chain[LoweredStatement],
+    expression: LoweredExpression
+)
+
+object Lower {
+  def lower(boundAssembly: BoundAssembly, binder: Binder): LoweredAssembly = {
+    val diagnostics = boundAssembly.diagnostics
+
+    val entryPoint = boundAssembly.entryPoint
+
+    val functionBodies = lowerFunctionBodies(
+      boundAssembly.functionBodies,
+      DictionaryModule.empty[Symbol, LoweredBlock](),
+      binder
+    )
+
+    LoweredAssembly(diagnostics, functionBodies, entryPoint)
+  }
+
+  def lowerFunctionBodies(
+      bodies: Dictionary[Symbol, BoundExpression],
+      lowered: Dictionary[Symbol, LoweredBlock],
+      binder: Binder
+  ): Dictionary[Symbol, LoweredBlock] = {
+    bodies.list match {
+      case List.Nil => lowered
+      case List.Cons(KeyValue(symbol, expr), tail) =>
+        val loweredBody = lowerFunctionBody(symbol, expr, binder)
+        val updatedLowered = lowered.put(symbol, loweredBody)
+        lowerFunctionBodies(Dictionary(tail), updatedLowered, binder)
+    }
+  }
+
+  def lowerFunctionBody(
+      symbol: Symbol,
+      body: BoundExpression,
+      binder: Binder
+  ): LoweredBlock = {
+    val context = LoweredBlock(Chain.Empty(), LoweredExpression.unit)
+    val lowerer = new ExpressionLowerer(symbol, binder)
+    lowerer.lowerExpression(body, context)
+  }
+
+}
+
+class ExpressionLowerer(symbol: Symbol, binder: Binder) {
+
+  var _labelCount = 0
+  var _variableCount = 0
+  val emptyBlock: LoweredBlock =
+    LoweredBlock(Chain.Empty(), LoweredExpression.unit)
+
+  def getLabelToken(): LabelToken = {
+    _labelCount = _labelCount + 1
+    LabelToken(_labelCount)
+  }
+
+  def getLabel(token: LabelToken, tag: string): Label = {
+    val suffix = if (tag == "") "" else "_" + tag
+    Label("$" + string(token.id) + suffix)
+  }
+
+  def createTemporary(): Symbol = {
+    _variableCount = _variableCount + 1
+    symbol.defineLocal(
+      "$" + string(_variableCount),
+      TextLocationFactory.empty()
+    )
+  }
+
+  def lowerExpression(
+      expression: BoundExpression,
+      context: LoweredBlock
+  ): LoweredBlock = {
+    expression match {
+      case BoundExpression.Error            => ???
+      case expr: BoundExpression.Assignment => lowerAssignment(expr, context)
+      case expr: BoundExpression.BinaryExpression =>
+        lowerBinaryExpression(expr, context)
+      case expr: BoundExpression.Block => lowerBlock(expr, context)
+      case expr: BoundExpression.BooleanLiteral =>
+        lowerBooleanLiteral(expr, context)
+      case expr: BoundExpression.CallExpression =>
+        lowerCallExpression(expr, context)
+      case expr: BoundExpression.CastExpression =>
+        lowerCastExpression(expr, context)
+      case expr: BoundExpression.CharacterLiteral =>
+        lowerCharacterLiteral(expr, context)
+      case expr: BoundExpression.ForExpression =>
+        lowerForExpression(expr, context)
+      case expr: BoundExpression.IfExpression =>
+        lowerIfExpression(expr, context)
+      case expr: BoundExpression.IndexExpression =>
+        lowerIndexExpression(expr, context)
+      case expr: BoundExpression.IntLiteral => lowerIntLiteral(expr, context)
+      case expr: BoundExpression.MemberAccess =>
+        lowerMemberAccess(expr, context)
+      case expr: BoundExpression.NewExpression =>
+        lowerNewExpression(expr, context)
+      case expr: BoundExpression.StringLiteral =>
+        lowerStringLiteral(expr, context)
+      case expr: BoundExpression.UnaryExpression =>
+        lowerUnaryExpression(expr, context)
+      case expr: BoundExpression.UnitExpression =>
+        lowerUnitExpression(expr, context)
+      case expr: BoundExpression.Variable => lowerVariable(expr, context)
+      case expr: BoundExpression.WhileExpression =>
+        lowerWhileExpression(expr, context)
+    }
+  }
+
+  def lowerAssignment(
+      expr: BoundExpression.Assignment,
+      context: LoweredBlock
+  ): LoweredBlock = {
+
+    val variable = expr.variable
+    val location = expr.location
+    val block = lowerExpression(expr.expression, context)
+
+    val assignmentStatement = LoweredStatement.Assignment(
+      location,
+      variable,
+      block.expression
+    )
+
+    val newStatements = block.statements.append(assignmentStatement)
+
+    LoweredBlock(newStatements, LoweredExpression.unit)
+  }
+
+  def lowerBinaryExpression(
+      expr: BoundExpression.BinaryExpression,
+      context: LoweredBlock
+  ): LoweredBlock = {
+    consumeExpr(
+      lowerExpression(expr.left, context)
+    ) match {
+      case Tuple2(left, leftBlock) =>
+        val right = lowerExpression(expr.right, leftBlock)
+
+        val binary = LoweredExpression.BinaryExpression(
+          expr.location,
+          left,
+          expr.operator,
+          right.expression,
+          expr.resultType
+        )
+
+        LoweredBlock(right.statements, binary)
+    }
+  }
+
+  def lowerBlock(
+      expr: BoundExpression.Block,
+      context: LoweredBlock
+  ): LoweredBlock = {
+    val block = lowerStatements(expr.statements, context)
+    lowerExpression(expr.expression, block)
+  }
+
+  def lowerBooleanLiteral(
+      expr: BoundExpression.BooleanLiteral,
+      context: LoweredBlock
+  ): LoweredBlock = {
+    val lowered = LoweredExpression.BooleanLiteral(
+      expr.location,
+      expr.value
+    )
+
+    checkUnusedExpr(context)
+
+    LoweredBlock(context.statements, lowered)
+  }
+
+  def lowerCallExpression(
+      expr: BoundExpression.CallExpression,
+      context: LoweredBlock
+  ): LoweredBlock = {
+    checkUnusedExpr(context)
+    lowerCallExpressionArguments(
+      expr,
+      expr.arguments,
+      Chain.Empty(),
+      context.statements
+    )
+  }
+
+  def lowerCallExpressionArguments(
+      call: BoundExpression.CallExpression,
+      arguments: List[BoundExpression],
+      loweredArguments: Chain[LoweredExpression],
+      statements: Chain[LoweredStatement]
+  ): LoweredBlock = {
+    arguments match {
+      case List.Nil =>
+        // return the call
+        val block = lowerExpression(
+          call.method,
+          LoweredBlock(statements, LoweredExpression.unit)
+        )
+
+        LoweredBlock(
+          block.statements,
+          LoweredExpression.Call(
+            call.location,
+            block.expression,
+            call.genericArguments,
+            loweredArguments,
+            call.resultType
+          )
+        )
+      case List.Cons(head, tail) =>
+        lowerArgument(head, loweredArguments, statements) match {
+          case Tuple2(nextStatements, nextArgs) =>
+            lowerCallExpressionArguments(
+              call,
+              tail,
+              nextArgs,
+              nextStatements
+            )
+        }
+    }
+  }
+
+  def lowerCastExpression(
+      expr: BoundExpression.CastExpression,
+      context: LoweredBlock
+  ): LoweredBlock = {
+
+    val block = lowerExpression(expr.expression, context)
+
+    // TODO: probably should improve this more so we know the exact cast from and to
+    val casted = LoweredExpression.Cast(
+      expr.location,
+      block.expression,
+      expr.targetType
+    )
+
+    LoweredBlock(block.statements, casted)
+  }
+
+  def lowerCharacterLiteral(
+      expr: BoundExpression.CharacterLiteral,
+      context: LoweredBlock
+  ): LoweredBlock = {
+    val lowered = LoweredExpression.CharacterLiteral(
+      expr.location,
+      expr.value
+    )
+
+    checkUnusedExpr(context)
+
+    LoweredBlock(context.statements, lowered)
+  }
+
+  def lowerForExpression(
+      expr: BoundExpression.ForExpression,
+      context: LoweredBlock
+  ): LoweredBlock = ???
+
+  def lowerIfExpression(
+      expr: BoundExpression.IfExpression,
+      context: LoweredBlock
+  ): LoweredBlock = {
+
+    /*
+     * if (<condition>)
+     *     <thenBody>
+     * else
+     *     <elseBody>
+     *
+     * to
+     *
+     * var x
+     * gotoIf <condition> <thenLabel>
+     *    x = <elseBody>
+     *    goto <endLabel>
+     * <thenLabel>
+     *    x = <thenBody>
+     * <endLabel>
+     *
+     */
+
+    checkUnusedExpr(context)
+
+    val conditionBlock = lowerExpression(expr.cond, context)
+
+    val token = getLabelToken()
+    val thenLabel = getLabel(token, "then")
+    val endLabel = getLabel(token, "end")
+
+    val condGoto = conditionBlock.statements.append(
+      LoweredStatement.ConditionalGoto(
+        expr.location,
+        thenLabel,
+        conditionBlock.expression,
+        false
+      )
+    )
+    val gotoEnd = LoweredStatement.Goto(expr.location, endLabel)
+    val thenLabelDecl = LoweredStatement.LabelDeclaration(
+      expr.location,
+      thenLabel
+    )
+
+    val endLabelDecl = LoweredStatement.LabelDeclaration(
+      expr.location,
+      endLabel
+    )
+
+    val thenBlock = lowerExpression(expr.thenExpr, emptyBlock)
+    expr.elseExpr match {
+      case Option.Some(elseExpr) =>
+        val elseBlock = lowerExpression(elseExpr, emptyBlock)
+
+        /* converted structure looks like the following:
+         *
+         * var x
+         * gotoIf <condition> <thenLabel>
+         *   x = <elseBody>
+         * goto <endLabel>
+         * <thenLabel>
+         *   x = <thenBody>
+         * <endLabel>
+         *
+         */
+
+        val variable = createTemporary()
+
+//        val variableDeclaration = LoweredStatement.VariableDeclaration(
+//          expr.location,
+//          variable,
+//          false,
+//          expr.resultType
+//        )
+
+        LoweredBlock(
+//          ChainModule
+//            .of(variableDeclaration)
+//            .concat(condGoto)
+          condGoto
+            .concat(
+              blockToAssignment(
+                AstUtils.locationOfBoundExpression(elseExpr),
+                variable,
+                elseBlock
+              )
+            )
+            .append(gotoEnd)
+            .append(thenLabelDecl)
+            .concat(
+              blockToAssignment(
+                AstUtils.locationOfBoundExpression(expr.thenExpr),
+                variable,
+                thenBlock
+              )
+            )
+            .append(endLabelDecl),
+          // return the variable we created
+          LoweredExpression.Variable(expr.location, variable)
+        )
+
+      case Option.None =>
+
+        // there is no else so we dont need a variable assignment as this is a unit expression
+        checkUnusedExpr(thenBlock)
+
+        /*  converted structure looks like the following:
+         *
+         * gotoIf <condition> <thenLabel>
+         *   goto <endLabel>
+         * <thenLabel>
+         *   <thenBody>
+         * <endLabel>
+         */
+
+        LoweredBlock(
+          condGoto
+            .append(gotoEnd)
+            .append(thenLabelDecl)
+            .concat(thenBlock.statements)
+            .append(endLabelDecl),
+          LoweredExpression.unit
+        )
+    }
+
+    // https://github.com/kthompson/panther/blob/main/src/Panther/CodeAnalysis/Lowering/LoopLowerer.cs
+
+  }
+
+  def blockToAssignment(
+      location: TextLocation,
+      variable: Symbol,
+      block: LoweredBlock
+  ): Chain[LoweredStatement] = {
+    block.statements.append(
+      LoweredStatement.Assignment(
+        location,
+        variable,
+        block.expression
+      )
+    )
+  }
+
+  def lowerIndexExpression(
+      expr: BoundExpression.IndexExpression,
+      context: LoweredBlock
+  ): LoweredBlock = ???
+
+  def lowerIntLiteral(
+      expr: BoundExpression.IntLiteral,
+      context: LoweredBlock
+  ): LoweredBlock = {
+    val lowered = LoweredExpression.IntegerLiteral(
+      expr.location,
+      expr.value
+    )
+
+    checkUnusedExpr(context)
+
+    LoweredBlock(context.statements, lowered)
+  }
+
+  def lowerMemberAccess(
+      expr: BoundExpression.MemberAccess,
+      context: LoweredBlock
+  ): LoweredBlock = {
+    val lowered = lowerExpression(expr.left, context)
+    LoweredBlock(
+      lowered.statements,
+      LoweredExpression.MemberAccess(
+        expr.location,
+        lowered.expression,
+        expr.member,
+        expr.resultType
+      )
+    )
+  }
+
+  def lowerNewExpression(
+      expr: BoundExpression.NewExpression,
+      context: LoweredBlock
+  ): LoweredBlock = {
+    checkUnusedExpr(context)
+
+    lowerNewExpressionArguments(
+      expr,
+      expr.arguments,
+      Chain.Empty(),
+      context.statements
+    )
+  }
+
+  def lowerNewExpressionArguments(
+      expr: BoundExpression.NewExpression,
+      arguments: List[BoundExpression],
+      loweredArguments: Chain[LoweredExpression],
+      statements: Chain[LoweredStatement]
+  ): LoweredBlock = {
+    arguments match {
+      case List.Nil =>
+        // return the New
+        LoweredBlock(
+          statements,
+          LoweredExpression.New(
+            expr.location,
+            expr.constructor,
+            expr.genericArguments,
+            loweredArguments,
+            expr.resultType
+          )
+        )
+      case List.Cons(head, tail) =>
+        lowerArgument(head, loweredArguments, statements) match {
+          case Tuple2(nextStatements, nextArgs) =>
+            lowerNewExpressionArguments(
+              expr,
+              tail,
+              nextArgs,
+              nextStatements
+            )
+        }
+    }
+  }
+
+  def lowerArgument(
+      head: BoundExpression,
+      loweredArguments: Chain[LoweredExpression],
+      statements: Chain[LoweredStatement]
+  ) = {
+    val temp = createTemporary()
+    val arg = lowerExpression(
+      head,
+      LoweredBlock(statements, LoweredExpression.unit)
+    )
+    val location = arg.expression.getLocation()
+
+    val nextStatements = arg.statements
+//      .append(
+//        LoweredStatement.VariableDeclaration(
+//          location,
+//          temp,
+//          false,
+//          binder.getType(head)
+//        )
+//      )
+      .append(LoweredStatement.Assignment(location, temp, arg.expression))
+
+    val nextArgs =
+      loweredArguments.append(LoweredExpression.Variable(location, temp))
+    Tuple2(nextStatements, nextArgs)
+  }
+
+  def lowerStringLiteral(
+      expr: BoundExpression.StringLiteral,
+      context: LoweredBlock
+  ): LoweredBlock = {
+    val lowered = LoweredExpression.StringLiteral(
+      expr.location,
+      expr.value
+    )
+
+    checkUnusedExpr(context)
+
+    LoweredBlock(context.statements, lowered)
+  }
+
+  def lowerUnaryExpression(
+      expr: BoundExpression.UnaryExpression,
+      context: LoweredBlock
+  ): LoweredBlock = {
+    val block = lowerExpression(expr.operand, context)
+
+    val lowered = LoweredExpression.Unary(
+      expr.location,
+      block.expression,
+      expr.operator,
+      expr.resultType
+    )
+
+    LoweredBlock(block.statements, lowered)
+  }
+
+  def lowerUnitExpression(
+      expr: BoundExpression.UnitExpression,
+      context: LoweredBlock
+  ): LoweredBlock = {
+    checkUnusedExpr(context)
+    context
+  }
+
+  def lowerVariable(
+      expr: BoundExpression.Variable,
+      context: LoweredBlock
+  ): LoweredBlock = {
+    checkUnusedExpr(context)
+
+    val lowered = LoweredExpression.Variable(expr.location, expr.symbol)
+    LoweredBlock(context.statements, lowered)
+  }
+
+  def lowerWhileExpression(
+      expr: BoundExpression.WhileExpression,
+      context: LoweredBlock
+  ): LoweredBlock = {
+
+    /*
+     * while (<condition>)
+     *     <body>
+     *
+     * to
+     *
+     * <startLabel>
+     *   gotoIfNot <condition> <endLabel>
+     *   <body>
+     *   goto <startLabel>
+     * <endLabel>
+     */
+
+    checkUnusedExpr(context)
+
+    // setup the labels
+    val token = getLabelToken()
+    val startLabel = getLabel(token, "start")
+    val endLabel = getLabel(token, "end")
+    val startLabelDecl = LoweredStatement.LabelDeclaration(
+      expr.location,
+      startLabel
+    )
+    val endLabelDecl = LoweredStatement.LabelDeclaration(
+      expr.location,
+      endLabel
+    )
+
+    val conditionBlock = lowerExpression(expr.condition, context)
+
+    val condGoto = ChainModule
+      .of(startLabelDecl)
+      .concat(conditionBlock.statements)
+      .append(
+        LoweredStatement.ConditionalGoto(
+          expr.location,
+          endLabel,
+          conditionBlock.expression,
+          true
+        )
+      )
+
+    val gotoStart = LoweredStatement.Goto(expr.location, startLabel)
+    val bodyBlock = lowerExpression(expr.body, emptyBlock)
+
+    LoweredBlock(
+      condGoto
+        .concat(bodyBlock.statements)
+        .append(
+          LoweredStatement.ExpressionStatement(
+            AstUtils.locationOfBoundExpression(expr.body),
+            bodyBlock.expression
+          )
+        )
+        .append(gotoStart)
+        .append(endLabelDecl),
+      LoweredExpression.unit
+    )
+  }
+
+  def lowerStatements(
+      statements: List[BoundStatement],
+      context: LoweredBlock
+  ): LoweredBlock = {
+    statements match {
+      case List.Nil => context
+      case List.Cons(head, tail) =>
+        val block = lowerStatement(head, context)
+        lowerStatements(tail, block)
+    }
+  }
+
+  def lowerStatement(
+      statement: BoundStatement,
+      context: LoweredBlock
+  ): LoweredBlock = {
+    statement match {
+      case BoundStatement.Error => ???
+      case statement: BoundStatement.ExpressionStatement =>
+        lowerExpressionStatement(statement, context)
+      case statement: BoundStatement.VariableDeclaration =>
+        lowerVariableDeclaration(statement, context)
+    }
+  }
+
+  def lowerExpressionStatement(
+      statement: BoundStatement.ExpressionStatement,
+      context: LoweredBlock
+  ): LoweredBlock =
+    lowerExpression(statement.expression, context)
+
+  def lowerVariableDeclaration(
+      statement: BoundStatement.VariableDeclaration,
+      context: LoweredBlock
+  ): LoweredBlock = ???
+
+  def checkUnusedExpr(context: LoweredBlock): unit = {
+    if (context.expression != LoweredExpression.unit) {
+      // TODO: this should be a warning diagnostic
+      println(
+        "WARN: Unused expression in lowered block - " + context.expression
+      )
+    }
+  }
+
+  def consumeExpr(
+      context: LoweredBlock
+  ): Tuple2[LoweredExpression, LoweredBlock] = {
+    val expr = context.expression
+    Tuple2(expr, LoweredBlock(context.statements, LoweredExpression.unit))
+  }
+}

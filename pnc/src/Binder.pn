@@ -1,18 +1,18 @@
 using panther
 
 class Members(
-    objects: List<Namespaced<MemberSyntax.ObjectDeclarationSyntax>>,
-    classes: List<Namespaced<MemberSyntax.ClassDeclarationSyntax>>,
-    functions: List<MemberSyntax.FunctionDeclarationSyntax>,
-    enums: List<Namespaced<MemberSyntax.EnumDeclarationSyntax>>,
-    fields: List<MemberSyntax.VariableDeclaration>,
+    objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
+    classes: List[Namespaced[MemberSyntax.ClassDeclarationSyntax]],
+    functions: List[MemberSyntax.FunctionDeclarationSyntax],
+    enums: List[Namespaced[MemberSyntax.EnumDeclarationSyntax]],
+    fields: List[MemberSyntax.VariableDeclaration],
 
     // top level variable declarations are converted to top level assignments so that we can maintain the order
     // within the set of statements. the statements are then moved to the relevant constructor
-    globalStatements: List<MemberSyntax.GlobalStatementSyntax>
+    globalStatements: List[MemberSyntax.GlobalStatementSyntax]
 )
 
-class Namespaced<A>(ns: List<string>, value: A)
+class Namespaced[A](ns: List[string], value: A)
 
 enum BindingMember {
   case Method(value: MemberSyntax.FunctionDeclarationSyntax)
@@ -22,10 +22,10 @@ enum BindingMember {
 
 enum TypingMember {
   case Method(
-      genericParameters: List<GenericTypeParameter>,
-      parameters: List<BoundParameter>,
-      returnType: Option<Type>,
-      expression: Option<Expression>,
+      genericParameters: List[GenericTypeParameter],
+      parameters: List[BoundParameter],
+      returnType: Option[Type],
+      expression: Option[Expression],
       scope: Scope
   )
   case Field(options: FieldOptions, scope: Scope)
@@ -38,20 +38,20 @@ enum FieldOptions {
 }
 
 class ConstructorParams(
-    genericTypeParameters: List<GenericTypeParameter>,
-    parameters: List<ParameterSyntax>
+    genericTypeParameters: List[GenericTypeParameter],
+    parameters: List[ParameterSyntax]
 )
 
 class Binder(
-    trees: List<SyntaxTree>,
+    trees: List[SyntaxTree],
     rootSymbol: Symbol,
     diagnosticBag: DiagnosticBag
 ) {
 
-  var symbolTypes: Dictionary<int, SymbolLinks> = DictionaryModule.empty()
+  var symbolTypes: Dictionary[int, SymbolLinks] = DictionaryModule.empty()
   var nextSymbolId = 0
 
-  def setSymbolType(symbol: Symbol, typ: Type, base: Option<Symbol>): Type = {
+  def setSymbolType(symbol: Symbol, typ: Type, base: Option[Symbol]): Type = {
     val id = getSymbolId(symbol)
     symbolTypes = symbolTypes.put(id, SymbolLinks(typ, base))
     typ
@@ -65,7 +65,7 @@ class Binder(
     symbol._id
   }
 
-  def getSymbolType(symbol: Symbol): Option<Type> =
+  def getSymbolType(symbol: Symbol): Option[Type] =
     symbolTypes.get(symbol._id) match {
       case Option.None        => Option.None
       case Option.Some(value) => Some(value.typ)
@@ -196,7 +196,7 @@ class Binder(
 
   /** These are the methods and fields that need to be bound/symbolized
     */
-  var membersToBind: Dictionary<Symbol, List<BindingMember>> =
+  var membersToBind: Dictionary[Symbol, List[BindingMember]] =
     DictionaryModule.empty()
 
   /** statementsToBind represent the statements that occur in the body of a
@@ -204,20 +204,20 @@ class Binder(
     * the class/enum/object
     */
   var statementsToBind
-      : Dictionary<Symbol, List<MemberSyntax.GlobalStatementSyntax>> =
+      : Dictionary[Symbol, List[MemberSyntax.GlobalStatementSyntax]] =
     DictionaryModule.empty()
 
   /** constructors to build */
-  var ctorsToBind: Dictionary<Symbol, ConstructorParams> =
+  var ctorsToBind: Dictionary[Symbol, ConstructorParams] =
     DictionaryModule.empty()
 
   /** functionBodies are the bound expressions for all methods and constructors
     */
-  var functionBodies: Dictionary<Symbol, BoundExpression> =
+  var functionBodies: Dictionary[Symbol, BoundExpression] =
     DictionaryModule.empty()
 
   /** map of member symbols to their untyped declarations */
-  var membersToType: Dictionary<Symbol, TypingMember> = DictionaryModule.empty()
+  var membersToType: Dictionary[Symbol, TypingMember] = DictionaryModule.empty()
 
   val classifier = new ConversionClassifier(this)
   val exprBinder: ExprBinder =
@@ -296,7 +296,6 @@ class Binder(
     // then bind all function bodies
 
     BoundAssembly(
-      List.Nil,
       diagnosticBag.diagnostics,
       functionBodies,
       Option.Some(main)
@@ -314,7 +313,7 @@ class Binder(
 
   def buildConstructorBody(
       symbol: Symbol,
-      globalStatements: List<MemberSyntax.GlobalStatementSyntax>
+      globalStatements: List[MemberSyntax.GlobalStatementSyntax]
   ): unit = {
     statementsToBind = statementsToBind.remove(symbol)
     val ctor = findCtorSymbol(symbol)
@@ -355,7 +354,7 @@ class Binder(
   }
 
   def bindConstructorSignatures(
-      list: List<KeyValue<Symbol, ConstructorParams>>
+      list: List[KeyValue[Symbol, ConstructorParams]]
   ): unit = {
     list match {
       case List.Nil => ()
@@ -445,10 +444,10 @@ class Binder(
 
   def bindMethodBody(
       symbol: Symbol,
-      args: List<GenericTypeParameter>,
-      parameters: List<BoundParameter>,
-      returnType: Option<Type>,
-      expression: Option<Expression>,
+      args: List[GenericTypeParameter],
+      parameters: List[BoundParameter],
+      returnType: Option[Type],
+      expression: Option[Expression],
       methodScope: Scope
   ): Type = {
 
@@ -505,7 +504,7 @@ class Binder(
     }
   }
 
-  def getTypeSymbol(typ: Type): Option<Symbol> = {
+  def getTypeSymbol(typ: Type): Option[Symbol] = {
     typ match {
       case Type.Class(_, ns, name, _, _) =>
         // todo: handle type args being returned
@@ -514,7 +513,7 @@ class Binder(
     }
   }
 
-  def getTypes(expressions: List<BoundExpression>): List<Type> = {
+  def getTypes(expressions: List[BoundExpression]): List[Type] = {
     expressions match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
@@ -566,10 +565,10 @@ class Binder(
   }
 
   def bindMembers(
-      list: List<KeyValue<Symbol, List<BindingMember>>>,
+      list: List[KeyValue[Symbol, List[BindingMember]]],
       phase: int,
-      acc: Dictionary<Symbol, TypingMember>
-  ): Dictionary<Symbol, TypingMember> = {
+      acc: Dictionary[Symbol, TypingMember]
+  ): Dictionary[Symbol, TypingMember] = {
     list match {
       case List.Nil                                   => acc
       case List.Cons(KeyValue(symbol, members), tail) =>
@@ -591,11 +590,11 @@ class Binder(
     * @return
     */
   def bindSymbolMembers(
-      list: List<BindingMember>,
+      list: List[BindingMember],
       phase: int,
-      acc: Dictionary<Symbol, TypingMember>,
+      acc: Dictionary[Symbol, TypingMember],
       scope: Scope
-  ): Dictionary<Symbol, TypingMember> = {
+  ): Dictionary[Symbol, TypingMember] = {
     list match {
       case List.Nil => acc
       case List.Cons(head, tail) =>
@@ -619,9 +618,9 @@ class Binder(
     */
   def bindField(
       value: MemberSyntax.VariableDeclaration,
-      acc: Dictionary<Symbol, TypingMember>,
+      acc: Dictionary[Symbol, TypingMember],
       scope: Scope
-  ): Dictionary<Symbol, TypingMember> = {
+  ): Dictionary[Symbol, TypingMember] = {
     scope.defineField(value.identifier.text, value.identifier.location) match {
       case Either.Left(location) =>
         diagnosticBag.reportDuplicateDefinition(
@@ -647,9 +646,9 @@ class Binder(
 
   def bindParameterAsField(
       value: ParameterSyntax,
-      acc: Dictionary<Symbol, TypingMember>,
+      acc: Dictionary[Symbol, TypingMember],
       scope: Scope
-  ): Dictionary<Symbol, TypingMember> = {
+  ): Dictionary[Symbol, TypingMember] = {
     scope.defineField(value.identifier.text, value.identifier.location) match {
       case Either.Left(location) =>
         diagnosticBag.reportDuplicateDefinition(
@@ -679,9 +678,9 @@ class Binder(
     */
   def bindMethod(
       value: MemberSyntax.FunctionDeclarationSyntax,
-      acc: Dictionary<Symbol, TypingMember>,
+      acc: Dictionary[Symbol, TypingMember],
       scope: Scope
-  ): Dictionary<Symbol, TypingMember> = {
+  ): Dictionary[Symbol, TypingMember] = {
     val methodName = value.identifier.text
     val methodLocation = value.identifier.location
     scope.defineMethod(methodName, methodLocation) match {
@@ -742,9 +741,9 @@ class Binder(
   }
 
   def bindParameters(
-      parameters: List<ParameterSyntax>,
+      parameters: List[ParameterSyntax],
       scope: Scope
-  ): List<BoundParameter> = {
+  ): List[BoundParameter] = {
     parameters match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
@@ -817,15 +816,15 @@ class Binder(
   }
 
   def bindTypeArgumentList(
-      arguments: Array<TypeArgumentItemSyntax>,
+      arguments: Array[TypeArgumentItemSyntax],
       scope: Scope
-  ): List<Type> =
+  ): List[Type] =
     bindTypeArguments(ListModule.fromArray(arguments), scope)
 
   def bindTypeArguments(
-      arguments: List<TypeArgumentItemSyntax>,
+      arguments: List[TypeArgumentItemSyntax],
       scope: Scope
-  ): List<Type> = {
+  ): List[Type] = {
     arguments match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
@@ -924,10 +923,10 @@ class Binder(
   }
 
   def countMembersToBind(
-      list: List<KeyValue<Symbol, List<BindingMember>>>,
+      list: List[KeyValue[Symbol, List[BindingMember]]],
       fields: int,
       methods: int
-  ): Tuple2<int, int> = {
+  ): Tuple2[int, int] = {
     list match {
       case List.Nil => Tuple2(fields, methods)
       case List.Cons(KeyValue(symbol, members), tail) =>
@@ -941,10 +940,10 @@ class Binder(
   }
 
   def countMembers(
-      list: List<BindingMember>,
+      list: List[BindingMember],
       methods: int,
       fields: int
-  ): Tuple2<int, int> = {
+  ): Tuple2[int, int] = {
     list match {
       case List.Nil => Tuple2(methods, fields)
       case List.Cons(BindingMember.Method(_), tail) =>
@@ -957,7 +956,7 @@ class Binder(
   }
 
   def printFunctionsToBind(
-      list: List<KeyValue<Symbol, List<MemberSyntax.FunctionDeclarationSyntax>>>
+      list: List[KeyValue[Symbol, List[MemberSyntax.FunctionDeclarationSyntax]]]
   ): unit = {
     list match {
       case List.Nil => ()
@@ -969,7 +968,7 @@ class Binder(
   }
 
   def printStatementsToBind(
-      list: List<KeyValue<Symbol, List<MemberSyntax.GlobalStatementSyntax>>>
+      list: List[KeyValue[Symbol, List[MemberSyntax.GlobalStatementSyntax]]]
   ): unit = {
     list match {
       case List.Nil => ()
@@ -981,9 +980,9 @@ class Binder(
   }
 
   def bindClassesObjectAndEnums(
-      classes: List<Namespaced<MemberSyntax.ClassDeclarationSyntax>>,
-      objects: List<Namespaced<MemberSyntax.ObjectDeclarationSyntax>>,
-      enums: List<Namespaced<MemberSyntax.EnumDeclarationSyntax>>,
+      classes: List[Namespaced[MemberSyntax.ClassDeclarationSyntax]],
+      objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
+      enums: List[Namespaced[MemberSyntax.EnumDeclarationSyntax]],
       scope: Scope
   ): unit = {
     bindObjects(objects, scope)
@@ -992,9 +991,9 @@ class Binder(
   }
 
   def bindEnums(
-      enums: List<Namespaced<MemberSyntax.EnumDeclarationSyntax>>,
+      enums: List[Namespaced[MemberSyntax.EnumDeclarationSyntax]],
       scope: Scope
-  ): List<BoundDefinition> = {
+  ): List[BoundDefinition] = {
     enums match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
@@ -1004,7 +1003,7 @@ class Binder(
   }
 
   def bindEnum(
-      head: Namespaced<MemberSyntax.EnumDeclarationSyntax>,
+      head: Namespaced[MemberSyntax.EnumDeclarationSyntax],
       scope: Scope
   ): unit = {
     val name = head.value.identifier.text
@@ -1055,8 +1054,8 @@ class Binder(
   }
 
   def bindEnumCases(
-      cases: List<EnumCaseSyntax>,
-      genericTypeParameters: List<GenericTypeParameter>,
+      cases: List[EnumCaseSyntax],
+      genericTypeParameters: List[GenericTypeParameter],
       superClass: Type,
       scope: Scope
   ): unit = {
@@ -1111,9 +1110,9 @@ class Binder(
   }
 
   def bindClasses(
-      value: List<Namespaced<MemberSyntax.ClassDeclarationSyntax>>,
+      value: List[Namespaced[MemberSyntax.ClassDeclarationSyntax]],
       scope: Scope
-  ): List<BoundDefinition> = {
+  ): List[BoundDefinition] = {
     value match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
@@ -1123,7 +1122,7 @@ class Binder(
   }
 
   def bindClass(
-      head: Namespaced<MemberSyntax.ClassDeclarationSyntax>,
+      head: Namespaced[MemberSyntax.ClassDeclarationSyntax],
       scope: Scope
   ): unit = {
     val name = head.value.identifier.text
@@ -1212,9 +1211,9 @@ class Binder(
     Type.Class(head.location, List.Nil, head.name, List.Nil, Option.None)
 
   def bindGenericTypeParameters(
-      value: List<GenericParameterSyntax>,
+      value: List[GenericParameterSyntax],
       scope: Scope
-  ): List<GenericTypeParameter> = {
+  ): List[GenericTypeParameter] = {
     value match {
       case List.Nil => List.Nil
       case List.Cons(
@@ -1257,9 +1256,9 @@ class Binder(
   }
 
   def bindObjects(
-      objects: List<Namespaced<MemberSyntax.ObjectDeclarationSyntax>>,
+      objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
       parentScope: Scope
-  ): List<BoundDefinition> = {
+  ): List[BoundDefinition] = {
     objects match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
@@ -1269,7 +1268,7 @@ class Binder(
   }
 
   def bindObject(
-      head: Namespaced<MemberSyntax.ObjectDeclarationSyntax>,
+      head: Namespaced[MemberSyntax.ObjectDeclarationSyntax],
       parentScope: Scope
   ): unit = {
     val scope = getNamespacedScope(head.ns, parentScope)
@@ -1311,9 +1310,9 @@ class Binder(
 
   def addMembersToBind(
       symbol: Symbol,
-      functions: List<MemberSyntax.FunctionDeclarationSyntax>,
-      fields: List<MemberSyntax.VariableDeclaration>,
-      parameters: List<ParameterSyntax>
+      functions: List[MemberSyntax.FunctionDeclarationSyntax],
+      fields: List[MemberSyntax.VariableDeclaration],
+      parameters: List[ParameterSyntax]
   ): unit = {
     val members =
       variablesToMembers(
@@ -1330,9 +1329,9 @@ class Binder(
   }
 
   def parametersToMembers(
-      members: List<BindingMember>,
-      parameters: List<ParameterSyntax>
-  ): List<BindingMember> = {
+      members: List[BindingMember],
+      parameters: List[ParameterSyntax]
+  ): List[BindingMember] = {
     parameters match {
       case List.Nil => members
       case List.Cons(head, tail) =>
@@ -1344,9 +1343,9 @@ class Binder(
   }
 
   def functionsToMembers(
-      members: List<BindingMember>,
-      functions: List<MemberSyntax.FunctionDeclarationSyntax>
-  ): List<BindingMember> = {
+      members: List[BindingMember],
+      functions: List[MemberSyntax.FunctionDeclarationSyntax]
+  ): List[BindingMember] = {
     functions match {
       case List.Nil => members
       case List.Cons(head, tail) =>
@@ -1355,9 +1354,9 @@ class Binder(
   }
 
   def variablesToMembers(
-      members: List<BindingMember>,
-      variables: List<MemberSyntax.VariableDeclaration>
-  ): List<BindingMember> = {
+      members: List[BindingMember],
+      variables: List[MemberSyntax.VariableDeclaration]
+  ): List[BindingMember] = {
     variables match {
       case List.Nil => members
       case List.Cons(head, tail) =>
@@ -1370,7 +1369,7 @@ class Binder(
 
   def addStatementsToBind(
       symbol: Symbol,
-      statements: List<MemberSyntax.GlobalStatementSyntax>
+      statements: List[MemberSyntax.GlobalStatementSyntax]
   ): unit = {
     if (statements.length > 0) {
       statementsToBind = statementsToBind.put(symbol, statements)
@@ -1378,7 +1377,7 @@ class Binder(
   }
 
   def getNamespacedScope(
-      ns: List<string>,
+      ns: List[string],
       scope: Scope
   ): Scope = {
     ns match {
@@ -1389,8 +1388,8 @@ class Binder(
   }
 
   def removeProgram(
-      members: List<Namespaced<MemberSyntax.ObjectDeclarationSyntax>>
-  ): List<Namespaced<MemberSyntax.ObjectDeclarationSyntax>> = {
+      members: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]]
+  ): List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]] = {
     members match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
@@ -1403,8 +1402,8 @@ class Binder(
   }
 
   def removeMain(
-      members: List<MemberSyntax.FunctionDeclarationSyntax>
-  ): List<MemberSyntax.FunctionDeclarationSyntax> = {
+      members: List[MemberSyntax.FunctionDeclarationSyntax]
+  ): List[MemberSyntax.FunctionDeclarationSyntax] = {
     members match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
@@ -1448,7 +1447,7 @@ class Binder(
     *   - variable declarations generate assignments as statements
     *   - this does not perform nested extraction
     */
-  def splitMembersInTrees(trees: List<SyntaxTree>): Members = {
+  def splitMembersInTrees(trees: List[SyntaxTree]): Members = {
     _splitMembers(
       List.Nil,
       trees,
@@ -1462,7 +1461,7 @@ class Binder(
     )
   }
 
-  def splitMembers(ns: List<string>, members: List<MemberSyntax>): Members = {
+  def splitMembers(ns: List[string], members: List[MemberSyntax]): Members = {
     _splitMembers(
       ns,
       List.Nil,
@@ -1498,7 +1497,7 @@ class Binder(
     }
   }
 
-  def nameToNamespace(name: NameSyntax, ns: List<string>): List<string> = {
+  def nameToNamespace(name: NameSyntax, ns: List[string]): List[string] = {
     name match {
       case NameSyntax.SimpleName(value) =>
         List.Cons(simpleNameToNamespace(value), ns).reverse()
@@ -1508,15 +1507,15 @@ class Binder(
   }
 
   def _splitMembers(
-      ns: List<string>,
-      trees: List<SyntaxTree>,
-      members: List<MemberSyntax>,
-      objects: List<Namespaced<MemberSyntax.ObjectDeclarationSyntax>>,
-      classes: List<Namespaced<MemberSyntax.ClassDeclarationSyntax>>,
-      enums: List<Namespaced<MemberSyntax.EnumDeclarationSyntax>>,
-      fields: List<MemberSyntax.VariableDeclaration>,
-      functions: List<MemberSyntax.FunctionDeclarationSyntax>,
-      globalStatements: List<MemberSyntax.GlobalStatementSyntax>
+      ns: List[string],
+      trees: List[SyntaxTree],
+      members: List[MemberSyntax],
+      objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
+      classes: List[Namespaced[MemberSyntax.ClassDeclarationSyntax]],
+      enums: List[Namespaced[MemberSyntax.EnumDeclarationSyntax]],
+      fields: List[MemberSyntax.VariableDeclaration],
+      functions: List[MemberSyntax.FunctionDeclarationSyntax],
+      globalStatements: List[MemberSyntax.GlobalStatementSyntax]
   ): Members = {
     members match {
       case List.Nil =>
@@ -1548,91 +1547,98 @@ class Binder(
         }
 
       case List.Cons(member, tail) =>
-        member match {
-          case member: MemberSyntax.ObjectDeclarationSyntax =>
-            _splitMembers(
-              ns,
-              trees,
-              tail,
-              List.Cons(Namespaced(ns, member), objects),
-              classes,
-              enums,
-              fields,
-              functions,
-              globalStatements
+        // TODO: rework this so its more performant
+        // complete remaining members
+        val rest = _splitMembers(
+          ns,
+          trees,
+          tail,
+          objects,
+          classes,
+          enums,
+          fields,
+          functions,
+          globalStatements
+        )
+
+        addMember(ns, member, rest)
+    }
+  }
+
+  def addMember(
+      ns: List[string],
+      member: MemberSyntax,
+      rest: Members
+  ): Members = {
+    member match {
+      case member: MemberSyntax.ObjectDeclarationSyntax =>
+        Members(
+          List.Cons(Namespaced(ns, member), rest.objects),
+          rest.classes,
+          rest.functions,
+          rest.enums,
+          rest.fields,
+          rest.globalStatements
+        )
+      case member: MemberSyntax.ClassDeclarationSyntax =>
+        Members(
+          rest.objects,
+          List.Cons(Namespaced(ns, member), rest.classes),
+          rest.functions,
+          rest.enums,
+          rest.fields,
+          rest.globalStatements
+        )
+      case member: MemberSyntax.FunctionDeclarationSyntax =>
+        Members(
+          rest.objects,
+          rest.classes,
+          List.Cons(member, rest.functions),
+          rest.enums,
+          rest.fields,
+          rest.globalStatements
+        )
+      case member: MemberSyntax.EnumDeclarationSyntax =>
+        Members(
+          rest.objects,
+          rest.classes,
+          rest.functions,
+          List.Cons(Namespaced(ns, member), rest.enums),
+          rest.fields,
+          rest.globalStatements
+        )
+      case member: MemberSyntax.GlobalStatementSyntax =>
+        Members(
+          rest.objects,
+          rest.classes,
+          rest.functions,
+          rest.enums,
+          rest.fields,
+          List.Cons(member, rest.globalStatements)
+        )
+      case variable: MemberSyntax.VariableDeclaration =>
+        // convert variable declaration to a global statement
+        val statement = new MemberSyntax.GlobalStatementSyntax(
+          StatementSyntax.ExpressionStatement(
+            Expression.AssignmentExpression(
+              Expression.IdentifierName(
+                SimpleNameSyntax.IdentifierNameSyntax(variable.identifier)
+              ),
+              variable.equalToken,
+              variable.expression
             )
-          case member: MemberSyntax.ClassDeclarationSyntax =>
-            _splitMembers(
-              ns,
-              trees,
-              tail,
-              objects,
-              List.Cons(Namespaced(ns, member), classes),
-              enums,
-              fields,
-              functions,
-              globalStatements
-            )
-          case member: MemberSyntax.FunctionDeclarationSyntax =>
-            _splitMembers(
-              ns,
-              trees,
-              tail,
-              objects,
-              classes,
-              enums,
-              fields,
-              List.Cons(member, functions),
-              globalStatements
-            )
-          case member: MemberSyntax.EnumDeclarationSyntax =>
-            _splitMembers(
-              ns,
-              trees,
-              tail,
-              objects,
-              classes,
-              List.Cons(Namespaced(ns, member), enums),
-              fields,
-              functions,
-              globalStatements
-            )
-          case member: MemberSyntax.GlobalStatementSyntax =>
-            _splitMembers(
-              ns,
-              trees,
-              tail,
-              objects,
-              classes,
-              enums,
-              fields,
-              functions,
-              List.Cons(member, globalStatements)
-            )
-          case variable: MemberSyntax.VariableDeclaration =>
-            val statement = new MemberSyntax.GlobalStatementSyntax(
-              StatementSyntax.ExpressionStatement(
-                Expression.AssignmentExpression(
-                  Expression.IdentifierName(
-                    SimpleNameSyntax.IdentifierNameSyntax(variable.identifier)
-                  ),
-                  variable.equalToken,
-                  variable.expression
-                )
-              )
-            )
-            _splitMembers(
-              ns,
-              trees,
-              tail,
-              objects,
-              classes,
-              enums,
-              List.Cons(variable, fields),
-              functions,
-              List.Cons(statement, globalStatements)
-            )
-        }
+          )
+        )
+
+        // merge the variable into the other members
+        Members(
+          rest.objects,
+          rest.classes,
+          rest.functions,
+          rest.enums,
+          List.Cons(variable, rest.fields),
+          List.Cons(statement, rest.globalStatements)
+        )
     }
   }
 
@@ -1642,8 +1648,8 @@ class Binder(
     *     level functions report an error
     */
   def detectMultipleSourceFilesWithTopLevelStatements(
-      functions: List<MemberSyntax.FunctionDeclarationSyntax>,
-      globalStatements: List<MemberSyntax.GlobalStatementSyntax>
+      functions: List[MemberSyntax.FunctionDeclarationSyntax],
+      globalStatements: List[MemberSyntax.GlobalStatementSyntax]
   ): unit = {
     functions match {
       case List.Nil =>
@@ -1667,8 +1673,8 @@ class Binder(
 
   def _detectMultipleSourceFilesWithTopLevelStatements(
       firstLocation: TextLocation,
-      functions: List<MemberSyntax.FunctionDeclarationSyntax>,
-      globalStatements: List<MemberSyntax.GlobalStatementSyntax>
+      functions: List[MemberSyntax.FunctionDeclarationSyntax],
+      globalStatements: List[MemberSyntax.GlobalStatementSyntax]
   ): unit = {
     functions match {
       case List.Nil =>
