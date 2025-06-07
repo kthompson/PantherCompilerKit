@@ -1,0 +1,44 @@
+name: ci
+on:
+    pull_request:
+    workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup JDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Setup SBT
+      uses: sbt/setup-sbt@v1
+
+    - name: build
+      run: sbt compile
+
+    - name: test
+      run: sbt test/run
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup JDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Setup SBT
+      uses: sbt/setup-sbt@v1
+
+    - name: build
+      run: sbt scalafmtCheckAll
