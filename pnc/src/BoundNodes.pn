@@ -1,15 +1,14 @@
 using panther
 
 class BoundAssembly(
-    definitions: List<BoundDefinition>,
     diagnostics: Diagnostics,
-    functionBodies: Dictionary<Symbol, BoundExpression>,
-    entryPoint: Option<Symbol>
+    functionBodies: Dictionary[Symbol, BoundExpression],
+    entryPoint: Option[Symbol]
 )
 
 enum BoundDefinition {
-  case Object(symbol: Symbol, members: List<BoundMember>)
-  case Class(symbol: Symbol, members: List<BoundMember>)
+  case Object(symbol: Symbol, members: List[BoundMember])
+  case Class(symbol: Symbol, members: List[BoundMember])
   //  case Enum(symbol: string, members: Array[String])
 }
 
@@ -17,7 +16,7 @@ enum BoundMember {
   case Field(symbol: Symbol, typ: Type)
   case Method(
       symbol: Symbol,
-      parameters: List<BoundParameter>,
+      parameters: List[BoundParameter],
       returnType: Type,
       body: BoundExpression
   )
@@ -50,13 +49,13 @@ enum BoundExpression {
       right: BoundExpression,
       resultType: Type
   )
-  case Block(statements: List<BoundStatement>, expression: BoundExpression)
+  case Block(statements: List[BoundStatement], expression: BoundExpression)
   case BooleanLiteral(location: TextLocation, value: bool)
   case CallExpression(
       location: TextLocation,
       method: BoundExpression,
-      genericArguments: List<Type>,
-      arguments: List<BoundExpression>,
+      genericArguments: List[Type],
+      arguments: List[BoundExpression],
       resultType: Type
   )
   case CastExpression(
@@ -76,7 +75,7 @@ enum BoundExpression {
       location: TextLocation,
       cond: BoundExpression,
       thenExpr: BoundExpression,
-      elseExpr: Option<BoundExpression>,
+      elseExpr: Option[BoundExpression],
       resultType: Type
   )
   case IndexExpression(
@@ -95,8 +94,8 @@ enum BoundExpression {
   case NewExpression(
       location: TextLocation,
       constructor: Symbol,
-      genericArguments: List<Type>,
-      arguments: List<BoundExpression>,
+      genericArguments: List[Type],
+      arguments: List[BoundExpression],
       resultType: Type
   )
   case StringLiteral(location: TextLocation, value: string)
@@ -110,7 +109,7 @@ enum BoundExpression {
   case Variable(
       location: TextLocation,
       symbol: Symbol,
-      resultType: Option<Type>
+      resultType: Option[Type]
   )
   case WhileExpression(
       location: TextLocation,

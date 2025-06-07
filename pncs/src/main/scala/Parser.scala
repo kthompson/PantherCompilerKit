@@ -852,10 +852,21 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   ): Expression = {
     debugPrint("parseInfixExpression")
     val kind = currentKind()
-    if (isTerminatingLine(inGroup, left)) {
+    if (precedence >= currentPrecedence()) {
+//      println(
+//        "terminating expression due to operator precedence. kind: " + SyntaxFacts
+//          .getKindName(kind) + ", current: " + string(
+//          currentPrecedence()
+//        ) + ", precedence: " + string(precedence)
+//      )
       left
-    } else if (precedence >= currentPrecedence()) {
-      // println("terminating expression due to operator precedence. kind: " + SyntaxFacts.getKindName(kind) + ", current: " + string(current_precedence()) + ", precedence: " + string(precedence))
+    } else if (
+      isTerminatingLine(inGroup, left) && (SyntaxFacts.isUnaryOperator(
+        kind
+      ) || kind == SyntaxKind.OpenParenToken)
+    ) {
+      // if we are on a new line and the current token is a unary operator
+      // then we should treat it as a prefix expression
       left
     } else {
       val expr =

@@ -2,8 +2,8 @@ using panther
 
 class BinaryOperators(binder: Binder) {
 
-  var binaryOps: List<BinaryOperator> = List.Nil
-  var unaryOps: List<UnaryOperator> = List.Nil
+  var binaryOps: List[BinaryOperator] = List.Nil
+  var unaryOps: List[UnaryOperator] = List.Nil
 
   // initialize unary operators
   unaryOp(binder.intType, UnaryOperatorKind.Identity)
@@ -88,7 +88,7 @@ class BinaryOperators(binder: Binder) {
   }
 
   def _checkBinary(
-      ops: List<BinaryOperator>,
+      ops: List[BinaryOperator],
       left: Type,
       right: Type,
       operator: BinaryOperatorKind
@@ -108,7 +108,7 @@ class BinaryOperators(binder: Binder) {
   }
 
   def _checkUnary(
-      ops: List<UnaryOperator>,
+      ops: List[UnaryOperator],
       operand: Type,
       operator: UnaryOperatorKind
   ): Type =

@@ -416,7 +416,7 @@ class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     )
   }
 
-  def scanTrivia(leading: bool): Array<SyntaxTrivia> = {
+  def scanTrivia(leading: bool): Array[SyntaxTrivia] = {
     val trivia = new SyntaxTriviaList()
     _scanTrivia(leading, trivia)
   }
@@ -424,7 +424,7 @@ class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   def _scanTrivia(
       leading: bool,
       trivia: SyntaxTriviaList
-  ): Array<SyntaxTrivia> = {
+  ): Array[SyntaxTrivia] = {
     if (current() == '\u0000') {
       trivia.toArray()
     } else if (isNewLine(current())) {

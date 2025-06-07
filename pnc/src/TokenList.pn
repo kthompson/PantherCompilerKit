@@ -1,12 +1,12 @@
 using panther
 
 class TokenList() {
-  var _items: Array<SyntaxToken> = new Array<SyntaxToken>(0)
+  var _items: Array[SyntaxToken] = new Array[SyntaxToken](0)
   var _size = 0
 
   def ensureCapacity(count: int): unit = {
     if (_size + count >= _items.length) {
-      var newItems = new Array<SyntaxToken>((_size + count) * 2)
+      var newItems = new Array[SyntaxToken]((_size + count) * 2)
       for (i <- 0 to (_size - 1)) {
         newItems(i) = _items(i)
       }
@@ -22,8 +22,8 @@ class TokenList() {
     _size = _size + 1
   }
 
-  def tokens(): Array<SyntaxToken> = {
-    var newItems = new Array<SyntaxToken>(_size)
+  def tokens(): Array[SyntaxToken] = {
+    var newItems = new Array[SyntaxToken](_size)
     for (i <- 0 to (_size - 1)) {
       newItems(i) = _items(i)
     }

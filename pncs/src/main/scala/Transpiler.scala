@@ -184,13 +184,13 @@ case class Transpiler(
   ): unit = {
     typeParameters match {
       case Option.Some(value) =>
-        transpileTokenWithText(value.lessThanToken, "<", context)
+        transpileToken(value.lessThanToken, context)
         transpileGenericParameterArray(
           value.parameters.items,
           value.parameters.separators,
           context
         )
-        transpileTokenWithText(value.greaterThanToken, ">", context)
+        transpileToken(value.greaterThanToken, context)
       case Option.None =>
     }
   }
@@ -800,13 +800,13 @@ case class Transpiler(
       context: TranspilerContext
   ): unit = {
     inGenericTypeArgumentList = true
-    transpileTokenWithText(typeArgumentlist.lessThanToken, "<", context)
+    transpileToken(typeArgumentlist.lessThanToken, context)
     for (x <- 0 to (typeArgumentlist.arguments.length - 1)) {
       val argument = typeArgumentlist.arguments(x)
       transpileName(argument.name, context)
       transpileOptionalToken(argument.separator, context)
     }
-    transpileTokenWithText(typeArgumentlist.greaterThanToken, ">", context)
+    transpileToken(typeArgumentlist.greaterThanToken, context)
     inGenericTypeArgumentList = false
   }
 

@@ -63,6 +63,8 @@ object SyntaxFacts {
     else if (kind == SyntaxKind.GlobalStatement) "GlobalStatement"
     else if (kind == SyntaxKind.GreaterThanEqualsToken) "GreaterThanEqualsToken"
     else if (kind == SyntaxKind.GreaterThanToken) "GreaterThanToken"
+    else if (kind == SyntaxKind.GreaterThanGreaterThanToken)
+      "GreaterThanGreaterThanToken"
     else if (kind == SyntaxKind.GroupExpression) "GroupExpression"
     else if (kind == SyntaxKind.IdentifierName) "IdentifierName"
     else if (kind == SyntaxKind.IdentifierToken) "IdentifierToken"
@@ -200,5 +202,12 @@ object SyntaxFacts {
       kind == SyntaxKind.PlusToken ||
       kind == SyntaxKind.SlashToken ||
       kind == SyntaxKind.StarToken
+
+  def isUnaryOperator(kind: int): bool =
+    kind == SyntaxKind.BangToken ||
+      kind == SyntaxKind.DashToken ||
+      kind == SyntaxKind.TildeToken ||
+      kind == SyntaxKind.PlusToken ||
+      kind == SyntaxKind.CaretToken
 
 }
