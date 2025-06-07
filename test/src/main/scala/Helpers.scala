@@ -181,6 +181,11 @@ object Helpers {
     assertBinaryExpr(expression)
   }
 
+  def mkMemberAccessExpr(text: string): Expression.MemberAccessExpression = {
+    val expression = mkSyntaxTreeExpr(text)
+    assertMemberAccess(expression)
+  }
+
   def mkAssignmentExpr(text: string): Expression.AssignmentExpression = {
     val expression = mkSyntaxTreeExpr(text)
     assertAssignmentExpr(expression)
@@ -210,6 +215,15 @@ object Helpers {
     expression match {
       case expr: Expression.BinaryExpression => expr
       case _ => failed("expected binary expression")
+    }
+  }
+
+  def assertMemberAccess(
+      expression: Expression
+  ): Expression.MemberAccessExpression = {
+    expression match {
+      case expr: Expression.MemberAccessExpression => expr
+      case _ => failed("expected member access expression")
     }
   }
 
@@ -379,6 +393,17 @@ object Helpers {
       case Expression.IdentifierName(
             SimpleNameSyntax.IdentifierNameSyntax(token)
           ) =>
+        Assert.stringEqual(expected, token.text)
+      case _ => failed("Expected identifier expression")
+    }
+  }
+
+  def assertSimpleNameIdentifierExpr(
+      expected: string,
+      name: SimpleNameSyntax
+  ): unit = {
+    name match {
+      case SimpleNameSyntax.IdentifierNameSyntax(token) =>
         Assert.stringEqual(expected, token.text)
       case _ => failed("Expected identifier expression")
     }
