@@ -160,7 +160,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
     LoweredBlock(Chain.Empty(), LoweredExpression.Unit)
 
   def getLabelToken(): LabelToken = {
-    _labelCount += 1
+    _labelCount = _labelCount + 1
     LabelToken(_labelCount)
   }
 
@@ -170,7 +170,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   }
 
   def createTemporary(): Symbol = {
-    _variableCount += 1
+    _variableCount = _variableCount + 1
     symbol.defineLocal(
       "$" + string(_variableCount),
       TextLocationFactory.empty()

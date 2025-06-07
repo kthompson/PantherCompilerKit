@@ -1,6 +1,6 @@
 import panther._
 
-class Heap {
+class Heap() {
 
   private var heapp: int = 0
   private val heapSize: int = 1024 * 1024 // 1MB
@@ -11,7 +11,7 @@ class Heap {
       panic("Heap overflow")
     }
     val addr = heapp
-    heapp += size
+    heapp = heapp + size
     addr
   }
 

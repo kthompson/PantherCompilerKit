@@ -123,7 +123,7 @@ case class VM(
   }
 
   def pop(): Value = {
-    sp -= 1
+    sp = sp - 1
     stack(sp)
   }
 
@@ -139,14 +139,27 @@ case class VM(
   }
 
   def binaryIntBoolOp(
-      op: (int, int) => bool,
+      op: int,
       opName: string
   ): InterpretResult = {
     trace(opName)
     val b = popInt()
     val a = popInt()
-    pushBool(op(a, b))
-    InterpretResult.Continue
+
+    val result = op match {
+      case Opcode.Ceq => Option.Some(a == b)
+      case Opcode.Cgt => Option.Some(a > b)
+      case Opcode.Clt => Option.Some(a < b)
+      case _          => Option.None
+    }
+
+    result match {
+      case Option.None =>
+        runtimeError("Invalid operation: " + opName)
+      case Option.Some(value) =>
+        pushBool(value)
+        InterpretResult.Continue
+    }
   }
 
   def binaryIntOp(op: int, opName: string): InterpretResult = {
@@ -183,13 +196,55 @@ case class VM(
         push(Value.Int(value))
         InterpretResult.Continue
     }
+    val result = op match {
+      case Opcode.Sub =>
+        Option.Some(a - b)
+      case Opcode.Mul =>
+        Option.Some(a * b)
+      case Opcode.Div =>
+        Option.Some(a / b)
+      case Opcode.Rem =>
+        Option.Some(a % b)
+      case Opcode.And =>
+        Option.Some(a & b)
+      case Opcode.Or =>
+        Option.Some(a | b)
+      case Opcode.Xor =>
+        Option.Some(a ^ b)
+      case Opcode.Shl =>
+        Option.Some(a << b)
+      case Opcode.Shr =>
+        Option.Some(a >> b)
+      case _ =>
+        Option.None
+    }
+
+    result match {
+      case Option.None =>
+        runtimeError("Invalid operation: " + opName)
+      case Option.Some(value) =>
+        push(Value.Int(value))
+        InterpretResult.Continue
+    }
   }
 
-  def unaryOp(op: int => int, opName: string): InterpretResult = {
+  def unaryOp(op: int, opName: string): InterpretResult = {
     trace(opName)
     val a = popInt()
-    push(Value.Int(op(a)))
-    InterpretResult.Continue
+
+    val result = op match {
+      case Opcode.Not => Option.Some(~a)
+      case Opcode.Neg => Option.Some(-a)
+      case _          => Option.None
+    }
+
+    result match {
+      case Option.None =>
+        runtimeError("Invalid operation: " + opName)
+      case Option.Some(value) =>
+        push(Value.Int(value))
+        InterpretResult.Continue
+    }
   }
 
   def popBool(): bool = {
@@ -347,36 +402,46 @@ case class VM(
       // binary ops
       case Opcode.Add =>
         binaryAdd()
+        binaryAdd()
       case Opcode.Sub =>
+        binaryIntOp(Opcode.Sub, "sub")
         binaryIntOp(Opcode.Sub, "sub")
       case Opcode.Mul =>
         binaryIntOp(Opcode.Mul, "mul")
+        binaryIntOp(Opcode.Mul, "mul")
       case Opcode.Div =>
+        binaryIntOp(Opcode.Div, "div")
         binaryIntOp(Opcode.Div, "div")
       case Opcode.Rem =>
         binaryIntOp(Opcode.Rem, "rem")
+        binaryIntOp(Opcode.Rem, "rem")
       case Opcode.And =>
+        binaryIntOp(Opcode.And, "and")
         binaryIntOp(Opcode.And, "and")
       case Opcode.Or =>
         binaryIntOp(Opcode.Or, "or")
+        binaryIntOp(Opcode.Or, "or")
       case Opcode.Xor =>
+        binaryIntOp(Opcode.Xor, "xor")
         binaryIntOp(Opcode.Xor, "xor")
       case Opcode.Shl =>
         binaryIntOp(Opcode.Shl, "shl")
+        binaryIntOp(Opcode.Shl, "shl")
       case Opcode.Shr =>
         binaryIntOp(Opcode.Shr, "shr")
+        binaryIntOp(Opcode.Shr, "shr")
       case Opcode.Ceq =>
-        binaryIntBoolOp((a, b) => a == b, "ceq")
+        binaryIntBoolOp(Opcode.Ceq, "ceq")
       case Opcode.Cgt =>
-        binaryIntBoolOp((a, b) => a > b, "cgt")
+        binaryIntBoolOp(Opcode.Cgt, "cgt")
       case Opcode.Clt =>
-        binaryIntBoolOp((a, b) => a < b, "clt")
+        binaryIntBoolOp(Opcode.Clt, "clt")
 
       // unary ops
       case Opcode.Not =>
-        unaryOp(a => ~a, "not")
+        unaryOp(Opcode.Not, "not")
       case Opcode.Neg =>
-        unaryOp(a => -a, "neg")
+        unaryOp(Opcode.Neg, "neg")
 
       // misc stack ops
       case Opcode.Dup =>
