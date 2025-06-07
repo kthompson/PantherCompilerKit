@@ -52,13 +52,13 @@ enum NameSyntax {
 
 class ExpressionItemSyntax(
     expression: Expression,
-    separatorToken: Option<SyntaxToken>
+    separatorToken: Option[SyntaxToken]
 )
-class ExpressionListSyntax(expressions: List<ExpressionItemSyntax>)
+class ExpressionListSyntax(expressions: List[ExpressionItemSyntax])
 
 class BlockExpressionListSyntax(
-    statements: List<StatementSyntax>,
-    expression: Option<Expression>
+    statements: List[StatementSyntax],
+    expression: Option[Expression]
 )
 
 class ElseSyntax(elseKeyword: SyntaxToken, expression: Expression)
@@ -68,9 +68,9 @@ enum Expression {
       newKeyword: SyntaxToken,
       name: NameSyntax,
       openBracket: SyntaxToken,
-      arrayRank: Option<Expression>,
+      arrayRank: Option[Expression],
       closeBracket: SyntaxToken,
-      initializer: Option<ArrayInitializerExpressionSyntax>
+      initializer: Option[ArrayInitializerExpressionSyntax]
   )
   case AssignmentExpression(
       left: Expression,
@@ -89,7 +89,7 @@ enum Expression {
   )
   case CallExpression(
       name: Expression,
-      genericArguments: Option<TypeArgumentListSyntax>,
+      genericArguments: Option[TypeArgumentListSyntax],
       openParen: SyntaxToken,
       arguments: ExpressionListSyntax,
       closeParen: SyntaxToken
@@ -117,7 +117,7 @@ enum Expression {
       condition: Expression,
       closeParen: SyntaxToken,
       thenExpr: Expression,
-      elseExpr: Option<ElseSyntax>
+      elseExpr: Option[ElseSyntax]
   )
   case LiteralExpression(token: SyntaxToken, value: SyntaxTokenValue)
   case MemberAccessExpression(
@@ -129,7 +129,7 @@ enum Expression {
       expression: Expression,
       matchKeyword: SyntaxToken,
       openBrace: SyntaxToken,
-      cases: Array<MatchCaseSyntax>,
+      cases: Array[MatchCaseSyntax],
       closeBrace: SyntaxToken
   )
   case NewExpression(
@@ -161,7 +161,7 @@ enum PatternSyntax {
   case ExtractPattern(
       value: NameSyntax,
       openParenToken: SyntaxToken,
-      patterns: Array<PatternItemSyntax>,
+      patterns: Array[PatternItemSyntax],
       closeParenToken: SyntaxToken
   )
   case TypePattern(typ: NameSyntax)
@@ -176,25 +176,25 @@ enum PatternSyntax {
 
 class PatternItemSyntax(
     pattern: PatternSyntax,
-    separatorToken: Option<SyntaxToken>
+    separatorToken: Option[SyntaxToken]
 )
 
 class FunctionBodySyntax(equalToken: SyntaxToken, expression: Expression)
 class ParameterSyntax(
-    modifier: Option<SyntaxToken>,
+    modifier: Option[SyntaxToken],
     identifier: SyntaxToken,
     typeAnnotation: TypeAnnotationSyntax,
-    commaToken: Option<SyntaxToken>
+    commaToken: Option[SyntaxToken]
 )
 
 class TypeArgumentItemSyntax(
     name: NameSyntax,
-    separator: Option<SyntaxToken>
+    separator: Option[SyntaxToken]
 )
 
 class TypeArgumentListSyntax(
     lessThanToken: SyntaxToken,
-    arguments: Array<TypeArgumentItemSyntax>,
+    arguments: Array[TypeArgumentItemSyntax],
     greaterThanToken: SyntaxToken
 )
 
@@ -202,7 +202,7 @@ class UsingDirectiveSyntax(usingKeyword: SyntaxToken, name: NameSyntax)
 
 class TemplateSyntax(
     openBrace: SyntaxToken,
-    members: List<MemberSyntax>,
+    members: List[MemberSyntax],
     closeBrace: SyntaxToken
 )
 
@@ -210,7 +210,7 @@ enum StatementSyntax {
   case VariableDeclarationStatement(
       valOrVarKeyword: SyntaxToken,
       identifier: SyntaxToken,
-      typeAnnotation: Option<TypeAnnotationSyntax>,
+      typeAnnotation: Option[TypeAnnotationSyntax],
       equalToken: SyntaxToken,
       expression: Expression
   )
@@ -221,28 +221,28 @@ enum StatementSyntax {
 
 class EnumCaseParametersSyntax(
     openParenToken: SyntaxToken,
-    parameters: List<ParameterSyntax>,
+    parameters: List[ParameterSyntax],
     closeParenToken: SyntaxToken
 )
 class EnumCaseSyntax(
     caseKeyword: SyntaxToken,
     identifier: SyntaxToken,
-    parameters: Option<EnumCaseParametersSyntax>
+    parameters: Option[EnumCaseParametersSyntax]
 )
 
 class GenericBoundsSyntax(token: SyntaxToken, name: NameSyntax)
 class GenericParameterSyntax(
-    variance: Option<SyntaxToken>,
+    variance: Option[SyntaxToken],
     identifier: SyntaxToken,
-    bounds: Option<GenericBoundsSyntax>
+    bounds: Option[GenericBoundsSyntax]
 )
 class GenericParametersSyntax(
     lessThanToken: SyntaxToken,
-    parameters: SeparatedSyntaxList<GenericParameterSyntax>,
+    parameters: SeparatedSyntaxList[GenericParameterSyntax],
     greaterThanToken: SyntaxToken
 )
 
-class SeparatedSyntaxList<T>(items: List<T>, separators: List<SyntaxToken>)
+class SeparatedSyntaxList[T](items: List[T], separators: List[SyntaxToken])
 
 enum MemberSyntax {
   case ObjectDeclarationSyntax(
@@ -251,39 +251,39 @@ enum MemberSyntax {
       template: TemplateSyntax
   )
   case ClassDeclarationSyntax(
-      caseKeyword: Option<SyntaxToken>,
+      caseKeyword: Option[SyntaxToken],
       classKeyword: SyntaxToken,
       identifier: SyntaxToken,
-      genericParameters: Option<GenericParametersSyntax>,
+      genericParameters: Option[GenericParametersSyntax],
       openParenToken: SyntaxToken,
-      parameters: List<ParameterSyntax>,
+      parameters: List[ParameterSyntax],
       closeParenToken: SyntaxToken,
-      template: Option<TemplateSyntax>
+      template: Option[TemplateSyntax]
   )
   case FunctionDeclarationSyntax(
       defKeyword: SyntaxToken,
       identifier: SyntaxToken,
-      genericParameters: Option<GenericParametersSyntax>,
+      genericParameters: Option[GenericParametersSyntax],
       openParenToken: SyntaxToken,
-      parameters: List<ParameterSyntax>,
+      parameters: List[ParameterSyntax],
       closeParenToken: SyntaxToken,
-      typeAnnotation: Option<TypeAnnotationSyntax>,
-      body: Option<FunctionBodySyntax>
+      typeAnnotation: Option[TypeAnnotationSyntax],
+      body: Option[FunctionBodySyntax]
   )
   case GlobalStatementSyntax(statement: StatementSyntax)
   case EnumDeclarationSyntax(
       enumKeyword: SyntaxToken,
       identifier: SyntaxToken,
-      genericParameters: Option<GenericParametersSyntax>,
+      genericParameters: Option[GenericParametersSyntax],
       openBraceToken: SyntaxToken,
-      cases: Array<EnumCaseSyntax>,
-      members: List<MemberSyntax>,
+      cases: Array[EnumCaseSyntax],
+      members: List[MemberSyntax],
       closeBraceToken: SyntaxToken
   )
   case VariableDeclaration(
       valOrVarKeyword: SyntaxToken,
       identifier: SyntaxToken,
-      typeAnnotation: Option<TypeAnnotationSyntax>,
+      typeAnnotation: Option[TypeAnnotationSyntax],
       equalToken: SyntaxToken,
       expression: Expression
   )
@@ -299,9 +299,9 @@ class NamespaceDeclarationSyntax(
 /** namespaceDeclaration [0..1] usings [0..n] members [0..n]
   */
 class CompilationUnitSyntax(
-    namespaceDeclaration: Option<NamespaceDeclarationSyntax>,
-    usings: Array<UsingDirectiveSyntax>,
-    members: List<MemberSyntax>,
+    namespaceDeclaration: Option[NamespaceDeclarationSyntax],
+    usings: Array[UsingDirectiveSyntax],
+    members: List[MemberSyntax],
     endToken: SyntaxToken
 ) {
   val kind: int = SyntaxKind.CompilationUnit

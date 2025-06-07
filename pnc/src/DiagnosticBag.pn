@@ -17,7 +17,7 @@ enum Diagnostics {
 
   def count(): int = _count(List.Cons(this, List.Nil), 0)
 
-  def _count(items: List<Diagnostics>, count: int): int =
+  def _count(items: List[Diagnostics], count: int): int =
     items match {
       case List.Nil => count
       case List.Cons(head, tail) =>

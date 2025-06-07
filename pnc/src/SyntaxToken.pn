@@ -6,8 +6,8 @@ class SyntaxToken(
     start: int,
     text: string,
     value: SyntaxTokenValue,
-    leading: Array<SyntaxTrivia>,
-    trailing: Array<SyntaxTrivia>
+    leading: Array[SyntaxTrivia],
+    trailing: Array[SyntaxTrivia]
 ) {
   val span: TextSpan = new TextSpan(start, text.length)
   val location: TextLocation = new TextLocation(sourceFile, span)
