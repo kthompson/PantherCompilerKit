@@ -105,10 +105,10 @@ object VmTests {
   }
 
   def binary(): unit = {
-    assertExecValueInt("1 & 2", 0)
-    assertExecValueInt("1 & 1", 1)
-    assertExecValueInt("1 & 0", 0)
-    assertExecValueInt("23 & 42", 2)
+    assertExecValueInt("1 & 2", 1 & 2)
+    assertExecValueInt("1 & 1", 1 & 1)
+    assertExecValueInt("1 & 0", 1 & 0)
+    assertExecValueInt("23 & 42", 23 & 42)
     assertExecValueBool("true & true", true)
     assertExecValueBool("true & false", false)
     assertExecValueBool("false & true", false)

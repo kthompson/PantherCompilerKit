@@ -123,7 +123,7 @@ case class VM(
   }
 
   def pop(): Value = {
-    sp -= 1
+    sp = sp - 1
     stack(sp)
   }
 
@@ -139,14 +139,27 @@ case class VM(
   }
 
   def binaryIntBoolOp(
-      op: (int, int) => bool,
+      op: int,
       opName: string
   ): InterpretResult = {
     trace(opName)
     val b = popInt()
     val a = popInt()
-    pushBool(op(a, b))
-    InterpretResult.Continue
+
+    val result = op match {
+      case Opcode.Ceq => Option.Some(a == b)
+      case Opcode.Cgt => Option.Some(a > b)
+      case Opcode.Clt => Option.Some(a < b)
+      case _          => Option.None
+    }
+
+    result match {
+      case Option.None =>
+        runtimeError("Invalid operation: " + opName)
+      case Option.Some(value) =>
+        pushBool(value)
+        InterpretResult.Continue
+    }
   }
 
   def binaryIntOp(op: int, opName: string): InterpretResult = {
@@ -176,6 +189,23 @@ case class VM(
         Option.None
     }
 
+    pushIntOrInvalidOp(result, opName)
+  }
+
+  def unaryOp(op: int, opName: string): InterpretResult = {
+    trace(opName)
+    val a = popInt()
+
+    val result = op match {
+      case Opcode.Not => Option.Some(~a)
+      case Opcode.Neg => Option.Some(-a)
+      case _          => Option.None
+    }
+
+    pushIntOrInvalidOp(result, opName)
+  }
+
+  def pushIntOrInvalidOp(result: Option[int], opName: string) = {
     result match {
       case Option.None =>
         runtimeError("Invalid operation: " + opName)
@@ -183,13 +213,6 @@ case class VM(
         push(Value.Int(value))
         InterpretResult.Continue
     }
-  }
-
-  def unaryOp(op: int => int, opName: string): InterpretResult = {
-    trace(opName)
-    val a = popInt()
-    push(Value.Int(op(a)))
-    InterpretResult.Continue
   }
 
   def popBool(): bool = {
@@ -366,17 +389,17 @@ case class VM(
       case Opcode.Shr =>
         binaryIntOp(Opcode.Shr, "shr")
       case Opcode.Ceq =>
-        binaryIntBoolOp((a, b) => a == b, "ceq")
+        binaryIntBoolOp(Opcode.Ceq, "ceq")
       case Opcode.Cgt =>
-        binaryIntBoolOp((a, b) => a > b, "cgt")
+        binaryIntBoolOp(Opcode.Cgt, "cgt")
       case Opcode.Clt =>
-        binaryIntBoolOp((a, b) => a < b, "clt")
+        binaryIntBoolOp(Opcode.Clt, "clt")
 
       // unary ops
       case Opcode.Not =>
-        unaryOp(a => ~a, "not")
+        unaryOp(Opcode.Not, "not")
       case Opcode.Neg =>
-        unaryOp(a => -a, "neg")
+        unaryOp(Opcode.Neg, "neg")
 
       // misc stack ops
       case Opcode.Dup =>

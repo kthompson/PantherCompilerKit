@@ -269,12 +269,12 @@ case class Emitter(
       context: EmitContext
   ): unit = {
     emitExpression(expr.expression, context)
-    context.getLocalIndex(expr.variable) match {
-      case index if index < 4 =>
-        chunk.emitOpcode(Opcode.Stloc0 + index, expr.location.startLine)
-      case index =>
-        chunk.emitOpcode(Opcode.Stlocn, expr.location.startLine)
-        chunk.emitI4(index, expr.location.startLine)
+    val index = context.getLocalIndex(expr.variable)
+    if (index < 4) {
+      chunk.emitOpcode(Opcode.Stloc0 + index, expr.location.startLine)
+    } else {
+      chunk.emitOpcode(Opcode.Stlocn, expr.location.startLine)
+      chunk.emitI4(index, expr.location.startLine)
     }
   }
 
@@ -431,12 +431,12 @@ case class Emitter(
       expr: LoweredExpression.Variable,
       context: EmitContext
   ): unit = {
-    context.getLocalIndex(expr.symbol) match {
-      case index if index < 4 =>
-        chunk.emitOpcode(Opcode.Ldloc0 + index, expr.location.startLine)
-      case index =>
-        chunk.emitOpcode(Opcode.Ldlocn, expr.location.startLine)
-        chunk.emitI4(index, expr.location.startLine)
+    val index = context.getLocalIndex(expr.symbol)
+    if (index < 4) {
+      chunk.emitOpcode(Opcode.Ldloc0 + index, expr.location.startLine)
+    } else {
+      chunk.emitOpcode(Opcode.Ldlocn, expr.location.startLine)
+      chunk.emitI4(index, expr.location.startLine)
     }
   }
 
