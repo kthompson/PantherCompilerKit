@@ -109,7 +109,9 @@ case class VM(
   }
 
   def trace(msg: String): unit = {
-    println("ip=" + ip + " sp=" + sp + " " + msg)
+    if (CompilerSettings.enableTracing) {
+      println("ip=" + ip + " sp=" + sp + " " + msg)
+    }
   }
 
   def runtimeError(msg: String): InterpretResult = {
