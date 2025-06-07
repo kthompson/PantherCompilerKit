@@ -21,6 +21,17 @@ To install dependencies for this sbt project, follow these steps:
 
 You're now ready to build and run the project!
 
-## Building
 
 ## Getting Started
+
+### Building
+
+```sh
+sbt compile
+```
+
+### Running Tests
+
+```sh
+sbt test/run
+```
