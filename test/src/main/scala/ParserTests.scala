@@ -20,6 +20,7 @@ object ParserTests {
     ifs()
     whiles()
     blocks()
+    dotOnNewLine()
   }
 
   def binary(): unit = {
@@ -200,6 +201,14 @@ object ParserTests {
 
     // }
     assertTokenKind(SyntaxKind.CloseBraceToken, expr.closeBrace)
+  }
+
+  def dotOnNewLine(): unit = {
+    test("a\\n.b")
+    val expr = mkMemberAccessExpr("a\n.b")
+    assertIdentifierExpr("a", expr.left)
+    assertTokenKind(SyntaxKind.DotToken, expr.dotToken)
+    assertSimpleNameIdentifierExpr("b", expr.right)
   }
 
   def functions(): unit = {
