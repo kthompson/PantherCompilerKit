@@ -23,9 +23,15 @@ object MakeCompilation {
     // root symbol table
     val binder = new Binder(trees, rootSymbol, diagnosticBag)
 
-    val assembly = binder.bind()
+    // dont bother lowering if there are any diagnostics
+    val lowered = if (diagnosticBag.count == 0) {
+      val assembly = binder.bind()
 
-    val lowered = Lower.lower(assembly, binder)
+      if (diagnosticBag.count == 0) Lower.lower(assembly, binder)
+      else emptyLoweredAssembly()
+    } else {
+      emptyLoweredAssembly()
+    }
 
     new Compilation(
       trees,
@@ -33,6 +39,13 @@ object MakeCompilation {
       rootSymbol,
       binder,
       lowered
+    )
+  }
+
+  def emptyLoweredAssembly(): LoweredAssembly = {
+    LoweredAssembly(
+      DictionaryModule.empty[Symbol, LoweredBlock](),
+      Option.None
     )
   }
 }

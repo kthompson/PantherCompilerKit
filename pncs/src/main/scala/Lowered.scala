@@ -2,7 +2,6 @@ import LoweredStatement.ExpressionStatement
 import panther.*
 
 case class LoweredAssembly(
-    diagnostics: Diagnostics,
     functionBodies: Dictionary[Symbol, LoweredBlock],
     entryPoint: Option[Symbol]
 )
@@ -123,7 +122,7 @@ object Lower {
       binder
     )
 
-    LoweredAssembly(diagnostics, functionBodies, entryPoint)
+    LoweredAssembly(functionBodies, entryPoint)
   }
 
   def lowerFunctionBodies(
