@@ -36,7 +36,7 @@ enum BoundStatement {
 }
 
 enum BoundExpression {
-  case Error
+  case Error(message: string)
   case Assignment(
       location: TextLocation,
       variable: Symbol,
@@ -89,6 +89,7 @@ enum BoundExpression {
       location: TextLocation,
       left: BoundExpression,
       member: Symbol,
+      genericArguments: List[Type],
       resultType: Type
   )
   case NewExpression(

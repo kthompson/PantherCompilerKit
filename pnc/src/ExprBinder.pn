@@ -259,39 +259,49 @@ class ExprBinder(
       toType: Type,
       allowExplicit: bool
   ): BoundExpression = {
-    if (expr == BoundExpression.Error) {
-      expr
-    } else {
-      val from = binder.getType(expr)
-      if (from == Type.Error || toType == Type.Error) {
-        BoundExpression.Error
-      } else {
-        conversionClassifier.classify(from, toType) match {
-          case Conversion.Identity => expr
-          case Conversion.Implicit =>
-            val location = AstUtils.locationOfBoundExpression(expr)
-            new BoundExpression.CastExpression(location, expr, toType)
-          case Conversion.Explicit =>
-            if (allowExplicit) {
-              val location = AstUtils.locationOfBoundExpression(expr)
-              new BoundExpression.CastExpression(location, expr, toType)
-            } else {
-              val location = AstUtils.locationOfBoundExpression(expr)
-              diagnosticBag.reportCannotConvert(location, from, toType)
-              BoundExpression.Error
+    expr match {
+      case _: BoundExpression.Error => expr
+      case _ =>
+        val from = binder.getType(expr)
+        Tuple2(from, toType) match {
+          case Tuple2(Type.Error(message), _) =>
+            BoundExpression.Error(message)
+          case Tuple2(_, Type.Error(message)) =>
+            BoundExpression.Error(message)
+          case _ =>
+            conversionClassifier.classify(from, toType) match {
+              case Conversion.Identity => expr
+              case Conversion.Implicit =>
+                val location = AstUtils.locationOfBoundExpression(expr)
+                new BoundExpression.CastExpression(location, expr, toType)
+              case Conversion.Explicit =>
+                if (allowExplicit) {
+                  val location = AstUtils.locationOfBoundExpression(expr)
+                  new BoundExpression.CastExpression(location, expr, toType)
+                } else {
+                  val location = AstUtils.locationOfBoundExpression(expr)
+                  diagnosticBag.reportCannotConvert(location, from, toType)
+                  BoundExpression.Error(
+                    "Cannot convert from " + from
+                      .toString() + " to " + toType
+                      .toString()
+                  )
+                }
+              case Conversion.None =>
+                val location = AstUtils.locationOfBoundExpression(expr)
+                diagnosticBag.reportCannotConvert(location, from, toType)
+                BoundExpression.Error(
+                  "Cannot convert from " + from.toString() + " to " + toType
+                    .toString()
+                )
             }
-          case Conversion.None =>
-            val location = AstUtils.locationOfBoundExpression(expr)
-            diagnosticBag.reportCannotConvert(location, from, toType)
-            BoundExpression.Error
         }
-      }
     }
   }
 
   def boundErrorExpression(text: string): BoundExpression = {
     println("\nbinding error: " + text + "\n")
-    BoundExpression.Error
+    BoundExpression.Error("binding error: " + text)
   }
 
   def boundErrorStatement(text: string): BoundStatement = {
@@ -311,24 +321,32 @@ class ExprBinder(
   ): BoundExpression = {
     val lhs = bind(node.left, scope)
     val rhs = bind(node.right, scope)
-    if (lhs == BoundExpression.Error || rhs == BoundExpression.Error) {
-      BoundExpression.Error
-    } else {
-      lhs match {
-        case BoundExpression.Variable(location, symbol, returnType) =>
-          val lhsType = binder.getType(lhs)
+    Tuple2(lhs, rhs) match {
+      case Tuple2(BoundExpression.Error(_), _) =>
+        lhs
+      case Tuple2(_, BoundExpression.Error(_)) =>
+        rhs
+      case Tuple2(
+            BoundExpression.Variable(location, symbol, returnType),
+            rhs
+          ) =>
 
-          BoundExpression.Assignment(
-            location,
-            symbol,
-            bindConversion(rhs, lhsType, false)
+        val lhsType = binder.getType(lhs)
+
+        BoundExpression.Assignment(
+          location,
+          symbol,
+          bindConversion(rhs, lhsType, false)
+        )
+      case _ =>
+        diagnosticBag.reportExpressionIsNotAssignable(
+          AstUtils.locationOfBoundExpression(lhs)
+        )
+        BoundExpression.Error(
+          "Expression is not assignable: " + AstUtils.locationOfBoundExpression(
+            lhs
           )
-        case _ =>
-          diagnosticBag.reportExpressionIsNotAssignable(
-            AstUtils.locationOfBoundExpression(lhs)
-          )
-          BoundExpression.Error
-      }
+        )
     }
   }
 
@@ -339,34 +357,44 @@ class ExprBinder(
     val left = bind(node.left, scope)
     val right = bind(node.right, scope)
 
-    if (left == BoundExpression.Error || right == BoundExpression.Error) {
-      BoundExpression.Error
-    } else {
-      val leftType = binder.getType(left)
-      val rightType = binder.getType(right)
-      if (leftType == Type.Error || rightType == Type.Error) {
-        BoundExpression.Error
-      } else {
-        val op = bindBinaryOperator(node.operator)
-        val resultType = operators.checkBinary(leftType, rightType, op)
-        if (resultType == Type.Error) {
-          diagnosticBag.reportNoOperatorForOperands(
-            node.operator.location,
-            node.operator.text,
-            leftType,
-            rightType
-          )
-          BoundExpression.Error
-        } else {
-          BoundExpression.BinaryExpression(
-            node.operator.location,
-            left,
-            op,
-            right,
-            resultType
-          )
+    Tuple2(left, right) match {
+      case Tuple2(BoundExpression.Error(_), _) =>
+        left
+      case Tuple2(_, BoundExpression.Error(_)) =>
+        right
+      case _ =>
+        val leftType = binder.getType(left)
+        val rightType = binder.getType(right)
+        Tuple2(leftType, rightType) match {
+          case Tuple2(Type.Error(message), _) =>
+            BoundExpression.Error(message)
+          case Tuple2(_, Type.Error(message)) =>
+            BoundExpression.Error(message)
+
+          case _ =>
+            val op = bindBinaryOperator(node.operator)
+            val resultType = operators.checkBinary(leftType, rightType, op)
+            if (resultType == Type.Error) {
+              diagnosticBag.reportNoOperatorForOperands(
+                node.operator.location,
+                node.operator.text,
+                leftType,
+                rightType
+              )
+              BoundExpression.Error(
+                "No operator for operands: " + node.operator.text + " for types: " +
+                  leftType.toString() + " and " + rightType.toString()
+              )
+            } else {
+              BoundExpression.BinaryExpression(
+                node.operator.location,
+                left,
+                op,
+                right,
+                resultType
+              )
+            }
         }
-      }
     }
   }
 
@@ -416,13 +444,12 @@ class ExprBinder(
     if (isCast(node.name)) {
       bindCast(node, scope)
     } else {
-      val function = bind(node.name, scope)
-      if (function == BoundExpression.Error) {
-        BoundExpression.Error
-      } else {
-        val exprs = fromExpressionList(node.arguments.expressions)
-        val args = bindExpressions(exprs, scope)
-        bindCall(function, args, scope)
+      bind(node.name, scope) match {
+        case error: BoundExpression.Error => error
+        case function =>
+          val exprs = fromExpressionList(node.arguments.expressions)
+          val args = bindExpressions(exprs, scope)
+          bindCall(function, args, scope)
       }
     }
   }
@@ -442,7 +469,9 @@ class ExprBinder(
     val functionType = binder.getType(function)
     val argTypes = binder.getTypes(args)
     if (typesWithError(List.Cons(functionType, argTypes))) {
-      BoundExpression.Error
+      BoundExpression.Error(
+        "Cannot bind call expression because of type errors"
+      )
     } else
       functionType match {
         case func: Type.Function =>
@@ -452,7 +481,9 @@ class ExprBinder(
           findConstructor(ns, name) match {
             case Option.None =>
               diagnosticBag.reportNotCallable(location)
-              BoundExpression.Error
+              BoundExpression.Error(
+                "Cannot find constructor for class: " + name
+              )
             case Option.Some(ctor) =>
               binder.getSymbolType(ctor) match {
                 case Option.Some(Type.Function(loc, params, _)) =>
@@ -465,7 +496,9 @@ class ExprBinder(
                   )
                 case _ =>
                   diagnosticBag.reportNotCallable(location)
-                  BoundExpression.Error
+                  BoundExpression.Error(
+                    "Constructor symbol does not have a function type: " + name
+                  )
               }
           }
 
@@ -601,7 +634,10 @@ class ExprBinder(
         functionType.parameters.length,
         args.length
       )
-      BoundExpression.Error
+      BoundExpression.Error(
+        "Argument count mismatch: expected " + functionType.parameters.length +
+          " but got " + args.length
+      )
     } else {
       val boundArgs = bindArguments(functionType.parameters, args, scope)
 
@@ -654,7 +690,10 @@ class ExprBinder(
         ctorType.parameters.length,
         args.length
       )
-      BoundExpression.Error
+      BoundExpression.Error(
+        "Argument count mismatch: expected " + ctorType.parameters.length +
+          " but got " + args.length
+      )
     } else {
       val boundArgs = bindArguments(ctorType.parameters, args, scope)
       BoundExpression.NewExpression(
@@ -686,7 +725,9 @@ class ExprBinder(
           1,
           0
         )
-        BoundExpression.Error
+        BoundExpression.Error(
+          "Cast expression requires one argument but got none"
+        )
       case List.Cons(head, tail) =>
         if (!tail.isEmpty) {
           diagnosticBag.reportArgumentCountMismatch(
@@ -694,17 +735,21 @@ class ExprBinder(
             1,
             tail.length + 1
           )
-          BoundExpression.Error
+          BoundExpression.Error(
+            "Cast expression requires one argument but got " + (tail.length + 1)
+          )
         } else {
           val lhs = bind(expression.name, scope)
           val arg = bind(head.expression, scope)
           val location = AstUtils.locationOfBoundExpression(lhs)
           val targetType = binder.getType(lhs)
 
-          if (targetType == Type.Error) {
-            BoundExpression.Error
-          } else {
-            bindConversion(arg, targetType, true)
+          targetType match {
+            case Type.Error(message) =>
+              BoundExpression.Error(message)
+            case _ =>
+
+              bindConversion(arg, targetType, true)
           }
         }
     }
@@ -817,7 +862,9 @@ class ExprBinder(
     scope.lookup(identifier.text) match {
       case Option.None =>
         diagnosticBag.reportSymbolNotFound(identifier.location, identifier.text)
-        BoundExpression.Error
+        BoundExpression.Error(
+          "Symbol not found: " + identifier.text + " at " + identifier.location
+        )
       case Option.Some(symbol) =>
         val symbolType = binder.getSymbolType(symbol)
         BoundExpression.Variable(
@@ -831,35 +878,38 @@ class ExprBinder(
   def bindIf(node: Expression.If, scope: Scope): BoundExpression = {
     val cond = bindConversionExpr(node.condition, binder.boolType, scope)
     val thenExpr = bind(node.thenExpr, scope)
-    if (cond == BoundExpression.Error || thenExpr == BoundExpression.Error) {
-      BoundExpression.Error
-    } else {
-      node.elseExpr match {
-        case Option.None =>
-          val boundThen = bindConversion(thenExpr, binder.unitType, false)
-          BoundExpression.IfExpression(
-            node.ifKeyword.location,
-            cond,
-            boundThen,
-            Option.None,
-            binder.unitType
-          )
-        case Option.Some(value) =>
-          val resultType = binder.getType(thenExpr)
-          val boundElse =
-            bindConversionExpr(value.expression, resultType, scope)
-          if (boundElse == BoundExpression.Error) {
-            BoundExpression.Error
-          } else {
+    Tuple2(cond, thenExpr) match {
+      case Tuple2(BoundExpression.Error(_), _) =>
+        cond
+      case Tuple2(_, BoundExpression.Error(_)) =>
+        thenExpr
+      case _ =>
+        node.elseExpr match {
+          case Option.None =>
+            val boundThen = bindConversion(thenExpr, binder.unitType, false)
             BoundExpression.IfExpression(
               node.ifKeyword.location,
               cond,
-              thenExpr,
-              Option.Some(boundElse),
-              resultType
+              boundThen,
+              Option.None,
+              binder.unitType
             )
-          }
-      }
+          case Option.Some(value) =>
+            val resultType = binder.getType(thenExpr)
+            val boundElse =
+              bindConversionExpr(value.expression, resultType, scope)
+            boundElse match {
+              case _: BoundExpression.Error => boundElse
+              case _ =>
+                BoundExpression.IfExpression(
+                  node.ifKeyword.location,
+                  cond,
+                  thenExpr,
+                  Option.Some(boundElse),
+                  resultType
+                )
+            }
+        }
     }
   }
 
@@ -878,7 +928,7 @@ class ExprBinder(
         BoundExpression.CharacterLiteral(node.token.location, value)
       case _ =>
         panic("unexpected literal expression")
-        BoundExpression.Error
+        BoundExpression.Error("unexpected literal expression")
     }
   }
 
@@ -887,24 +937,37 @@ class ExprBinder(
       scope: Scope
   ): BoundExpression = {
     val left = bind(node.left, scope)
+    val leftType = binder.getType(left)
 
     node.right match {
-      case SimpleNameSyntax.GenericNameSyntax(identifier, typeArgumentlist) =>
-        ???
-      case SimpleNameSyntax.ScalaAliasSyntax(open, name, arrow, alias, close) =>
-        ???
-      case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) => ???
-      case SimpleNameSyntax.IdentifierNameSyntax(right)         =>
-        //    val memberName = right.text
-        val leftType = binder.getType(left)
+      case SimpleNameSyntax.GenericNameSyntax(right, typeArgumentlist) =>
+
+        val typeArguments =
+          binder.bindTypeArgumentList(typeArgumentlist.arguments, scope)
 
         bindMemberForSymbolAndType(leftType, right) match {
-          case Option.None => BoundExpression.Error
-          case Option.Some(Tuple2(member, typ)) =>
+          case Either.Left(message) => BoundExpression.Error(message)
+          case Either.Right(Tuple2(member, typ)) =>
             BoundExpression.MemberAccess(
               right.location,
               left,
               member,
+              typeArguments,
+              typ
+            )
+        }
+      case SimpleNameSyntax.ScalaAliasSyntax(open, name, arrow, alias, close) =>
+        ???
+      case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) => ???
+      case SimpleNameSyntax.IdentifierNameSyntax(right) =>
+        bindMemberForSymbolAndType(leftType, right) match {
+          case Either.Left(message) => BoundExpression.Error(message)
+          case Either.Right(Tuple2(member, typ)) =>
+            BoundExpression.MemberAccess(
+              right.location,
+              left,
+              member,
+              List.Nil,
               typ
             )
         }
@@ -914,7 +977,7 @@ class ExprBinder(
   def bindMemberForSymbolAndType(
       leftType: Type,
       right: SyntaxToken
-  ): Option[Tuple2[Symbol, Type]] = {
+  ): Either[string, Tuple2[Symbol, Type]] = {
     leftType match {
       case Type.Class(_, ns, name, _, _) =>
         rootSymbol.findSymbol(ns, name) match {
@@ -924,7 +987,11 @@ class ExprBinder(
               leftType,
               right.text
             )
-            Option.None
+            Either.Left(
+              "Symbol not found for type: " + leftType
+                .toString() + " for member: " +
+                right.text
+            )
           case Option.Some(symbol) =>
             symbol.lookupMember(right.text) match {
               case Option.None =>
@@ -933,23 +1000,34 @@ class ExprBinder(
                   leftType,
                   right.text
                 )
-                Option.None
+                Either.Left(
+                  "Member not found: " + right.text + " for type: " + leftType
+                    .toString()
+                )
               case Option.Some(member) =>
                 binder.getSymbolType(member) match {
-                  case Option.None => Option.None
+                  case Option.None =>
+                    // TODO: i think  we should report an error here
+                    Either.Left(
+                      "Symbol type not found for member: " + right.text +
+                        " for type: " + leftType.toString()
+                    )
                   case Option.Some(typ) =>
-                    Option.Some(Tuple2(member, typ))
+                    Either.Right(Tuple2(member, typ))
                 }
             }
         }
-      case Type.Error => Option.None
+      case Type.Error(message) => Either.Left(message)
       case _ =>
         diagnosticBag.reportSymbolNotFoundForType(
           right.location,
           leftType,
           right.text
         )
-        Option.None
+        Either.Left(
+          "Symbol not found for type: " + leftType
+            .toString() + " for member: " + right.text
+        )
     }
   }
 
@@ -972,7 +1050,9 @@ class ExprBinder(
               AstUtils.locationOfName(node.name),
               name
             )
-            BoundExpression.Error
+            BoundExpression.Error(
+              "Cannot find constructor for class: " + name
+            )
           case Option.Some(ctor) =>
             val args = bindExpressions(
               fromExpressionList(node.arguments.expressions),
@@ -992,11 +1072,14 @@ class ExprBinder(
                 )
               case _ =>
                 diagnosticBag.reportNotCallable(location)
-                BoundExpression.Error
+                BoundExpression.Error(
+                  "Constructor symbol does not have a function type: " + name
+                )
             }
         }
-      case Type.Error => BoundExpression.Error
+      case Type.Error(message) => BoundExpression.Error(message)
       case _ =>
+        println(node.closeParen.location.toString())
         panic("expected named type, got " + instantiationType)
     }
   }
@@ -1006,31 +1089,30 @@ class ExprBinder(
       scope: Scope
   ): BoundExpression = {
     val op = bindUnaryOperator(node.operator)
-    val operand = bind(node.expression, scope)
-    if (operand == BoundExpression.Error) {
-      BoundExpression.Error
-    } else {
-      val operandType = binder.getType(operand)
-      if (operandType == Type.Error) {
-        BoundExpression.Error
-      } else {
-        val resultType = operators.checkUnary(operandType, op)
-        if (resultType == Type.Error) {
-          diagnosticBag.reportNoOperatorForOperand(
-            node.operator.location,
-            node.operator.text,
-            operandType
-          )
-          BoundExpression.Error
-        } else {
-          BoundExpression.UnaryExpression(
-            node.operator.location,
-            op,
-            operand,
-            resultType
-          )
+    bind(node.expression, scope) match {
+      case error: BoundExpression.Error => error
+      case operand =>
+        binder.getType(operand) match {
+          case Type.Error(message) =>
+            BoundExpression.Error(message)
+          case operandType =>
+            operators.checkUnary(operandType, op) match {
+              case Type.Error(message) =>
+                diagnosticBag.reportNoOperatorForOperand(
+                  node.operator.location,
+                  node.operator.text,
+                  operandType
+                )
+                BoundExpression.Error(message)
+              case resultType =>
+                BoundExpression.UnaryExpression(
+                  node.operator.location,
+                  op,
+                  operand,
+                  resultType
+                )
+            }
         }
-      }
     }
 
   }

@@ -63,7 +63,8 @@ object SyntaxFacts {
     else if (kind == SyntaxKind.GlobalStatement) "GlobalStatement"
     else if (kind == SyntaxKind.GreaterThanEqualsToken) "GreaterThanEqualsToken"
     else if (kind == SyntaxKind.GreaterThanToken) "GreaterThanToken"
-    else if (kind == SyntaxKind.GreaterThanGreaterThanToken) "GreaterThanGreaterThanToken"
+    else if (kind == SyntaxKind.GreaterThanGreaterThanToken)
+      "GreaterThanGreaterThanToken"
     else if (kind == SyntaxKind.GroupExpression) "GroupExpression"
     else if (kind == SyntaxKind.IdentifierName) "IdentifierName"
     else if (kind == SyntaxKind.IdentifierToken) "IdentifierToken"

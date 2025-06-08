@@ -523,7 +523,7 @@ class Binder(
 
   def getType(expr: BoundExpression): Type = {
     expr match {
-      case BoundExpression.Error => Type.Error
+      case BoundExpression.Error(message) => Type.Error(message)
 
       case _: BoundExpression.Assignment       => unitType
       case _: BoundExpression.BooleanLiteral   => boolType
@@ -552,7 +552,7 @@ class Binder(
                 // no type has been detected yet so lets bind the entry and then try again
                 println("Unknown type for symbol " + symbol.kind)
                 diagnosticBag.reportBugUnknownType(expr.location, symbol.name)
-                Type.Error
+                Type.Error("Unknown type for symbol " + symbol.kind)
               case Option.Some(value) =>
                 bindOneTypingMember(symbol, value)
             }
@@ -848,7 +848,7 @@ class Binder(
               identifier.location,
               identifier.text
             )
-            Type.Error
+            Type.Error("Type not defined: " + identifier.text)
           case Option.Some(symbol) =>
             // TODO: need to add diagnostic for verifying that there are the correct
             //  number of type arguments on `symbol`
@@ -897,7 +897,7 @@ class Binder(
                 identifier.location,
                 identifier.text
               )
-              Type.Error
+              Type.Error("Type not defined: " + identifier.text)
             case Option.Some(symbol) =>
               getSymbolType(symbol) match {
                 case Option.None =>
