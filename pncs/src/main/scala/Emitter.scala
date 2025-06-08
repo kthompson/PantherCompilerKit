@@ -639,7 +639,7 @@ case class Emitter(
       case t: Type.Variable        => emitVariableTypeSignature(t, sig)
       case Type.Any                => emitAnyTypeSignature(sig)
       case Type.Never              => emitNeverTypeSignature(sig)
-      case Type.Error              => emitErrorTypeSignature(sig)
+      case Type.Error(_)           => emitErrorTypeSignature(sig)
     }
   }
 

@@ -477,7 +477,7 @@ object AstUtils {
         )
       case BoundExpression.IndexExpression(location, _, _, _)  => location
       case BoundExpression.IntLiteral(location, _)             => location
-      case BoundExpression.MemberAccess(location, _, _, _)     => location
+      case BoundExpression.MemberAccess(location, _, _, _, _)  => location
       case BoundExpression.NewExpression(location, _, _, _, _) => location
       case BoundExpression.StringLiteral(location, _)          => location
       case BoundExpression.UnaryExpression(location, _, operand, _) =>
@@ -486,7 +486,7 @@ object AstUtils {
       case BoundExpression.Variable(location, _, _)        => location
       case BoundExpression.WhileExpression(location, _, _) => location
 
-      case BoundExpression.Error => TextLocationFactory.empty()
+      case BoundExpression.Error(_) => TextLocationFactory.empty()
     }
   }
 }

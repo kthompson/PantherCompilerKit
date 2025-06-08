@@ -645,7 +645,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
       case Type.Never =>
         writeColor(ColorPalette.Keyword)
         write("never")
-      case Type.Error =>
+      case Type.Error(_) =>
         writeColor(ColorPalette.Error)
         write("error")
     }

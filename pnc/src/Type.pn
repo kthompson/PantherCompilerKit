@@ -70,7 +70,7 @@ enum Type {
   /** Built-in "bottom" type */
   case Never
 
-  case Error
+  case Error(message: string)
 
   def getLocation(): Option[TextLocation] = {
     this match {
@@ -81,7 +81,7 @@ enum Type {
       case Variable(location, _)                 => Option.Some(location)
       case Any                                   => Option.None
       case Never                                 => Option.None
-      case Error                                 => Option.None
+      case Error(_)                              => Option.None
     }
   }
 
@@ -172,7 +172,7 @@ enum Type {
       case Type.Variable(_, i) => "$" + string(i)
       case Type.Any            => "any"
       case Type.Never          => "Never"
-      case Type.Error          => "Error"
+      case Type.Error(_)       => "Error"
     }
   }
 }

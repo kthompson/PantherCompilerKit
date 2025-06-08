@@ -182,7 +182,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       context: LoweredBlock
   ): LoweredBlock = {
     expression match {
-      case BoundExpression.Error            => ???
+      case BoundExpression.Error(message)   => panic(message)
       case expr: BoundExpression.Assignment => lowerAssignment(expr, context)
       case expr: BoundExpression.BinaryExpression =>
         lowerBinaryExpression(expr, context)

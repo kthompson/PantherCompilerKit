@@ -94,7 +94,10 @@ class BinaryOperators(binder: Binder) {
       operator: BinaryOperatorKind
   ): Type =
     ops match {
-      case List.Nil => Type.Error
+      case List.Nil =>
+        Type.Error(
+          "Binary operator '" + operator + "' not found for types '" + left + "' and '" + right + "'."
+        )
       case List.Cons(op, tail) =>
         if (op.left == left && op.right == right && op.operator == operator) {
           op.result
@@ -113,7 +116,10 @@ class BinaryOperators(binder: Binder) {
       operator: UnaryOperatorKind
   ): Type =
     ops match {
-      case List.Nil => Type.Error
+      case List.Nil =>
+        Type.Error(
+          "Unary operator '" + operator + "' not found for type '" + operand + "'."
+        )
       case List.Cons(op, tail) =>
         if (op.operand == operand && op.operator == operator) {
           op.result

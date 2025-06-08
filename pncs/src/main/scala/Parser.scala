@@ -360,7 +360,10 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       parameters = List.Cons(parseGenericParameter(), parameters)
     }
 
-    new SeparatedSyntaxList(parameters.reverse(), commas.reverse())
+    new SeparatedSyntaxList[GenericParameterSyntax](
+      parameters.reverse(),
+      commas.reverse()
+    )
   }
 
   def parseGenericParameter(): GenericParameterSyntax = {
