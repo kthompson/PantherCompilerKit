@@ -41,8 +41,8 @@ using panther
 
 // https://github.com/LPTK/simpler-sub/blob/simpler-sub/shared/src/main/scala/simplesub/Typer.scala
 
-// ? == intersection
-// ? == union
+// ∩ == intersection
+// ∪ == union
 //
 // https://www.youtube.com/watch?v=d10q-b8jNKg
 // x gets type variable A
@@ -54,11 +54,11 @@ using panther
 // constraint: B <= int
 // constraint: A, B <= C
 
-// f: A -> B -> C where A <= int, B <= int, A ? B <= C
+// f: A -> B -> C where A <= int, B <= int, A ∪ B <= C
 // then (coalesce bounds)
-// f: A ? int -> B ? int -> A ? B ? C
+// f: A ∩ int -> B ∩ int -> A ∪ B ∪ C
 // then simplify variables
-// f: A ? int -> A ? int -> A
+// f: A ∩ int -> A ∩ int -> A
 
 // will be connected to a Declaration or an Expression
 
