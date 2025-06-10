@@ -477,16 +477,16 @@ class VM(
       push(Value.unit)
     }
 
-    // argsp  = arg0            ????
-    //          arg1               ????> count
-    //          arg2               ?
-    //          argN            ????
+    // argsp  = arg0            ━━━┓
+    //          arg1               ┃━━━> count
+    //          arg2               ┃
+    //          argN            ━━━┛
     //          return address
     //          saved localp
     //          saved argsp
-    // localp = local0          ????
-    //          local1             ????> localCount
-    //          localN          ????
+    // localp = local0          ━━━┓
+    //          local1             ┃━━━> localCount
+    //          localN          ━━━┛
     // sp     = stack top
 
     ip = addr

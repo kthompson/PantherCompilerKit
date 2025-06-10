@@ -4,7 +4,7 @@ object system {
   object io {
     object File {
       def writeAllText(file: string, text: string): unit = {
-        val writer = new java.io.PrintWriter(file)
+        val writer = new java.io.PrintWriter(file, "utf-8")
         writer.write(text)
         writer.close()
       }
