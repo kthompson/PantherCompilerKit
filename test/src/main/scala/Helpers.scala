@@ -186,6 +186,11 @@ object Helpers {
     assertMemberAccess(expression)
   }
 
+  def mkMatchExpr(text: string): Expression.MatchExpression = {
+    val expression = mkSyntaxTreeExpr(text)
+    assertMatch(expression)
+  }
+
   def mkAssignmentExpr(text: string): Expression.AssignmentExpression = {
     val expression = mkSyntaxTreeExpr(text)
     assertAssignmentExpr(expression)
@@ -224,6 +229,24 @@ object Helpers {
     expression match {
       case expr: Expression.MemberAccessExpression => expr
       case _ => failed("expected member access expression")
+    }
+  }
+
+  def assertMatch(
+      expression: Expression
+  ): Expression.MatchExpression = {
+    expression match {
+      case expr: Expression.MatchExpression => expr
+      case _ => failed("expected match expression")
+    }
+  }
+
+  def assertLiteralPattern(
+      expression: PatternSyntax
+  ): PatternSyntax.LiteralPattern = {
+    expression match {
+      case expr: PatternSyntax.LiteralPattern => expr
+      case _ => failed("expected literal pattern")
     }
   }
 
@@ -356,6 +379,19 @@ object Helpers {
   def mkMember(text: string): MemberSyntax = {
     val tree = mkSyntaxTree(text)
     Assert.single(tree.root.members)
+  }
+
+  def assertNumberToken(
+      expected: int,
+      token: SyntaxToken
+  ): unit = {
+    Assert.equal(SyntaxKind.NumberToken, token.kind)
+    token.value match {
+      case SyntaxTokenValue.Number(value) =>
+        Assert.intEqual(expected, value)
+      case _ =>
+        failed("Expected number token, got: " + token.value)
+    }
   }
 
   def assertNumberExpr(expected: int, expression: Expression): unit = {

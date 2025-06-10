@@ -79,9 +79,27 @@ object LexerTests {
   }
 
   def strings(): unit = {
+    simpleString()
+    fancyString()
+  }
+
+  def simpleString(): unit = {
     val tokens = mkTokens("\"hello\"")
     Assert.intEqual(2, tokens.length)
     Assert.intEqual(SyntaxKind.StringToken, tokens(0).kind)
+    Assert.intEqual(SyntaxKind.EndOfInputToken, tokens(1).kind)
+  }
+
+  def fancyString(): unit = {
+    val tokens = mkTokens("\"├──\"")
+    Assert.intEqual(2, tokens.length)
+    Assert.intEqual(SyntaxKind.StringToken, tokens(0).kind)
+    tokens(0).value match {
+      case SyntaxTokenValue.String(value) =>
+        Assert.stringEqual("├──", value)
+      case _ =>
+        failed("Expected string value")
+    }
     Assert.intEqual(SyntaxKind.EndOfInputToken, tokens(1).kind)
   }
 

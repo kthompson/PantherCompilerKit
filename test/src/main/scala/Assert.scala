@@ -24,6 +24,22 @@ object Assert {
       failed("expected empty list, found " + list.length + " items")
   }
 
+  def single[T](items: List[T]): T = {
+    items match {
+      case List.Nil => failed("expected one item, found zero")
+      case List.Cons(head, tail) =>
+        if (tail.isEmpty) head
+        else failed("expected one item, found " + items.length)
+    }
+  }
+
+  def arraySingle[T](items: Array[T]): T = {
+    if (items.length == 0) failed("expected one item, found zero")
+    else if (items.length > 1)
+      failed("expected one item, found " + items.length)
+    else items(0)
+  }
+
   def assert(condition: bool, message: string): unit = {
     if (!condition) failed(message) else ()
   }
@@ -43,14 +59,5 @@ object Assert {
   def isFalse(actual: bool): unit = boolEqual(false, actual)
 
   def isTrue(actual: bool): unit = boolEqual(true, actual)
-
-  def single[T](items: List[T]): T = {
-    items match {
-      case List.Nil => failed("expected one item, found zero")
-      case List.Cons(head, tail) =>
-        if (tail.isEmpty) head
-        else failed("expected one item, found " + items.length)
-    }
-  }
 
 }
