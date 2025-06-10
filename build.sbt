@@ -11,6 +11,8 @@ ThisBuild / scalacOptions ++= Seq(
 lazy val transpile =
   taskKey[Unit]("Transpile Scala source code to Panther source code")
 
+lazy val bootstrap = taskKey[Unit]("Bootstrap the project")
+
 /** Panther Standard Library */
 lazy val runtime = project
 
@@ -32,7 +34,12 @@ lazy val pncs = project
     mainClass := Some("Program$"),
     transpile := {
       val log = streams.value.log
-      val sourceFiles = (Compile / sources).value.map(_.getAbsolutePath)
+      val sourceFiles = ((Compile / sources).value.map(_.getAbsolutePath) ++
+        (runtime / Compile / sources).value.map(_.getAbsolutePath) ++
+        (metadata / Compile / sources).value.map(_.getAbsolutePath) ++
+        (text / Compile / sources).value.map(_.getAbsolutePath))
+        .filter(_.endsWith("panther.scala"))
+
       val mainCls =
         (Compile / mainClass).value.getOrElse(sys.error("No main class found"))
       val cp =
@@ -50,6 +57,37 @@ lazy val pncs = project
         .fork(
           ForkOptions().withWorkingDirectory(baseDirectory.value),
           Seq("-cp", cp, mainCls, "-t", pncTargetDir.getAbsolutePath) ++
+            sourceFiles
+        )
+        .exitValue()
+
+      if (result != 0) sys.error(s"Transpile failed with exit code $result")
+    },
+    bootstrap := {
+      val log = streams.value.log
+      val sourceFiles = ((Compile / sources).value.map(_.getAbsolutePath) ++
+        (runtime / Compile / sources).value.map(_.getAbsolutePath) ++
+        (metadata / Compile / sources).value.map(_.getAbsolutePath) ++
+        (text / Compile / sources).value.map(_.getAbsolutePath))
+        .filterNot(_.endsWith("panther.scala"))
+
+      val mainCls =
+        (Compile / mainClass).value.getOrElse(sys.error("No main class found"))
+      val cp =
+        (Runtime / fullClasspath).value.files
+          .mkString(java.io.File.pathSeparator)
+
+      val outputFile = target.value / (name.value + ".pnb")
+
+      log.info(s"Output directory: ${outputFile.getAbsolutePath}")
+      log.info(s"name: ${name.value}")
+
+      log.info(s"Running $mainCls with ${sourceFiles.length} source files")
+
+      val result = Fork.java
+        .fork(
+          ForkOptions().withWorkingDirectory(baseDirectory.value),
+          Seq("-cp", cp, mainCls, outputFile.getAbsolutePath) ++
             sourceFiles
         )
         .exitValue()
