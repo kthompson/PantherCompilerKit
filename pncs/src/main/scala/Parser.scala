@@ -935,9 +935,13 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       * just a type name, while an extract pattern is a type name followed by a
       * list of patterns in parens.
       *
-      * There are a few different forms of patterns: case x: int => ... case
-      * Type.Any => ... case Type.Some(x) => ... case Any => ... case Some(x) =>
-      * ... case "taco" =>
+      * There are a few different forms of patterns:
+      *   - case x: int => ...
+      *   - case Type.Any => ...
+      *   - case Type.Some(x) => ...
+      *   - case Any => ...
+      *   - case Some(x) => ...
+      *   - case "taco" =>
       */
     // Patterns have a few main forms:
     // 1. Type pattern: an identifier with an optional type annotation

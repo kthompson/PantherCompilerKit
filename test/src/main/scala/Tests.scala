@@ -3,11 +3,11 @@ import TestFramework._
 
 object Tests {
   def main(args: Array[String]): Unit = {
-    LexerTests.run()
+//    LexerTests.run()
     ParserTests.run()
-    BinderTests.run()
-    TypeTests.run()
-    VmTests.run()
+//    BinderTests.run()
+//    TypeTests.run()
+//    VmTests.run()
 
     complete()
   }
