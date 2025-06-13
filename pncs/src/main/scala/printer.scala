@@ -550,21 +550,21 @@ class AstPrinter(withColor: bool, toConsole: bool) {
   def printType(typ: Type): unit =
     _printType(typ, true)
 
-  def _printTypes(types: List[Type], first: bool): unit =
+  def _printTypes(types: List[Type], sep: string, first: bool): unit =
     types match {
       case List.Nil => writeClear()
       case List.Cons(typ, tail) =>
         if (!first) {
           writeColor(ColorPalette.Punctuation)
-          write(", ")
+          write(sep)
         }
         _printType(typ, false)
-        _printTypes(tail, false)
+        _printTypes(tail, sep, false)
     }
 
   def _printTypedParameters(
-      printedFirst: bool,
-      parameters: List[BoundParameter]
+      parameters: List[BoundParameter],
+      printedFirst: bool
   ): unit = {
     parameters match {
       case List.Nil => ()
@@ -578,7 +578,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
         writeColor(ColorPalette.Punctuation)
         write(": ")
         _printType(param.typ, false)
-        _printTypedParameters(true, tail)
+        _printTypedParameters(tail, true)
     }
   }
 
@@ -587,7 +587,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
       case Type.Function(_, parameters, returnType) =>
         writeColor(ColorPalette.Punctuation)
         write("(")
-        _printTypedParameters(false, parameters)
+        _printTypedParameters(parameters, false)
         writeColor(ColorPalette.Punctuation)
         write(") -> ")
         _printType(returnType, false)
@@ -598,7 +598,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
         writeColor(ColorPalette.Punctuation)
         write(">")
         write("(")
-        _printTypedParameters(false, parameters)
+        _printTypedParameters(parameters, false)
         writeColor(ColorPalette.Punctuation)
         write(") -> ")
         _printType(returnType, false)
@@ -616,7 +616,31 @@ class AstPrinter(withColor: bool, toConsole: bool) {
           case List.Nil =>
           case List.Cons(typ, tail) =>
             write("<")
-            _printTypes(args, true)
+            _printTypes(args, ", ", true)
+            write(">")
+        }
+
+      case Type.Union(_, types) =>
+        writeColor(ColorPalette.Punctuation)
+        write("(")
+        _printTypes(types, " | ", true)
+        writeColor(ColorPalette.Punctuation)
+        write(")")
+
+      case Type.Alias(_, ns, name, args, value, _) =>
+        val color =
+          if (ns.isEmpty && SyntaxFacts.isBuiltinType(name))
+            ColorPalette.Keyword
+          else ColorPalette.Identifier
+
+        writeColor(color)
+        write(typ._name(ns, name))
+
+        args match {
+          case List.Nil =>
+          case List.Cons(typ, tail) =>
+            write("<")
+            _printTypes(args, ", ", true)
             write(">")
         }
 
@@ -697,9 +721,9 @@ class AstPrinter(withColor: bool, toConsole: bool) {
       case SymbolKind.Object =>
         writeColor(ColorPalette.Keyword)
         write("Object")
-      case SymbolKind.Enum =>
+      case SymbolKind.Alias =>
         writeColor(ColorPalette.Keyword)
-        write("Enum")
+        write("Alias")
       case SymbolKind.TypeParameter(_) =>
         writeColor(ColorPalette.TypeParameter)
         write("TypeParameter")

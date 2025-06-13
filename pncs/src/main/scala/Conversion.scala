@@ -29,12 +29,26 @@ class ConversionClassifier(binder: Binder) {
     } else if (from == binder.charType && toType == binder.intType) {
       Conversion.Implicit
     } else {
-      from match {
-        // from is assignable to toType if it is a subtype of toType
-        case Type.Class(_, _, _, _, Option.Some(superClass)) =>
-          classify(superClass, toType)
+      toType match {
+        case Type.Alias(_, _, _, generics, value, _) =>
+          generics match {
+            case List.Nil =>
+              classify(from, value)
+            case _ =>
+              println("ConversionClassifier: Generics not supported yet")
+              Conversion.None
+          }
+        case Type.Union(location, cases) =>
+          cases match {
+            case List.Nil => Conversion.None
+            case List.Cons(head, tail) =>
+              classify(from, head) match {
+                case Conversion.None =>
+                  classify(from, Type.Union(location, tail))
+                case conversion => conversion
+              }
+          }
         case _ =>
-          println("No conversion from " + from + " to " + toType)
           Conversion.None
       }
     }

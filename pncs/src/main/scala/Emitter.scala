@@ -537,25 +537,19 @@ case class Emitter(
   }
 
   def emitSymbolMetadata(symbol: Symbol): unit = {
-    if (symbol.kind == SymbolKind.Namespace) {
-      emitSymbolsMetadata(symbol.members())
-    } else if (
-      symbol.kind == SymbolKind.Class || symbol.kind == SymbolKind.Object
-    ) {
-      emitClassMetadata(symbol)
-    } else if (symbol.kind == SymbolKind.Field) {
-      emitFieldMetadata(symbol)
-    } else if (
-      symbol.kind == SymbolKind.Method || symbol.kind == SymbolKind.Constructor
-    ) {
-      emitMethodMetadata(symbol)
-    } else if (symbol.kind == SymbolKind.Parameter) {
-      emitParameterMetadata(symbol)
-    } else if (symbol.kind == SymbolKind.Local) {
-      // TODO: emit local metadata?
-    } else {
-      println("emitSymbolMetadata: unknown symbol kind " + symbol.kind)
-      ???
+    symbol.kind match {
+      case SymbolKind.Namespace   => emitSymbolsMetadata(symbol.members())
+      case SymbolKind.Object      => emitClassMetadata(symbol)
+      case SymbolKind.Class       => emitClassMetadata(symbol)
+      case SymbolKind.Alias       => emitClassMetadata(symbol)
+      case SymbolKind.Field       => emitFieldMetadata(symbol)
+      case SymbolKind.Method      => emitMethodMetadata(symbol)
+      case SymbolKind.Constructor => emitMethodMetadata(symbol)
+      case SymbolKind.Parameter   => emitParameterMetadata(symbol)
+
+      case _: SymbolKind.TypeParameter => // TODO: emit type parameter metadata??
+      case SymbolKind.Local => // TODO: emit local metadata?
+      case SymbolKind.Block =>
     }
   }
 
@@ -633,6 +627,8 @@ case class Emitter(
   def emitTypeSignature(typ: Type, sig: SignatureBuilder): unit = {
     typ match {
       case t: Type.Class           => emitClassTypeSignature(t, sig)
+      case t: Type.Alias           => emitAliasTypeSignature(t, sig)
+      case t: Type.Union           => emitUnionTypeSignature(t, sig)
       case t: Type.GenericClass    => emitGenericClassTypeSignature(t, sig)
       case t: Type.GenericFunction => emitGenericFunctionTypeSignature(t, sig)
       case t: Type.Function        => emitFunctionTypeSignature(t, sig)
@@ -642,6 +638,9 @@ case class Emitter(
       case Type.Error(_)           => emitErrorTypeSignature(sig)
     }
   }
+
+  def emitAliasTypeSignature(typ: Type, sig: SignatureBuilder): unit = {}
+  def emitUnionTypeSignature(typ: Type, sig: SignatureBuilder): unit = {}
 
   def emitClassTypeSignature(typ: Type, sig: SignatureBuilder): unit = {}
   def emitGenericClassTypeSignature(typ: Type, sig: SignatureBuilder): unit = {}
