@@ -476,9 +476,9 @@ case class ExprBinder(
       functionType match {
         case func: Type.Function =>
           bindFunctionCall(function, func, args, scope)
-        case Type.Class(_, ns, name, _, _) =>
+        case Type.Class(_, ns, name, _, _, symbol) =>
           val location = AstUtils.locationOfBoundExpression(function)
-          findConstructor(ns, name) match {
+          findConstructor(symbol) match {
             case Option.None =>
               diagnosticBag.reportNotCallable(location)
               BoundExpression.Error(
@@ -706,13 +706,8 @@ case class ExprBinder(
     }
   }
 
-  def findConstructor(ns: List[string], name: string): Option[Symbol] = {
-    rootSymbol.findSymbol(ns, name) match {
-      case Option.Some(symbol) =>
-        symbol.lookupMember(".ctor")
-      case Option.None => Option.None
-    }
-  }
+  def findConstructor(symbol: Symbol): Option[Symbol] =
+    symbol.lookupMember(".ctor")
 
   def bindCast(
       expression: Expression.CallExpression,
@@ -979,8 +974,8 @@ case class ExprBinder(
       right: SyntaxToken
   ): Either[string, Tuple2[Symbol, Type]] = {
     leftType match {
-      case Type.Class(_, ns, name, _, _) =>
-        rootSymbol.findSymbol(ns, name) match {
+      case Type.Class(_, ns, name, _, _, symbol) =>
+        symbol.lookupMember(right.text) match {
           case Option.None =>
             diagnosticBag.reportSymbolNotFoundForType(
               right.location,
@@ -988,33 +983,19 @@ case class ExprBinder(
               right.text
             )
             Either.Left(
-              "Symbol not found for type: " + leftType
-                .toString() + " for member: " +
-                right.text
+              "Member not found: " + right.text + " for type: " + leftType
+                .toString()
             )
-          case Option.Some(symbol) =>
-            symbol.lookupMember(right.text) match {
+          case Option.Some(member) =>
+            binder.getSymbolType(member) match {
               case Option.None =>
-                diagnosticBag.reportSymbolNotFoundForType(
-                  right.location,
-                  leftType,
-                  right.text
-                )
+                // TODO: i think  we should report an error here
                 Either.Left(
-                  "Member not found: " + right.text + " for type: " + leftType
-                    .toString()
+                  "Symbol type not found for member: " + right.text +
+                    " for type: " + leftType.toString()
                 )
-              case Option.Some(member) =>
-                binder.getSymbolType(member) match {
-                  case Option.None =>
-                    // TODO: i think  we should report an error here
-                    Either.Left(
-                      "Symbol type not found for member: " + right.text +
-                        " for type: " + leftType.toString()
-                    )
-                  case Option.Some(typ) =>
-                    Either.Right(Tuple2(member, typ))
-                }
+              case Option.Some(typ) =>
+                Either.Right(Tuple2(member, typ))
             }
         }
       case Type.Error(message) => Either.Left(message)
@@ -1043,8 +1024,8 @@ case class ExprBinder(
   ): BoundExpression = {
     val instantiationType = binder.bindTypeName(node.name, scope)
     instantiationType match {
-      case Type.Class(_, ns, name, args, _) =>
-        findConstructor(ns, name) match {
+      case Type.Class(_, ns, name, args, _, symbol) =>
+        findConstructor(symbol) match {
           case Option.None =>
             diagnosticBag.reportSymbolNotFound(
               AstUtils.locationOfName(node.name),

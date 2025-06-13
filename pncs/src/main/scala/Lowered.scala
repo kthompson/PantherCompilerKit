@@ -1,5 +1,5 @@
 import LoweredStatement.ExpressionStatement
-import panther.*
+import panther._
 
 case class LoweredAssembly(
     functionBodies: Dictionary[Symbol, LoweredBlock],

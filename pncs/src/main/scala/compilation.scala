@@ -1,4 +1,4 @@
-import panther.*
+import panther._
 
 object MakeCompilation {
   def create(trees: List[SyntaxTree]): Compilation = {

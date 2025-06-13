@@ -1,5 +1,5 @@
 import Value.Ref
-import panther.*
+import panther._
 
 enum InterpretResult {
   case Continue // will continue running

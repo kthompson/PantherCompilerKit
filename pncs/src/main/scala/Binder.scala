@@ -1,3 +1,4 @@
+import Variance.Invariant
 import panther._
 
 case class Members(
@@ -73,43 +74,66 @@ class Binder(
 
   val noLoc: TextLocation = TextLocationFactory.empty()
 
-  val anyType = Type.Any
-  val stringType =
-    new Type.Class(noLoc, List.Nil, "string", List.Nil, Option.None)
-  val intType = new Type.Class(noLoc, List.Nil, "int", List.Nil, Option.None)
-  val charType = new Type.Class(noLoc, List.Nil, "char", List.Nil, Option.None)
-  val boolType = new Type.Class(noLoc, List.Nil, "bool", List.Nil, Option.None)
-  val unitType = new Type.Class(noLoc, List.Nil, "unit", List.Nil, Option.None)
-  val neverType = Type.Never
-  val noneType =
-    new Type.Class(
-      noLoc,
-      List.Nil,
-      "Option",
-      List.Cons(Type.Never, List.Nil),
-      Option.None
-    )
-
   val pantherNamespace =
     rootSymbol // TODO: move these to the panther namespace .enter("panther")
 
+  // create symbols
   val anySymbol = pantherNamespace.defineClass("any", noLoc)
-  symbolTypes =
-    symbolTypes.put(getSymbolId(anySymbol), SymbolLinks(anyType, None))
+  val intSymbol = pantherNamespace.defineClass("int", noLoc)
+  val stringSymbol = pantherNamespace.defineClass("string", noLoc)
+  val boolSymbol = pantherNamespace.defineClass("bool", noLoc)
+  val charSymbol = pantherNamespace.defineClass("char", noLoc)
+  val unitSymbol = pantherNamespace.defineClass("unit", noLoc)
 
-  val intSymbol = cls(pantherNamespace, "int", intType)
-  val stringSymbol = cls(pantherNamespace, "string", stringType)
-  val boolSymbol = cls(pantherNamespace, "bool", boolType)
-  val charSymbol = cls(pantherNamespace, "char", charType)
-  val unitSymbol = cls(pantherNamespace, "unit", unitType)
+  // create types
+  val anyType = Type.Any
+  setSymbolType(anySymbol, anyType, None)
+
+  val neverType = Type.Never
+  val stringType =
+    new Type.Class(
+      noLoc,
+      List.Nil,
+      "string",
+      List.Nil,
+      Option.None,
+      stringSymbol
+    )
+  val intType =
+    new Type.Class(noLoc, List.Nil, "int", List.Nil, Option.None, intSymbol)
+  val charType =
+    new Type.Class(noLoc, List.Nil, "char", List.Nil, Option.None, charSymbol)
+  val boolType =
+    new Type.Class(noLoc, List.Nil, "bool", List.Nil, Option.None, boolSymbol)
+  val unitType =
+    new Type.Class(noLoc, List.Nil, "unit", List.Nil, Option.None, unitSymbol)
+//  val noneType =
+//    new Type.Class(
+//      noLoc,
+//      List.Nil,
+//      "Option",
+//      List.Cons(Type.Never, List.Nil),
+//      Option.None
+//
+//    )
+
+  // assign types to symbols
+  setSymbolType(stringSymbol, stringType, Some(anySymbol))
+  setSymbolType(intSymbol, intType, Some(anySymbol))
+  setSymbolType(boolSymbol, boolType, Some(anySymbol))
+  setSymbolType(charSymbol, charType, Some(anySymbol))
+  setSymbolType(unitSymbol, unitType, Some(anySymbol))
 
   val arraySymbol = pantherNamespace.defineClass(
     "Array",
     noLoc
   )
+  val arrayTSymbol = arraySymbol.defineTypeParameter("T", noLoc, Invariant)
 
-  val arrayCtorSymbol =
-    arraySymbol.defineMethod(".ctor", noLoc)
+  val T: GenericTypeParameter =
+    GenericTypeParameter(noLoc, "T", Variance.Invariant, None)
+
+  val arrayCtorSymbol = arraySymbol.defineMethod(".ctor", noLoc)
   arrayCtorSymbol.extern = true
   val arraySizeSymbol: Symbol = param(arrayCtorSymbol, "size", intType)
 
@@ -135,12 +159,38 @@ class Binder(
       noLoc,
       List.Nil,
       "Array",
-      ListModule.one(
-        GenericTypeParameter(noLoc, "T", Variance.Invariant, None)
-      ),
-      Option.None
+      ListModule.one(T),
+      Option.None,
+      arraySymbol
     ),
     Some(anySymbol)
+  )
+
+  // array.length: int
+  val arrayLength: Symbol = arraySymbol.defineField(
+    "length",
+    noLoc
+  )
+  arrayLength.extern = true
+  setSymbolType(
+    arrayLength,
+    intType,
+    None
+  )
+
+  val arrayApply: Symbol = arraySymbol.defineMethod("apply", noLoc)
+  val arrayApplyIndex: Symbol = arrayApply.defineParameter("index", noLoc)
+  setSymbolType(
+    arrayApply,
+    Type.Function(
+      noLoc,
+      List.Cons(
+        BoundParameter(arrayApplyIndex, intType),
+        List.Nil
+      ),
+      Type.Class(noLoc, List.Nil, "T", List.Nil, Option.None, arrayTSymbol)
+    ),
+    None
   )
 
   //  string.length: int
@@ -222,12 +272,6 @@ class Binder(
   val classifier = new ConversionClassifier(this)
   val exprBinder: ExprBinder =
     new ExprBinder(rootSymbol, this, classifier, diagnosticBag)
-
-  def cls(parent: Symbol, name: string, typ: Type): Symbol = {
-    val symbol = parent.defineClass(name, noLoc)
-    setSymbolType(symbol, typ, Some(anySymbol))
-    symbol
-  }
 
   def method(parent: Symbol, name: string): Symbol = {
     val symbol = parent.defineMethod(name, noLoc)
@@ -506,9 +550,9 @@ class Binder(
 
   def getTypeSymbol(typ: Type): Option[Symbol] = {
     typ match {
-      case Type.Class(_, ns, name, _, _) =>
+      case Type.Class(_, ns, name, _, _, symbol) =>
         // todo: handle type args being returned
-        rootSymbol.findSymbol(ns, name)
+        Option.Some(symbol)
       case _ => Option.None
     }
   }
@@ -861,23 +905,27 @@ class Binder(
                 // funky happened and that shouldn't be possible panic for
                 // now
                 ???
-              case Option.Some(Type.Class(location, ns, name, _, superClass)) =>
-                new Type.Class(
-                  location,
-                  ns,
-                  name,
-                  typeArguments,
-                  superClass
-                )
               case Option.Some(
-                    Type.GenericClass(location, ns, name, _, superClass)
+                    Type.Class(location, ns, name, _, superClass, symbol)
                   ) =>
                 new Type.Class(
                   location,
                   ns,
                   name,
                   typeArguments,
-                  superClass
+                  superClass,
+                  symbol
+                )
+              case Option.Some(
+                    Type.GenericClass(location, ns, name, _, superClass, symbol)
+                  ) =>
+                new Type.Class(
+                  location,
+                  ns,
+                  name,
+                  typeArguments,
+                  superClass,
+                  symbol
                 )
               case Option.Some(value) =>
                 panic("TODO: return a type with the type arguments")
@@ -1033,7 +1081,8 @@ class Binder(
             symbol.ns(),
             symbol.name,
             List.Nil,
-            Option.None
+            Option.None,
+            symbol
           )
         setSymbolType(symbol, typ, None)
 
@@ -1078,7 +1127,8 @@ class Binder(
                   caseSymbol.ns(),
                   caseSymbol.name,
                   List.Nil,
-                  Option.Some(superClass)
+                  Option.Some(superClass),
+                  caseSymbol
                 )
               } else {
                 Type.GenericClass(
@@ -1086,7 +1136,8 @@ class Binder(
                   caseSymbol.ns(),
                   caseSymbol.name,
                   genericTypeParameters,
-                  Option.Some(superClass)
+                  Option.Some(superClass),
+                  caseSymbol
                 )
               }
             setSymbolType(caseSymbol, typ, Some(parent))
@@ -1148,7 +1199,8 @@ class Binder(
                 symbol.ns(),
                 symbol.name,
                 List.Nil,
-                Option.None // TODO: support super classes
+                Option.None, // TODO: support super classes
+                symbol
               ),
               None
             )
@@ -1168,7 +1220,8 @@ class Binder(
                 symbol.ns(),
                 symbol.name,
                 List.Nil,
-                Option.None // TODO: support super classes
+                Option.None, // TODO: support super classes
+                symbol
               )
             } else {
               Type.GenericClass(
@@ -1176,7 +1229,8 @@ class Binder(
                 symbol.ns(),
                 symbol.name,
                 args,
-                Option.None // TODO: support super classes
+                Option.None, // TODO: support super classes
+                symbol
               )
             }
             setSymbolType(symbol, typ, None)
@@ -1207,8 +1261,15 @@ class Binder(
     }
   }
 
-  def genericTypeParamAsType(head: GenericTypeParameter): Type =
-    Type.Class(head.location, List.Nil, head.name, List.Nil, Option.None)
+  def genericTypeParamAsType(head: GenericTypeParameter, symbol: Symbol): Type =
+    Type.Class(
+      head.location,
+      List.Nil,
+      head.name,
+      List.Nil,
+      Option.None,
+      symbol
+    )
 
   def bindGenericTypeParameters(
       value: List[GenericParameterSyntax],
@@ -1249,7 +1310,7 @@ class Binder(
           case Either.Right(value) =>
             val generic =
               GenericTypeParameter(identifier.location, name, variance, None)
-            setSymbolType(value, genericTypeParamAsType(generic), None)
+            setSymbolType(value, genericTypeParamAsType(generic, value), None)
             List.Cons(generic, bindGenericTypeParameters(tail, scope))
         }
     }
@@ -1299,7 +1360,8 @@ class Binder(
             symbol.ns(),
             symbol.name,
             List.Nil,
-            Option.None
+            Option.None,
+            symbol
           ),
           None
         )
