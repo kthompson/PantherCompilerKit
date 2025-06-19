@@ -21,6 +21,7 @@ object ParserTests {
     whiles()
     blocks()
     dotOnNewLine()
+    matches()
   }
 
   def binary(): unit = {
@@ -209,6 +210,42 @@ object ParserTests {
     assertIdentifierExpr("a", expr.left)
     assertTokenKind(SyntaxKind.DotToken, expr.dotToken)
     assertSimpleNameIdentifierExpr("b", expr.right)
+  }
+
+  def matches(): unit = {
+    simpleMatch()
+    emptyMatch()
+  }
+
+  def simpleMatch(): unit = {
+    test("1 match { case 1 => 2 }")
+    val expr = mkMatchExpr("1 match { case 1 => 2 }")
+    assertTokenKind(SyntaxKind.MatchKeyword, expr.matchKeyword)
+    assertNumberExpr(1, expr.expression)
+
+    val kase = Assert.arraySingle(expr.cases)
+    assertTokenKind(SyntaxKind.CaseKeyword, kase.caseKeyword)
+    val pattern = assertLiteralPattern(kase.pattern)
+
+    assertNumberToken(1, pattern.value)
+    assertTokenKind(SyntaxKind.EqualsGreaterThanToken, kase.arrow)
+    assertNumberExpr(2, Assert.some(kase.block.expression))
+  }
+
+  def emptyMatch(): unit = {
+    test("match empty case")
+    val expr = mkSyntaxTree(
+      "enum Test {\n" +
+        "  case Empty()\n" +
+        "  case One(one: int)\n" +
+        "}\n" +
+        "\n" +
+        "x match {\n" +
+        "  case Test.Empty() => 2\n" +
+        "  case Test.One(1) => 3\n" +
+        "}"
+    )
+    Assert.intEqual(0, expr.diagnostics.count())
   }
 
   def functions(): unit = {
