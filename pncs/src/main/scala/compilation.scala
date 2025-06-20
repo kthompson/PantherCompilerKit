@@ -17,6 +17,7 @@ object MakeCompilation {
       "",
       TextLocationFactory.empty(),
       SymbolKind.Namespace,
+      -1, // slot is not used for namespaces
       Option.None
     )
     // creation of the Binder will initialize all of the builtin symbols and their types into the

@@ -269,12 +269,24 @@ case class Emitter(
       context: EmitContext
   ): unit = {
     emitExpression(expr.expression, context)
-    val index = context.getLocalIndex(expr.variable)
-    if (index < 4) {
-      chunk.emitOpcode(Opcode.Stloc0 + index, expr.location.startLine)
+    if (expr.variable.kind == SymbolKind.Field) {
+      fieldTokens.get(expr.variable) match {
+        case Option.Some(value) =>
+          chunk.emitOpcode(Opcode.Stfld, expr.location.startLine)
+          chunk.emitI4(value.token, expr.location.startLine)
+        case Option.None =>
+          panic("emitAssignmentStatement: no field token for " + expr.variable)
+      }
+    } else if (expr.variable.kind == SymbolKind.Local) {
+      val index = context.getLocalIndex(expr.variable)
+      if (index < 4) {
+        chunk.emitOpcode(Opcode.Stloc0 + index, expr.location.startLine)
+      } else {
+        chunk.emitOpcode(Opcode.Stlocn, expr.location.startLine)
+        chunk.emitI4(index, expr.location.startLine)
+      }
     } else {
-      chunk.emitOpcode(Opcode.Stlocn, expr.location.startLine)
-      chunk.emitI4(index, expr.location.startLine)
+      ???
     }
   }
 
@@ -384,12 +396,46 @@ case class Emitter(
   def emitMemberAccess(
       expr: LoweredExpression.MemberAccess,
       context: EmitContext
-  ): unit = ???
+  ): unit = {
+    emitExpression(expr.left, context)
+    // TODO: support static fields
+
+    // symbol can be a field or a method so lets look for each
+    fieldTokens.get(expr.symbol) match {
+      case Option.Some(value) =>
+        chunk.emitOpcode(Opcode.Ldfld, expr.location.startLine)
+        chunk.emitI4(value.token, expr.location.startLine)
+
+      case Option.None =>
+        panic("emitMemberAccess: no field token for " + expr.symbol)
+    }
+  }
 
   def emitNewExpression(
       expr: LoweredExpression.New,
       context: EmitContext
-  ): unit = ???
+  ): unit = {
+    emitExpressions(expr.arguments, context)
+    chunk.emitOpcode(Opcode.Newobj, expr.location.startLine)
+    methodTokens.get(expr.constructor) match {
+      case Option.None =>
+        panic("emitNewExpression: no method token for " + expr.constructor)
+      case Option.Some(value) =>
+        chunk.emitI4(value.token, expr.location.startLine)
+    }
+  }
+
+  def emitExpressions(
+      expressions: Chain[LoweredExpression],
+      context: EmitContext
+  ): unit = {
+    expressions.uncons() match {
+      case Option.None =>
+      case Option.Some(Tuple2(expr, rest)) =>
+        emitExpression(expr, context)
+        emitExpressions(rest, context)
+    }
+  }
 
   def emitStringLiteral(
       expr: LoweredExpression.StringLiteral,
@@ -586,7 +632,7 @@ case class Emitter(
 
     fieldTokens = fieldTokens.put(
       symbol,
-      metadata.addField(symbol.name, flags, 0, 0)
+      metadata.addField(symbol.name, flags, symbol.index, 0)
     )
 
     queueSymbolSignature(symbol)
@@ -610,7 +656,7 @@ case class Emitter(
 //      else MetadataFlags.None
 
     methodTokens =
-      methodTokens.put(symbol, metadata.addMethod(symbol.name, flags, 0, 0, 0))
+      methodTokens.put(symbol, metadata.addMethod(symbol.name, flags, 0, 0, -1))
 
     queueSymbolSignature(symbol)
 

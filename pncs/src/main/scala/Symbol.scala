@@ -4,6 +4,7 @@ case class Symbol(
     name: string,
     location: TextLocation,
     kind: SymbolKind,
+    index: int,
     parent: Option[Symbol]
 ) {
 
@@ -11,6 +12,9 @@ case class Symbol(
   var _id: int = -1
   var _blockId: int = -1
   var extern: bool = false
+
+  // this is used to store the index of a field in a class or a parameter in a method
+  var nextSlot: int = -1
 
   var _children: Dictionary[string, Symbol] = DictionaryModule.empty()
 
@@ -33,13 +37,17 @@ case class Symbol(
   def tryDefine(
       name: string,
       location: TextLocation,
-      symbolType: SymbolKind
+      kind: SymbolKind
   ): Either[TextLocation, Symbol] = {
     _children.get(name) match {
       case Option.Some(symbol) =>
         Either.Left(symbol.location)
       case Option.None =>
-        val symbol = Symbol(name, location, symbolType, Option.Some(this))
+        if (kind == SymbolKind.Field || kind == SymbolKind.Parameter) {
+          nextSlot = nextSlot + 1
+        }
+
+        val symbol = Symbol(name, location, kind, nextSlot, Option.Some(this))
         _children = _children.put(name, symbol)
         Either.Right(symbol)
     }
@@ -53,6 +61,7 @@ case class Symbol(
           name,
           TextLocationFactory.empty(),
           SymbolKind.Namespace,
+          -1, // slot is not used for namespaces
           Option.Some(this)
         )
         _children = _children.put(name, symbol)
@@ -67,6 +76,7 @@ case class Symbol(
       name,
       TextLocationFactory.empty(),
       SymbolKind.Block,
+      -1, // slot is not used for blocks
       Option.Some(this)
     )
     // TODO: when keys can be unique, we can use the name as the key
