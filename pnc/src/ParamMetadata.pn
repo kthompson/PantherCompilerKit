@@ -1,0 +1,7 @@
+using panther
+
+class ParamMetadata(
+    name: StringToken,
+    flags: MetadataFlags,
+paramSig: int
+)

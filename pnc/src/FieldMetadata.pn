@@ -1,0 +1,7 @@
+using panther
+
+class FieldMetadata(
+    name: StringToken,
+    flags: MetadataFlags,
+fieldSig: int
+)

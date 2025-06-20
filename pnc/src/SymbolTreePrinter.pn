@@ -29,7 +29,7 @@ class SymbolTreePrinter(binder: Binder) {
     print(" ")
 
     if (
-      symbol.kind == SymbolKind.Class || symbol.kind == SymbolKind.Object || symbol.kind == SymbolKind.Enum
+      symbol.kind == SymbolKind.Class || symbol.kind == SymbolKind.Object || symbol.kind == SymbolKind.Alias
     ) {
       val typ = binder.getSymbolType(symbol)
       typ match {
@@ -46,7 +46,7 @@ class SymbolTreePrinter(binder: Binder) {
     if (
       symbol.kind != SymbolKind.Namespace &&
       symbol.kind != SymbolKind.Block &&
-      symbol.kind != SymbolKind.Enum &&
+      symbol.kind != SymbolKind.Alias &&
       symbol.kind != SymbolKind.Object
     ) {
       val typ = binder.getSymbolType(symbol)

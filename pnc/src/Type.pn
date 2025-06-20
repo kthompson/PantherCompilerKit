@@ -23,7 +23,7 @@ enum Type {
       ns: List[string],
       name: string,
       args: List[Type],
-      superClass: Option[Type]
+      symbol: Symbol
   )
 
   case GenericClass(
@@ -31,7 +31,21 @@ enum Type {
       ns: List[string],
       name: string,
       args: List[GenericTypeParameter],
-      superClass: Option[Type]
+      symbol: Symbol
+  )
+
+  case Alias(
+      location: TextLocation,
+      ns: List[string],
+      name: string,
+      args: List[Type],
+      value: Type,
+      symbol: Symbol
+  )
+
+  case Union(
+      location: TextLocation,
+      cases: List[Type]
   )
 
   /** A generic function is a type that has type parameters. this gets converted
@@ -75,6 +89,8 @@ enum Type {
   def getLocation(): Option[TextLocation] = {
     this match {
       case Class(location, _, _, _, _)           => Option.Some(location)
+      case Union(location, _)                    => Option.Some(location)
+      case Alias(location, _, _, _, _, _)        => Option.Some(location)
       case Function(location, _, _)              => Option.Some(location)
       case GenericClass(location, _, _, _, _)    => Option.Some(location)
       case GenericFunction(location, _, _, _, _) => Option.Some(location)
@@ -97,12 +113,12 @@ enum Type {
     }
   }
 
-  def _args(str: string, args: List[Type]): string =
+  def _args(str: string, separator: string, args: List[Type]): string =
     args match {
       case List.Nil => str
       case List.Cons(typ, tail) =>
-        val sep = if (str == "") "" else ", "
-        _args(str + sep + typ.toString, tail)
+        val sep = if (str == "") "" else separator
+        _args(str + sep + typ.toString, separator, tail)
     }
 
   def _name(list: List[string], name: string): string = {
@@ -139,10 +155,19 @@ enum Type {
       case Type.Function(_, parameters, returnType) =>
         val paramStr = _params("", parameters)
         "(" + paramStr + ") -> " + returnType.toString
+
       case Type.Class(_, ns, name, args, _) =>
-        val argStr = _args("", args)
+        val argStr = _args("", ", ", args)
         val tail = if (argStr.isEmpty) "" else "<" + argStr + ">"
         _name(ns, name) + tail
+
+      case Type.Alias(_, ns, name, args, value, _) =>
+        val argStr = _args("", ", ", args)
+        val tail = if (argStr.isEmpty) "" else "<" + argStr + ">"
+        _name(ns, name) + tail
+
+      case Type.Union(_, cases) =>
+        _args("", " | ", cases)
 
       case Type.GenericClass(_, ns, name, generics, _) =>
         val argStr = _genArgs("", generics)

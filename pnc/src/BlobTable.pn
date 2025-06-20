@@ -1,0 +1,38 @@
+using panther
+
+class BlobTable() {
+  var intList = new IntList()
+
+  def addBlob(value: Array[int], blobSize: int): int = {
+    intList.ensureSpace(blobSize + 1)
+
+    val blobId = intList.size
+    intList.add(blobSize)
+    for (i <- 0 to (blobSize - 1)) {
+      intList.add(value(i))
+    }
+
+    blobId
+  }
+
+  def write(buffer: IntList): unit = {
+    val array = intList.toArray()
+    buffer.add(array.length)
+    for (i <- 0 to (array.length - 1)) {
+      buffer.add(array(i))
+    }
+  }
+
+  def read(buffer: IntList, offset: int): int = {
+    val blobSize = buffer.read(offset)
+    intList.size = 0
+    intList.ensureSpace(blobSize)
+    intList.size = blobSize
+
+    for (i <- 0 to (blobSize - 1)) {
+      intList.array(i) = buffer.read(offset + 1 + i)
+    }
+
+    offset + 1 + blobSize
+  }
+}

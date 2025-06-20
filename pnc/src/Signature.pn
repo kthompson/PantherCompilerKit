@@ -1,0 +1,3 @@
+using panther
+
+class Signature(value: Array[int])

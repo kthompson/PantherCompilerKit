@@ -4,7 +4,5 @@ using panther
   *
   * @param typ
   *   specifies the type of the symbol
-  * @param base
-  *   specifies the base class for the symbol. currently only used in Enums
   */
-class SymbolLinks(typ: Type, base: Option[Symbol])
+class SymbolLinks(typ: Type)

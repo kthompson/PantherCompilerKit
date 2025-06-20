@@ -935,9 +935,13 @@ class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       * just a type name, while an extract pattern is a type name followed by a
       * list of patterns in parens.
       *
-      * There are a few different forms of patterns: case x: int => ... case
-      * Type.Any => ... case Type.Some(x) => ... case Any => ... case Some(x) =>
-      * ... case "taco" =>
+      * There are a few different forms of patterns:
+      *   - case x: int => ...
+      *   - case Type.Any => ...
+      *   - case Type.Some(x) => ...
+      *   - case Any => ...
+      *   - case Some(x) => ...
+      *   - case "taco" =>
       */
     // Patterns have a few main forms:
     // 1. Type pattern: an identifier with an optional type annotation
@@ -995,9 +999,20 @@ class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
 
   def parseExtractPattern(nameSyntax: NameSyntax): PatternSyntax = {
     val open = accept()
-    val patterns = parsePatternList()
-    val close = acceptKind(SyntaxKind.CloseParenToken)
-    PatternSyntax.ExtractPattern(nameSyntax, open, patterns, close)
+    if (currentKind() == SyntaxKind.CloseParenToken) {
+      // empty pattern list
+      val close = accept()
+      PatternSyntax.ExtractPattern(
+        nameSyntax,
+        open,
+        new Array[PatternItemSyntax](0),
+        close
+      )
+    } else {
+      val patterns = parsePatternList()
+      val close = acceptKind(SyntaxKind.CloseParenToken)
+      PatternSyntax.ExtractPattern(nameSyntax, open, patterns, close)
+    }
   }
 
   def parsePatternList(): Array[PatternItemSyntax] = {

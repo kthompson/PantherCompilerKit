@@ -1,0 +1,16 @@
+using panther
+
+class NonEmptyList[T](head: T, tail: List[T]) {
+  val length: int = 1 + tail.length
+
+  def last(): T =
+    if (tail.isEmpty) head
+    else tail.lastUnsafe()
+}
+
+object NonEmptyListModule {
+  def fromList[T](list: List[T]): Option[NonEmptyList[T]] = list match {
+    case List.Nil              => None
+    case List.Cons(head, tail) => Some(NonEmptyList(head, tail))
+  }
+}

@@ -86,14 +86,14 @@ class Symbol(
       case Either.Right(symbol) => symbol
     }
 
-  def tryDefineEnum(
+  def tryDefineAlias(
       name: string,
       location: TextLocation
   ): Either[TextLocation, Symbol] =
-    tryDefine(name, location, SymbolKind.Enum)
+    tryDefine(name, location, SymbolKind.Alias)
 
-  def defineEnum(name: string, location: TextLocation): Symbol =
-    tryDefineEnum(name, location) match {
+  def defineAlias(name: string, location: TextLocation): Symbol =
+    tryDefineAlias(name, location) match {
       case Either.Left(_)       => panic("Symbol " + name + " already exists!")
       case Either.Right(symbol) => symbol
     }

@@ -63,7 +63,7 @@ enum Diagnostics {
 
       val prefixSpan = TextSpanFactory.fromBounds(line.start, prefixEnd)
       val errorSpan = TextSpanFactory.fromBounds(prefixEnd, suffixStart)
-      val suffixSpan = TextSpanFactory.fromBounds(suffixStart, line.end)
+      val suffixSpan = TextSpanFactory.fromBounds(suffixStart, line.end + 1)
 
       val prefix = sourceFile.substringFromSpan(prefixSpan)
       val error = sourceFile.substringFromSpan(errorSpan)
@@ -75,7 +75,7 @@ enum Diagnostics {
       print(ANSI.Clear)
       println(suffix)
 
-      for (c <- 0 to (prefixSpan.length - 1)) {
+      for (c <- 1 to (prefixSpan.length - 1)) {
         print('-')
       }
       println('^')

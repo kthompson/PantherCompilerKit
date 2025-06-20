@@ -16,11 +16,11 @@ class Scope(current: Symbol, imports: List[Symbol]) {
   def enterSymbol(symbol: Symbol): Scope =
     Scope(symbol, imports)
 
-  def defineEnum(
+  def defineAlias(
       name: string,
       location: TextLocation
   ): Either[TextLocation, Symbol] =
-    current.tryDefineEnum(name, location)
+    current.tryDefineAlias(name, location)
 
   def defineObject(
       name: string,

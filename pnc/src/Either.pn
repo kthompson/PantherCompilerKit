@@ -1,0 +1,4 @@
+enum Either[in A, in B] {
+  case Left(value: A)
+  case Right(value: B)
+}

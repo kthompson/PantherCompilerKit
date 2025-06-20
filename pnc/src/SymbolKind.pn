@@ -2,7 +2,7 @@ enum SymbolKind {
   case Namespace
   case Object
   case Class
-  case Enum
+  case Alias
 
   case TypeParameter(variance: Variance)
 
