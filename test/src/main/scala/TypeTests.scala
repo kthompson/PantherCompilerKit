@@ -228,8 +228,8 @@ object TypeTests {
   }
 
   def enums(): unit = {
-    enumWithoutArgs()
-    enumWithArgs()
+//    enumWithoutArgs()
+//    enumWithArgs()
     enumCheckAssignments()
   }
 

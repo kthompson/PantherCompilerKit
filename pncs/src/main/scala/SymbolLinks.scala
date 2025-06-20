@@ -4,7 +4,5 @@ import panther._
   *
   * @param typ
   *   specifies the type of the symbol
-  * @param base
-  *   specifies the base class for the symbol. currently only used in Enums
   */
-case class SymbolLinks(typ: Type, base: Option[Symbol])
+case class SymbolLinks(typ: Type)

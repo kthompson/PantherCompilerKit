@@ -25,8 +25,12 @@ object BinderTests {
     assertSymbol(symbols, SymbolKind.Class, "char")
     assertSymbol(symbols, SymbolKind.Class, "unit")
     assertSymbol(symbols, SymbolKind.Class, "Array")
+    assertSymbol(symbols, SymbolKind.TypeParameter(Variance.Invariant), "T")
     assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
     assertSymbol(symbols, SymbolKind.Parameter, "size")
+    assertSymbol(symbols, SymbolKind.Field, "length")
+    assertSymbol(symbols, SymbolKind.Method, "apply")
+    assertSymbol(symbols, SymbolKind.Parameter, "index")
 //    assertSymbol(symbols, SymbolKind.Object, "predef")
     assertSymbol(symbols, SymbolKind.Method, "println")
     assertSymbol(symbols, SymbolKind.Parameter, "message")
@@ -105,7 +109,7 @@ object BinderTests {
         "}"
     )
     val symbols = enumNonBuiltinSymbols(comp)
-    assertSymbol(symbols, SymbolKind.Enum, "Foo")
+    assertSymbol(symbols, SymbolKind.Alias, "Foo")
     assertSymbol(symbols, SymbolKind.Class, "Bar")
     assertSymbol(symbols, SymbolKind.Class, "Baz")
 
@@ -124,7 +128,7 @@ object BinderTests {
         "}"
     )
     val symbols = enumNonBuiltinSymbols(comp)
-    assertSymbol(symbols, SymbolKind.Enum, "Foo")
+    assertSymbol(symbols, SymbolKind.Alias, "Foo")
     assertSymbol(symbols, SymbolKind.Class, "Bar")
     assertSymbol(symbols, SymbolKind.Field, "x")
     assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
