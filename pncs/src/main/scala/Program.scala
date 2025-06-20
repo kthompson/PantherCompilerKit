@@ -6,7 +6,7 @@ object Program {
     for (i <- 0 to (args.length - 1)) {
       print(" " + args(i))
     }
-    println()
+    println("")
 
     if (args.length < 2) {
       printHelp()

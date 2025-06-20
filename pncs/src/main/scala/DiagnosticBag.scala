@@ -81,7 +81,7 @@ enum Diagnostics {
       println('^')
     }
 
-    println()
+    println("")
   }
 }
 

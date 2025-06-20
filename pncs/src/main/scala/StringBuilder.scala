@@ -1,7 +1,7 @@
 import panther._
 
 case class StringBuilder() {
-  var content = ""
+  var content: string = ""
 
   def append(value: string): unit = {
     content = content + value
