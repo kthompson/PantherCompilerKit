@@ -384,12 +384,46 @@ case class Emitter(
   def emitMemberAccess(
       expr: LoweredExpression.MemberAccess,
       context: EmitContext
-  ): unit = ???
+  ): unit = {
+    emitExpression(expr.left, context)
+    // TODO: support static fields
+
+    // symbol can be a field or a method so lets look for each
+    fieldTokens.get(expr.symbol) match {
+      case Option.Some(value) =>
+        chunk.emitOpcode(Opcode.Ldfld, expr.location.startLine)
+        chunk.emitI4(value.token, expr.location.startLine)
+
+      case Option.None =>
+        panic("emitMemberAccess: no field token for " + expr.symbol)
+    }
+  }
 
   def emitNewExpression(
       expr: LoweredExpression.New,
       context: EmitContext
-  ): unit = ???
+  ): unit = {
+    emitExpressions(expr.arguments, context)
+    chunk.emitOpcode(Opcode.Newobj, expr.location.startLine)
+    methodTokens.get(expr.constructor) match {
+      case Option.None =>
+        panic("emitNewExpression: no method token for " + expr.constructor)
+      case Option.Some(value) =>
+        chunk.emitI4(value.token, expr.location.startLine)
+    }
+  }
+
+  def emitExpressions(
+      expressions: Chain[LoweredExpression],
+      context: EmitContext
+  ): unit = {
+    expressions.uncons() match {
+      case Option.None =>
+      case Option.Some(Tuple2(expr, rest)) =>
+        emitExpression(expr, context)
+        emitExpressions(rest, context)
+    }
+  }
 
   def emitStringLiteral(
       expr: LoweredExpression.StringLiteral,
