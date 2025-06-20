@@ -1,4 +1,3 @@
-import Value.Ref
 import panther._
 
 enum InterpretResult {
@@ -127,13 +126,13 @@ case class VM(
     stack(sp)
   }
 
-  def trace(msg: String): unit = {
+  def trace(msg: string): unit = {
     if (CompilerSettings.enableTracing) {
       println("ip=" + ip + " sp=" + sp + " " + msg)
     }
   }
 
-  def runtimeError(msg: String): InterpretResult = {
+  def runtimeError(msg: string): InterpretResult = {
     println(msg)
     InterpretResult.RuntimeError
   }

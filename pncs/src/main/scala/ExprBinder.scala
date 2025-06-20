@@ -932,39 +932,49 @@ case class ExprBinder(
       scope: Scope
   ): BoundExpression = {
     val left = bind(node.left, scope)
-    val leftType = binder.getType(left)
 
-    node.right match {
-      case SimpleNameSyntax.GenericNameSyntax(right, typeArgumentlist) =>
+    binder.getType(left) match {
+      case Type.Error(message) =>
+        BoundExpression.Error(message)
+      case leftType =>
+        node.right match {
+          case SimpleNameSyntax.GenericNameSyntax(right, typeArgumentlist) =>
 
-        val typeArguments =
-          binder.bindTypeArgumentList(typeArgumentlist.arguments, scope)
+            val typeArguments =
+              binder.bindTypeArgumentList(typeArgumentlist.arguments, scope)
 
-        bindMemberForSymbolAndType(leftType, right) match {
-          case Either.Left(message) => BoundExpression.Error(message)
-          case Either.Right(Tuple2(member, typ)) =>
-            BoundExpression.MemberAccess(
-              right.location,
-              left,
-              member,
-              typeArguments,
-              typ
-            )
-        }
-      case SimpleNameSyntax.ScalaAliasSyntax(open, name, arrow, alias, close) =>
-        ???
-      case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) => ???
-      case SimpleNameSyntax.IdentifierNameSyntax(right) =>
-        bindMemberForSymbolAndType(leftType, right) match {
-          case Either.Left(message) => BoundExpression.Error(message)
-          case Either.Right(Tuple2(member, typ)) =>
-            BoundExpression.MemberAccess(
-              right.location,
-              left,
-              member,
-              List.Nil,
-              typ
-            )
+            bindMemberForSymbolAndType(leftType, right) match {
+              case Either.Left(message) => BoundExpression.Error(message)
+              case Either.Right(Tuple2(member, typ)) =>
+                BoundExpression.MemberAccess(
+                  right.location,
+                  left,
+                  member,
+                  typeArguments,
+                  typ
+                )
+            }
+          case SimpleNameSyntax.ScalaAliasSyntax(
+                open,
+                name,
+                arrow,
+                alias,
+                close
+              ) =>
+            ???
+          case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) => ???
+          case SimpleNameSyntax.IdentifierNameSyntax(right) =>
+            bindMemberForSymbolAndType(leftType, right) match {
+              case Either.Left(message) => BoundExpression.Error(message)
+              case Either.Right(Tuple2(member, typ)) =>
+                BoundExpression.MemberAccess(
+                  right.location,
+                  left,
+                  member,
+                  List.Nil,
+                  typ
+                )
+            }
         }
     }
   }

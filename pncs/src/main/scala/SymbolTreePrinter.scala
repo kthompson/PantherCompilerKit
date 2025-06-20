@@ -86,7 +86,7 @@ case class SymbolTreePrinter(binder: Binder) {
       }
     }
 
-    println()
+    println("")
 
     val members = symbol.members()
     if (!members.isEmpty) {
