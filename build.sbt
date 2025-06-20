@@ -38,7 +38,7 @@ lazy val pncs = project
         (runtime / Compile / sources).value.map(_.getAbsolutePath) ++
         (metadata / Compile / sources).value.map(_.getAbsolutePath) ++
         (text / Compile / sources).value.map(_.getAbsolutePath))
-        .filter(_.endsWith("panther.scala"))
+        .filterNot(_.endsWith("panther.scala"))
 
       val mainCls =
         (Compile / mainClass).value.getOrElse(sys.error("No main class found"))
