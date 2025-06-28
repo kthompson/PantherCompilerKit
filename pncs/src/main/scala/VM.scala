@@ -57,7 +57,9 @@ case class VM(
   var localp = 0 // local variable pointer
   var heapp = 0 // heap pointer
 
-  // setup metadata
+  val disassembler = new Disassembler(chunk, metadata)
+
+  // setup metadata (this should be the emitter's job)
   // 1. setup some space for static fields
   //    a. count the number of static fields, and assign them an index
   //    b. record number of static fields in the Chunk header
@@ -105,7 +107,6 @@ case class VM(
   def binaryAdd(): InterpretResult = {
     val b = pop()
     val a = pop()
-    trace("add " + a + ", " + b)
     a match {
       case Value.Int(a) =>
         b match {
@@ -141,7 +142,6 @@ case class VM(
       op: int,
       opName: string
   ): InterpretResult = {
-    trace(opName)
     val b = popInt()
     val a = popInt()
 
@@ -162,7 +162,6 @@ case class VM(
   }
 
   def binaryIntOp(op: int, opName: string): InterpretResult = {
-    trace(opName)
     val b = popInt()
     val a = popInt()
     val result = op match {
@@ -192,7 +191,6 @@ case class VM(
   }
 
   def unaryOp(op: int, opName: string): InterpretResult = {
-    trace(opName)
     val a = popInt()
 
     val result = op match {
@@ -252,10 +250,13 @@ case class VM(
   }
 
   def step(): InterpretResult = {
+    if (CompilerSettings.enableTracing) {
+      disassembler.extra = Pad.left(Hex.toString(sp), 4, '0') + " "
+      disassembler.disassembleInstruction(ip)
+    }
     val instruction = readI4()
     instruction match {
       case Opcode.Nop =>
-        trace("nop")
         InterpretResult.Continue
 
       // control instructions
@@ -286,14 +287,12 @@ case class VM(
 
       case Opcode.Br =>
         val target = readI4()
-        trace("br " + target)
 
         ip = target
         InterpretResult.Continue
 
       case Opcode.Brfalse =>
         val target = readI4()
-        trace("brfalse " + target)
 
         if (!popBool()) {
           ip = target
@@ -302,7 +301,6 @@ case class VM(
 
       case Opcode.Brtrue =>
         val target = readI4()
-        trace("brtrue " + target)
 
         if (popBool()) {
           ip = target
@@ -312,7 +310,6 @@ case class VM(
       // load constant
       case Opcode.LdcI4 =>
         val value = readI4()
-        trace("ldc.i4 " + value)
         push(Value.Int(value))
 
       case Opcode.Ldstr =>
@@ -322,47 +319,35 @@ case class VM(
 
       // load args
       case Opcode.Ldarg0 =>
-        trace("ldarg0")
         push(stack(argsp))
       case Opcode.Ldarg1 =>
-        trace("ldarg1")
         push(stack(argsp + 1))
       case Opcode.Ldarg2 =>
-        trace("ldarg2")
         push(stack(argsp + 2))
       case Opcode.Ldarg3 =>
-        trace("ldarg3")
         push(stack(argsp + 3))
 
       // load locals
       case Opcode.Ldloc0 =>
-        trace("ldloc0")
         push(stack(localp))
       case Opcode.Ldloc1 =>
-        trace("ldloc1")
         push(stack(localp + 1))
       case Opcode.Ldloc2 =>
-        trace("ldloc2")
         push(stack(localp + 2))
       case Opcode.Ldloc3 =>
-        trace("ldloc3")
         push(stack(localp + 3))
 
       // store locals
       case Opcode.Stloc0 =>
-        trace("stloc0")
         stack(localp) = pop()
         InterpretResult.Continue
       case Opcode.Stloc1 =>
-        trace("stloc1")
         stack(localp + 1) = pop()
         InterpretResult.Continue
       case Opcode.Stloc2 =>
-        trace("stloc2")
         stack(localp + 2) = pop()
         InterpretResult.Continue
       case Opcode.Stloc3 =>
-        trace("stloc3")
         stack(localp + 3) = pop()
         InterpretResult.Continue
 
@@ -419,16 +404,13 @@ case class VM(
         val a = pop()
         a match {
           case Value.Int(i) =>
-            trace("conv.str " + i)
             // TODO: may need native function here
             push(Value.String(i.toString()))
             InterpretResult.Continue
           case Value.String(s) =>
-            trace("conv.str " + s)
             push(Value.String(s))
             InterpretResult.Continue
           case Value.Unit =>
-            trace("conv.str unit")
             push(Value.String("unit"))
             InterpretResult.Continue
           case ref: Value.Ref =>
