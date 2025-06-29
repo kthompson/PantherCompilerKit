@@ -44,6 +44,9 @@ object Helpers {
 
   def execValue(program: string): Value = {
     val compilation = mkCompilation(program)
+    if (CompilerSettings.enableTracing) {
+      compilation.printSymbols()
+    }
     compilation.exec() match {
       case InterpretResult.OkValue(value) =>
         value
