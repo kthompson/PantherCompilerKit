@@ -69,9 +69,18 @@ case class Compilation(
   def exec(): InterpretResult = {
     val emitter = new Emitter(syntaxTrees, root, binder, assembly)
     val emitResult = emitter.emit()
+    val disassembler = new Disassembler(emitResult.chunk, emitResult.metadata)
 
     val stack = new Array[Value](CompilerSettings.defaultStackSize)
     val heap = new Array[Value](CompilerSettings.defaultHeapSize)
+
+    if (CompilerSettings.enableTracing) {
+      val metadata = emitResult.metadata
+      for (i <- 0 to (metadata.methods.size - 1)) {
+        val token = MethodToken(i)
+        disassembler.disassembleMethod(token)
+      }
+    }
 
     val vm =
       VM(emitResult.chunk, emitResult.metadata, emitResult.entry, stack, heap)
