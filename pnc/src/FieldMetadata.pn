@@ -3,5 +3,6 @@ using panther
 class FieldMetadata(
     name: StringToken,
     flags: MetadataFlags,
+    index: int,
 fieldSig: int
 )

@@ -28,12 +28,12 @@ object Opcode {
   val LdcI4 = 30 // load constant i4
   val Ldstr = 31 // load constant string
 
-  //  // object operand
-  //  val Ldfld = 40 // load field of object
+  // object operand
+  val Ldfld = 40 // load field of object
   //  val Ldsfld = 41 // load static field of object
-  //  val Stfld = 42  // store field of object
+  val Stfld = 42 // store field of object
   //  val Stsfld = 43 // store static field of object
-  //  val Newobj = 44 // new object
+  val Newobj = 44 // new object
 
   // branch
   val Br = 50 // branch

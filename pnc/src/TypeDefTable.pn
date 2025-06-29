@@ -28,7 +28,7 @@ class TypeDefTable() {
       ns: StringToken,
       flags: MetadataFlags,
       fieldList: int,
-      methodList: MethodToken
+      methodList: int
   ): int = {
     // ensure typeDefs capacity
     ensureCapacity(size + 1)
@@ -46,7 +46,7 @@ class TypeDefTable() {
       buffer.add(typeDefs(i).ns.token)
       buffer.add(MetadataFlagsHelpers.toInt(typeDefs(i).flags))
       buffer.add(typeDefs(i).fieldList)
-      buffer.add(typeDefs(i).methodList.token)
+      buffer.add(typeDefs(i).methodList)
     }
   }
 
@@ -64,7 +64,7 @@ class TypeDefTable() {
       val ns = StringToken(buffer.read(recordOffset + 1))
       val flags = buffer.read(recordOffset + 2)
       val fieldList = buffer.read(recordOffset + 3)
-      val methodList = MethodToken(buffer.read(recordOffset + 4))
+      val methodList = buffer.read(recordOffset + 4)
       typeDefs(i) = TypeDefMetadata(
         name,
         ns,
