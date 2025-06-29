@@ -5,5 +5,5 @@ case class TypeDefMetadata(
     ns: StringToken,
     flags: MetadataFlags,
     fieldList: int,
-    methodList: MethodToken
+    methodList: int
 )

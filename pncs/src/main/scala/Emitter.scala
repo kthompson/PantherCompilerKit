@@ -584,8 +584,10 @@ case class Emitter(
 //        MetadataFlags.Static
 //      else MetadataFlags.None
 
-    fieldTokens =
-      fieldTokens.put(symbol, metadata.addField(symbol.name, flags, 0))
+    fieldTokens = fieldTokens.put(
+      symbol,
+      metadata.addField(symbol.name, flags, 0, 0)
+    )
 
     queueSymbolSignature(symbol)
   }
