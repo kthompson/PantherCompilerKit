@@ -188,12 +188,12 @@ case class Metadata() {
   def getTypeName(token: TypeDefToken): string = {
     val typeDef = typeDefs.get(token)
     val name = strings.get(typeDef.name)
-    val namespace = strings.get(typeDef.ns)
+    val ns = strings.get(typeDef.ns)
 
-    if (namespace == "") {
+    if (ns == "") {
       name
     } else {
-      namespace + "." + name
+      ns + "." + name
     }
   }
 
