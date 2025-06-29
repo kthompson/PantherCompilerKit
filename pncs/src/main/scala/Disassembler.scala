@@ -149,7 +149,7 @@ case class Disassembler(chunk: Chunk, metadata: Metadata) {
 
   def fieldTokenInstruction(chunk: Chunk, offset: int, name: string): int = {
     val token = chunk.readI4(offset + 1)
-    val fieldName = "" // metadata.getFieldName(FieldToken(token))
+    val fieldName = metadata.getFieldName(FieldToken(token))
     println(name + " " + fieldName)
     offset + 2
   }

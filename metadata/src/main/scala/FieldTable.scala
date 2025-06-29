@@ -21,12 +21,19 @@ case class FieldTable() {
     } else ()
   }
 
-  def addField(name: StringToken, flags: MetadataFlags, fieldSig: int): int = {
+  def get(field: FieldToken): FieldMetadata = fields(field.token)
+
+  def addField(
+      name: StringToken,
+      flags: MetadataFlags,
+      index: int,
+      fieldSig: int
+  ): int = {
     // ensure fields capacity
     ensureSpace(1)
 
     // add FieldMetadata to fields
-    fields(size) = FieldMetadata(name, flags, fieldSig)
+    fields(size) = FieldMetadata(name, flags, index, fieldSig)
     size = size + 1
     size - 1
   }
@@ -36,6 +43,7 @@ case class FieldTable() {
     for (i <- 0 to (size - 1)) {
       buffer.add(fields(i).name.token)
       buffer.add(MetadataFlagsHelpers.toInt(fields(i).flags))
+      buffer.add(fields(i).index)
       buffer.add(fields(i).fieldSig)
     }
   }
@@ -52,9 +60,14 @@ case class FieldTable() {
       val recordOffset = offset + 1 + i * recordSize
       val name = StringToken(buffer.read(recordOffset + 0))
       val flags = buffer.read(recordOffset + 1)
-      val fieldSig = buffer.read(recordOffset + 2)
-      fields(i) =
-        FieldMetadata(name, MetadataFlagsHelpers.fromInt(flags), fieldSig)
+      val index = buffer.read(recordOffset + 2)
+      val fieldSig = buffer.read(recordOffset + 3)
+      fields(i) = FieldMetadata(
+        name,
+        MetadataFlagsHelpers.fromInt(flags),
+        index,
+        fieldSig
+      )
     }
 
     // return offset after reading the table

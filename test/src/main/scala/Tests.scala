@@ -7,6 +7,7 @@ object Tests {
     ParserTests.run()
     BinderTests.run()
     TypeTests.run()
+    MetadataTests.run()
     VmTests.run()
 
     complete()

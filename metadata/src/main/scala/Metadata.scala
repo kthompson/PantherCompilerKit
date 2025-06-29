@@ -20,20 +20,20 @@ case class Metadata() {
   var strings = StringTable()
   var signatures = BlobTable()
 
-  var lastField = 0
-  var lastParam = 0
-  var lastMethod = MethodToken(0)
-
   def addString(value: string): StringToken =
     strings.addBlob(value)
 
   def getString(token: StringToken): string =
     strings.get(token)
 
-  def addField(name: string, flags: MetadataFlags, sigId: int): FieldToken = {
+  def addField(
+      name: string,
+      flags: MetadataFlags,
+      index: int,
+      sigId: int
+  ): FieldToken = {
     val nameId = strings.addBlob(name)
-    lastField = fields.addField(nameId, flags, sigId)
-    FieldToken(lastField)
+    FieldToken(fields.addField(nameId, flags, index, sigId))
   }
 
   def addSignature(signature: Signature): int =
@@ -41,8 +41,7 @@ case class Metadata() {
 
   def addParam(name: string, flags: MetadataFlags, sigId: int): ParamToken = {
     val nameId = strings.addBlob(name)
-    lastParam = params.addParam(nameId, flags, sigId)
-    ParamToken(lastParam)
+    ParamToken(params.addParam(nameId, flags, sigId))
   }
 
   def addMethod(
@@ -53,9 +52,7 @@ case class Metadata() {
       address: int
   ): MethodToken = {
     val nameId = strings.addBlob(name)
-    lastMethod =
-      methods.addMethod(nameId, flags, sigId, lastParam, locals, address)
-    lastMethod
+    methods.addMethod(nameId, flags, sigId, params.size, locals, address)
   }
 
   def addTypeDef(
@@ -66,48 +63,154 @@ case class Metadata() {
     val nameId = strings.addBlob(name)
     val namespaceId = strings.addBlob(ns)
     val typeDef =
-      typeDefs.addTypeDef(nameId, namespaceId, flags, lastField, lastMethod)
+      typeDefs.addTypeDef(nameId, namespaceId, flags, fields.size, methods.size)
     TypeDefToken(typeDef)
   }
 
   def findTypeDefForMethod(method: MethodToken): TypeDefToken = {
-    val token = _findTypeDefForMethod(method.token, 0, typeDefs.size - 1)
+    val token = _findTypeDefForMethod(
+      method.token,
+      0,
+      typeDefs.size - 1,
+      typeDefs.typeDefs(0).methodList,
+      typeDefs.typeDefs(typeDefs.size - 1).methodList
+    )
     TypeDefToken(token)
+  }
+
+  def findTypeDefForField(field: FieldToken): TypeDefToken = {
+    val token = _findTypeDefForField(
+      field.token,
+      0,
+      typeDefs.size - 1,
+      typeDefs.typeDefs(0).fieldList,
+      typeDefs.typeDefs(typeDefs.size - 1).fieldList
+    )
+    TypeDefToken(token)
+  }
+
+  def getTypeDefSize(token: TypeDefToken): int = {
+    val typeId = token.token
+    val fieldList = typeDefs.get(token).fieldList
+    val nextFieldList = if (typeId + 1 >= typeDefs.size) {
+      // field count is lastField - fieldList
+      fields.size - 1
+    } else {
+      val nextTypeDef = typeDefs.typeDefs(typeId + 1)
+      nextTypeDef.fieldList
+    }
+
+    nextFieldList - fieldList
+  }
+
+  def _findTypeDefForField(
+      field: int,
+      minTypeDef: int,
+      maxTypeDef: int,
+      minField: int,
+      maxField: int
+  ): int = {
+
+    if (maxTypeDef == minTypeDef) {
+      minTypeDef
+    } else if (maxTypeDef == minTypeDef + 1) {
+      if (field >= maxField) {
+        maxTypeDef
+      } else {
+        minTypeDef
+      }
+    } else {
+      // method should be a number between the methodList of two typeDefs
+      // do a binary search to find the typeDef that contains the method
+      val midTypeDef = (minTypeDef + maxTypeDef) / 2
+      val midField = typeDefs.typeDefs(midTypeDef).fieldList
+      if (field < midField) {
+        _findTypeDefForField(
+          field,
+          minTypeDef,
+          midTypeDef,
+          minField,
+          midField
+        )
+      } else {
+        _findTypeDefForField(
+          field,
+          midTypeDef,
+          maxTypeDef,
+          midField,
+          maxField
+        )
+      }
+    }
   }
 
   def _findTypeDefForMethod(
       method: int,
       minTypeDef: int,
-      maxTypeDef: int
+      maxTypeDef: int,
+      minMethod: int,
+      maxMethod: int
   ): int = {
-    // method should be a number between the methodList of two typeDefs
-    // do a binary search to find the typeDef that contains the method
-    val minMethod = typeDefs.typeDefs(minTypeDef).methodList.token
-    val maxMethod = typeDefs.typeDefs(maxTypeDef).methodList.token
 
-    if (minTypeDef == maxTypeDef) {
+    if (maxTypeDef == minTypeDef) {
       minTypeDef
-    } else if (method >= maxMethod) {
-      maxTypeDef
-    } else {
-      val midTypeDef = (minTypeDef + maxTypeDef) / 2
-      val midMethod = typeDefs.typeDefs(midTypeDef).methodList.token
-
-      if (method < midMethod) {
-        _findTypeDefForMethod(method, minTypeDef, midTypeDef)
-      } else if (method > midMethod) {
-        _findTypeDefForMethod(method, midTypeDef, maxTypeDef)
+    } else if (maxTypeDef == minTypeDef + 1) {
+      if (method >= maxMethod) {
+        maxTypeDef
       } else {
-        midTypeDef
+        minTypeDef
+      }
+    } else {
+      // method should be a number between the methodList of two typeDefs
+      // do a binary search to find the typeDef that contains the method
+      val midTypeDef = (minTypeDef + maxTypeDef) / 2
+      val midMethod = typeDefs.typeDefs(midTypeDef).methodList
+      if (method < midMethod) {
+        _findTypeDefForMethod(
+          method,
+          minTypeDef,
+          midTypeDef,
+          minMethod,
+          midMethod
+        )
+      } else {
+        _findTypeDefForMethod(
+          method,
+          midTypeDef,
+          maxTypeDef,
+          midMethod,
+          maxMethod
+        )
       }
     }
+  }
+
+  def getTypeName(token: TypeDefToken): string = {
+    val typeDef = typeDefs.get(token)
+    val name = strings.get(typeDef.name)
+    val namespace = strings.get(typeDef.ns)
+
+    if (namespace == "") {
+      name
+    } else {
+      namespace + "." + name
+    }
+  }
+
+  def getFieldName(field: FieldToken): string = {
+    val m = fields.get(field)
+    val name = strings.get(m.name)
+    val typeDef = findTypeDefForField(field)
+    val typeDefName = getTypeName(typeDef)
+
+    typeDefName + "." + name
   }
 
   def getMethodName(method: MethodToken): string = {
     val m = methods.get(method)
     val name = strings.get(m.name)
     val typeDef = findTypeDefForMethod(method)
-    val typeDefName = strings.get(typeDefs.get(typeDef).name)
+    val typeDefName = getTypeName(typeDef)
 
     typeDefName + "." + name
   }
@@ -121,12 +224,14 @@ case class Metadata() {
   def getMethodParameterCount(method: MethodToken): int = {
     val methodId = method.token
     val paramList = methods.get(method).paramList
-    if (methodId + 1 >= methods.size) {
-      params.size - 1 - paramList
+    val nextParamList = if (methodId + 1 >= methods.size) {
+      params.size
     } else {
       val nextMethod = methods.methods(methodId + 1)
-      nextMethod.paramList - paramList
+      nextMethod.paramList
     }
+
+    nextParamList - paramList
   }
 
   def write(buffer: IntList): unit = {
