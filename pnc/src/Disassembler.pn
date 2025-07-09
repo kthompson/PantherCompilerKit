@@ -37,95 +37,100 @@ class Disassembler(chunk: Chunk, metadata: Metadata) {
 
     // opcode
     val opcode = chunk.readI4(offset)
+    val name = Opcode.nameOf(opcode)
     if (opcode == Opcode.Ret) {
-      simpleInstruction("ret", offset)
+      simpleInstruction(name, offset)
       -1
     } else if (opcode == Opcode.Nop) {
-      simpleInstruction("nop", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Ldarg0) {
-      simpleInstruction("ldarg.0", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Ldarg1) {
-      simpleInstruction("ldarg.1", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Ldarg2) {
-      simpleInstruction("ldarg.2", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Ldarg3) {
-      simpleInstruction("ldarg.3", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Ldloc0) {
-      simpleInstruction("ldloc.0", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Ldloc1) {
-      simpleInstruction("ldloc.1", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Ldloc2) {
-      simpleInstruction("ldloc.2", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Ldloc3) {
-      simpleInstruction("ldloc.3", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Stloc0) {
-      simpleInstruction("stloc.0", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Stloc1) {
-      simpleInstruction("stloc.1", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Stloc2) {
-      simpleInstruction("stloc.2", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Stloc3) {
-      simpleInstruction("stloc.3", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.LdcI4) {
-      i4Instruction(chunk, offset, "ldc.i4")
+      i4Instruction(chunk, offset, name)
       //    } else if (opcode == Opcode.Ldargn) {
-      //      i4Instruction(chunk, offset, "ldarg")
+      //      i4Instruction(chunk, offset, name)
       //    } else if (opcode == Opcode.Ldlocn) {
-      //      i4Instruction(chunk, offset, "ldloc")
+      //      i4Instruction(chunk, offset, name)
       //    } else if (opcode == Opcode.Stlocn) {
-      //      i4Instruction(chunk, offset, "stloc")
+      //      i4Instruction(chunk, offset, name)
     } else if (opcode == Opcode.Ldstr) {
-      stringTokenInstruction(chunk, offset, "ldstr")
+      stringTokenInstruction(chunk, offset, name)
     } else if (opcode == Opcode.Newobj) {
-      methodTokenInstruction(chunk, offset, "newobj")
+      methodTokenInstruction(chunk, offset, name)
     } else if (opcode == Opcode.Ldfld) {
-      fieldTokenInstruction(chunk, offset, "ldfld")
+      fieldTokenInstruction(chunk, offset, name)
+    } else if (opcode == Opcode.Ldsfld) {
+      fieldTokenInstruction(chunk, offset, name)
     } else if (opcode == Opcode.Stfld) {
-      fieldTokenInstruction(chunk, offset, "stfld")
+      fieldTokenInstruction(chunk, offset, name)
+    } else if (opcode == Opcode.Stsfld) {
+      fieldTokenInstruction(chunk, offset, name)
     } else if (opcode == Opcode.Dup) {
-      simpleInstruction("dup", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Pop) {
-      simpleInstruction("pop", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Swap) {
-      simpleInstruction("swap", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Add) {
-      simpleInstruction("add", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Sub) {
-      simpleInstruction("sub", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Mul) {
-      simpleInstruction("mul", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Div) {
-      simpleInstruction("div", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Rem) {
-      simpleInstruction("rem", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Neg) {
-      simpleInstruction("neg", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.And) {
-      simpleInstruction("and", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Or) {
-      simpleInstruction("or", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Xor) {
-      simpleInstruction("xor", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Not) {
-      simpleInstruction("not", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Shl) {
-      simpleInstruction("shl", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Shr) {
-      simpleInstruction("shr", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Ceq) {
-      simpleInstruction("ceq", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Cgt) {
-      simpleInstruction("cgt", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Clt) {
-      simpleInstruction("clt", offset)
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Br) {
-      branchInstruction("br", offset)
+      branchInstruction(name, offset)
     } else if (opcode == Opcode.Brfalse) {
-      branchInstruction("brfalse", offset)
+      branchInstruction(name, offset)
     } else if (opcode == Opcode.Brtrue) {
-      branchInstruction("brtrue", offset)
+      branchInstruction(name, offset)
     } else {
-      panic("Unknown opcode " + string(opcode))
+      panic("Unsupported opcode " + Opcode.nameOf(opcode))
       offset + 1
     }
   }

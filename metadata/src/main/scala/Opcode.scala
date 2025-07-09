@@ -1,3 +1,5 @@
+import panther._
+
 object Opcode {
   // no operands
   val Nop = 0
@@ -30,9 +32,9 @@ object Opcode {
 
   // object operand
   val Ldfld = 40 // load field of object
-  //  val Ldsfld = 41 // load static field of object
+  val Ldsfld = 41 // load static field of object
   val Stfld = 42 // store field of object
-  //  val Stsfld = 43 // store static field of object
+  val Stsfld = 43 // store static field of object
   val Newobj = 44 // new object
 
   // branch
@@ -80,5 +82,107 @@ object Opcode {
   // conversion
   val ConvI4 = 110
   val ConvStr = 111
+
+  def nameOf(opcode: int): string = {
+    if (opcode == Nop) {
+      "nop"
+    } else if (opcode == Ldarg0) {
+      "ldarg.0"
+    } else if (opcode == Ldarg1) {
+      "ldarg.1"
+    } else if (opcode == Ldarg2) {
+      "ldarg.2"
+    } else if (opcode == Ldarg3) {
+      "ldarg.3"
+    } else if (opcode == Ldargn) {
+      "ldargn"
+    } else if (opcode == Ldloc0) {
+      "ldloc.0"
+    } else if (opcode == Ldloc1) {
+      "ldloc.1"
+    } else if (opcode == Ldloc2) {
+      "ldloc.2"
+    } else if (opcode == Ldloc3) {
+      "ldloc.3"
+    } else if (opcode == Ldlocn) {
+      "ldlocn"
+    } else if (opcode == Stloc0) {
+      "stloc.0"
+    } else if (opcode == Stloc1) {
+      "stloc.1"
+    } else if (opcode == Stloc2) {
+      "stloc.2"
+    } else if (opcode == Stloc3) {
+      "stloc.3"
+    } else if (opcode == Stlocn) {
+      "stlocn"
+    } else if (opcode == Ret) {
+      "ret"
+    } else if (opcode == LdcI4) {
+      "ldc.i4"
+    } else if (opcode == Ldstr) {
+      "ldstr"
+    } else if (opcode == Ldfld) {
+      "ldfld"
+    } else if (opcode == Ldsfld) {
+      "ldsfld"
+    } else if (opcode == Stfld) {
+      "stfld"
+    } else if (opcode == Stsfld) {
+      "stsfld"
+    } else if (opcode == Newobj) {
+      "newobj"
+    } else if (opcode == Br) {
+      "br"
+    } else if (opcode == Brfalse) {
+      "brfalse"
+    } else if (opcode == Brtrue) {
+      "brtrue"
+    } else if (opcode == Call) {
+      "call"
+    } else if (opcode == Dup) {
+      "dup"
+    } else if (opcode == Pop) {
+      "pop"
+    } else if (opcode == Swap) {
+      "swap"
+    } else if (opcode == Add) {
+      "add"
+    } else if (opcode == Sub) {
+      "sub"
+    } else if (opcode == Mul) {
+      "mul"
+    } else if (opcode == Div) {
+      "div"
+    } else if (opcode == Rem) {
+      "rem"
+    } else if (opcode == Neg) {
+      "neg"
+    } else if (opcode == And) {
+      "and"
+    } else if (opcode == Or) {
+      "or"
+    } else if (opcode == Xor) {
+      "xor"
+    } else if (opcode == Not) {
+      "not"
+    } else if (opcode == Shl) {
+      "shl"
+    } else if (opcode == Shr) {
+      "shr"
+    } else if (opcode == Ceq) {
+      "ceq"
+    } else if (opcode == Cgt) {
+      "cgt"
+    } else if (opcode == Clt) {
+      "clt"
+    } else if (opcode == ConvI4) {
+      "conv.i4"
+    } else if (opcode == ConvStr) {
+      "conv.str"
+    } else {
+      panic("Unknown opcode: " + opcode)
+    }
+  }
 
 }
