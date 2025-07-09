@@ -27,6 +27,16 @@ object MakeCompilation {
     val lowered = if (diagnosticBag.count == 0) {
       val assembly = binder.bind()
 
+      if (CompilerSettings.printBoundAssembly) {
+        val boundAssembly = BoundAssembly(
+          assembly.diagnostics,
+          assembly.functionBodies,
+          assembly.entryPoint
+        )
+        val printer = new BoundAssemblyPrinter(binder)
+        printer.printAssembly(boundAssembly)
+      }
+
       if (diagnosticBag.count == 0) Lower.lower(assembly, binder)
       else emptyLoweredAssembly()
     } else {
