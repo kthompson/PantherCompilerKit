@@ -22,11 +22,28 @@ jobs:
     - name: pncs compile
       run: sbt pncs/compile
 
-    - name: pncs transpile
-      run: sbt pncs/transpile
-
     - name: test
       run: sbt test/run
+
+  transpile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup SBT
+        uses: sbt/setup-sbt@v1
+
+      - name: pncs transpile
+        run: |
+          sbt pncs/transpile
+          git diff --exit-code || (echo "Transpilation produced changes, please commit them." && exit 1)
 
   lint:
     runs-on: ubuntu-latest
@@ -43,5 +60,5 @@ jobs:
     - name: Setup SBT
       uses: sbt/setup-sbt@v1
 
-    - name: build
+    - name: scalafmt
       run: sbt scalafmtCheckAll
