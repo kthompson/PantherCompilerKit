@@ -1,6 +1,6 @@
 using panther
 
-class SymbolTreePrinter(binder: Binder) {
+class SymbolPrinter(binder: Binder) {
   val printer = new AstPrinter(true, true)
 
   def printSymbols(symbols: List[Symbol], indent: string): unit = {
@@ -28,6 +28,39 @@ class SymbolTreePrinter(binder: Binder) {
     printer.printSymbolKind(kind)
     print(" ")
 
+    printSimpleSymbol(symbol)
+    printSymbolBodyType(symbol)
+    println("")
+
+    val members = symbol.members()
+    if (!members.isEmpty) {
+      val end = if (last) "    " else "│   "
+      val childIndent = indent + end
+      printSymbols(members, childIndent)
+    }
+  }
+
+  private def printSymbolBodyType(symbol: Symbol): unit = {
+    if (
+      symbol.kind == SymbolKind.Constructor || symbol.kind == SymbolKind.Method
+    ) {
+      printer.writeColor(ColorPalette.Punctuation)
+      print(" = ")
+      if (symbol.extern) {
+        printer.writeColor(ColorPalette.Keyword)
+        print("[extern]")
+      } else if (binder.functionBodies.contains(symbol)) {
+        printer.writeColor(ColorPalette.Keyword)
+        print("[body]")
+      } else {
+        printer.writeColor(ColorPalette.Error)
+        print("[no body]")
+      }
+      print(ANSI.Clear)
+    }
+  }
+
+  def printSimpleSymbol(symbol: Symbol): unit = {
     if (
       symbol.kind == SymbolKind.Class || symbol.kind == SymbolKind.Object || symbol.kind == SymbolKind.Alias
     ) {
@@ -65,34 +98,6 @@ class SymbolTreePrinter(binder: Binder) {
           print("[missing type]")
           print(ANSI.Clear)
       }
-
-      if (
-        symbol.kind == SymbolKind.Constructor || symbol.kind == SymbolKind.Method
-      ) {
-
-        printer.writeColor(ColorPalette.Punctuation)
-        print(" = ")
-        if (symbol.extern) {
-          printer.writeColor(ColorPalette.Keyword)
-          print("[extern]")
-        } else if (binder.functionBodies.contains(symbol)) {
-          printer.writeColor(ColorPalette.Keyword)
-          print("[body]")
-        } else {
-          printer.writeColor(ColorPalette.Error)
-          print("[no body]")
-        }
-        print(ANSI.Clear)
-      }
-    }
-
-    println("")
-
-    val members = symbol.members()
-    if (!members.isEmpty) {
-      val end = if (last) "    " else "│   "
-      val childIndent = indent + end
-      printSymbols(members, childIndent)
     }
   }
 }

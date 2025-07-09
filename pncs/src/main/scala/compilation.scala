@@ -23,7 +23,7 @@ object MakeCompilation {
     // root symbol table
     val binder = new Binder(trees, rootSymbol, diagnosticBag)
 
-    // dont bother lowering if there are any diagnostics
+    // don't bother lowering if there are any diagnostics
     val lowered = if (diagnosticBag.count == 0) {
       val assembly = binder.bind()
 
@@ -59,7 +59,7 @@ case class Compilation(
 ) {
   def getSymbols(): Chain[Symbol] = SymbolChain.fromList(root.members())
 
-  def printSymbols(): unit = SymbolTreePrinter(binder).printSymbol(root)
+  def printSymbols(): unit = SymbolPrinter(binder).printSymbol(root)
 
   def emit(output: string): unit = {
     val emitter = new Emitter(syntaxTrees, root, binder, assembly)
