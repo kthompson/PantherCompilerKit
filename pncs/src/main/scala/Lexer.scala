@@ -1,13 +1,5 @@
 import panther._
 
-case class Result(isSuccess: bool, value: any)
-
-object MakeResult {
-  val fail: Result = new Result(false, 0)
-
-  def success(value: any): Result = new Result(true, value)
-}
-
 case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   var _position: int = 0
   var debug: bool = false
@@ -191,31 +183,31 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     token
   }
 
-  def scanEscapeSequence(): Result = {
+  def scanEscapeSequence(): Option[string] = {
     val start = _position
     next() // accept '\'
     val curr = current()
     if (curr == '\'') {
       next()
-      MakeResult.success("\'")
+      Option.Some("\'")
     } else if (curr == 'r') {
       next()
-      MakeResult.success("\r")
+      Option.Some("\r")
     } else if (curr == 'n') {
       next()
-      MakeResult.success("\n")
+      Option.Some("\n")
     } else if (curr == 't') {
       next()
-      MakeResult.success("\t")
+      Option.Some("\t")
     } else if (curr == '\\') {
       next()
-      MakeResult.success("\\")
+      Option.Some("\\")
     } else if (curr == '"') {
       next()
-      MakeResult.success("\"")
+      Option.Some("\"")
     } else if (curr == '0') {
       next()
-      MakeResult.success("\u0000")
+      Option.Some("\u0000")
     } else if (curr == 'u') {
       next()
       scanUtfEscapeSequence(4, start)
@@ -225,14 +217,18 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     } else {
       println("scan error - unexpected escape char: " + string(curr))
 
-      MakeResult.fail
+      Option.None
     }
   }
 
-  def scanUtfEscapeSequence(digits: int, start: int): Result =
+  def scanUtfEscapeSequence(digits: int, start: int): Option[string] =
     _scanUtfEscapeSequence(digits, start, 0)
 
-  def _scanUtfEscapeSequence(digits: int, start: int, value: int): Result = {
+  def _scanUtfEscapeSequence(
+      digits: int,
+      start: int,
+      value: int
+  ): Option[string] = {
     if (digits > 0) {
       val hvalue = hexValue()
       if (hvalue == -1) {
@@ -241,7 +237,7 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
           new TextLocation(sourceFile, new TextSpan(start, _position)),
           current()
         )
-        MakeResult.fail
+        Option.None
       } else {
         next() // consume the hex digit
         // TODO: support shifts
@@ -255,7 +251,7 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
         )
       }
     } else {
-      MakeResult.success(string(char(value)))
+      Option.Some(string(char(value)))
     }
   }
 
@@ -272,10 +268,9 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       makeStringToken(start, value)
     } else if (curr == '\\') {
       val escape = scanEscapeSequence()
-      val newValue = if (escape.isSuccess) {
-        value + string(escape.value)
-      } else {
-        value
+      val newValue = escape match {
+        case Option.None         => value
+        case Option.Some(escape) => value + escape
       }
       _scanString(start, newValue)
     } else if (curr == '\r' || curr == '\n' || curr == '\u0000') {
@@ -319,9 +314,10 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       )
       SyntaxTokenValue.Error
     } else if (curr == '\\') {
-      val result = scanEscapeSequence()
-      if (result.isSuccess) SyntaxTokenValue.Character(string(result.value)(0))
-      else SyntaxTokenValue.None
+      scanEscapeSequence() match {
+        case Option.None        => SyntaxTokenValue.None
+        case Option.Some(value) => SyntaxTokenValue.Character(string(value)(0))
+      }
     } else {
       next() // character
       SyntaxTokenValue.Character(curr)
