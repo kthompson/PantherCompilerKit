@@ -210,4 +210,38 @@ object SyntaxFacts {
       kind == SyntaxKind.PlusToken ||
       kind == SyntaxKind.CaretToken
 
+  def getBinaryOperatorText(kind: BinaryOperatorKind): string = {
+    kind match {
+      case BinaryOperatorKind.LogicalAnd         => "&&"
+      case BinaryOperatorKind.LogicalOr          => "||"
+      case BinaryOperatorKind.NotEquals          => "!="
+      case BinaryOperatorKind.Minus              => "-"
+      case BinaryOperatorKind.Equals             => "=="
+      case BinaryOperatorKind.GreaterThanOrEqual => ">="
+      case BinaryOperatorKind.GreaterThan        => ">"
+      case BinaryOperatorKind.ShiftRight         => ">>"
+      case BinaryOperatorKind.LessThanOrEqual    => "<="
+      case BinaryOperatorKind.LessThan           => "<"
+      case BinaryOperatorKind.ShiftLeft          => "<<"
+      case BinaryOperatorKind.Modulus            => "%"
+      case BinaryOperatorKind.Plus               => "+"
+      case BinaryOperatorKind.Divide             => "/"
+      case BinaryOperatorKind.Multiply           => "*"
+      case BinaryOperatorKind.BitwiseAnd         => "&&"
+      case BinaryOperatorKind.BitwiseOr          => "||"
+      case BinaryOperatorKind.BitwiseXor         => "^"
+      case BinaryOperatorKind.Error              => "?"
+    }
+  }
+
+  def getUnaryOperatorText(kind: UnaryOperatorKind): string = {
+    kind match {
+      case UnaryOperatorKind.Identity        => "+"
+      case UnaryOperatorKind.Negation        => "-"
+      case UnaryOperatorKind.LogicalNegation => "!"
+      case UnaryOperatorKind.BitwiseNegation => "~"
+      case UnaryOperatorKind.Error           => "?"
+    }
+  }
+
 }
