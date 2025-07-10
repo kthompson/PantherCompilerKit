@@ -100,6 +100,8 @@ case class Emitter(
   var symbolPrefix = ""
   var container: Symbol = root
   var containerHasThis: bool = false
+  var globalFieldIndex = 0
+  var classFieldIndex = 0
 
   val nl = "\n"
   val metadata = new Metadata()
@@ -125,7 +127,7 @@ case class Emitter(
 
   def emit(): EmitResult = {
     // populate symbol metadata
-    emitSymbolMetadata(root)
+    emitSymbolMetadata(root, true)
 
     // update field, method, and parameter tokens with their signatures
     buildSignatures(symbolsToProcessSignatures)
@@ -268,7 +270,16 @@ case class Emitter(
       expr: LoweredStatement.AssignField,
       context: EmitContext
   ): unit = {
-    ???
+    assert(expr.field.kind == SymbolKind.Field, "expected field")
+    fieldTokens.get(expr.field) match {
+      case Option.Some(value) =>
+        assert(expr.field.isStatic(), "expected static field")
+        val op = Opcode.Stsfld
+        chunk.emitOpcode(op, expr.location.startLine)
+        chunk.emitI4(value.token, expr.location.startLine)
+      case Option.None =>
+        panic("emitAssignmentStatement: no field token for " + expr.field)
+    }
   }
 
   def emitAssignLocalStatement(
@@ -276,6 +287,7 @@ case class Emitter(
       context: EmitContext
   ): unit = {
     emitExpression(expr.expression, context)
+    assert(expr.local.kind == SymbolKind.Local, "expected local variable")
     val index = context.getLocalIndex(expr.local)
     if (index < 4) {
       chunk.emitOpcode(Opcode.Stloc0 + index, expr.location.startLine)
@@ -438,12 +450,25 @@ case class Emitter(
       expr: LoweredExpression.Variable,
       context: EmitContext
   ): unit = {
-    val index = context.getLocalIndex(expr.symbol)
-    if (index < 4) {
-      chunk.emitOpcode(Opcode.Ldloc0 + index, expr.location.startLine)
+    if (expr.symbol.kind == SymbolKind.Field) {
+      fieldTokens.get(expr.symbol) match {
+        case Option.Some(value) =>
+          val op = if (expr.symbol.isStatic()) Opcode.Ldsfld else Opcode.Ldfld
+          chunk.emitOpcode(op, expr.location.startLine)
+          chunk.emitI4(value.token, expr.location.startLine)
+        case Option.None =>
+          panic("emitVariable: no field token for " + expr.symbol)
+      }
+    } else if (expr.symbol.kind == SymbolKind.Local) {
+      val index = context.getLocalIndex(expr.symbol)
+      if (index < 4) {
+        chunk.emitOpcode(Opcode.Ldloc0 + index, expr.location.startLine)
+      } else {
+        chunk.emitOpcode(Opcode.Ldlocn, expr.location.startLine)
+        chunk.emitI4(index, expr.location.startLine)
+      }
     } else {
-      chunk.emitOpcode(Opcode.Ldlocn, expr.location.startLine)
-      chunk.emitI4(index, expr.location.startLine)
+      panic("emitVariable: unsupported symbol kind " + expr.symbol.kind)
     }
   }
 
@@ -536,24 +561,24 @@ case class Emitter(
 //      context: EmitContext
 //  ): unit = ???
 
-  def emitSymbolsMetadata(symbols: List[Symbol]): unit = {
+  def emitSymbolsMetadata(symbols: List[Symbol], static: bool): unit = {
     symbols match {
       case List.Nil =>
       case List.Cons(symbol, rest) =>
-        emitSymbolMetadata(symbol)
-        emitSymbolsMetadata(rest)
+        emitSymbolMetadata(symbol, static)
+        emitSymbolsMetadata(rest, static)
     }
   }
 
-  def emitSymbolMetadata(symbol: Symbol): unit = {
+  def emitSymbolMetadata(symbol: Symbol, parentStatic: bool): unit = {
     symbol.kind match {
-      case SymbolKind.Namespace   => emitSymbolsMetadata(symbol.members())
+      case SymbolKind.Namespace   => emitSymbolsMetadata(symbol.members(), true)
       case SymbolKind.Object      => emitClassMetadata(symbol)
       case SymbolKind.Class       => emitClassMetadata(symbol)
       case SymbolKind.Alias       => emitClassMetadata(symbol)
-      case SymbolKind.Field       => emitFieldMetadata(symbol)
-      case SymbolKind.Method      => emitMethodMetadata(symbol)
-      case SymbolKind.Constructor => emitMethodMetadata(symbol)
+      case SymbolKind.Field       => emitFieldMetadata(symbol, parentStatic)
+      case SymbolKind.Method      => emitMethodMetadata(symbol, parentStatic)
+      case SymbolKind.Constructor => emitMethodMetadata(symbol, parentStatic)
       case SymbolKind.Parameter   => emitParameterMetadata(symbol)
 
       case _: SymbolKind.TypeParameter => // TODO: emit type parameter metadata??
@@ -574,9 +599,9 @@ case class Emitter(
   }
 
   def emitClassMetadata(symbol: Symbol): unit = {
+    val isObject = symbol.kind == SymbolKind.Object
     val flags =
-      if (symbol.kind == SymbolKind.Object)
-        MetadataFlags.Static
+      if (isObject) MetadataFlags.Static
       else MetadataFlags.None
 
     typeTokens = typeTokens.put(
@@ -584,18 +609,29 @@ case class Emitter(
       metadata.addTypeDef(symbol.name, ns(symbol.ns()), flags)
     )
 
-    emitSymbolsMetadata(symbol.members())
+    emitSymbolsMetadata(symbol.members(), isObject)
   }
 
-  def emitFieldMetadata(symbol: Symbol): unit = {
-    val flags = MetadataFlags.None
-//      if ((symbol.flags & SymbolFlags.Static) == SymbolFlags.Static)
-//        MetadataFlags.Static
-//      else MetadataFlags.None
+  def emitFieldMetadata(symbol: Symbol, static: bool): unit = {
+    val flags =
+      if (static) MetadataFlags.Static
+      else MetadataFlags.None
+
+    val index = if (static) {
+      globalFieldIndex
+    } else {
+      classFieldIndex
+    }
+
+    if (static) {
+      globalFieldIndex = globalFieldIndex + 1
+    } else {
+      classFieldIndex = classFieldIndex + 1
+    }
 
     fieldTokens = fieldTokens.put(
       symbol,
-      metadata.addField(symbol.name, flags, 0, 0)
+      metadata.addField(symbol.name, flags, index, 0)
     )
 
     queueSymbolSignature(symbol)
@@ -604,7 +640,7 @@ case class Emitter(
   def getSymbolSignature(symbol: Symbol) = {
     binder.tryGetSymbolType(symbol) match {
       case Option.None =>
-        panic("getSymbolSignature: no type for symbol " + symbol.name)
+        panic("getSymbolSignature: no type for symbol " + symbol.fullName())
       case Option.Some(typ) =>
         val sig = new SignatureBuilder()
         emitTypeSignature(typ, sig)
@@ -612,18 +648,17 @@ case class Emitter(
     }
   }
 
-  def emitMethodMetadata(symbol: Symbol) = {
-    val flags = MetadataFlags.None
-//      if ((symbol.flags & SymbolFlags.Static) == SymbolFlags.Static)
-//        MetadataFlags.Static
-//      else MetadataFlags.None
+  def emitMethodMetadata(symbol: Symbol, static: bool) = {
+    val flags =
+      if (static) MetadataFlags.Static
+      else MetadataFlags.None
 
     methodTokens =
-      methodTokens.put(symbol, metadata.addMethod(symbol.name, flags, 0, 0, 0))
+      methodTokens.put(symbol, metadata.addMethod(symbol.name, flags, 0, 0, -1))
 
     queueSymbolSignature(symbol)
 
-    emitSymbolsMetadata(symbol.members())
+    emitSymbolsMetadata(symbol.members(), static)
   }
 
   def emitParameterMetadata(symbol: Symbol): unit = {
