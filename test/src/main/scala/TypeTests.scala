@@ -22,6 +22,7 @@ object TypeTests {
 
     enums()
     classes()
+    arrays()
 
 //    generics()
   }
@@ -267,7 +268,7 @@ object TypeTests {
     classWithArgs()
   }
 
-  def classWithoutArgs(): Unit = {
+  def classWithoutArgs(): unit = {
     val setup = "class Foo()"
     assertExprTypeWithSetup(setup, "new Foo()", "Foo")
   }
@@ -277,4 +278,29 @@ object TypeTests {
     assertExprTypeWithSetup(setup, "new Foo(12, \"taco\")", "Foo")
   }
 
+  def arrays(): unit = {
+    arrayLengthType()
+//    arrayApply()
+//    arrayApply2()
+  }
+
+  def arrayType(): unit = {
+    val setup = "val array = new Array[int](0)"
+    assertExprTypeWithSetup(setup, "array", "Array[int]")
+  }
+
+  def arrayLengthType(): unit = {
+    val setup = "val array = new Array[int](0)"
+    assertExprTypeWithSetup(setup, "array.length", "int")
+  }
+
+  def arrayApply(): unit = {
+    val setup = "val array = new Array[int](1)"
+    assertExprTypeWithSetup(setup, "array.apply(0)", "int")
+  }
+
+  def arrayApply2(): unit = {
+    val setup = "val array = new Array[int](1)"
+    assertExprTypeWithSetup(setup, "array(0)", "int")
+  }
 }

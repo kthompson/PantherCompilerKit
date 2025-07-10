@@ -66,6 +66,7 @@ object BinderTests {
   def classes(): unit = {
     classWithoutArgs()
     classWithArgs()
+//    classFields()
   }
 
   def classWithoutArgs(): Unit = {
@@ -94,6 +95,15 @@ object BinderTests {
     assertMainSymbol(symbols)
 
     assertNoSymbols(symbols)
+  }
+
+  def classFields(): unit = {
+    test("class fields")
+    val comp = mkCompilation(
+      "class Foo() {\n" +
+        "  var z = 0\n" +
+        "}"
+    )
   }
 
   def enums(): unit = {
