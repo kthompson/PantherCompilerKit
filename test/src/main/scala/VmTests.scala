@@ -15,6 +15,8 @@ object VmTests {
 
     ifExpressions()
 
+    objectFields()
+
     // TODO: dup, swap, pop
     // TODO: arguments
     // TODO: call, ret
@@ -24,6 +26,16 @@ object VmTests {
     // TODO: instance creation
     // TODO: instance field access
 
+  }
+
+  def objectFields(): unit = {
+    val setup = "object Taco {\n" +
+      "  val field1 = 12\n" +
+      "  val field2 = 13\n" +
+      "}"
+
+    assertExecValueIntWithSetup(setup, "Taco.field1", 12)
+    assertExecValueIntWithSetup(setup, "Taco.field2", 13)
   }
 
   def ifExpressions(): unit = {

@@ -57,17 +57,20 @@ case class VM(
   var localp = 0 // local variable pointer
   var heapp = 0 // heap pointer
 
+  // static field pointer (portion of the heap)
+  var staticp = 0
+
   val disassembler = new Disassembler(chunk, metadata)
 
   // setup metadata (this should be the emitter's job)
   // 1. setup some space for static fields
   //    a. count the number of static fields, and assign them an index
   //    b. record number of static fields in the Chunk header
-  // 2. iterate through all the class symbols and record their fields
-  //    a. each field for each class will get an index that we can reference
-  //
 
-  def setupHeap(): unit = {}
+  def setupHeap(): unit = {
+    // allocate space on the heap for static fields
+    alloc(metadata.statics())
+  }
 
   // allocates space on the heap for an object
   def alloc(size: int): int = {
@@ -93,6 +96,11 @@ case class VM(
   def readMethodToken(): MethodToken = {
     val value = readI4()
     MethodToken(value)
+  }
+
+  def readFieldToken(): FieldToken = {
+    val value = readI4()
+    FieldToken(value)
   }
 
   def push(value: Value): InterpretResult = {
@@ -135,6 +143,7 @@ case class VM(
 
   def runtimeError(msg: string): InterpretResult = {
     println(msg)
+    panic(msg)
     InterpretResult.RuntimeError
   }
 
@@ -237,6 +246,8 @@ case class VM(
   }
 
   def run(): InterpretResult = {
+    setupHeap()
+
     var result = entry match {
       case Option.None => InterpretResult.Continue
       case Option.Some(value) =>
@@ -428,6 +439,25 @@ case class VM(
             push(Value.String(fullName))
             InterpretResult.Continue
         }
+
+      case Opcode.Stsfld =>
+        val token = readFieldToken()
+        val field = metadata.fields.get(token)
+
+        // pop the value to store
+        val value = pop()
+
+        // store the value in the static field
+        heap(staticp + field.index) = value
+        InterpretResult.Continue
+      case Opcode.Ldsfld =>
+        val token = readFieldToken()
+        val field = metadata.fields.get(token)
+
+        // load the static field value
+        val value = heap(staticp + field.index)
+        push(value)
+        InterpretResult.Continue
       case _ =>
         trace("Unknown opcode " + instruction)
         InterpretResult.CompileError

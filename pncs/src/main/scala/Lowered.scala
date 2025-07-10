@@ -778,6 +778,15 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
     }
   }
 
+  /** Consume the expression from the context and return it along with any
+    * statements from the block.
+    *
+    * Use this when you want to combine more than one expression into a single
+    * block, such as in an if-else statement or a loop body.
+    *
+    * @param context
+    * @return
+    */
   def consumeExpr(
       context: LoweredBlock
   ): Tuple2[LoweredExpression, LoweredBlock] = {
