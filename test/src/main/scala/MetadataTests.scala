@@ -7,30 +7,30 @@ object MetadataTests {
   val metadata: Metadata = Metadata()
   val point: TypeDefToken = metadata.addTypeDef("Point", "", MetadataFlags.None)
   val pointCtor: MethodToken =
-    metadata.addMethod(".ctor", MetadataFlags.None, 0, 0, 0)
+    metadata.addMethod(".ctor", MetadataFlags.None, true, 0, 0, 0)
   val pointCtorX: ParamToken = metadata.addParam("x", MetadataFlags.None, 0)
   val pointCtorY: ParamToken = metadata.addParam("y", MetadataFlags.None, 0)
 
   val pointGetX: MethodToken =
-    metadata.addMethod("getX", MetadataFlags.None, 0, 0, 0)
+    metadata.addMethod("getX", MetadataFlags.None, true, 0, 0, 0)
   val pointGetY: MethodToken =
-    metadata.addMethod("getY", MetadataFlags.None, 0, 0, 0)
+    metadata.addMethod("getY", MetadataFlags.None, true, 0, 0, 0)
   val pointX: FieldToken = metadata.addField("x", MetadataFlags.None, 0, 0)
   val pointY: FieldToken = metadata.addField("y", MetadataFlags.None, 1, 0)
 
   val point3: TypeDefToken =
     metadata.addTypeDef("Point3", "", MetadataFlags.None)
   val point3Ctor: MethodToken =
-    metadata.addMethod(".ctor", MetadataFlags.None, 0, 0, 0)
+    metadata.addMethod(".ctor", MetadataFlags.None, true, 0, 0, 0)
   val point3CtorX: ParamToken = metadata.addParam("x", MetadataFlags.None, 0)
   val point3CtorY: ParamToken = metadata.addParam("y", MetadataFlags.None, 0)
   val point3CtorZ: ParamToken = metadata.addParam("z", MetadataFlags.None, 0)
   val point3GetX: MethodToken =
-    metadata.addMethod("getX", MetadataFlags.None, 0, 0, 0)
+    metadata.addMethod("getX", MetadataFlags.None, true, 0, 0, 0)
   val point3GetY: MethodToken =
-    metadata.addMethod("getY", MetadataFlags.None, 0, 0, 0)
+    metadata.addMethod("getY", MetadataFlags.None, true, 0, 0, 0)
   val point3GetZ: MethodToken =
-    metadata.addMethod("getZ", MetadataFlags.None, 0, 0, 0)
+    metadata.addMethod("getZ", MetadataFlags.None, true, 0, 0, 0)
   val point3X: FieldToken = metadata.addField("x", MetadataFlags.None, 0, 0)
   val point3Y: FieldToken = metadata.addField("y", MetadataFlags.None, 1, 0)
   val point3Z: FieldToken = metadata.addField("z", MetadataFlags.None, 2, 0)
@@ -40,15 +40,15 @@ object MetadataTests {
   val circle: TypeDefToken =
     metadata.addTypeDef("Circle", "", MetadataFlags.None)
   val circleCtor: MethodToken =
-    metadata.addMethod(".ctor", MetadataFlags.None, 0, 0, 0)
+    metadata.addMethod(".ctor", MetadataFlags.None, true, 0, 0, 0)
   val circleCtorCenter: ParamToken =
     metadata.addParam("center", MetadataFlags.None, 0)
   val circleCtorRadius: ParamToken =
     metadata.addParam("radius", MetadataFlags.None, 0)
   val circleGetCenter: MethodToken =
-    metadata.addMethod("getCenter", MetadataFlags.None, 0, 0, 0)
+    metadata.addMethod("getCenter", MetadataFlags.None, true, 0, 0, 0)
   val circleGetRadius: MethodToken =
-    metadata.addMethod("getRadius", MetadataFlags.None, 0, 0, 0)
+    metadata.addMethod("getRadius", MetadataFlags.None, true, 0, 0, 0)
   val circleCenter: FieldToken =
     metadata.addField("center", MetadataFlags.None, 0, 0)
   val circleRadius: FieldToken =
