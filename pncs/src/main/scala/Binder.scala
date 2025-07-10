@@ -575,6 +575,7 @@ class Binder(
       case expr: BoundExpression.IfExpression     => expr.resultType
       case expr: BoundExpression.MemberAccess     => expr.resultType
       case expr: BoundExpression.NewExpression    => expr.resultType
+      case expr: BoundExpression.ThisExpression   => expr.resultType
       case expr: BoundExpression.UnaryExpression  => expr.resultType
       case expr: BoundExpression.Variable =>
         expr.resultType match {

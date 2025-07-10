@@ -79,6 +79,7 @@ class BoundAssemblyPrinter(
       case expr: BoundExpression.MemberAccess     => printMemberAccess(expr)
       case expr: BoundExpression.NewExpression    => printNewExpression(expr)
       case expr: BoundExpression.StringLiteral    => printStringLiteral(expr)
+      case expr: BoundExpression.ThisExpression   => printThisExpression(expr)
       case expr: BoundExpression.UnaryExpression  => printUnaryExpression(expr)
       case expr: BoundExpression.UnitExpression   => printUnitExpression(expr)
       case expr: BoundExpression.Variable         => printVariable(expr)
@@ -213,6 +214,10 @@ class BoundAssemblyPrinter(
 
   def printStringLiteral(expr: BoundExpression.StringLiteral): unit = {
     writeWithColor(ColorPalette.String, "\"" + expr.value + "\"")
+  }
+
+  def printThisExpression(expr: BoundExpression.ThisExpression): unit = {
+    writeWithColor(ColorPalette.Keyword, "this")
   }
 
   def printUnaryExpression(expr: BoundExpression.UnaryExpression): unit = {

@@ -107,6 +107,7 @@ enum BoundExpression {
       resultType: Type
   )
   case StringLiteral(location: TextLocation, value: string)
+  case ThisExpression(location: TextLocation, resultType: Type)
   case UnaryExpression(
       location: TextLocation,
       operator: UnaryOperatorKind,

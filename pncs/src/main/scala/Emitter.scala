@@ -102,6 +102,8 @@ case class Emitter(
   var containerHasThis: bool = false
   var globalFieldIndex = 0
   var classFieldIndex = 0
+  var globalFieldIndex = 0
+  var classFieldIndex = 0
 
   val nl = "\n"
   val metadata = new Metadata()
@@ -127,6 +129,7 @@ case class Emitter(
 
   def emit(): EmitResult = {
     // populate symbol metadata
+    emitSymbolMetadata(root, true)
     emitSymbolMetadata(root, true)
 
     // update field, method, and parameter tokens with their signatures
@@ -273,8 +276,7 @@ case class Emitter(
     assert(expr.field.kind == SymbolKind.Field, "expected field")
     fieldTokens.get(expr.field) match {
       case Option.Some(value) =>
-        assert(expr.field.isStatic(), "expected static field")
-        val op = Opcode.Stsfld
+        val op = if (expr.variable.isStatic()) Opcode.Stsfld else Opcode.Stfld
         chunk.emitOpcode(op, expr.location.startLine)
         chunk.emitI4(value.token, expr.location.startLine)
       case Option.None =>
@@ -403,12 +405,46 @@ case class Emitter(
   def emitMemberAccess(
       expr: LoweredExpression.MemberAccess,
       context: EmitContext
-  ): unit = ???
+  ): unit = {
+    emitExpression(expr.left, context)
+    // TODO: support static fields
+
+    // symbol can be a field or a method so lets look for each
+    fieldTokens.get(expr.symbol) match {
+      case Option.Some(value) =>
+        chunk.emitOpcode(Opcode.Ldfld, expr.location.startLine)
+        chunk.emitI4(value.token, expr.location.startLine)
+
+      case Option.None =>
+        panic("emitMemberAccess: no field token for " + expr.symbol)
+    }
+  }
 
   def emitNewExpression(
       expr: LoweredExpression.New,
       context: EmitContext
-  ): unit = ???
+  ): unit = {
+    emitExpressions(expr.arguments, context)
+    chunk.emitOpcode(Opcode.Newobj, expr.location.startLine)
+    methodTokens.get(expr.constructor) match {
+      case Option.None =>
+        panic("emitNewExpression: no method token for " + expr.constructor)
+      case Option.Some(value) =>
+        chunk.emitI4(value.token, expr.location.startLine)
+    }
+  }
+
+  def emitExpressions(
+      expressions: Chain[LoweredExpression],
+      context: EmitContext
+  ): unit = {
+    expressions.uncons() match {
+      case Option.None =>
+      case Option.Some(Tuple2(expr, rest)) =>
+        emitExpression(expr, context)
+        emitExpressions(rest, context)
+    }
+  }
 
   def emitStringLiteral(
       expr: LoweredExpression.StringLiteral,
@@ -609,7 +645,7 @@ case class Emitter(
       metadata.addTypeDef(symbol.name, ns(symbol.ns()), flags)
     )
 
-    emitSymbolsMetadata(symbol.members(), isObject)
+    emitSymbolsMetadata(symbol.members())
   }
 
   def emitFieldMetadata(symbol: Symbol, static: bool): unit = {
