@@ -497,6 +497,7 @@ object AstUtils {
       case BoundExpression.MemberAccess(location, _, _, _, _)  => location
       case BoundExpression.NewExpression(location, _, _, _, _) => location
       case BoundExpression.StringLiteral(location, _)          => location
+      case BoundExpression.ThisExpression(location, _)         => location
       case BoundExpression.UnaryExpression(location, _, operand, _) =>
         location.merge(locationOfBoundExpression(operand))
       case BoundExpression.UnitExpression(location)        => location

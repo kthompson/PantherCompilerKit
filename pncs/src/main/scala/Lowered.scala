@@ -250,6 +250,8 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
         lowerNewExpression(expr, context)
       case expr: BoundExpression.StringLiteral =>
         lowerStringLiteral(expr, context)
+      case expr: BoundExpression.ThisExpression =>
+        ???
       case expr: BoundExpression.UnaryExpression =>
         lowerUnaryExpression(expr, context)
       case expr: BoundExpression.UnitExpression =>
@@ -275,6 +277,9 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       expr: BoundExpression.Assignment,
       context: LoweredBlock
   ): LoweredBlock = {
+
+//    val variable = expr.variable
+    val location = expr.location
     val block = lowerExpression(expr.expression, context)
 
     expr.receiver match {
@@ -293,6 +298,17 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
           LoweredExpression.Unit
         )
     }
+
+    val assignmentStatement = LoweredStatement.Assignment(
+      location,
+      ???,
+//      variable,
+      block.expression
+    )
+
+    val newStatements = block.statements.append(assignmentStatement)
+
+    LoweredBlock(newStatements, LoweredExpression.Unit)
   }
 
   def lowerBinaryExpression(

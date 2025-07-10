@@ -368,6 +368,25 @@ case class ExprBinder(
   ): BoundExpression =
     boundErrorExpression("bindArrayCreationExpression")
 
+  def bindLHS(lhs: BoundExpression, scope: Scope): Either[string, BoundLeftHandSide] = {
+    lhs match {
+      case BoundExpression.Error(error) =>
+        Either.Left(error)
+      case expr: BoundExpression.Variable =>
+        Either.Right(BoundLeftHandSide.Variable(expr.symbol))
+      case expr: BoundExpression.MemberAccess =>
+        Either.Right(BoundLeftHandSide.MemberAccess(expr))
+      case expr: BoundExpression.IndexExpression =>
+        Either.Right(BoundLeftHandSide.Index(expr))
+      case _ =>
+        val location = AstUtils.locationOfBoundExpression(lhs)
+        diagnosticBag.reportExpressionIsNotAssignable(
+          location
+        )
+        Either.Left("Expression is not assignable: " + location)
+    }
+  }
+
   def bindAssignmentExpression(
       node: Expression.AssignmentExpression,
       scope: Scope
@@ -391,9 +410,21 @@ case class ExprBinder(
         }
 
       case _ =>
-        val location = AstUtils.locationOfExpression(node.left)
-        diagnosticBag.reportExpressionIsNotAssignable(location)
-        BoundExpression.Error("Expression is not assignable: " + location)
+        val lhsType = binder.getType(lhs)
+        val leftHandSide = bindLHS(lhs, scope)
+        leftHandSide match {
+          case Either.Left(message) =>
+            diagnosticBag.reportExpressionIsNotAssignable(
+              AstUtils.locationOfBoundExpression(lhs)
+            )
+            BoundExpression.Error(message)
+          case Either.Right(leftHandSide) =>
+            BoundExpression.Assignment(
+              AstUtils.locationOfExpression(node),
+              leftHandSide,
+              bindConversion(rhs, lhsType, false)
+            )
+        }
     }
   }
 
@@ -931,13 +962,40 @@ case class ExprBinder(
         )
       case Option.Some(symbol) =>
         val symbolType = binder.tryGetSymbolType(symbol)
-        Result.Success(
+        if (symbol.kind == SymbolKind.Field && !symbol.isStatic()) {
+          // if this is a field that means we need an LHS expression
+          // either "this" or something else?
+
+          symbolType match {
+            case Option.None => ???
+            case Option.Some(symbolType) =>
+              symbol.parent match {
+                case Option.None => ???
+                case Option.Some(parent) =>
+                  val thisType = binder.getSymbolType(parent)
+                  thisType match {
+                    case Option.None => ???
+                    case Option.Some(value) =>
+                      BoundExpression.MemberAccess(
+                        location = identifier.location,
+                        left = BoundExpression.ThisExpression(
+                          identifier.location,
+                          value
+                        ),
+                        symbol,
+                        List.Nil, // TODO: type arguments
+                        symbolType
+                      )
+                  }
+              }
+          }
+        } else {
           BoundExpression.Variable(
             identifier.location,
             symbol,
             symbolType
           )
-        )
+        }
     }
   }
 
