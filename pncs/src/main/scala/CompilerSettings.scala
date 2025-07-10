@@ -3,6 +3,6 @@ object CompilerSettings {
   val diagnosticsToPrint = 10
   val defaultStackSize = 10
   val defaultHeapSize = 1024
-  val enableTracing = false
   val printBoundAssembly = true
+  val enableTracing = true
 }

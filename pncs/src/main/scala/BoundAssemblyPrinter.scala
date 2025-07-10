@@ -87,6 +87,7 @@ class BoundAssemblyPrinter(binder: Binder) {
       case expr: BoundExpression.MemberAccess     => printMemberAccess(expr)
       case expr: BoundExpression.NewExpression    => printNewExpression(expr)
       case expr: BoundExpression.StringLiteral    => printStringLiteral(expr)
+      case expr: BoundExpression.ThisExpression   => printThisExpression(expr)
       case expr: BoundExpression.UnaryExpression  => printUnaryExpression(expr)
       case expr: BoundExpression.UnitExpression   => printUnitExpression(expr)
       case expr: BoundExpression.Variable         => printVariable(expr)
@@ -97,7 +98,7 @@ class BoundAssemblyPrinter(binder: Binder) {
   def printError(expr: BoundExpression.Error): unit = ???
   def printAssignment(expr: BoundExpression.Assignment): unit = {
     writeIndent()
-    writeWithColor(ColorPalette.Identifier, expr.variable.name)
+    printLeftHandSide(expr.receiver)
     writeWithColor(ColorPalette.Punctuation, " = ")
     printExpression(expr.expression)
   }
@@ -110,6 +111,17 @@ class BoundAssemblyPrinter(binder: Binder) {
     )
     writeWithColor(ColorPalette.Punctuation, " ")
     printExpression(expr.right)
+  }
+
+  def printLeftHandSide(expr: BoundLeftHandSide): unit = {
+    expr match {
+      case BoundLeftHandSide.IndexExpression(indexExpr) =>
+        printIndexExpression(indexExpr)
+      case BoundLeftHandSide.MemberAccess(memberAccess) =>
+        printMemberAccess(memberAccess)
+      case BoundLeftHandSide.Variable(variable) =>
+        writeWithColor(ColorPalette.Identifier, variable.symbol.name)
+    }
   }
   def printBlock(expr: BoundExpression.Block): unit = {
     writeIndent()
@@ -200,6 +212,10 @@ class BoundAssemblyPrinter(binder: Binder) {
 
   def printStringLiteral(expr: BoundExpression.StringLiteral): unit = {
     writeWithColor(ColorPalette.String, "\"" + expr.value + "\"")
+  }
+
+  def printThisExpression(expr: BoundExpression.ThisExpression): unit = {
+    writeWithColor(ColorPalette.Keyword, "this")
   }
 
   def printUnaryExpression(expr: BoundExpression.UnaryExpression): unit = {

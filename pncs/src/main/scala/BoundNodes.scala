@@ -35,11 +35,17 @@ enum BoundStatement {
   )
 }
 
+enum BoundLeftHandSide {
+  case IndexExpression(expression: BoundExpression.IndexExpression)
+  case MemberAccess(expression: BoundExpression.MemberAccess)
+  case Variable(expression: BoundExpression.Variable)
+}
+
 enum BoundExpression {
   case Error(message: string)
   case Assignment(
       location: TextLocation,
-      variable: Symbol,
+      receiver: BoundLeftHandSide,
       expression: BoundExpression
   )
   case BinaryExpression(
@@ -100,6 +106,7 @@ enum BoundExpression {
       resultType: Type
   )
   case StringLiteral(location: TextLocation, value: string)
+  case ThisExpression(location: TextLocation, resultType: Type)
   case UnaryExpression(
       location: TextLocation,
       operator: UnaryOperatorKind,

@@ -207,6 +207,8 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
         lowerNewExpression(expr, context)
       case expr: BoundExpression.StringLiteral =>
         lowerStringLiteral(expr, context)
+      case expr: BoundExpression.ThisExpression =>
+        ???
       case expr: BoundExpression.UnaryExpression =>
         lowerUnaryExpression(expr, context)
       case expr: BoundExpression.UnitExpression =>
@@ -222,13 +224,22 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       context: LoweredBlock
   ): LoweredBlock = {
 
-    val variable = expr.variable
+//    val variable = expr.variable
     val location = expr.location
     val block = lowerExpression(expr.expression, context)
 
+    expr.receiver match {
+      case BoundLeftHandSide.IndexExpression(expression) => ???
+      case BoundLeftHandSide.MemberAccess(expression) => ???
+//        consumeExpr(LoweredBlock(block))
+//        expression.left
+      case BoundLeftHandSide.Variable(expression) => ???
+    }
+
     val assignmentStatement = LoweredStatement.Assignment(
       location,
-      variable,
+      ???,
+//      variable,
       block.expression
     )
 
