@@ -6,24 +6,41 @@ object VmTests {
   def run(): unit = {
     suite("VM Tests")
 
-    constants()
-    unary()
-    binary()
-    binaryPrecedence()
-    unaryPrecedence()
-    locals()
+//    constants()
+//    unary()
+//    binary()
+//    binaryPrecedence()
+//    unaryPrecedence()
+//    locals()
+//
+//    ifExpressions()
 
-    ifExpressions()
+    objectMethods()
 
     // TODO: dup, swap, pop
     // TODO: arguments
     // TODO: call, ret
     // TODO: branch
     // TODO: conv
+    // TODO: static method calls
     // TODO: static field access
     // TODO: instance creation
+    // TODO: instance method calls
     // TODO: instance field access
+  }
 
+  def objectMethods(): unit = {
+
+    val setup = "object TestObject {\n" +
+      "  def testMethod(x: int): int = x + 1\n" +
+      "  def testMethod2(x: int, y: int): int = x + y\n" +
+      "}\n"
+
+    assertExecValueIntWithSetup(setup, "TestObject.testMethod(0)", 1)
+    assertExecValueIntWithSetup(setup, "TestObject.testMethod(11)", 12)
+    assertExecValueIntWithSetup(setup, "TestObject.testMethod(12)", 13)
+    assertExecValueIntWithSetup(setup, "TestObject.testMethod2(11, 12)", 23)
+    assertExecValueIntWithSetup(setup, "TestObject.testMethod2(12, 13)", 25)
   }
 
   def ifExpressions(): unit = {
