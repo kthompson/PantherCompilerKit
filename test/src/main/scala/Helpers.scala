@@ -139,14 +139,21 @@ object Helpers {
       enumerator: ChainEnumerator[Symbol]
   ): Symbol = {
     Assert.isTrue(enumerator.moveNext())
-    val symbol = enumerator.current()
-    Assert.equal(SymbolKind.Object, symbol.kind)
+    val program = enumerator.current()
+    Assert.equal(SymbolKind.Object, program.kind)
 
     Assert.assert(
-      symbol.name == "$Program" || symbol.name == "Program",
-      "expected 'Program' or '$Program', got: " + symbol.name
+      program.name == "$Program" || program.name == "Program",
+      "expected 'Program' or '$Program', got: " + program.name
     )
-    symbol
+
+    // $runtimeInit
+    Assert.isTrue(enumerator.moveNext())
+    val runtimeInit = enumerator.current()
+    Assert.equal(SymbolKind.Method, runtimeInit.kind)
+    Assert.stringEqual("$runtimeInit", runtimeInit.name)
+
+    program
   }
 
   def enumNonBuiltinSymbols(

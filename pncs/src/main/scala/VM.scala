@@ -57,17 +57,20 @@ case class VM(
   var localp = 0 // local variable pointer
   var heapp = 0 // heap pointer
 
+  // static field pointer (portion of the heap)
+  var staticp = 0
+
   val disassembler = new Disassembler(chunk, metadata)
 
   // setup metadata (this should be the emitter's job)
   // 1. setup some space for static fields
   //    a. count the number of static fields, and assign them an index
   //    b. record number of static fields in the Chunk header
-  // 2. iterate through all the class symbols and record their fields
-  //    a. each field for each class will get an index that we can reference
-  //
 
-  def setupHeap(): unit = {}
+  def setupHeap(): unit = {
+    // allocate space on the heap for static fields
+    alloc(metadata.statics())
+  }
 
   // allocates space on the heap for an object
   def alloc(size: int): int = {
@@ -93,6 +96,11 @@ case class VM(
   def readMethodToken(): MethodToken = {
     val value = readI4()
     MethodToken(value)
+  }
+
+  def readFieldToken(): FieldToken = {
+    val value = readI4()
+    FieldToken(value)
   }
 
   def push(value: Value): InterpretResult = {
@@ -235,6 +243,8 @@ case class VM(
   }
 
   def run(): InterpretResult = {
+    setupHeap()
+
     var result = entry match {
       case Option.None => InterpretResult.Continue
       case Option.Some(value) =>
@@ -242,7 +252,7 @@ case class VM(
           val name = metadata.getMethodName(value)
           println("Running program with entry point: " + name)
         }
-        callMethod(value, -1)
+        methodCall(value, -1)
     }
 
     while (result == InterpretResult.Continue) {
@@ -263,28 +273,12 @@ case class VM(
 
       // control instructions
       case Opcode.Ret =>
-        val endFrame = localp
-
-        val retAddr = stackAsInt(endFrame - 3)
-        stack(argsp) = pop()
-        sp = argsp + 1
-        argsp = stackAsInt(endFrame - 1)
-        localp = stackAsInt(endFrame - 2)
-        ip = retAddr
-
-        if (ip == -1) {
-          // special case for tests.
-          // if ip is -1, then we are at the top level and have just completed main
-          // in this case argsp is also zero and the return address/value
-          InterpretResult.OkValue(stack(0))
-        } else {
-          InterpretResult.Continue
-        }
+        methodReturn()
 
       case Opcode.Call =>
         val token = readMethodToken()
         // return after the current instruction
-        callMethod(token, ip + 1)
+        methodCall(token, ip)
 
       case Opcode.Br =>
         val target = readI4()
@@ -415,33 +409,67 @@ case class VM(
             push(Value.String("unit"))
             InterpretResult.Continue
           case ref: Value.Ref =>
-            val typeDef = metadata.typeDefs.typeDefs(ref.token.token)
-            val ns = metadata.getString(typeDef.ns)
-            val typeName = metadata.getString(typeDef.name)
-
-            val fullName = if (ns.nonEmpty) {
-              ns + "." + typeName
-            } else {
-              typeName
-            }
-
+            val fullName = metadata.getTypeName(ref.token)
             push(Value.String(fullName))
             InterpretResult.Continue
         }
+
+      case Opcode.Stsfld =>
+        val token = readFieldToken()
+        val field = metadata.fields.get(token)
+
+        // pop the value to store
+        val value = pop()
+
+        // store the value in the static field
+        heap(staticp + field.index) = value
+        InterpretResult.Continue
+      case Opcode.Ldsfld =>
+        val token = readFieldToken()
+        val field = metadata.fields.get(token)
+
+        // load the static field value
+        val value = heap(staticp + field.index)
+        push(value)
+        InterpretResult.Continue
       case _ =>
-        panic("Unknown opcode " + instruction)
+        val opcode = Opcode.nameOf(instruction)
+        panic("Unsupported opcode " + opcode)
         InterpretResult.CompileError
     }
   }
 
-  def callMethod(
-      methodTok: MethodToken,
+  def methodReturn(): InterpretResult = {
+    // localp points to the end of the previous call frame
+    // we can index into our old stack frame using localp in the current frame
+    // see methodCall for the stack frame structure
+    val endFrame = localp
+
+    val retAddr = stackAsInt(endFrame - 3)
+    stack(argsp) = pop()
+    sp = argsp + 1
+    argsp = stackAsInt(endFrame - 1)
+    localp = stackAsInt(endFrame - 2)
+    ip = retAddr
+
+    if (ip == -1) {
+      // special case for tests.
+      // if ip is -1, then we are at the top level and have just completed main
+      // in this case argsp is also zero and the return address/value
+      InterpretResult.OkValue(stack(0))
+    } else {
+      InterpretResult.Continue
+    }
+  }
+
+  def methodCall(
+      method: MethodToken,
       returnAddress: int
   ): InterpretResult = {
-    val name = metadata.getMethodName(methodTok)
-    val numArgs = metadata.getMethodParameterCount(methodTok)
-    val addr = metadata.getMethodAddress(methodTok)
-    val localCount = metadata.getMethodLocals(methodTok)
+    val numArgs = metadata.getMethodParameterCount(method)
+    val addr = metadata.getMethodAddress(method)
+    val localCount = metadata.getMethodLocals(method)
+
     push(Value.Int(returnAddress))
 
     // save this frames segments

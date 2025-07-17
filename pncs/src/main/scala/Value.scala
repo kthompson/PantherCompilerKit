@@ -5,5 +5,4 @@ enum Value {
   case String(value: string)
   case Ref(token: TypeDefToken, value: int)
   case Unit
-
 }

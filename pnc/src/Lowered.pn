@@ -11,6 +11,11 @@ class LabelToken(id: int)
 
 enum LoweredStatement {
   case Error
+  case AssignStaticField(
+      location: TextLocation,
+      field: Symbol,
+      expression: LoweredExpression
+  )
   case AssignField(
       location: TextLocation,
       receiver: LoweredLeftHandSide,
@@ -51,7 +56,7 @@ class LoweredLeftHandSideBlock(
 )
 
 enum LoweredLeftHandSide {
-  case Variable(symbol: Symbol)
+  case Variable(location: TextLocation, symbol: Symbol)
   case MemberAccess(
       location: TextLocation,
       left: LoweredLeftHandSide,
@@ -179,7 +184,32 @@ object Lower {
   ): LoweredBlock = {
     val context = LoweredBlock(Chain.Empty(), LoweredExpression.unit)
     val lowerer = new ExpressionLowerer(symbol, binder)
-    lowerer.lowerExpression(body, context)
+    val block = lowerer.lowerExpression(body, context)
+    filterUnitStatements(block)
+  }
+
+  def filterUnitStatements(block: LoweredBlock): LoweredBlock = {
+    LoweredBlock(filterUnitStatementsChain(block.statements), block.expression)
+  }
+
+  def filterUnitStatementsChain(
+      block: Chain[LoweredStatement]
+  ): Chain[LoweredStatement] = {
+    block.uncons() match {
+      case Option.None => Chain.Empty[LoweredStatement]()
+      case Option.Some(Tuple2(statement, rest)) =>
+        statement match {
+          case LoweredStatement.ExpressionStatement(
+                _,
+                LoweredExpression.unit
+              ) =>
+            // skip this statement
+            filterUnitStatementsChain(rest)
+          case _ =>
+            // keep this statement
+            ChainModule.of(statement).concat(filterUnitStatementsChain(rest))
+        }
+    }
   }
 
 }
@@ -239,9 +269,9 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
         LoweredBlock(
           lhs.statements,
           lhs.expression match {
-            case LoweredLeftHandSide.Variable(symbol) =>
+            case LoweredLeftHandSide.Variable(location, symbol) =>
               // we have a variable so we can just return it
-              LoweredExpression.Variable(expr.location, symbol)
+              LoweredExpression.Variable(location, symbol)
             case LoweredLeftHandSide.MemberAccess(location, left, symbol) =>
               LoweredExpression.MemberAccess(expr.location, left, symbol)
           }
@@ -255,15 +285,15 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       case expr: BoundExpression.UnitExpression =>
         lowerUnitExpression(expr, context)
       case expr: BoundExpression.Variable =>
-        val lhs = lowerVariable(expr.symbol, context)
+        val lhs = lowerVariable(expr.location, expr.symbol, context)
         LoweredBlock(
           lhs.statements,
           lhs.expression match {
-            case LoweredLeftHandSide.Variable(symbol) =>
+            case LoweredLeftHandSide.Variable(location, symbol) =>
               // we have a variable so we can just return it
-              LoweredExpression.Variable(expr.location, symbol)
+              LoweredExpression.Variable(location, symbol)
             case LoweredLeftHandSide.MemberAccess(location, left, symbol) =>
-              LoweredExpression.MemberAccess(expr.location, left, symbol)
+              LoweredExpression.MemberAccess(location, left, symbol)
           }
         )
       case expr: BoundExpression.WhileExpression =>
@@ -281,18 +311,58 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       case BoundLeftHandSide.Call(expression)         => ???
       case BoundLeftHandSide.Index(expression)        => ???
       case BoundLeftHandSide.MemberAccess(expression) => ???
-      case BoundLeftHandSide.Variable(symbol) =>
-        LoweredBlock(
-          block.statements.append(
-            LoweredStatement.AssignLocal(
-              symbol.location,
-              symbol,
-              block.expression
-            )
-          ),
-          LoweredExpression.unit
-        )
+      case BoundLeftHandSide.Variable(location, symbol) =>
+        if (symbol.kind == SymbolKind.Field) {
+          lowerFieldAssignment(symbol, block)
+        } else {
+          LoweredBlock(
+            block.statements.append(
+              LoweredStatement.AssignLocal(
+                location,
+                symbol,
+                block.expression
+              )
+            ),
+            LoweredExpression.unit
+          )
+        }
     }
+  }
+
+  def lowerFieldAssignment(
+      symbol: Symbol,
+      block: LoweredBlock
+  ): LoweredBlock = {
+    // there are two cases here:
+    // - field is static and there is no receiver
+    // - field is not static but also no receiver was specified, so we assume it is a field assignment on the current instance
+
+    if (symbol.isStatic()) {
+      LoweredBlock(
+        block.statements.append(
+          LoweredStatement.AssignStaticField(
+            symbol.location,
+            symbol,
+            block.expression
+          )
+        ),
+        LoweredExpression.unit
+      )
+    } else {
+      panic(
+        "Field assignment without a receiver is not implemented for non-static fields: " + symbol.name
+      )
+    }
+//
+//    // we have a field assignment, so we need to lower it to an AssignField statement
+//    val lowered = LoweredStatement.AssignField(
+//      symbol.location,
+//      LoweredLeftHandSide.Variable(symbol),
+//      symbol,
+//      block.expression
+//    )
+//
+//    LoweredBlock(block.statements.append(lowered), LoweredExpression.Unit)
   }
 
   def lowerBinaryExpression(
@@ -628,8 +698,8 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
         ???
       case BoundLeftHandSide.MemberAccess(expression) =>
         lowerMemberAccess(expression, context)
-      case BoundLeftHandSide.Variable(symbol) =>
-        lowerVariable(symbol, context)
+      case BoundLeftHandSide.Variable(location, symbol) =>
+        lowerVariable(location, symbol, context)
     }
   }
 
@@ -761,6 +831,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   }
 
   def lowerVariable(
+      location: TextLocation,
       symbol: Symbol,
       context: LoweredBlock
   ): LoweredLeftHandSideBlock = {
@@ -768,7 +839,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
 
     LoweredLeftHandSideBlock(
       context.statements,
-      LoweredLeftHandSide.Variable(symbol)
+      LoweredLeftHandSide.Variable(location, symbol)
     )
   }
 
@@ -895,6 +966,15 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
     }
   }
 
+  /** Consume the expression from the context and return it along with any
+    * statements from the block.
+    *
+    * Use this when you want to combine more than one expression into a single
+    * block, such as in an if-else statement or a loop body.
+    *
+    * @param context
+    * @return
+    */
   def consumeExpr(
       context: LoweredBlock
   ): Tuple2[LoweredExpression, LoweredBlock] = {

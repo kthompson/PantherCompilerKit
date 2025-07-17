@@ -109,8 +109,12 @@ class BoundAssemblyPrinter(
         printIndexExpression(indexExpr)
       case BoundLeftHandSide.MemberAccess(memberAccess) =>
         printMemberAccess(memberAccess)
-      case BoundLeftHandSide.Variable(variable) =>
-        writeWithColor(ColorPalette.Identifier, variable.name)
+      case BoundLeftHandSide.Variable(location, variable) =>
+        if (variable.isStatic()) {
+          writeWithColor(ColorPalette.Identifier, variable.qualifiedName())
+        } else {
+          writeWithColor(ColorPalette.Identifier, variable.name)
+        }
       case BoundLeftHandSide.Call(callExpr) =>
         printCallExpression(callExpr)
     }

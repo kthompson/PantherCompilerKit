@@ -20,6 +20,8 @@ class Metadata() {
   var strings = StringTable()
   var signatures = BlobTable()
 
+  def statics(): int = fields.staticCount
+
   def addString(value: string): StringToken =
     strings.addBlob(value)
 
