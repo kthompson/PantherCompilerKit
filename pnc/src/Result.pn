@@ -1,0 +1,4 @@
+enum Result[in A, in B] {
+  case Error(value: A)
+  case Success(value: B)
+}

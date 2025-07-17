@@ -92,7 +92,8 @@ class LoweredAssemblyPrinter(
   def printStatement(statement: LoweredStatement): unit = {
     statement match {
       case LoweredStatement.Error                 => printErrorStatement()
-      case stmt: LoweredStatement.Assignment      => printAssignment(stmt)
+      case stmt: LoweredStatement.AssignField     => printAssignField(stmt)
+      case stmt: LoweredStatement.AssignLocal     => printAssignLocal(stmt)
       case stmt: LoweredStatement.ConditionalGoto => printConditionalGoto(stmt)
       case stmt: LoweredStatement.ExpressionStatement =>
         printExpressionStatement(stmt)
@@ -103,13 +104,6 @@ class LoweredAssemblyPrinter(
       case stmt: LoweredStatement.Return =>
         ???
     }
-  }
-
-  def printAssignment(assignment: LoweredStatement.Assignment): unit = {
-    ast.writeWithColor(ColorPalette.Identifier, assignment.variable.name)
-    ast.writeWithColor(ColorPalette.Punctuation, " = ")
-    printExpression(assignment.expression)
-    sb.appendLine("")
   }
 
   def printExpressionStatement(
@@ -141,9 +135,42 @@ class LoweredAssemblyPrinter(
     sb.appendLine("")
   }
 
+  def printAssignLocal(statement: LoweredStatement.AssignLocal): unit = {
+    ast.writeWithColor(ColorPalette.Keyword, "var ")
+//    writeWithColor(ColorPalette.Identifier, statement.local.name)
+    symbolPrinter.printSimpleSymbol(statement.local)
+    ast.writeWithColor(ColorPalette.Punctuation, " = ")
+    printExpression(statement.expression)
+    sb.appendLine("")
+  }
+
   def printErrorStatement(): unit = {
     ast.writeWithColor(ColorPalette.Error, "Error")
     sb.appendLine("")
+  }
+
+  def printAssignField(statement: LoweredStatement.AssignField): unit = {
+    printLeftHandSide(statement.receiver)
+    ast.writeWithColor(ColorPalette.Punctuation, ".")
+    symbolPrinter.printSimpleSymbol(statement.field)
+    ast.writeWithColor(ColorPalette.Punctuation, " = ")
+    printExpression(statement.expression)
+    sb.appendLine("")
+  }
+
+  def printLeftHandSide(leftHandSide: LoweredLeftHandSide): unit = {
+    leftHandSide match {
+      case LoweredLeftHandSide.Variable(symbol) =>
+        ast.writeWithColor(ColorPalette.Identifier, symbol.name)
+      case left: LoweredLeftHandSide.MemberAccess =>
+        printMemberAccess(left)
+    }
+  }
+
+  def printMemberAccess(value: LoweredLeftHandSide.MemberAccess): unit = {
+    printLeftHandSide(value.left)
+    ast.writeWithColor(ColorPalette.Punctuation, ".")
+    symbolPrinter.printSimpleSymbol(value.symbol)
   }
 
   def printExpression(expression: LoweredExpression): unit = {
@@ -222,7 +249,7 @@ class LoweredAssemblyPrinter(
   }
 
   def printCall(call: LoweredExpression.Call): unit = {
-    printExpression(call.method)
+    symbolPrinter.printSimpleSymbol(call.method)
     ast.writeWithColor(ColorPalette.Punctuation, "(")
 
     printExpressions(call.arguments.uncons())

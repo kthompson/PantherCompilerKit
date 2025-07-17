@@ -88,7 +88,7 @@ class BoundAssemblyPrinter(
 
   def printError(expr: BoundExpression.Error): unit = ???
   def printAssignment(expr: BoundExpression.Assignment): unit = {
-    writeWithColor(ColorPalette.Identifier, expr.variable.name)
+    printLeftHandSide(expr.receiver)
     writeWithColor(ColorPalette.Punctuation, " = ")
     printExpression(expr.expression)
   }
@@ -103,6 +103,18 @@ class BoundAssemblyPrinter(
     writeWithColor(ColorPalette.Punctuation, " ")
     printExpression(expr.right)
   }
+
+  def printLeftHandSide(expr: BoundLeftHandSide): unit = {
+    expr match {
+      case BoundLeftHandSide.IndexExpression(indexExpr) =>
+        printIndexExpression(indexExpr)
+      case BoundLeftHandSide.MemberAccess(memberAccess) =>
+        printMemberAccess(memberAccess)
+      case BoundLeftHandSide.Variable(variable) =>
+        writeWithColor(ColorPalette.Identifier, variable.name)
+    }
+  }
+
   def printBlock(expr: BoundExpression.Block): unit = {
     writeWithColor(ColorPalette.Punctuation, "{")
     ast.indent()
@@ -121,7 +133,16 @@ class BoundAssemblyPrinter(
       if (expr.value) "true" else "false"
     )
   def printCallExpression(expr: BoundExpression.CallExpression): unit = {
-    printExpression(expr.method)
+    expr.receiver match {
+      case Option.None =>
+        writeWithColor(ColorPalette.Identifier, expr.method.name)
+
+      case Option.Some(receiver) =>
+        printLeftHandSide(receiver)
+        writeWithColor(ColorPalette.Punctuation, ".")
+        writeWithColor(ColorPalette.Identifier, expr.method.name)
+    }
+
     writeWithColor(ColorPalette.Punctuation, "(")
 
     if (!expr.genericArguments.isEmpty) {
@@ -163,7 +184,7 @@ class BoundAssemblyPrinter(
     writeWithColor(ColorPalette.Number, string(expr.value))
   }
   def printMemberAccess(expr: BoundExpression.MemberAccess): unit = {
-    printExpression(expr.left)
+    printLeftHandSide(expr.receiver)
     writeWithColor(ColorPalette.Punctuation, ".")
     writeWithColor(ColorPalette.Identifier, expr.member.name)
   }
