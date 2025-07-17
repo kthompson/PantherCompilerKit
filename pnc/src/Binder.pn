@@ -371,6 +371,10 @@ class Binder(
             BoundExpression.UnitExpression(noLoc)
           )
         )
+        setSymbolType(
+          ctor,
+          Type.Function(symbol.location, List.Nil, unitType)
+        )
       case Option.Some(value) =>
         val statements =
           exprBinder.bindGlobalStatements(globalStatements, scope)

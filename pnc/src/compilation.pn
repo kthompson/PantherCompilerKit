@@ -33,7 +33,7 @@ object MakeCompilation {
         ast.writeWithColor(ColorPalette.Keyword, "Symbols:")
         ast.appendLine("")
         val printer = SymbolPrinter(binder, ast)
-        printer.printSymbol(rootSymbol)
+        printer.printSymbolTree(rootSymbol)
         println(sb.toString())
       }
 
@@ -96,7 +96,7 @@ class Compilation(
     val sb = IndentedStringBuilder()
     val printer = new AstPrinter(true, sb)
     val symbols = SymbolPrinter(binder, printer)
-    symbols.printSymbol(root)
+    symbols.printSymbolTree(root)
     println(sb.toString())
   }
 

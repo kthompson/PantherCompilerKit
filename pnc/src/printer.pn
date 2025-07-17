@@ -719,6 +719,18 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
     }
   }
 
+  def printSymbolQualifiedName(symbol: Symbol): unit = {
+    symbol.parent match {
+      case Option.None =>
+      case Option.Some(parent) =>
+        printSymbolQualifiedName(parent)
+        if (parent.name != "") {
+          writeWithColor(ColorPalette.Punctuation, ".")
+        }
+    }
+    writeWithColor(ColorPalette.Identifier, symbol.name)
+  }
+
   def printSymbolKind(kind: SymbolKind): unit = {
     kind match {
       case SymbolKind.Namespace =>

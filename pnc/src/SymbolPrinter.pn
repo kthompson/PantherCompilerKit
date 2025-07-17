@@ -9,16 +9,16 @@ class SymbolPrinter(
     symbols match {
       case List.Nil => ()
       case List.Cons(head, tail) =>
-        _printSymbol(head, indent, tail.isEmpty)
+        _printSymbolTree(head, indent, tail.isEmpty)
         if (!tail.isEmpty) {
           printSymbols(tail, indent)
         }
     }
   }
 
-  def printSymbol(symbol: Symbol): unit = _printSymbol(symbol, "", true)
+  def printSymbolTree(symbol: Symbol): unit = _printSymbolTree(symbol, "", true)
 
-  def _printSymbol(symbol: Symbol, indent: string, last: bool): unit = {
+  def _printSymbolTree(symbol: Symbol, indent: string, last: bool): unit = {
     val marker = if (last) "└──" else "├──"
 
     ast.writeColor(ColorPalette.Comment)
@@ -42,7 +42,7 @@ class SymbolPrinter(
     }
   }
 
-  private def printSymbolBodyType(symbol: Symbol): unit = {
+  def printSymbolBodyType(symbol: Symbol): unit = {
     if (
       symbol.kind == SymbolKind.Constructor || symbol.kind == SymbolKind.Method
     ) {
@@ -63,27 +63,22 @@ class SymbolPrinter(
   }
 
   def printSimpleSymbol(symbol: Symbol): unit = {
-    if (
-      symbol.kind == SymbolKind.Class || symbol.kind == SymbolKind.Object || symbol.kind == SymbolKind.Alias
-    ) {
+    if (isTypeDef(symbol)) {
       val typ = binder.tryGetSymbolType(symbol)
       typ match {
         case Option.Some(value) =>
           ast.printType(value)
         case Option.None =>
-          ast.append(symbol.qualifiedName())
+          ast.printSymbolQualifiedName(symbol)
       }
+    } else if (symbol.isStatic()) {
+      ast.printSymbolQualifiedName(symbol)
     } else {
-      ast.append(symbol.name)
+      ast.writeWithColor(ColorPalette.Identifier, symbol.name)
     }
     ast.writeColor(ColorPalette.Punctuation)
 
-    if (
-      symbol.kind != SymbolKind.Namespace &&
-      symbol.kind != SymbolKind.Block &&
-      symbol.kind != SymbolKind.Alias &&
-      symbol.kind != SymbolKind.Object
-    ) {
+    if (canHaveType(symbol)) {
       val typ = binder.tryGetSymbolType(symbol)
       typ match {
         case Option.Some(value) =>
@@ -96,10 +91,19 @@ class SymbolPrinter(
           }
         case Option.None =>
           ast.append(": ")
-          ast.writeColor(ColorPalette.Error)
-          ast.append("[missing type]")
-          ast.append(ANSI.Clear)
+          ast.writeWithColor(ColorPalette.Error, "[missing type]")
       }
     }
+  }
+
+  def isTypeDef(symbol: Symbol): bool = {
+    symbol.kind == SymbolKind.Class || symbol.kind == SymbolKind.Object || symbol.kind == SymbolKind.Alias
+  }
+
+  def canHaveType(symbol: Symbol): bool = {
+    symbol.kind != SymbolKind.Namespace &&
+    symbol.kind != SymbolKind.Block &&
+    symbol.kind != SymbolKind.Alias &&
+    symbol.kind != SymbolKind.Object
   }
 }

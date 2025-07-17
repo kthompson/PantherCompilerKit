@@ -264,6 +264,9 @@ class Binder(
   /** map of member symbols to their untyped declarations */
   var membersToType: Dictionary[Symbol, TypingMember] = DictionaryModule.empty()
 
+  /** static constructors to call on runtime initialization */
+  var staticCtors: List[Symbol] = List.Nil
+
   val classifier = new ConversionClassifier(this)
   val exprBinder: ExprBinder =
     new ExprBinder(rootSymbol, this, classifier, diagnosticBag)
@@ -305,13 +308,10 @@ class Binder(
     )
 
     val program = getProgramSymbol(rootSymbol)
+    val init = getRuntimeInit(program)
 
     // bind global statements, fields, and functions
     addMembersToBind(program, members.functions, members.fields, List.Nil)
-
-    //    println("Binding complete")
-//    val counts = countMembersToBind(membersToBind.list, 0, 0)
-//    println(string(counts._1 + counts._2) + " members to bind")
 
     // bind all members function & field types with type annotations
     membersToType = bindMembers(membersToBind.list, 1, DictionaryModule.empty())
@@ -323,25 +323,93 @@ class Binder(
     // TODO: this method still needs to register the field assignments as ctor statements
     bindConstructorSignatures(ctorsToBind.list)
 
-//    panic(string(membersToType.length) + " members to type")
-
     // then bind all functions & fields without type annotations
     bindTypingMembers()
 
     // bind all `statementsToBind` as constructor bodies
-
-//    printStatementsToBind(statementsToBind.list)
     buildConstructorBodies()
 
 //    panic("the type above probably should include the symbols we started to type, as well as all the parameters for methods")
 
     // then bind all function bodies
 
+    // build runtime initialization function body
+    buildRuntimeInitBody(init, staticCtors, List.Nil)
+
+    // inject the initialization of static constructors
+    patchMainWithInit(main, init)
+
     BoundAssembly(
       diagnosticBag.diagnostics,
       functionBodies,
       Option.Some(main)
     )
+  }
+
+  def buildRuntimeInitBody(
+      init: Symbol,
+      staticCtors: List[Symbol],
+      statements: List[BoundStatement]
+  ): unit = {
+    staticCtors match {
+      case List.Nil =>
+        functionBodies
+          .put(
+            init,
+            BoundExpression.Block(
+              statements,
+              BoundExpression.UnitExpression(noLoc)
+            )
+          )
+      case List.Cons(head, tail) =>
+        // call the static constructor
+        val call = BoundStatement.ExpressionStatement(
+          BoundExpression.CallExpression(
+            noLoc,
+            Option.None,
+            head,
+            List.Nil,
+            List.Nil,
+            unitType
+          )
+        )
+
+        // recursively build the body for the next static ctor
+        buildRuntimeInitBody(init, tail, List.Cons(call, statements))
+    }
+
+  }
+
+  def patchMainWithInit(main: Symbol, init: Symbol): unit = {
+    val mainBody = functionBodies.get(main) match {
+      case Option.None =>
+        // main has no body, so we create a new one
+        BoundExpression.UnitExpression(noLoc)
+      case Option.Some(value) =>
+        // main already has a body, so we add the call to init at the start
+        value
+    }
+
+    val newMainBody = BoundExpression.Block(
+      List.Cons(
+        BoundStatement.ExpressionStatement(
+          BoundExpression.CallExpression(
+            noLoc,
+            Option.None,
+            init,
+            List.Nil,
+            List.Nil,
+            unitType
+          )
+        ),
+        List.Nil
+      ),
+      mainBody
+    )
+
+    functionBodies
+      .remove(main)
+      .put(main, newMainBody)
   }
 
   def buildConstructorBodies(): unit = {
@@ -371,6 +439,16 @@ class Binder(
             BoundExpression.UnitExpression(noLoc)
           )
         )
+        setSymbolType(
+          ctor,
+          Type.Function(symbol.location, List.Nil, unitType)
+        )
+
+        // queue static constructor calls
+        if (ctor.name == ".ctor" && symbol.isStatic()) {
+          staticCtors = List.Cons(ctor, staticCtors)
+        }
+
       case Option.Some(value) =>
         val statements =
           exprBinder.bindGlobalStatements(globalStatements, scope)
@@ -1373,6 +1451,12 @@ class Binder(
             symbol
           )
         )
+
+        ???
+        // TODO: we need to setup fields with initializers as part of the statements to bind
+        // once we have that those statements will be added to the
+        // constructor body of the object and then the fields will be
+        // initialized in $runtimeInit
         addMembersToBind(symbol, members.functions, members.fields, List.Nil)
         addStatementsToBind(symbol, members.globalStatements)
     }
@@ -1499,6 +1583,14 @@ class Binder(
         // TODO: we should probably verify that this is a Method symbol
         symbol
     }
+  }
+
+  def getRuntimeInit(program: Symbol): Symbol = {
+    // let's create runtime init symbol
+    val location = noLoc
+    val init = program.defineMethod("$runtimeInit", location)
+    setSymbolType(init, Type.Function(location, List.Nil, unitType))
+    init
   }
 
   def getProgramSymbol(root: Symbol): Symbol = {
