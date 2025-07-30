@@ -1,48 +1,41 @@
 import panther._
 
-class BoundAssemblyPrinter(binder: Binder) {
-  val astPrinter = new AstPrinter(true, true)
-  val symbolPrinter = new SymbolPrinter(binder)
-
-  var indentString = "  "
-
-  def indent(): unit = {
-    indentString = indentString + "  "
-  }
-
-  def unindent(): unit = {
-    if (indentString.length >= 2) {
-      indentString = indentString.substring(0, indentString.length - 2)
-    }
-  }
-
-  def writeIndent(): unit = {
-    print(indentString)
-  }
+class BoundAssemblyPrinter(
+    binder: Binder,
+    ast: AstPrinter,
+    symbolPrinter: SymbolPrinter
+) {
 
   def writeWithColor(color: string, text: string): unit = {
-    astPrinter.writeColor(color)
-    astPrinter.write(text)
-    astPrinter.writeClear()
+    ast.writeWithColor(color, text)
   }
 
-  def printAssembly(assembly: BoundAssembly): Unit = {
-    println("=== Bound Assembly ===")
+  def printAssembly(assembly: BoundAssembly): unit = {
+    ast.writeWithColor(ColorPalette.Brackets(0), "Bound Assembly")
+    ast.appendLine("")
+    ast.indent()
     assembly.entryPoint match {
       case Option.None =>
       case Option.Some(value) =>
-        print("Entry Point ")
+        ast.writeWithColor(ColorPalette.Brackets(1), "Entry Point")
+        ast.appendLine("")
+        ast.indent()
         symbolPrinter.printSimpleSymbol(value)
-        println()
+        ast.appendLine("")
+        ast.unindent()
     }
 
     if (!assembly.functionBodies.list.isEmpty) {
-      println("Function Bodies:")
-      indent()
+      ast.writeWithColor(ColorPalette.Brackets(1), "Function Bodies:")
+      ast.appendLine("")
+      ast.indent()
 
       printFunctionBodies(assembly.functionBodies.list)
-      unindent()
+      ast.unindent()
     }
+
+    ast.unindent()
+    ast.appendLine("")
   }
 
   def printFunctionBodies(
@@ -60,12 +53,11 @@ class BoundAssemblyPrinter(binder: Binder) {
       symbol: Symbol,
       body: BoundExpression
   ): unit = {
-    val printer = new AstPrinter(true, true)
     symbolPrinter.printSimpleSymbol(symbol)
     writeWithColor(ColorPalette.Punctuation, " = ")
     printExpression(body)
-    unindent()
-    println()
+    ast.unindent()
+    ast.appendLine("")
   }
 
   def printExpression(
@@ -96,7 +88,6 @@ class BoundAssemblyPrinter(binder: Binder) {
 
   def printError(expr: BoundExpression.Error): unit = ???
   def printAssignment(expr: BoundExpression.Assignment): unit = {
-    writeIndent()
     writeWithColor(ColorPalette.Identifier, expr.variable.name)
     writeWithColor(ColorPalette.Punctuation, " = ")
     printExpression(expr.expression)
@@ -113,15 +104,15 @@ class BoundAssemblyPrinter(binder: Binder) {
     printExpression(expr.right)
   }
   def printBlock(expr: BoundExpression.Block): unit = {
-    writeIndent()
     writeWithColor(ColorPalette.Punctuation, "{")
-    println()
+    ast.indent()
+    ast.appendLine("")
 
     printStatements(expr.statements)
 
-    writeIndent()
+    ast.unindent()
     writeWithColor(ColorPalette.Punctuation, "}")
-    println()
+    ast.appendLine("")
   }
 
   def printBooleanLiteral(expr: BoundExpression.BooleanLiteral): unit =
@@ -135,7 +126,7 @@ class BoundAssemblyPrinter(binder: Binder) {
 
     if (!expr.genericArguments.isEmpty) {
       writeWithColor(ColorPalette.Punctuation, "<")
-      astPrinter._printTypes(expr.genericArguments, ", ", true)
+      ast._printTypes(expr.genericArguments, ", ", true)
       writeWithColor(ColorPalette.Punctuation, ">")
     }
 
@@ -178,7 +169,7 @@ class BoundAssemblyPrinter(binder: Binder) {
   }
   def printNewExpression(expr: BoundExpression.NewExpression): unit = {
     writeWithColor(ColorPalette.Keyword, "new")
-    print(" ")
+    ast.append(" ")
     writeWithColor(ColorPalette.Identifier, expr.constructor.parent.get().name)
     writeWithColor(ColorPalette.Punctuation, "(")
     printExpressions(expr.arguments)
@@ -237,7 +228,6 @@ class BoundAssemblyPrinter(binder: Binder) {
   }
 
   def printBoundStatement(statement: BoundStatement): unit = {
-    writeIndent()
     statement match {
       case BoundStatement.Error => printErrorStatement()
       case stmt: BoundStatement.ExpressionStatement =>
@@ -248,29 +238,26 @@ class BoundAssemblyPrinter(binder: Binder) {
   }
 
   def printErrorStatement(): unit = {
-    writeIndent()
     writeWithColor(ColorPalette.Error, "Error")
-    println()
+    ast.appendLine("")
   }
 
   def printExpressionStatement(
       statement: BoundStatement.ExpressionStatement
   ): unit = {
-    writeIndent()
     printExpression(statement.expression)
-    println()
+    ast.appendLine("")
   }
 
   def printVariableDeclaration(
       statement: BoundStatement.VariableDeclaration
   ): unit = {
-    writeIndent()
     writeWithColor(ColorPalette.Keyword, "var")
-    print(" ")
+    ast.append(" ")
     writeWithColor(ColorPalette.Identifier, statement.variable.name)
 
     writeWithColor(ColorPalette.Punctuation, " = ")
     printExpression(statement.initializer)
-    println()
+    ast.appendLine("")
   }
 }

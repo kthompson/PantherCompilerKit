@@ -5,22 +5,24 @@ using StatementSyntax
 using SimpleNameSyntax
 using NameSyntax
 
-class AstPrinter(withColor: bool, toConsole: bool) {
-  var buffer = ""
+class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
+  def toString(): string = buffer.toString()
 
-  def toString(): string = buffer
-
-  def write(text: string): unit = {
-    if (toConsole) {
-      print(text)
-    } else {
-      buffer = buffer + text
-    }
+  def indent(): unit = {
+    buffer.indent()
   }
 
-  def writeln(text: string): unit = {
-    write(text)
-    write("\n")
+  def unindent(): unit = {
+    buffer.unindent()
+  }
+
+  def append(text: string): unit = {
+    buffer.append(text)
+  }
+
+  def appendLine(text: string): unit = {
+    append(text)
+    append("\n")
   }
 
   def printCompilationUnit(compilationUnit: CompilationUnitSyntax): unit = {
@@ -515,7 +517,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
 
   def printTrivia(node: SyntaxTrivia): unit = {
     printKindColor(node.kind)
-    write(node.text)
+    append(node.text)
     writeClear()
   }
 
@@ -534,7 +536,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
   def printToken(token: SyntaxToken): unit = {
     printTriviaArray(token.leading)
     printKindColor(token.kind)
-    write(token.text)
+    append(token.text)
     writeClear()
     printTriviaArray(token.trailing)
   }
@@ -542,7 +544,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
   def printTokenWithColor(token: SyntaxToken, color: string): unit = {
     printTriviaArray(token.leading)
     writeColor(color)
-    write(token.text)
+    append(token.text)
     writeClear()
     printTriviaArray(token.trailing)
   }
@@ -556,7 +558,7 @@ class AstPrinter(withColor: bool, toConsole: bool) {
       case List.Cons(typ, tail) =>
         if (!first) {
           writeColor(ColorPalette.Punctuation)
-          write(sep)
+          append(sep)
         }
         _printType(typ, false)
         _printTypes(tail, sep, false)
@@ -571,12 +573,12 @@ class AstPrinter(withColor: bool, toConsole: bool) {
       case List.Cons(param, tail) =>
         if (printedFirst) {
           writeColor(ColorPalette.Punctuation)
-          write(", ")
+          append(", ")
         } else {}
         writeColor(ColorPalette.Identifier)
-        write(param.symbol.name)
+        append(param.symbol.name)
         writeColor(ColorPalette.Punctuation)
-        write(": ")
+        append(": ")
         _printType(param.typ, false)
         _printTypedParameters(tail, true)
     }
@@ -586,21 +588,21 @@ class AstPrinter(withColor: bool, toConsole: bool) {
     typ match {
       case Type.Function(_, parameters, returnType) =>
         writeColor(ColorPalette.Punctuation)
-        write("(")
+        append("(")
         _printTypedParameters(parameters, false)
         writeColor(ColorPalette.Punctuation)
-        write(") -> ")
+        append(") -> ")
         _printType(returnType, false)
       case Type.GenericFunction(_, genParams, traits, parameters, returnType) =>
         writeColor(ColorPalette.Punctuation)
-        write("<")
+        append("<")
         _printGenTypes(genParams, true)
         writeColor(ColorPalette.Punctuation)
-        write(">")
-        write("(")
+        append(">")
+        append("(")
         _printTypedParameters(parameters, false)
         writeColor(ColorPalette.Punctuation)
-        write(") -> ")
+        append(") -> ")
         _printType(returnType, false)
 
       case Type.Class(_, ns, name, args, _) =>
@@ -610,22 +612,22 @@ class AstPrinter(withColor: bool, toConsole: bool) {
           else ColorPalette.Identifier
 
         writeColor(color)
-        write(typ._name(ns, name))
+        append(typ._name(ns, name))
 
         args match {
           case List.Nil =>
           case List.Cons(typ, tail) =>
-            write("<")
+            append("<")
             _printTypes(args, ", ", true)
-            write(">")
+            append(">")
         }
 
       case Type.Union(_, types) =>
         writeColor(ColorPalette.Punctuation)
-        write("(")
+        append("(")
         _printTypes(types, " | ", true)
         writeColor(ColorPalette.Punctuation)
-        write(")")
+        append(")")
 
       case Type.Alias(_, ns, name, args, value, _) =>
         val color =
@@ -634,14 +636,14 @@ class AstPrinter(withColor: bool, toConsole: bool) {
           else ColorPalette.Identifier
 
         writeColor(color)
-        write(typ._name(ns, name))
+        append(typ._name(ns, name))
 
         args match {
           case List.Nil =>
           case List.Cons(typ, tail) =>
-            write("<")
+            append("<")
             _printTypes(args, ", ", true)
-            write(">")
+            append(">")
         }
 
       case Type.GenericClass(_, ns, name, args, _) =>
@@ -651,27 +653,27 @@ class AstPrinter(withColor: bool, toConsole: bool) {
           else ColorPalette.Identifier
 
         writeColor(color)
-        write(typ._name(ns, name))
+        append(typ._name(ns, name))
 
         args match {
           case List.Nil =>
           case List.Cons(typ, tail) =>
-            write("<")
+            append("<")
             _printGenTypes(args, true)
-            write(">")
+            append(">")
         }
       case Type.Variable(_, i) =>
         writeColor(ColorPalette.Keyword)
-        write("$" + i)
+        append("$" + i)
       case Type.Any =>
         writeColor(ColorPalette.Keyword)
-        write("any")
+        append("any")
       case Type.Never =>
         writeColor(ColorPalette.Keyword)
-        write("never")
+        append("never")
       case Type.Error(_) =>
         writeColor(ColorPalette.Error)
-        write("error")
+        append("error")
     }
 
     if (clear) writeClear() else ()
@@ -683,25 +685,25 @@ class AstPrinter(withColor: bool, toConsole: bool) {
       case List.Cons(typ, tail) =>
         if (!first) {
           writeColor(ColorPalette.Punctuation)
-          write(", ")
+          append(", ")
         }
 
         typ.variance match {
           case Variance.Covariant =>
             writeColor(ColorPalette.Keyword)
-            write("out ")
+            append("out ")
           case Variance.Contravariant =>
             writeColor(ColorPalette.Keyword)
-            write("in ")
+            append("in ")
           case _ =>
         }
 
         writeColor(ColorPalette.Identifier)
-        write(typ.name)
+        append(typ.name)
         typ.upperBound match {
           case Option.Some(value) =>
             writeColor(ColorPalette.Punctuation)
-            write(" <: ")
+            append(" <: ")
             _printType(value, false)
           case Option.None =>
         }
@@ -714,40 +716,40 @@ class AstPrinter(withColor: bool, toConsole: bool) {
     kind match {
       case SymbolKind.Namespace =>
         writeColor(ColorPalette.Keyword)
-        write("Namespace")
+        append("Namespace")
       case SymbolKind.Class =>
         writeColor(ColorPalette.Keyword)
-        write("Class")
+        append("Class")
       case SymbolKind.Object =>
         writeColor(ColorPalette.Keyword)
-        write("Object")
+        append("Object")
       case SymbolKind.Alias =>
         writeColor(ColorPalette.Keyword)
-        write("Alias")
+        append("Alias")
       case SymbolKind.TypeParameter(_) =>
         writeColor(ColorPalette.TypeParameter)
-        write("TypeParameter")
+        append("TypeParameter")
       case SymbolKind.Field =>
         writeColor(ColorPalette.Field)
-        write("Field")
+        append("Field")
       case SymbolKind.Method =>
         writeColor(ColorPalette.Method)
-        write("Method")
+        append("Method")
       case SymbolKind.Constructor =>
         writeColor(ColorPalette.Method)
-        write("Constructor")
+        append("Constructor")
       case SymbolKind.Block =>
         writeColor(ColorPalette.Identifier)
-        write("Block")
+        append("Block")
       case SymbolKind.Parameter =>
         writeColor(ColorPalette.Identifier)
-        write("Parameter")
+        append("Parameter")
       case SymbolKind.Local =>
         writeColor(ColorPalette.Identifier)
-        write("Local")
+        append("Local")
     }
 
-    write(ANSI.Clear)
+    append(ANSI.Clear)
   }
 
   def printKindColor(kind: int): unit = {
@@ -799,21 +801,27 @@ class AstPrinter(withColor: bool, toConsole: bool) {
   }
 
   def printTokenInfo(token: SyntaxToken): unit =
-    writeln(
+    appendLine(
       token.location.toString() + "[" + SyntaxFacts.getKindName(
         token.kind
       ) + "]: " + "\"" + token.text + "\""
     )
 
+  def writeWithColor(color: string, text: string): unit = {
+    writeColor(color)
+    append(text)
+    writeClear()
+  }
+
   def writeColor(value: string): unit = {
     if (withColor) {
-      write(ANSI.foregroundColor(value))
+      append(ANSI.foregroundColor(value))
     }
   }
 
   def writeClear(): unit = {
     if (withColor) {
-      write(ANSI.Clear)
+      append(ANSI.Clear)
     }
   }
 }
