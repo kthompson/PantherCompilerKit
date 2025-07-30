@@ -47,7 +47,7 @@ class BoundAssemblyPrinter(binder: Binder) {
 
   def printFunctionBodies(
       functionBodies: List[KeyValue[Symbol, BoundExpression]]
-  ): Unit = {
+  ): unit = {
     functionBodies match {
       case List.Nil => ()
       case List.Cons(head, tail) =>
@@ -101,6 +101,7 @@ class BoundAssemblyPrinter(binder: Binder) {
     writeWithColor(ColorPalette.Punctuation, " = ")
     printExpression(expr.expression)
   }
+
   def printBinaryExpression(expr: BoundExpression.BinaryExpression): unit = {
     printExpression(expr.left)
     writeWithColor(ColorPalette.Punctuation, " ")

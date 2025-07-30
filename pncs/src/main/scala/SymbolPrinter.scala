@@ -64,7 +64,7 @@ case class SymbolPrinter(binder: Binder) {
     if (
       symbol.kind == SymbolKind.Class || symbol.kind == SymbolKind.Object || symbol.kind == SymbolKind.Alias
     ) {
-      val typ = binder.getSymbolType(symbol)
+      val typ = binder.tryGetSymbolType(symbol)
       typ match {
         case Option.Some(value) =>
           printer.printType(value)
@@ -82,7 +82,7 @@ case class SymbolPrinter(binder: Binder) {
       symbol.kind != SymbolKind.Alias &&
       symbol.kind != SymbolKind.Object
     ) {
-      val typ = binder.getSymbolType(symbol)
+      val typ = binder.tryGetSymbolType(symbol)
       typ match {
         case Option.Some(value) =>
           symbol.kind match {

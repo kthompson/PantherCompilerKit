@@ -593,7 +593,7 @@ case class Emitter(
   }
 
   def getSymbolSignature(symbol: Symbol) = {
-    binder.getSymbolType(symbol) match {
+    binder.tryGetSymbolType(symbol) match {
       case Option.None =>
         panic("getSymbolSignature: no type for symbol " + symbol.name)
       case Option.Some(typ) =>

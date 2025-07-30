@@ -327,7 +327,7 @@ object Helpers {
   }
 
   def assertSymbolType(comp: Compilation, symbol: Symbol, typ: string): unit = {
-    val symbolType = comp.binder.getSymbolType(symbol)
+    val symbolType = comp.binder.tryGetSymbolType(symbol)
     symbolType match {
       case Option.Some(value) =>
         Assert.stringEqual(typ, value.toString())

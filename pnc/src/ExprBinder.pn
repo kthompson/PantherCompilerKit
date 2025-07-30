@@ -485,7 +485,7 @@ class ExprBinder(
                 "Cannot find constructor for class: " + name
               )
             case Option.Some(ctor) =>
-              binder.getSymbolType(ctor) match {
+              binder.tryGetSymbolType(ctor) match {
                 case Option.Some(Type.Function(loc, params, _)) =>
                   bindNewExpressionForSymbol(
                     location,
@@ -861,7 +861,7 @@ class ExprBinder(
           "Symbol not found: " + identifier.text + " at " + identifier.location
         )
       case Option.Some(symbol) =>
-        val symbolType = binder.getSymbolType(symbol)
+        val symbolType = binder.tryGetSymbolType(symbol)
         BoundExpression.Variable(
           identifier.location,
           symbol,
@@ -1007,7 +1007,7 @@ class ExprBinder(
                 .toString()
             )
           case Option.Some(member) =>
-            binder.getSymbolType(member) match {
+            binder.tryGetSymbolType(member) match {
               case Option.None =>
                 // TODO: i think  we should report an error here
                 Either.Left(
@@ -1050,7 +1050,7 @@ class ExprBinder(
             )
             val location = AstUtils.locationOfExpression(node)
 
-            val ctorType = binder.getSymbolType(ctor)
+            val ctorType = binder.tryGetSymbolType(ctor)
             ctorType match {
               case Option.Some(Type.Function(loc, params, _)) =>
                 bindNewExpressionForSymbol(
