@@ -101,6 +101,7 @@ class BoundAssemblyPrinter(binder: Binder) {
     writeWithColor(ColorPalette.Punctuation, " = ")
     printExpression(expr.expression)
   }
+
   def printBinaryExpression(expr: BoundExpression.BinaryExpression): unit = {
     printExpression(expr.left)
     writeWithColor(ColorPalette.Punctuation, " ")

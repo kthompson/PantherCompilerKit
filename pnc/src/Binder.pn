@@ -65,7 +65,7 @@ class Binder(
     symbol._id
   }
 
-  def getSymbolType(symbol: Symbol): Option[Type] =
+  def tryGetSymbolType(symbol: Symbol): Option[Type] =
     symbolTypes.get(symbol._id) match {
       case Option.None        => Option.None
       case Option.Some(value) => Some(value.typ)
@@ -578,22 +578,27 @@ class Binder(
       case expr: BoundExpression.UnaryExpression  => expr.resultType
       case expr: BoundExpression.Variable =>
         expr.resultType match {
-          case Option.None =>
-            val symbol = expr.symbol
-            membersToType.get(symbol) match {
-              case Option.None =>
-                // no type has been detected yet so lets bind the entry and then try again
-                println("Unknown type for symbol " + symbol.kind)
-                diagnosticBag.reportBugUnknownType(expr.location, symbol.name)
-                Type.Error("Unknown type for symbol " + symbol.kind)
-              case Option.Some(value) =>
-                bindOneTypingMember(symbol, value)
-            }
+          case Option.None        => getSymbolType(expr.symbol)
           case Option.Some(value) => value
         }
+    }
+  }
 
-      //      case _ =>
-      //        panic("getType not implemented for " + expr)
+  def getSymbolType(symbol: Symbol): Type = {
+    // see if we already typed it
+    tryGetSymbolType(symbol) match {
+      case Option.Some(value) => value
+      case Option.None        =>
+        // try to determine the type based on a binding member
+        membersToType.get(symbol) match {
+          case Option.None =>
+            // no type has been detected yet so lets bind the entry and then try again
+            println("Unknown type for symbol " + symbol.kind)
+            diagnosticBag.reportBugUnknownType(symbol.location, symbol.name)
+            Type.Error("Unknown type for symbol " + symbol.kind)
+          case Option.Some(value) =>
+            bindOneTypingMember(symbol, value)
+        }
     }
   }
 
@@ -888,7 +893,7 @@ class Binder(
             val typeArguments =
               bindTypeArgumentList(typeArgumentlist.arguments, scope)
 
-            getSymbolType(symbol) match {
+            tryGetSymbolType(symbol) match {
               case Option.None =>
                 // if we found the symbol but not the type then something
                 // funky happened and that shouldn't be possible panic for
@@ -947,7 +952,7 @@ class Binder(
               )
               Type.Error("Type not defined: " + identifier.text)
             case Option.Some(symbol) =>
-              getSymbolType(symbol) match {
+              tryGetSymbolType(symbol) match {
                 case Option.None =>
                   // if we found the symbol but not the type then something
                   // funky happened and that shouldn't be possible panic for

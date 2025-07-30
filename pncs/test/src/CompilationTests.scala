@@ -67,7 +67,7 @@ object CompilationTests extends TestSuite {
           case Option.Some(symbol) =>
             assert(symbol.kind == SymbolKind.Field)
             assert(symbol.name == "x")
-            compilation.binder.getSymbolType(symbol) match {
+            compilation.binder.tryGetSymbolType(symbol) match {
               case Option.Some(t) =>
                 assert(t.toString() == "Option<never>")
               case Option.None =>
@@ -81,7 +81,7 @@ object CompilationTests extends TestSuite {
           case Option.Some(symbol) =>
             assert(symbol.kind == SymbolKind.Field)
             assert(symbol.name == "y")
-            compilation.binder.getSymbolType(symbol) match {
+            compilation.binder.tryGetSymbolType(symbol) match {
               case Option.Some(t) =>
                 assert(t.toString() == "Option<int>")
               case Option.None =>
