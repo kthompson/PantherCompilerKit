@@ -7,7 +7,7 @@ import NameSyntax._
 
 case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
 
-  val printer = new AstPrinter(true, true)
+  val printer = new AstPrinter(true, IndentedStringBuilder())
 
   val _tokens: Array[SyntaxToken] = {
     val scanner = new Lexer(sourceFile, diagnostics)

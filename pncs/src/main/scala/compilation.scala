@@ -33,14 +33,27 @@ object MakeCompilation {
           assembly.functionBodies,
           assembly.entryPoint
         )
-        val printer = new BoundAssemblyPrinter(binder)
+        val sb = IndentedStringBuilder()
+        val ast = new AstPrinter(true, sb)
+        val sym = SymbolPrinter(binder, ast)
+        val printer = new BoundAssemblyPrinter(binder, ast, sym)
         printer.printAssembly(boundAssembly)
+        println(sb.toString())
       }
 
       if (diagnosticBag.count == 0) Lower.lower(assembly, binder)
       else emptyLoweredAssembly()
     } else {
       emptyLoweredAssembly()
+    }
+
+    if (CompilerSettings.printLoweredAssembly) {
+      val sb = IndentedStringBuilder()
+      val ast = new AstPrinter(true, sb)
+      val sym = SymbolPrinter(binder, ast)
+      val printer = new LoweredAssemblyPrinter(binder, sb)
+      printer.printAssembly(lowered)
+      println(sb.toString())
     }
 
     new Compilation(
@@ -69,7 +82,13 @@ case class Compilation(
 ) {
   def getSymbols(): Chain[Symbol] = SymbolChain.fromList(root.members())
 
-  def printSymbols(): unit = SymbolPrinter(binder).printSymbol(root)
+  def printSymbols(): unit = {
+    val sb = IndentedStringBuilder()
+    val printer = new AstPrinter(true, sb)
+    val symbols = SymbolPrinter(binder, printer)
+    symbols.printSymbol(root)
+    println(sb.toString())
+  }
 
   def emit(output: string): unit = {
     val emitter = new Emitter(syntaxTrees, root, binder, assembly)

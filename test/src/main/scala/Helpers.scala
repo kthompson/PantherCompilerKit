@@ -485,7 +485,8 @@ object Helpers {
   }
 
   def assertName(expected: string, actual: NameSyntax): unit = {
-    val printer = new AstPrinter(false, false)
+    val sb = IndentedStringBuilder()
+    val printer = new AstPrinter(false, sb)
     printer.printName(actual)
     Assert.stringEqual(expected, Trim.both(printer.toString()))
   }

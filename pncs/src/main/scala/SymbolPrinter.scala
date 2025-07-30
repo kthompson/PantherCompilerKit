@@ -1,7 +1,9 @@
 import panther._
 
-case class SymbolPrinter(binder: Binder) {
-  val printer = new AstPrinter(true, true)
+case class SymbolPrinter(
+    binder: Binder,
+    ast: AstPrinter
+) {
 
   def printSymbols(symbols: List[Symbol], indent: string): unit = {
     symbols match {
@@ -19,18 +21,18 @@ case class SymbolPrinter(binder: Binder) {
   def _printSymbol(symbol: Symbol, indent: string, last: bool): unit = {
     val marker = if (last) "└──" else "├──"
 
-    printer.writeColor(ColorPalette.Comment)
-    print(indent)
-    print(marker)
-    print(ANSI.Clear)
+    ast.writeColor(ColorPalette.Comment)
+    ast.append(indent)
+    ast.append(marker)
+    ast.append(ANSI.Clear)
 
     val kind = symbol.kind
-    printer.printSymbolKind(kind)
-    print(" ")
+    ast.printSymbolKind(kind)
+    ast.append(" ")
 
     printSimpleSymbol(symbol)
     printSymbolBodyType(symbol)
-    println("")
+    ast.appendLine("")
 
     val members = symbol.members()
     if (!members.isEmpty) {
@@ -44,19 +46,19 @@ case class SymbolPrinter(binder: Binder) {
     if (
       symbol.kind == SymbolKind.Constructor || symbol.kind == SymbolKind.Method
     ) {
-      printer.writeColor(ColorPalette.Punctuation)
-      print(" = ")
+      ast.writeColor(ColorPalette.Punctuation)
+      ast.append(" = ")
       if (symbol.extern) {
-        printer.writeColor(ColorPalette.Keyword)
-        print("[extern]")
+        ast.writeColor(ColorPalette.Keyword)
+        ast.append("[extern]")
       } else if (binder.functionBodies.contains(symbol)) {
-        printer.writeColor(ColorPalette.Keyword)
-        print("[body]")
+        ast.writeColor(ColorPalette.Keyword)
+        ast.append("[body]")
       } else {
-        printer.writeColor(ColorPalette.Error)
-        print("[no body]")
+        ast.writeColor(ColorPalette.Error)
+        ast.append("[no body]")
       }
-      print(ANSI.Clear)
+      ast.append(ANSI.Clear)
     }
   }
 
@@ -67,14 +69,14 @@ case class SymbolPrinter(binder: Binder) {
       val typ = binder.tryGetSymbolType(symbol)
       typ match {
         case Option.Some(value) =>
-          printer.printType(value)
+          ast.printType(value)
         case Option.None =>
-          print(symbol.qualifiedName())
+          ast.append(symbol.qualifiedName())
       }
     } else {
-      print(symbol.name)
+      ast.append(symbol.name)
     }
-    printer.writeColor(ColorPalette.Punctuation)
+    ast.writeColor(ColorPalette.Punctuation)
 
     if (
       symbol.kind != SymbolKind.Namespace &&
@@ -89,14 +91,14 @@ case class SymbolPrinter(binder: Binder) {
             case SymbolKind.Class            =>
             case SymbolKind.TypeParameter(_) =>
             case _ =>
-              print(": ")
-              printer.printType(value)
+              ast.append(": ")
+              ast.printType(value)
           }
         case Option.None =>
-          print(": ")
-          printer.writeColor(ColorPalette.Error)
-          print("[missing type]")
-          print(ANSI.Clear)
+          ast.append(": ")
+          ast.writeColor(ColorPalette.Error)
+          ast.append("[missing type]")
+          ast.append(ANSI.Clear)
       }
     }
   }
