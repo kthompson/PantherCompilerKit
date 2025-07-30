@@ -449,6 +449,15 @@ object AstUtils {
     }
   }
 
+  def locationOfBoundLeftHandSide(
+      value: BoundLeftHandSide
+  ): TextLocation =
+    value match {
+      case BoundLeftHandSide.IndexExpression(indexExpr) => indexExpr.location
+      case BoundLeftHandSide.MemberAccess(memberAccess) => memberAccess.location
+      case BoundLeftHandSide.Variable(variable)         => variable.location
+    }
+
   def locationOfBoundExpression(value: BoundExpression): TextLocation = {
     value match {
       case BoundExpression.Assignment(location, _, expression) =>
@@ -458,7 +467,7 @@ object AstUtils {
       case BoundExpression.Block(statements, expression) =>
         locationOfBoundExpression(expression)
       case BoundExpression.BooleanLiteral(location, _)             => location
-      case BoundExpression.CallExpression(location, _, _, _, _)    => location
+      case BoundExpression.CallExpression(location, _, _, _, _, _) => location
       case BoundExpression.CastExpression(location, expression, _) => location
       case BoundExpression.CharacterLiteral(location, _)           => location
       case BoundExpression.ForExpression(location, _, _, _, _)     => location

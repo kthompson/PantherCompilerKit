@@ -264,12 +264,19 @@ case class Emitter(
     }
   }
 
-  def emitAssignmentStatement(
-      expr: LoweredStatement.Assignment,
+  def emitAssignFieldStatement(
+      expr: LoweredStatement.AssignField,
+      context: EmitContext
+  ): unit = {
+    ???
+  }
+
+  def emitAssignLocalStatement(
+      expr: LoweredStatement.AssignLocal,
       context: EmitContext
   ): unit = {
     emitExpression(expr.expression, context)
-    val index = context.getLocalIndex(expr.variable)
+    val index = context.getLocalIndex(expr.local)
     if (index < 4) {
       chunk.emitOpcode(Opcode.Stloc0 + index, expr.location.startLine)
     } else {
@@ -465,8 +472,10 @@ case class Emitter(
         emitExpressionStatement(value, context)
 //      case value: LoweredStatement.VariableDeclaration =>
 //        emitVariableDeclaration(value, context)
-      case statement: LoweredStatement.Assignment =>
-        emitAssignmentStatement(statement, context)
+      case statement: LoweredStatement.AssignLocal =>
+        emitAssignLocalStatement(statement, context)
+      case statement: LoweredStatement.AssignField =>
+        emitAssignFieldStatement(statement, context)
       case statement: LoweredStatement.ConditionalGoto =>
         emitConditionalGotoStatement(statement, context)
       case statement: LoweredStatement.Goto =>

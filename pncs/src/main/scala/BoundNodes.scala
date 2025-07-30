@@ -35,11 +35,17 @@ enum BoundStatement {
   )
 }
 
+enum BoundLeftHandSide {
+  case IndexExpression(expression: BoundExpression.IndexExpression)
+  case MemberAccess(expression: BoundExpression.MemberAccess)
+  case Variable(symbol: Symbol)
+}
+
 enum BoundExpression {
   case Error(message: string)
   case Assignment(
       location: TextLocation,
-      variable: Symbol,
+      receiver: BoundLeftHandSide,
       expression: BoundExpression
   )
   case BinaryExpression(
@@ -53,7 +59,8 @@ enum BoundExpression {
   case BooleanLiteral(location: TextLocation, value: bool)
   case CallExpression(
       location: TextLocation,
-      method: BoundExpression,
+      receiver: Option[BoundLeftHandSide],
+      method: Symbol,
       genericArguments: List[Type],
       arguments: List[BoundExpression],
       resultType: Type
@@ -87,7 +94,7 @@ enum BoundExpression {
   case IntLiteral(location: TextLocation, value: int)
   case MemberAccess(
       location: TextLocation,
-      left: BoundExpression,
+      receiver: BoundLeftHandSide,
       member: Symbol,
       genericArguments: List[Type],
       resultType: Type

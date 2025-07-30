@@ -1,3 +1,4 @@
+using BoundLeftHandSide.IndexExpression
 using panther
 //import Type.Reference
 
@@ -227,17 +228,51 @@ class ExprBinder(
       case node: Expression.CallExpression  => bindCallExpression(node, scope)
       case node: Expression.ForExpression   => bindForExpression(node, scope)
       case node: Expression.GroupExpression => bindGroupExpression(node, scope)
-      case node: Expression.IdentifierName  => bindIdentifierName(node, scope)
-      case node: Expression.If              => bindIf(node, scope)
+      case node: Expression.IdentifierName =>
+        bindIdentifierName(node, scope) match {
+          case Result.Error(value)   => value
+          case Result.Success(value) => value
+        }
+      case node: Expression.If => bindIf(node, scope)
       case node: Expression.LiteralExpression =>
         bindLiteralExpression(node, scope)
       case node: Expression.MemberAccessExpression =>
-        bindMemberAccessExpression(node, scope)
+        bindMemberAccessExpression(node, scope) match {
+          case Result.Error(value)   => value
+          case Result.Success(value) => value
+        }
       case node: Expression.MatchExpression => bindMatchExpression(node, scope)
       case node: Expression.NewExpression   => bindNewExpression(node, scope)
       case node: Expression.UnaryExpression => bindUnaryExpression(node, scope)
       case node: Expression.UnitExpression  => bindUnitExpression(node, scope)
       case node: Expression.WhileExpression => bindWhileExpression(node, scope)
+    }
+  }
+
+  def bindLHS(
+      expr: Expression,
+      scope: Scope
+  ): Result[BoundExpression.Error, BoundLeftHandSide] = {
+    expr match {
+      case node: Expression.IdentifierName =>
+        bindIdentifierName(node, scope) match {
+          case Result.Error(value) => Result.Error(value)
+          case Result.Success(value) =>
+            Result.Success(BoundLeftHandSide.Variable(value.symbol))
+        }
+      case node: Expression.MemberAccessExpression =>
+        bindMemberAccessExpression(node, scope) match {
+          case Result.Error(value) => Result.Error(value)
+          case Result.Success(value) =>
+            Result.Success(BoundLeftHandSide.MemberAccess(value))
+        }
+      case _ =>
+        ???
+        Result.Error(
+          BoundExpression.Error(
+            "Expected left-hand side expression but got: " + expr.toString()
+          )
+        )
     }
   }
 
@@ -319,34 +354,28 @@ class ExprBinder(
       node: Expression.AssignmentExpression,
       scope: Scope
   ): BoundExpression = {
-    val lhs = bind(node.left, scope)
+    val lhs = bindLHS(node.left, scope)
     val rhs = bind(node.right, scope)
     Tuple2(lhs, rhs) match {
-      case Tuple2(BoundExpression.Error(_), _) =>
-        lhs
+      case Tuple2(Result.Error(error), _) =>
+        error
       case Tuple2(_, BoundExpression.Error(_)) =>
         rhs
-      case Tuple2(
-            BoundExpression.Variable(location, symbol, returnType),
-            rhs
-          ) =>
+      case Tuple2(Result.Success(lhs), rhs) =>
+        getLHSType(lhs) match {
+          case Type.Error(message) => BoundExpression.Error(message)
+          case lhsType =>
+            BoundExpression.Assignment(
+              AstUtils.locationOfExpression(node),
+              lhs,
+              bindConversion(rhs, lhsType, false)
+            )
+        }
 
-        val lhsType = binder.getType(lhs)
-
-        BoundExpression.Assignment(
-          location,
-          symbol,
-          bindConversion(rhs, lhsType, false)
-        )
       case _ =>
-        diagnosticBag.reportExpressionIsNotAssignable(
-          AstUtils.locationOfBoundExpression(lhs)
-        )
-        BoundExpression.Error(
-          "Expression is not assignable: " + AstUtils.locationOfBoundExpression(
-            lhs
-          )
-        )
+        val location = AstUtils.locationOfExpression(node.left)
+        diagnosticBag.reportExpressionIsNotAssignable(location)
+        BoundExpression.Error("Expression is not assignable: " + location)
     }
   }
 
@@ -444,9 +473,10 @@ class ExprBinder(
     if (isCast(node.name)) {
       bindCast(node, scope)
     } else {
-      bind(node.name, scope) match {
-        case error: BoundExpression.Error => error
-        case function =>
+      bindLHS(node.name, scope) match {
+        case Result.Error(error) => error
+
+        case Result.Success(function) =>
           val exprs = fromExpressionList(node.arguments.expressions)
           val args = bindExpressions(exprs, scope)
           bindCall(function, args, scope)
@@ -455,7 +485,7 @@ class ExprBinder(
   }
 
   def bindCall(
-      function: BoundExpression,
+      function: BoundLeftHandSide,
       args: List[BoundExpression],
       scope: Scope
   ): BoundExpression = {
@@ -466,7 +496,7 @@ class ExprBinder(
     // 4. generic class instantiation
     // 5. string indexing
 
-    val functionType = binder.getType(function)
+    val functionType = getLHSType(function)
     val argTypes = binder.getTypes(args)
     if (typesWithError(List.Cons(functionType, argTypes))) {
       BoundExpression.Error(
@@ -477,7 +507,7 @@ class ExprBinder(
         case func: Type.Function =>
           bindFunctionCall(function, func, args, scope)
         case Type.Class(_, ns, name, _, symbol) =>
-          val location = AstUtils.locationOfBoundExpression(function)
+          val location = AstUtils.locationOfBoundLeftHandSide(function)
           findConstructor(symbol) match {
             case Option.None =>
               diagnosticBag.reportNotCallable(location)
@@ -622,12 +652,12 @@ class ExprBinder(
   }
 
   def bindFunctionCall(
-      function: BoundExpression,
+      function: BoundLeftHandSide,
       functionType: Type.Function,
       args: List[BoundExpression],
       scope: Scope
   ): BoundExpression = {
-    val location = AstUtils.locationOfBoundExpression(function)
+    val location = AstUtils.locationOfBoundLeftHandSide(function)
     if (functionType.parameters.length != args.length) {
       diagnosticBag.reportArgumentCountMismatch(
         location,
@@ -641,13 +671,19 @@ class ExprBinder(
     } else {
       val boundArgs = bindArguments(functionType.parameters, args, scope)
 
-      BoundExpression.CallExpression(
-        location,
-        function,
-        List.Nil,
-        boundArgs,
-        functionType.returnType
-      )
+      function match {
+        case BoundLeftHandSide.IndexExpression(expression) => ???
+        case BoundLeftHandSide.MemberAccess(expression)    => ???
+        case BoundLeftHandSide.Variable(symbol) =>
+          BoundExpression.CallExpression(
+            location,
+            Option.None,
+            symbol,
+            List.Nil,
+            boundArgs,
+            functionType.returnType
+          )
+      }
     }
   }
 
@@ -839,7 +875,7 @@ class ExprBinder(
   def bindIdentifierName(
       node: Expression.IdentifierName,
       scope: Scope
-  ): BoundExpression = {
+  ): Result[BoundExpression.Error, BoundExpression.Variable] = {
     node.value match {
       case SimpleNameSyntax.IdentifierNameSyntax(identifier) =>
         bindIdentifier(identifier, scope)
@@ -853,19 +889,23 @@ class ExprBinder(
   def bindIdentifier(
       identifier: SyntaxToken,
       scope: Scope
-  ): BoundExpression = {
+  ): Result[BoundExpression.Error, BoundExpression.Variable] = {
     scope.lookup(identifier.text) match {
       case Option.None =>
         diagnosticBag.reportSymbolNotFound(identifier.location, identifier.text)
-        BoundExpression.Error(
-          "Symbol not found: " + identifier.text + " at " + identifier.location
+        Result.Error(
+          BoundExpression.Error(
+            "Symbol not found: " + identifier.text + " at " + identifier.location
+          )
         )
       case Option.Some(symbol) =>
         val symbolType = binder.tryGetSymbolType(symbol)
-        BoundExpression.Variable(
-          identifier.location,
-          symbol,
-          symbolType
+        Result.Success(
+          BoundExpression.Variable(
+            identifier.location,
+            symbol,
+            symbolType
+          )
         )
     }
   }
@@ -927,56 +967,79 @@ class ExprBinder(
     }
   }
 
+  def getLHSType(node: BoundLeftHandSide): Type = {
+    node match {
+      case BoundLeftHandSide.Variable(variable) =>
+        binder.getSymbolType(variable)
+      case BoundLeftHandSide.MemberAccess(memberAccess) =>
+        binder.getType(memberAccess)
+      case BoundLeftHandSide.IndexExpression(indexExpression) =>
+        binder.getType(indexExpression)
+    }
+  }
+
   def bindMemberAccessExpression(
       node: Expression.MemberAccessExpression,
       scope: Scope
-  ): BoundExpression = {
-    val left = bind(node.left, scope)
+  ): Result[BoundExpression.Error, BoundExpression.MemberAccess] = {
+    bindLHS(node.left, scope) match {
+      case Result.Error(value) => Result.Error(value)
+      case Result.Success(left) =>
 
-    binder.getType(left) match {
-      case Type.Error(message) =>
-        BoundExpression.Error(message)
-      case leftType =>
-        node.right match {
-          case SimpleNameSyntax.GenericNameSyntax(right, typeArgumentlist) =>
+        getLHSType(left) match {
+          case Type.Error(message) =>
+            Result.Error(BoundExpression.Error(message))
+          case leftType =>
+            node.right match {
+              case SimpleNameSyntax.GenericNameSyntax(
+                    right,
+                    typeArgumentlist
+                  ) =>
+                val typeArguments =
+                  binder.bindTypeArgumentList(typeArgumentlist.arguments, scope)
 
-            val typeArguments =
-              binder.bindTypeArgumentList(typeArgumentlist.arguments, scope)
-
-            bindMemberForSymbolAndType(leftType, right) match {
-              case Either.Left(message) => BoundExpression.Error(message)
-              case Either.Right(Tuple2(member, typ)) =>
-                BoundExpression.MemberAccess(
-                  right.location,
-                  left,
-                  member,
-                  typeArguments,
-                  typ
-                )
-            }
-          case SimpleNameSyntax.ScalaAliasSyntax(
-                open,
-                name,
-                arrow,
-                alias,
-                close
-              ) =>
-            ???
-          case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) => ???
-          case SimpleNameSyntax.IdentifierNameSyntax(right) =>
-            bindMemberForSymbolAndType(leftType, right) match {
-              case Either.Left(message) => BoundExpression.Error(message)
-              case Either.Right(Tuple2(member, typ)) =>
-                BoundExpression.MemberAccess(
-                  right.location,
-                  left,
-                  member,
-                  List.Nil,
-                  typ
-                )
+                bindMemberForSymbolAndType(leftType, right) match {
+                  case Either.Left(message) =>
+                    Result.Error(BoundExpression.Error(message))
+                  case Either.Right(Tuple2(member, typ)) =>
+                    Result.Success(
+                      BoundExpression.MemberAccess(
+                        right.location,
+                        left,
+                        member,
+                        typeArguments,
+                        typ
+                      )
+                    )
+                }
+              case SimpleNameSyntax.ScalaAliasSyntax(
+                    open,
+                    name,
+                    arrow,
+                    alias,
+                    close
+                  ) =>
+                ???
+              case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) => ???
+              case SimpleNameSyntax.IdentifierNameSyntax(right) =>
+                bindMemberForSymbolAndType(leftType, right) match {
+                  case Either.Left(message) =>
+                    Result.Error(BoundExpression.Error(message))
+                  case Either.Right(Tuple2(member, typ)) =>
+                    Result.Success(
+                      BoundExpression.MemberAccess(
+                        right.location,
+                        left,
+                        member,
+                        List.Nil,
+                        typ
+                      )
+                    )
+                }
             }
         }
     }
+
   }
 
   def bindMemberForSymbolAndType(
