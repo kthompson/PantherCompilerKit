@@ -470,10 +470,6 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
         )
 
       case Option.None =>
-
-        // there is no else so we dont need a variable assignment as this is a unit expression
-        checkUnusedExpr(thenBlock)
-
         /*  converted structure looks like the following:
          *
          * gotoIf <condition> <thenLabel>
@@ -482,13 +478,27 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
          *   <thenBody>
          * <endLabel>
          */
-
-        LoweredBlock(
+        val statements =
           condGoto
             .append(gotoEnd)
             .append(thenLabelDecl)
             .concat(thenBlock.statements)
-            .append(endLabelDecl),
+
+        // if thenBlock's expression is not a unit expression, promote it to an expression statement
+        val statementsWithThen =
+          if (thenBlock.expression == LoweredExpression.unit) {
+            statements
+          } else {
+            statements.append(
+              LoweredStatement.ExpressionStatement(
+                thenBlock.expression.getLocation(),
+                thenBlock.expression
+              )
+            )
+          }
+
+        LoweredBlock(
+          statementsWithThen.append(endLabelDecl),
           LoweredExpression.unit
         )
     }
@@ -761,8 +771,21 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   def lowerExpressionStatement(
       statement: BoundStatement.ExpressionStatement,
       context: LoweredBlock
-  ): LoweredBlock =
-    lowerExpression(statement.expression, context)
+  ): LoweredBlock = {
+    checkUnusedExpr(context)
+
+    val loweredBlock = lowerExpression(statement.expression, context)
+
+    LoweredBlock(
+      loweredBlock.statements.append(
+        LoweredStatement.ExpressionStatement(
+          loweredBlock.expression.getLocation(),
+          loweredBlock.expression
+        )
+      ),
+      LoweredExpression.unit
+    )
+  }
 
   def lowerVariableDeclaration(
       statement: BoundStatement.VariableDeclaration,
