@@ -86,33 +86,29 @@ class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
 
   def currentPrecedence(): int = {
     val kind = currentKind()
-    if (kind == SyntaxKind.EqualsToken) 1
+    if (kind == SyntaxKind.EqualsToken || kind == SyntaxKind.EqualsEqualsToken)
+      1
     else if (kind == SyntaxKind.PipeToken || kind == SyntaxKind.PipePipeToken) 2
     else if (kind == SyntaxKind.CaretToken) 3
+    else if (kind == SyntaxKind.AsKeyword || kind == SyntaxKind.MatchKeyword) 4
     else if (
       kind == SyntaxKind.AmpersandToken || kind == SyntaxKind.AmpersandAmpersandToken
-    ) 4
-    else if (
-      kind == SyntaxKind.EqualsEqualsToken || kind == SyntaxKind.BangEqualsToken
     ) 5
     else if (
-      kind == SyntaxKind.LessThanToken || kind == SyntaxKind.LessThanEqualsToken || kind == SyntaxKind.LessThanLessThanToken
+      kind == SyntaxKind.EqualsEqualsToken || kind == SyntaxKind.BangEqualsToken
     ) 6
     else if (
+      kind == SyntaxKind.LessThanToken || kind == SyntaxKind.LessThanEqualsToken || kind == SyntaxKind.LessThanLessThanToken ||
       kind == SyntaxKind.GreaterThanToken || kind == SyntaxKind.GreaterThanEqualsToken || kind == SyntaxKind.GreaterThanGreaterThanToken
-    ) 6
-    else if (kind == SyntaxKind.PlusToken || kind == SyntaxKind.DashToken) 7
+    ) 7
+    else if (kind == SyntaxKind.PlusToken || kind == SyntaxKind.DashToken) 8
     else if (
       kind == SyntaxKind.StarToken || kind == SyntaxKind.SlashToken || kind == SyntaxKind.PercentToken
-    ) 8
-    // unary/prefix is 9
+    ) 9
+    // unary/prefix is 10
     else if (
-      kind == SyntaxKind.OpenParenToken || kind == SyntaxKind.OpenBracketToken
-    ) 10
-    else if (kind == SyntaxKind.DotToken) 10
-    else if (kind == SyntaxKind.MatchKeyword)
-      // TODO: I think this is wrong. ex: -7 match { ... } should be (-7) match { ... } not -(7 match { ... })
-      11
+      kind == SyntaxKind.OpenParenToken || kind == SyntaxKind.OpenBracketToken || kind == SyntaxKind.DotToken
+    ) 11
     else OperatorPrecedence.Lowest
   }
 
@@ -183,6 +179,7 @@ class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       case value: BinaryExpression     => hasStatementTerminator(value.right)
       case value: BlockExpression => value.closeBrace.isStatementTerminator()
       case value: CallExpression  => value.closeParen.isStatementTerminator()
+      case value: CastExpression  => nameHasStatementTerminator(value.typ)
       case value: ForExpression   => hasStatementTerminator(value.body)
       case value: GroupExpression => value.closeParen.isStatementTerminator()
       case Expression.IdentifierName(value) =>
@@ -201,6 +198,14 @@ class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       case value: UnaryExpression => hasStatementTerminator(value.expression)
       case value: UnitExpression  => value.closeParen.isStatementTerminator()
       case value: WhileExpression => hasStatementTerminator(value.body)
+    }
+  }
+
+  def nameHasStatementTerminator(name: NameSyntax): bool = {
+    name match {
+      case NameSyntax.SimpleName(name) => simpleNameHasStatementTerminator(name)
+      case NameSyntax.QualifiedName(left, dotToken, right) =>
+        simpleNameHasStatementTerminator(right)
     }
   }
 
@@ -883,6 +888,8 @@ class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
           parseAssignmentExpression(left)
         } else if (kind == SyntaxKind.MatchKeyword) {
           parseMatchExpression(left)
+        } else if (kind == SyntaxKind.AsKeyword) {
+          parseCastExpression(left)
         } else {
           todo("infix")
           left
@@ -898,6 +905,13 @@ class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     val close = acceptKind(SyntaxKind.CloseBraceToken)
 
     new MatchExpression(left, keyword, open, cases, close)
+  }
+
+  def parseCastExpression(left: Expression): Expression = {
+    val keyword = accept()
+    val typ = parseName(false)
+
+    new CastExpression(left, keyword, typ)
   }
 
   def parseMatchCases(): Array[MatchCaseSyntax] = {

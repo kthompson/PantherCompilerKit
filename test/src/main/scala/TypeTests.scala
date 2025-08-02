@@ -108,14 +108,14 @@ object TypeTests {
   }
 
   def casts(): unit = {
-    assertExprTypeTest("char('a')", "char")
-    assertExprTypeTest("char(12)", "char")
-    assertExprTypeTest("int('a')", "int")
-    assertExprTypeTest("int(12)", "int")
-    assertExprTypeTest("string('a')", "string")
-    assertExprTypeTest("string(12)", "string")
-    assertExprTypeTest("string(\"hello\")", "string")
-    assertExprTypeTest("string(true)", "string")
+    assertExprTypeTest("'a' as char", "char")
+    assertExprTypeTest("12 as char", "char")
+    assertExprTypeTest("'a' as int", "int")
+    assertExprTypeTest("12 as int", "int")
+    assertExprTypeTest("'a' as string", "string")
+    assertExprTypeTest("12 as string", "string")
+    assertExprTypeTest("\"hello\" as string", "string")
+    assertExprTypeTest("true as string", "string")
   }
 
   def blocks(): unit = {

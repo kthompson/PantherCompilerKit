@@ -226,6 +226,7 @@ case class ExprBinder(
         bindBinaryExpression(node, scope)
       case node: Expression.BlockExpression => bindBlockExpression(node, scope)
       case node: Expression.CallExpression  => bindCallExpression(node, scope)
+      case node: Expression.CastExpression  => bindCast(node, scope)
       case node: Expression.ForExpression   => bindForExpression(node, scope)
       case node: Expression.GroupExpression => bindGroupExpression(node, scope)
       case node: Expression.IdentifierName =>
@@ -470,17 +471,13 @@ case class ExprBinder(
       node: Expression.CallExpression,
       scope: Scope
   ): BoundExpression = {
-    if (isCast(node.name)) {
-      bindCast(node, scope)
-    } else {
-      bindLHS(node.name, scope) match {
-        case Result.Error(error) => error
+    bindLHS(node.name, scope) match {
+      case Result.Error(error) => error
 
-        case Result.Success(function) =>
-          val exprs = fromExpressionList(node.arguments.expressions)
-          val args = bindExpressions(exprs, scope)
-          bindCall(function, args, scope)
-      }
+      case Result.Success(function) =>
+        val exprs = fromExpressionList(node.arguments.expressions)
+        val args = bindExpressions(exprs, scope)
+        bindCall(function, args, scope)
     }
   }
 
@@ -746,44 +743,12 @@ case class ExprBinder(
     symbol.lookupMember(".ctor")
 
   def bindCast(
-      expression: Expression.CallExpression,
+      cast: Expression.CastExpression,
       scope: Scope
   ): BoundExpression = {
-    expression.arguments.expressions match {
-      case List.Nil =>
-        diagnosticBag.reportArgumentCountMismatch(
-          AstUtils.locationOfExpression(expression.name),
-          1,
-          0
-        )
-        BoundExpression.Error(
-          "Cast expression requires one argument but got none"
-        )
-      case List.Cons(head, tail) =>
-        if (!tail.isEmpty) {
-          diagnosticBag.reportArgumentCountMismatch(
-            AstUtils.locationOfExpression(expression.name),
-            1,
-            tail.length + 1
-          )
-          BoundExpression.Error(
-            "Cast expression requires one argument but got " + (tail.length + 1)
-          )
-        } else {
-          val lhs = bind(expression.name, scope)
-          val arg = bind(head.expression, scope)
-          val location = AstUtils.locationOfBoundExpression(lhs)
-          val targetType = binder.getType(lhs)
-
-          targetType match {
-            case Type.Error(message) =>
-              BoundExpression.Error(message)
-            case _ =>
-
-              bindConversion(arg, targetType, true)
-          }
-        }
-    }
+    val expr = bind(cast.expression, scope)
+    val typ = binder.bindTypeName(cast.typ, scope)
+    bindConversion(expr, typ, true)
   }
 
   def getParameterTypes(parameters: List[BoundParameter]): List[Type] = {

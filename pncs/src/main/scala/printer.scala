@@ -193,6 +193,7 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
       case value: Expression.BinaryExpression  => printBinaryExpression(value)
       case value: Expression.BlockExpression   => printBlockExpression(value)
       case value: Expression.CallExpression    => printCallExpression(value)
+      case value: Expression.CastExpression    => printCastExpression(value)
       case value: Expression.ForExpression     => printForExpression(value)
       case value: Expression.GroupExpression   => printGroupExpression(value)
       case IdentifierName(value)               => printSimpleName(value)
@@ -269,6 +270,12 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
     printToken(node.openParen)
     printExpressionList(node.arguments)
     printToken(node.closeParen)
+  }
+
+  def printCastExpression(node: Expression.CastExpression): unit = {
+    printExpression(node.expression)
+    printToken(node.asKeyword)
+    printName(node.typ)
   }
 
   def printForExpression(node: Expression.ForExpression): unit = {
