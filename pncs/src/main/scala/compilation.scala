@@ -27,6 +27,16 @@ object MakeCompilation {
     val lowered = if (diagnosticBag.count == 0) {
       val assembly = binder.bind()
 
+      if (CompilerSettings.printSymbols) {
+        val sb = IndentedStringBuilder()
+        val ast = new AstPrinter(true, sb)
+        ast.writeWithColor(ColorPalette.Keyword, "Symbols:")
+        ast.appendLine("")
+        val printer = SymbolPrinter(binder, ast)
+        printer.printSymbol(rootSymbol)
+        println(sb.toString())
+      }
+
       if (CompilerSettings.printBoundAssembly) {
         val boundAssembly = BoundAssembly(
           assembly.diagnostics,
@@ -109,6 +119,7 @@ case class Compilation(
         val token = MethodToken(i)
         disassembler.disassembleMethod(token)
       }
+      println()
     }
 
     val vm =

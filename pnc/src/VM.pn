@@ -127,14 +127,12 @@ class VM(
     stack(sp)
   }
 
-  def trace(msg: string): unit = {
-    if (CompilerSettings.enableTracing) {
-      println("ip=" + ip + " sp=" + sp + " " + msg)
-    }
-  }
-
   def runtimeError(msg: string): InterpretResult = {
-    println(msg)
+    if (CompilerSettings.enableTracing) {
+      panic("Runtime error: " + msg)
+    } else {
+      println("Runtime error: " + msg)
+    }
     InterpretResult.RuntimeError
   }
 
@@ -240,6 +238,10 @@ class VM(
     var result = entry match {
       case Option.None => InterpretResult.Continue
       case Option.Some(value) =>
+        if (CompilerSettings.enableTracing) {
+          val name = metadata.getMethodName(value)
+          println("Running program with entry point: " + name)
+        }
         callMethod(value, -1)
     }
 
@@ -261,7 +263,6 @@ class VM(
 
       // control instructions
       case Opcode.Ret =>
-        trace("ret")
         val endFrame = localp
 
         val retAddr = stackAsInt(endFrame - 3)
@@ -414,7 +415,6 @@ class VM(
             push(Value.string("unit"))
             InterpretResult.Continue
           case ref: Value.Ref =>
-            trace("conv.str ref " + ref)
             val typeDef = metadata.typeDefs.typeDefs(ref.token.token)
             val ns = metadata.getString(typeDef.ns)
             val typeName = metadata.getString(typeDef.name)
@@ -429,7 +429,7 @@ class VM(
             InterpretResult.Continue
         }
       case _ =>
-        trace("Unknown opcode " + instruction)
+        panic("Unknown opcode " + instruction)
         InterpretResult.CompileError
     }
   }
@@ -439,7 +439,6 @@ class VM(
       returnAddress: int
   ): InterpretResult = {
     val name = metadata.getMethodName(methodTok)
-    trace("call " + name)
     val numArgs = metadata.getMethodParameterCount(methodTok)
     val addr = metadata.getMethodAddress(methodTok)
     val localCount = metadata.getMethodLocals(methodTok)

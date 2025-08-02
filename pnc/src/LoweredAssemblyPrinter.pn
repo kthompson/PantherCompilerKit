@@ -58,7 +58,7 @@ class LoweredAssemblyPrinter(
     ast.writeWithColor(ColorPalette.Punctuation, " = ")
 
     printBlock(body)
-    sb.unindent()
+    ast.appendLine("")
   }
 
   def printBlock(block: LoweredBlock): unit = {
@@ -170,7 +170,7 @@ class LoweredAssemblyPrinter(
   def printMemberAccess(value: LoweredLeftHandSide.MemberAccess): unit = {
     printLeftHandSide(value.left)
     ast.writeWithColor(ColorPalette.Punctuation, ".")
-    symbolPrinter.printSimpleSymbol(value.symbol)
+    ast.append(value.symbol.name)
   }
 
   def printExpression(expression: LoweredExpression): unit = {
@@ -190,7 +190,7 @@ class LoweredAssemblyPrinter(
       case expr: LoweredExpression.IntegerLiteral =>
         printIntegerLiteral(expr)
       case expr: LoweredExpression.MemberAccess =>
-        ???
+        printMemberAccessExpression(expr)
       case expr: LoweredExpression.New =>
         printNew(expr)
       case expr: LoweredExpression.StringLiteral =>
@@ -202,6 +202,14 @@ class LoweredAssemblyPrinter(
       case expr: LoweredExpression.Variable =>
         printVariable(expr)
     }
+  }
+
+  def printMemberAccessExpression(
+      value: LoweredExpression.MemberAccess
+  ): unit = {
+    printLeftHandSide(value.left)
+    ast.writeWithColor(ColorPalette.Punctuation, ".")
+    ast.append(value.symbol.name)
   }
 
   def printNew(value: LoweredExpression.New): unit = {
@@ -249,11 +257,9 @@ class LoweredAssemblyPrinter(
   }
 
   def printCall(call: LoweredExpression.Call): unit = {
-    symbolPrinter.printSimpleSymbol(call.method)
+    ast.append(call.method.name)
     ast.writeWithColor(ColorPalette.Punctuation, "(")
-
     printExpressions(call.arguments.uncons())
-
     ast.writeWithColor(ColorPalette.Punctuation, ")")
   }
 
