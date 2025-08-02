@@ -276,8 +276,9 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
     val block = lowerExpression(expr.expression, context)
 
     expr.receiver match {
-      case BoundLeftHandSide.IndexExpression(expression) => ???
-      case BoundLeftHandSide.MemberAccess(expression)    => ???
+      case BoundLeftHandSide.Call(expression)         => ???
+      case BoundLeftHandSide.Index(expression)        => ???
+      case BoundLeftHandSide.MemberAccess(expression) => ???
       case BoundLeftHandSide.Variable(symbol) =>
         LoweredBlock(
           block.statements.append(
@@ -615,14 +616,15 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   }
 
   def lowerLeftHandSide(
-      expr: BoundLeftHandSide,
+      lhs: BoundLeftHandSide,
       context: LoweredBlock
   ): LoweredLeftHandSideBlock = {
-    expr match {
-      case BoundLeftHandSide.IndexExpression(expression) =>
+    lhs match {
+      case BoundLeftHandSide.Call(expression) =>
+        ???
+      case BoundLeftHandSide.Index(expression) =>
         ???
       case BoundLeftHandSide.MemberAccess(expression) =>
-
         lowerMemberAccess(expression, context)
       case BoundLeftHandSide.Variable(symbol) =>
         lowerVariable(symbol, context)

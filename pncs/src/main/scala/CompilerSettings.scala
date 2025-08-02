@@ -4,6 +4,7 @@ object CompilerSettings {
   val defaultStackSize = 10
   val defaultHeapSize = 0
   val enableTracing = false
+  val printSymbols = true
   val printBoundAssembly = true
   val printLoweredAssembly = true
 }

@@ -238,11 +238,13 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
         val lhs = lowerMemberAccess(expr, context)
         LoweredBlock(
           lhs.statements,
-          LoweredExpression.MemberAccess(
-            expr.location,
-            lhs.expression,
-            expr.member
-          )
+          lhs.expression match {
+            case LoweredLeftHandSide.Variable(symbol) =>
+              // we have a variable so we can just return it
+              LoweredExpression.Variable(expr.location, symbol)
+            case LoweredLeftHandSide.MemberAccess(location, left, symbol) =>
+              LoweredExpression.MemberAccess(expr.location, left, symbol)
+          }
         )
       case expr: BoundExpression.NewExpression =>
         lowerNewExpression(expr, context)
@@ -276,8 +278,9 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
     val block = lowerExpression(expr.expression, context)
 
     expr.receiver match {
-      case BoundLeftHandSide.IndexExpression(expression) => ???
-      case BoundLeftHandSide.MemberAccess(expression)    => ???
+      case BoundLeftHandSide.Call(expression)         => ???
+      case BoundLeftHandSide.Index(expression)        => ???
+      case BoundLeftHandSide.MemberAccess(expression) => ???
       case BoundLeftHandSide.Variable(symbol) =>
         LoweredBlock(
           block.statements.append(
@@ -615,14 +618,15 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   }
 
   def lowerLeftHandSide(
-      expr: BoundLeftHandSide,
+      lhs: BoundLeftHandSide,
       context: LoweredBlock
   ): LoweredLeftHandSideBlock = {
-    expr match {
-      case BoundLeftHandSide.IndexExpression(expression) =>
+    lhs match {
+      case BoundLeftHandSide.Call(expression) =>
+        ???
+      case BoundLeftHandSide.Index(expression) =>
         ???
       case BoundLeftHandSide.MemberAccess(expression) =>
-
         lowerMemberAccess(expression, context)
       case BoundLeftHandSide.Variable(symbol) =>
         lowerVariable(symbol, context)

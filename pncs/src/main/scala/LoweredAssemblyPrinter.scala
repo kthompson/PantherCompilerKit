@@ -170,7 +170,7 @@ class LoweredAssemblyPrinter(
   def printMemberAccess(value: LoweredLeftHandSide.MemberAccess): unit = {
     printLeftHandSide(value.left)
     ast.writeWithColor(ColorPalette.Punctuation, ".")
-    symbolPrinter.printSimpleSymbol(value.symbol)
+    ast.append(value.symbol.name)
   }
 
   def printExpression(expression: LoweredExpression): unit = {
@@ -190,7 +190,7 @@ class LoweredAssemblyPrinter(
       case expr: LoweredExpression.IntegerLiteral =>
         printIntegerLiteral(expr)
       case expr: LoweredExpression.MemberAccess =>
-        ???
+        printMemberAccessExpression(expr)
       case expr: LoweredExpression.New =>
         printNew(expr)
       case expr: LoweredExpression.StringLiteral =>
@@ -202,6 +202,12 @@ class LoweredAssemblyPrinter(
       case expr: LoweredExpression.Variable =>
         printVariable(expr)
     }
+  }
+
+  def printMemberAccessExpression(value: LoweredExpression.MemberAccess): unit = {
+    printLeftHandSide(value.left)
+    ast.writeWithColor(ColorPalette.Punctuation, ".")
+    ast.append(value.symbol.name)
   }
 
   def printNew(value: LoweredExpression.New): unit = {
