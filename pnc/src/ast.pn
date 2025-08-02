@@ -94,6 +94,11 @@ enum Expression {
       arguments: ExpressionListSyntax,
       closeParen: SyntaxToken
   )
+  case CastExpression(
+      expression: Expression,
+      asKeyword: SyntaxToken,
+      typ: NameSyntax
+  )
   case ForExpression(
       forKeyword: SyntaxToken,
       openParen: SyntaxToken,
@@ -421,6 +426,8 @@ object AstUtils {
         openBrace.location.merge(closeBrace.location)
       case Expression.CallExpression(name, _, _, _, closeParen) =>
         locationOfExpression(name).merge(closeParen.location)
+      case Expression.CastExpression(expression, asKeyword, typ) =>
+        locationOfExpression(expression).merge(locationOfName(typ))
       case Expression.ForExpression(forKeyword, _, _, _, _, _, _, _, body) =>
         forKeyword.location.merge(locationOfExpression(body))
       case Expression.GroupExpression(openParen, expression, closeParen) =>

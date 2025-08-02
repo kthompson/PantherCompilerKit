@@ -380,6 +380,8 @@ class Transpiler(
         transpileBlockExpression(value, context)
       case value: Expression.CallExpression =>
         transpileCallExpression(value, context)
+      case value: Expression.CastExpression =>
+        transpileCastExpression(value, context)
       case value: Expression.ForExpression =>
         transpileForExpression(value, context)
       case value: Expression.GroupExpression =>
@@ -527,6 +529,15 @@ class Transpiler(
     transpileToken(expr.openParen, context)
     transpileExpressionList(expr.arguments, context)
     transpileToken(expr.closeParen, context)
+  }
+
+  def transpileCastExpression(
+      expr: Expression.CastExpression,
+      context: TranspilerContext
+  ): unit = {
+    transpileExpression(expr.expression, context)
+    transpileToken(expr.asKeyword, context)
+    transpileName(expr.typ, context)
   }
 
   def transpileExpressionItems(
