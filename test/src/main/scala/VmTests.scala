@@ -14,6 +14,7 @@ object VmTests {
     locals()
 
     ifExpressions()
+    calls()
 
     // TODO: dup, swap, pop
     // TODO: arguments
@@ -24,6 +25,29 @@ object VmTests {
     // TODO: instance creation
     // TODO: instance field access
 
+  }
+
+  def calls(): unit = {
+    assertExecValueIntWithSetup(
+      "def noargs(): int = 7",
+      "noargs()",
+      7
+    )
+    assertExecValueIntWithSetup(
+      "def onearg(x: int): int = x + 1",
+      "onearg(12)",
+      13
+    )
+    assertExecValueIntWithSetup(
+      "def twoargs(x: int, y: int): int = x + y",
+      "twoargs(12, 13)",
+      25
+    )
+    assertExecValueIntWithSetup(
+      "def threeargs(x: int, y: int, z: int): int = x + y + z",
+      "threeargs(12, 13, 14)",
+      39
+    )
   }
 
   def ifExpressions(): unit = {

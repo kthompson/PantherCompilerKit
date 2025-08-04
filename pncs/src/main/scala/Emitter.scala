@@ -11,7 +11,8 @@ case class EmitContext(
     chunk: Chunk,
     method: MethodMetadata,
     // map of local symbols to their method local index
-    var locals: Dictionary[Symbol, int]
+    var locals: Dictionary[Symbol, int],
+    var params: Dictionary[Symbol, int]
 ) {
 
   /** A map of labels to their instruction index.
@@ -60,6 +61,14 @@ case class EmitContext(
         }
 
         applyPatches() // recursively apply remaining patches
+    }
+  }
+
+  def getParamIndex(symbol: Symbol): int = {
+    params.get(symbol) match {
+      case Option.Some(value) => value
+      case Option.None =>
+        panic("getParamIndex: no parameter index for " + symbol.name)
     }
   }
 
@@ -154,12 +163,34 @@ case class Emitter(
         val context = EmitContext(
           chunk,
           metadata.methods.methods(value.token),
-          DictionaryModule.empty[Symbol, int]()
+          DictionaryModule.empty[Symbol, int](),
+          getMethodParameterMap(
+            0,
+            key.members(),
+            DictionaryModule.empty[Symbol, int]()
+          )
         )
         emitMethod(key, context)
         context.applyPatches()
 
         emitMethodBodies(Dictionary(tail))
+    }
+  }
+
+  def getMethodParameterMap(
+      index: int,
+      symbols: List[Symbol],
+      map: Dictionary[Symbol, int]
+  ): Dictionary[Symbol, int] = {
+    symbols match {
+      case List.Nil => map
+      case List.Cons(head, tail) =>
+        if (head.kind == SymbolKind.Parameter) {
+          val newMap = map.put(head, index)
+          getMethodParameterMap(index + 1, tail, newMap)
+        } else {
+          getMethodParameterMap(index, tail, map)
+        }
     }
   }
 
@@ -368,7 +399,50 @@ case class Emitter(
   def emitCallExpression(
       expr: LoweredExpression.Call,
       context: EmitContext
-  ): unit = ???
+  ): unit = {
+    // emit receiver
+    expr.receiver match {
+      case Option.None => // no receiver, static call
+      case Option.Some(receiver) =>
+        emitLHS(receiver, context)
+    }
+    // emit args
+    emitExpressions(expr.arguments, context)
+
+    // emit call opcode
+    val startLine = expr.location.startLine
+    methodTokens.get(expr.method) match {
+      case Option.None =>
+        panic("emitCallExpression: no method token for " + expr.method.name)
+      case Option.Some(token) =>
+        chunk.emitOpcode(Opcode.Call, startLine)
+        chunk.emitI4(token.token, startLine)
+    }
+  }
+
+  def emitExpressions(
+      value: Chain[LoweredExpression],
+      context: EmitContext
+  ): unit = {
+    value.uncons() match {
+      case Option.None => ()
+      case Option.Some(Tuple2(expr, rest)) =>
+        emitExpression(expr, context)
+        emitExpressions(rest, context)
+    }
+  }
+
+  def emitLHS(
+      lhs: LoweredLeftHandSide,
+      context: EmitContext
+  ): unit = {
+    lhs match {
+      case LoweredLeftHandSide.MemberAccess(_, left, symbol) =>
+        ???
+      case LoweredLeftHandSide.Variable(variable) =>
+        ???
+    }
+  }
 
   def emitCastExpression(
       expr: LoweredExpression.Cast,
@@ -433,8 +507,51 @@ case class Emitter(
   ): unit = {
     chunk.emitOpcode(Opcode.Nop, -1)
   }
-
   def emitVariable(
+      expr: LoweredExpression.Variable,
+      context: EmitContext
+  ): unit = {
+    if (expr.symbol.kind == SymbolKind.Parameter) {
+      emitParameter(expr, context)
+    } else if (expr.symbol.kind == SymbolKind.Local) {
+      emitLocal(expr, context)
+    } else if (expr.symbol.kind == SymbolKind.Field) {
+// TODO: handle fields properly
+      emitLocal(expr, context)
+//      emitField(expr, context)
+    } else {
+      panic("emitVariable: unsupported symbol kind " + expr.symbol.kind)
+    }
+  }
+
+  def emitField(
+      expr: LoweredExpression.Variable,
+      context: EmitContext
+  ): unit = {
+    // emit field access
+    fieldTokens.get(expr.symbol) match {
+      case Option.None =>
+        panic("emitField: no field token for " + expr.symbol.name)
+      case Option.Some(token) =>
+        chunk.emitOpcode(Opcode.Ldsfld, expr.location.startLine)
+        chunk.emitI4(token.token, expr.location.startLine)
+    }
+  }
+
+  def emitParameter(
+      expr: LoweredExpression.Variable,
+      context: EmitContext
+  ): unit = {
+    val index = context.getParamIndex(expr.symbol)
+    if (index < 4) {
+      chunk.emitOpcode(Opcode.Ldarg0 + index, expr.location.startLine)
+    } else {
+      chunk.emitOpcode(Opcode.Ldargn, expr.location.startLine)
+      chunk.emitI4(index, expr.location.startLine)
+    }
+  }
+
+  def emitLocal(
       expr: LoweredExpression.Variable,
       context: EmitContext
   ): unit = {
@@ -619,7 +736,7 @@ case class Emitter(
 //      else MetadataFlags.None
 
     methodTokens =
-      methodTokens.put(symbol, metadata.addMethod(symbol.name, flags, 0, 0, 0))
+      methodTokens.put(symbol, metadata.addMethod(symbol.name, flags, 0, 0, -1))
 
     queueSymbolSignature(symbol)
 

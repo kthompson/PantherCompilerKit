@@ -56,7 +56,6 @@ class BoundAssemblyPrinter(
     symbolPrinter.printSimpleSymbol(symbol)
     writeWithColor(ColorPalette.Punctuation, " = ")
     printExpression(body)
-    ast.unindent()
     ast.appendLine("")
   }
 
@@ -104,14 +103,16 @@ class BoundAssemblyPrinter(
     printExpression(expr.right)
   }
 
-  def printLeftHandSide(expr: BoundLeftHandSide): unit = {
-    expr match {
-      case BoundLeftHandSide.IndexExpression(indexExpr) =>
+  def printLeftHandSide(lhs: BoundLeftHandSide): unit = {
+    lhs match {
+      case BoundLeftHandSide.Index(indexExpr) =>
         printIndexExpression(indexExpr)
       case BoundLeftHandSide.MemberAccess(memberAccess) =>
         printMemberAccess(memberAccess)
       case BoundLeftHandSide.Variable(variable) =>
         writeWithColor(ColorPalette.Identifier, variable.name)
+      case BoundLeftHandSide.Call(callExpr) =>
+        printCallExpression(callExpr)
     }
   }
 
@@ -142,8 +143,6 @@ class BoundAssemblyPrinter(
         writeWithColor(ColorPalette.Punctuation, ".")
         writeWithColor(ColorPalette.Identifier, expr.method.name)
     }
-
-    writeWithColor(ColorPalette.Punctuation, "(")
 
     if (!expr.genericArguments.isEmpty) {
       writeWithColor(ColorPalette.Punctuation, "<")

@@ -1,4 +1,4 @@
-using BoundLeftHandSide.IndexExpression
+using BoundLeftHandSide.Index
 using panther
 //import Type.Reference
 
@@ -225,7 +225,12 @@ class ExprBinder(
       case node: Expression.BinaryExpression =>
         bindBinaryExpression(node, scope)
       case node: Expression.BlockExpression => bindBlockExpression(node, scope)
-      case node: Expression.CallExpression  => bindCallExpression(node, scope)
+      case node: Expression.CallExpression =>
+        bindCallExpression(node, scope) match {
+          case Result.Error(value)                 => value
+          case Result.Success(Either.Left(value))  => value
+          case Result.Success(Either.Right(value)) => value
+        }
       case node: Expression.CastExpression  => bindCast(node, scope)
       case node: Expression.ForExpression   => bindForExpression(node, scope)
       case node: Expression.GroupExpression => bindGroupExpression(node, scope)
@@ -267,8 +272,20 @@ class ExprBinder(
           case Result.Success(value) =>
             Result.Success(BoundLeftHandSide.MemberAccess(value))
         }
+      case node: Expression.CallExpression =>
+        bindCallExpression(node, scope) match {
+          case Result.Error(value) => Result.Error(value)
+          case Result.Success(Either.Left(value)) =>
+            Result.Success(
+              BoundLeftHandSide.Call(value)
+            )
+          case Result.Success(Either.Right(value)) =>
+            ???
+        }
       case _ =>
-        ???
+        panic(
+          "bindLHS called with non-LHS expression: " + expr.toString()
+        )
         Result.Error(
           BoundExpression.Error(
             "Expected left-hand side expression but got: " + expr.toString()
@@ -470,9 +487,12 @@ class ExprBinder(
   def bindCallExpression(
       node: Expression.CallExpression,
       scope: Scope
-  ): BoundExpression = {
+  ): Result[
+    BoundExpression.Error,
+    Either[BoundExpression.CallExpression, BoundExpression.NewExpression]
+  ] = {
     bindLHS(node.name, scope) match {
-      case Result.Error(error) => error
+      case Result.Error(error) => Result.Error(error)
 
       case Result.Success(function) =>
         val exprs = fromExpressionList(node.arguments.expressions)
@@ -485,7 +505,10 @@ class ExprBinder(
       function: BoundLeftHandSide,
       args: List[BoundExpression],
       scope: Scope
-  ): BoundExpression = {
+  ): Result[
+    BoundExpression.Error,
+    Either[BoundExpression.CallExpression, BoundExpression.NewExpression]
+  ] = {
     // cases:
     // 1. functions
     // 2. generic functions
@@ -496,41 +519,65 @@ class ExprBinder(
     val functionType = getLHSType(function)
     val argTypes = binder.getTypes(args)
     if (typesWithError(List.Cons(functionType, argTypes))) {
-      BoundExpression.Error(
-        "Cannot bind call expression because of type errors"
+      Result.Error(
+        BoundExpression.Error(
+          "Cannot bind call expression because of type errors"
+        )
       )
     } else
       functionType match {
         case func: Type.Function =>
-          bindFunctionCall(function, func, args, scope)
+          bindFunctionCall(function, func, args, scope) match {
+            case Result.Error(value)   => Result.Error(value)
+            case Result.Success(value) => Result.Success(Either.Left(value))
+          }
         case Type.Class(_, ns, name, _, symbol) =>
           val location = AstUtils.locationOfBoundLeftHandSide(function)
           findConstructor(symbol) match {
             case Option.None =>
               diagnosticBag.reportNotCallable(location)
-              BoundExpression.Error(
-                "Cannot find constructor for class: " + name
+              Result.Error(
+                BoundExpression.Error(
+                  "Cannot find constructor for class: " + name
+                )
               )
             case Option.Some(ctor) =>
               binder.tryGetSymbolType(ctor) match {
                 case Option.Some(Type.Function(loc, params, _)) =>
+
                   bindNewExpressionForSymbol(
                     location,
                     ctor,
                     Type.Function(loc, params, functionType),
                     args,
                     scope
-                  )
+                  ) match {
+                    case Result.Error(value) => Result.Error(value)
+                    case Result.Success(value) =>
+                      Result.Success(Either.Right(value))
+                  }
                 case _ =>
                   diagnosticBag.reportNotCallable(location)
-                  BoundExpression.Error(
-                    "Constructor symbol does not have a function type: " + name
+                  Result.Error(
+                    BoundExpression.Error(
+                      "Constructor symbol does not have a function type: " + name
+                    )
                   )
               }
           }
 
         case _ =>
-          boundErrorExpression("bindCallExpression")
+          panic(
+            "\nbinding error: bindCallExpression: functionType = " + functionType
+              .toString() + "\n"
+          )
+
+          ???
+          Result.Error(
+            BoundExpression.Error(
+              "binding error: bindCallExpression"
+            )
+          )
       }
     //    {
     //          val inference = new Inference(diagnosticBag)
@@ -653,7 +700,7 @@ class ExprBinder(
       functionType: Type.Function,
       args: List[BoundExpression],
       scope: Scope
-  ): BoundExpression = {
+  ): Result[BoundExpression.Error, BoundExpression.CallExpression] = {
     val location = AstUtils.locationOfBoundLeftHandSide(function)
     if (functionType.parameters.length != args.length) {
       diagnosticBag.reportArgumentCountMismatch(
@@ -661,25 +708,40 @@ class ExprBinder(
         functionType.parameters.length,
         args.length
       )
-      BoundExpression.Error(
-        "Argument count mismatch: expected " + functionType.parameters.length +
-          " but got " + args.length
+      Result.Error(
+        BoundExpression.Error(
+          "Argument count mismatch: expected " + functionType.parameters.length +
+            " but got " + args.length
+        )
       )
     } else {
       val boundArgs = bindArguments(functionType.parameters, args, scope)
 
       function match {
-        case BoundLeftHandSide.IndexExpression(expression) => ???
-        case BoundLeftHandSide.MemberAccess(expression)    => ???
-        case BoundLeftHandSide.Variable(symbol) =>
-          BoundExpression.CallExpression(
-            location,
-            Option.None,
-            symbol,
-            List.Nil,
-            boundArgs,
-            functionType.returnType
+        case BoundLeftHandSide.Index(expression) => ???
+        case BoundLeftHandSide.MemberAccess(access) =>
+          Result.Success(
+            BoundExpression.CallExpression(
+              location,
+              Option.Some(access.receiver),
+              access.member,
+              List.Nil, // TODO: generic arguments
+              boundArgs,
+              functionType.returnType
+            )
           )
+        case BoundLeftHandSide.Variable(symbol) =>
+          Result.Success(
+            BoundExpression.CallExpression(
+              location,
+              Option.None,
+              symbol,
+              List.Nil,
+              boundArgs,
+              functionType.returnType
+            )
+          )
+        case _ => ???
       }
     }
   }
@@ -716,25 +778,29 @@ class ExprBinder(
       ctorType: Type.Function,
       args: List[BoundExpression],
       scope: Scope
-  ): BoundExpression = {
+  ): Result[BoundExpression.Error, BoundExpression.NewExpression] = {
     if (ctorType.parameters.length != args.length) {
       diagnosticBag.reportArgumentCountMismatch(
         location,
         ctorType.parameters.length,
         args.length
       )
-      BoundExpression.Error(
-        "Argument count mismatch: expected " + ctorType.parameters.length +
-          " but got " + args.length
+      Result.Error(
+        BoundExpression.Error(
+          "Argument count mismatch: expected " + ctorType.parameters.length +
+            " but got " + args.length
+        )
       )
     } else {
       val boundArgs = bindArguments(ctorType.parameters, args, scope)
-      BoundExpression.NewExpression(
-        location,
-        ctor,
-        List.Nil,
-        boundArgs,
-        ctorType.returnType
+      Result.Success(
+        BoundExpression.NewExpression(
+          location,
+          ctor,
+          List.Nil,
+          boundArgs,
+          ctorType.returnType
+        )
       )
     }
   }
@@ -932,14 +998,16 @@ class ExprBinder(
     }
   }
 
-  def getLHSType(node: BoundLeftHandSide): Type = {
-    node match {
+  def getLHSType(lhs: BoundLeftHandSide): Type = {
+    lhs match {
       case BoundLeftHandSide.Variable(variable) =>
         binder.getSymbolType(variable)
       case BoundLeftHandSide.MemberAccess(memberAccess) =>
         binder.getType(memberAccess)
-      case BoundLeftHandSide.IndexExpression(indexExpression) =>
+      case BoundLeftHandSide.Index(indexExpression) =>
         binder.getType(indexExpression)
+      case BoundLeftHandSide.Call(call) =>
+        binder.getType(call)
     }
   }
 
@@ -1087,7 +1155,10 @@ class ExprBinder(
                   Type.Function(loc, params, instantiationType),
                   args,
                   scope
-                )
+                ) match {
+                  case Result.Error(value)   => value
+                  case Result.Success(value) => value
+                }
               case _ =>
                 diagnosticBag.reportNotCallable(location)
                 BoundExpression.Error(

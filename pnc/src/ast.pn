@@ -460,9 +460,10 @@ object AstUtils {
       value: BoundLeftHandSide
   ): TextLocation =
     value match {
-      case BoundLeftHandSide.IndexExpression(indexExpr) => indexExpr.location
-      case BoundLeftHandSide.MemberAccess(memberAccess) => memberAccess.location
-      case BoundLeftHandSide.Variable(variable)         => variable.location
+      case BoundLeftHandSide.Call(expr)         => expr.location
+      case BoundLeftHandSide.Index(expr)        => expr.location
+      case BoundLeftHandSide.MemberAccess(expr) => expr.location
+      case BoundLeftHandSide.Variable(variable) => variable.location
     }
 
   def locationOfBoundExpression(value: BoundExpression): TextLocation = {

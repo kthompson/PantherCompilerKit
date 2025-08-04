@@ -79,6 +79,8 @@ class Disassembler(chunk: Chunk, metadata: Metadata) {
       stringTokenInstruction(chunk, offset, name)
     } else if (opcode == Opcode.Newobj) {
       methodTokenInstruction(chunk, offset, name)
+    } else if (opcode == Opcode.Call) {
+      methodTokenInstruction(chunk, offset, name)
     } else if (opcode == Opcode.Ldfld) {
       fieldTokenInstruction(chunk, offset, name)
     } else if (opcode == Opcode.Ldsfld) {
