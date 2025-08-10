@@ -91,8 +91,10 @@ class LoweredAssemblyPrinter(
 
   def printStatement(statement: LoweredStatement): unit = {
     statement match {
-      case LoweredStatement.Error                 => printErrorStatement()
-      case stmt: LoweredStatement.AssignField     => printAssignField(stmt)
+      case LoweredStatement.Error             => printErrorStatement()
+      case stmt: LoweredStatement.AssignField => printAssignField(stmt)
+      case stmt: LoweredStatement.AssignStaticField =>
+        printAssignStaticField(stmt)
       case stmt: LoweredStatement.AssignLocal     => printAssignLocal(stmt)
       case stmt: LoweredStatement.ConditionalGoto => printConditionalGoto(stmt)
       case stmt: LoweredStatement.ExpressionStatement =>
@@ -149,6 +151,15 @@ class LoweredAssemblyPrinter(
     sb.appendLine("")
   }
 
+  def printAssignStaticField(
+      statement: LoweredStatement.AssignStaticField
+  ): unit = {
+    ast.append(statement.field.qualifiedName())
+    ast.writeWithColor(ColorPalette.Punctuation, " = ")
+    printExpression(statement.expression)
+    sb.appendLine("")
+  }
+
   def printAssignField(statement: LoweredStatement.AssignField): unit = {
     printLeftHandSide(statement.receiver)
     ast.writeWithColor(ColorPalette.Punctuation, ".")
@@ -160,7 +171,7 @@ class LoweredAssemblyPrinter(
 
   def printLeftHandSide(leftHandSide: LoweredLeftHandSide): unit = {
     leftHandSide match {
-      case LoweredLeftHandSide.Variable(symbol) =>
+      case LoweredLeftHandSide.Variable(_, symbol) =>
         ast.writeWithColor(ColorPalette.Identifier, symbol.name)
       case left: LoweredLeftHandSide.MemberAccess =>
         printMemberAccess(left)

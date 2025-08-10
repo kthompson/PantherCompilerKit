@@ -37,6 +37,7 @@ object BinderTests {
     assertSymbol(symbols, SymbolKind.Method, "print")
     assertSymbol(symbols, SymbolKind.Parameter, "message")
     assertSymbol(symbols, SymbolKind.Object, "$Program")
+    assertSymbol(symbols, SymbolKind.Method, "$runtimeInit")
     assertSymbol(symbols, SymbolKind.Method, "main")
     assertNoSymbols(symbols)
   }

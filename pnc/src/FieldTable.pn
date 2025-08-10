@@ -4,6 +4,7 @@ class FieldTable() {
   var fields = new Array[FieldMetadata](0)
   var capacity = 0
   var size = 0
+  var staticCount: int = 0
 
   def ensureSpace(n: int): unit = {
     if (size + n > capacity) {
@@ -32,6 +33,9 @@ class FieldTable() {
     // ensure fields capacity
     ensureSpace(1)
 
+    if (flags == MetadataFlags.Static) {
+      staticCount = staticCount + 1
+    }
     // add FieldMetadata to fields
     fields(size) = FieldMetadata(name, flags, index, fieldSig)
     size = size + 1
@@ -55,6 +59,7 @@ class FieldTable() {
     size = tableSize
 
     val recordSize = 3
+    staticCount = 0
 
     for (i <- 0 to (tableSize - 1)) {
       val recordOffset = offset + 1 + i * recordSize
@@ -62,9 +67,13 @@ class FieldTable() {
       val flags = buffer.read(recordOffset + 1)
       val index = buffer.read(recordOffset + 2)
       val fieldSig = buffer.read(recordOffset + 3)
+      val metadataFlags = MetadataFlagsHelpers.fromInt(flags)
+      if (metadataFlags == MetadataFlags.Static) {
+        staticCount = staticCount + 1
+      }
       fields(i) = FieldMetadata(
         name,
-        MetadataFlagsHelpers.fromInt(flags),
+        metadataFlags,
         index,
         fieldSig
       )

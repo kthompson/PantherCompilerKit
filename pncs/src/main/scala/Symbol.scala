@@ -14,6 +14,14 @@ case class Symbol(
 
   var _children: Dictionary[string, Symbol] = DictionaryModule.empty()
 
+  def isStatic(): bool = {
+    parent match {
+      case Option.None => false
+      case Option.Some(p) =>
+        p.kind == SymbolKind.Object
+    }
+  }
+
   def members(): List[Symbol] = {
     _children.values()
   }
@@ -33,13 +41,14 @@ case class Symbol(
   def tryDefine(
       name: string,
       location: TextLocation,
-      symbolType: SymbolKind
+      kind: SymbolKind
   ): Either[TextLocation, Symbol] = {
     _children.get(name) match {
       case Option.Some(symbol) =>
         Either.Left(symbol.location)
       case Option.None =>
-        val symbol = Symbol(name, location, symbolType, Option.Some(this))
+
+        val symbol = Symbol(name, location, kind, Option.Some(this))
         _children = _children.put(name, symbol)
         Either.Right(symbol)
     }

@@ -7,6 +7,8 @@ out
 .DS_Store
 target/
 mill.*
+.bsp/
 
 # IntelliJ project files to ignore. regenerate with `mill mill.idea.GenIdea/idea`
 .idea/
+null/
