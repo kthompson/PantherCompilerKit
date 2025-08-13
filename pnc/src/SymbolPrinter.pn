@@ -71,10 +71,8 @@ class SymbolPrinter(
         case Option.None =>
           ast.printSymbolQualifiedName(symbol)
       }
-    } else if (symbol.isStatic()) {
-      ast.printSymbolQualifiedName(symbol)
     } else {
-      ast.writeWithColor(ColorPalette.Identifier, symbol.name)
+      ast.printSymbolQualifiedName(symbol)
     }
     ast.writeColor(ColorPalette.Punctuation)
 

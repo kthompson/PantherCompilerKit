@@ -105,8 +105,8 @@ class BoundAssemblyPrinter(
 
   def printLeftHandSide(lhs: BoundLeftHandSide): unit = {
     lhs match {
-      case BoundLeftHandSide.Index(indexExpr) =>
-        printIndexExpression(indexExpr)
+      case BoundLeftHandSide.Index(expression) =>
+        printIndexExpression(expression)
       case BoundLeftHandSide.MemberAccess(memberAccess) =>
         printMemberAccess(memberAccess)
       case BoundLeftHandSide.Variable(location, variable) =>
@@ -115,8 +115,10 @@ class BoundAssemblyPrinter(
         } else {
           writeWithColor(ColorPalette.Identifier, variable.name)
         }
-      case BoundLeftHandSide.Call(callExpr) =>
-        printCallExpression(callExpr)
+      case BoundLeftHandSide.Call(expression) =>
+        printCallExpression(expression)
+      case BoundLeftHandSide.New(expression) =>
+        printNewExpression(expression)
     }
   }
 

@@ -287,6 +287,8 @@ class Emitter(
         emitNewExpression(value, context)
       case value: LoweredExpression.StringLiteral =>
         emitStringLiteral(value, context)
+      case value: LoweredExpression.This =>
+        emitThisExpression(value, context)
       case value: LoweredExpression.Unary =>
         emitUnaryExpression(value, context)
       case value: LoweredExpression.Variable =>
@@ -300,6 +302,8 @@ class Emitter(
       expr: LoweredStatement.AssignField,
       context: EmitContext
   ): unit = {
+    emitLHS(expr.receiver, context)
+    emitExpression(expr.expression, context)
     assert(expr.field.kind == SymbolKind.Field, "expected field")
     fieldTokens.get(expr.field) match {
       case Option.Some(value) =>
@@ -465,9 +469,28 @@ class Emitter(
   ): unit = {
     lhs match {
       case LoweredLeftHandSide.MemberAccess(_, left, symbol) =>
-        ???
+        // Emit the receiver for instance member access
+        emitLHS(left, context)
       case LoweredLeftHandSide.Variable(location, variable) =>
         emitVariable(LoweredExpression.Variable(location, variable), context)
+      case LoweredLeftHandSide.New(
+            location,
+            constructor,
+            genericArguments,
+            arguments,
+            resultType
+          ) =>
+        // Emit the new expression
+        emitNewExpression(
+          LoweredExpression.New(
+            location,
+            constructor,
+            genericArguments,
+            arguments,
+            resultType
+          ),
+          context
+        )
     }
   }
 
@@ -493,26 +516,29 @@ class Emitter(
       expr: LoweredExpression.MemberAccess,
       context: EmitContext
   ): unit = {
-    assert(
-      expr.symbol.isStatic(),
-      "expected static member access"
-    ) // TODO: support non-static member access
-
     if (expr.symbol.kind == SymbolKind.Method) {
       methodTokens.get(expr.symbol) match {
         case Option.Some(token) =>
-
-          ???
+          if (!expr.symbol.isStatic()) {
+            // Emit the receiver for instance methods
+            emitLHS(expr.left, context)
+          }
+          chunk.emitOpcode(Opcode.Call, expr.location.startLine)
           chunk.emitI4(token.token, expr.location.startLine)
         case Option.None =>
           panic("emitMemberAccess: no method token for " + expr.symbol)
       }
     } else if (expr.symbol.kind == SymbolKind.Field) {
-
-      // receiver is a no-op since this is a static member access
       fieldTokens.get(expr.symbol) match {
         case Option.Some(value) =>
-          chunk.emitOpcode(Opcode.Ldsfld, expr.location.startLine)
+          if (expr.symbol.isStatic()) {
+            // Static field access
+            chunk.emitOpcode(Opcode.Ldsfld, expr.location.startLine)
+          } else {
+            // Instance field access - emit the receiver first
+            emitLHS(expr.left, context)
+            chunk.emitOpcode(Opcode.Ldfld, expr.location.startLine)
+          }
           chunk.emitI4(value.token, expr.location.startLine)
         case Option.None =>
           panic(
@@ -521,15 +547,28 @@ class Emitter(
           )
       }
     } else {
-      // TODO: support instance member access
-      panic("emitMemberAccess: instance member access not supported yet")
+      panic("emitMemberAccess: unsupported symbol kind " + expr.symbol.kind)
     }
   }
 
   def emitNewExpression(
       expr: LoweredExpression.New,
       context: EmitContext
-  ): unit = ???
+  ): unit = {
+    // Emit the constructor arguments on the stack first
+    emitExpressions(expr.arguments, context)
+
+    // Get the constructor token and emit the newobj opcode
+    methodTokens.get(expr.constructor) match {
+      case Option.None =>
+        panic(
+          "emitNewExpression: no method token for " + expr.constructor.kind + " '" + expr.constructor.name + "'"
+        )
+      case Option.Some(token) =>
+        chunk.emitOpcode(Opcode.Newobj, expr.location.startLine)
+        chunk.emitI4(token.token, expr.location.startLine)
+    }
+  }
 
   def emitStringLiteral(
       expr: LoweredExpression.StringLiteral,
@@ -559,6 +598,14 @@ class Emitter(
 
       case UnaryOperatorKind.Error => ???
     }
+  }
+
+  def emitThisExpression(
+      expr: LoweredExpression.This,
+      context: EmitContext
+  ): unit = {
+    // Load the 'this' parameter, which is typically the first parameter (index 0)
+    chunk.emitOpcode(Opcode.Ldarg0, expr.location.startLine)
   }
 
   def emitUnitExpression(
