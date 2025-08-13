@@ -18,6 +18,7 @@ object VmTests {
     calls()
     objectMethods()
     objectFields()
+//    classes()
 
     // TODO: dup, swap, pop
     // TODO: arguments
@@ -243,6 +244,54 @@ object VmTests {
       "if (x < -10) -1 else if (x > -20) -2 else -3 + x",
       if (x < -10) -1 else if (x > -20) -2 else -3 + x
     )
+  }
+
+  def classes(): unit = {
+    classWithoutArgs()
+    classWithArgs()
+    classFields()
+  }
+  def classWithoutArgs(): Unit = {
+    test("class without args")
+    assertExecValueIntWithSetup(
+      "class Foo() {\n" +
+        " def bar() = 12\n" +
+        "}",
+      "new Foo().bar()",
+      12
+    )
+  }
+
+  def classWithArgs(): unit = {
+    test("class with args")
+    assertExecValueIntWithSetup(
+      "class Foo(x: int, y: int) {\n" +
+        " def bar() = x + y\n" +
+        "}",
+      "new Foo(12, 13).bar()",
+      25
+    )
+  }
+
+  def classFields(): unit = {
+    test("class fields")
+    assertExecValueIntWithSetup(
+      "class Foo() {\n" +
+        " val bar = 24\n" +
+        "}",
+      "new Foo().bar",
+      24
+    )
+    assertExecValueIntWithSetup(
+      "class Foo() {\n" +
+        " var bar = 24\n" +
+        "}",
+      "val foo = new Foo()\n" +
+        "foo.bar = 42\n" +
+        "foo.bar",
+      42
+    )
+
   }
 
   def locals(): unit = {
