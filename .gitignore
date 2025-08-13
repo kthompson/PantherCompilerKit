@@ -8,6 +8,8 @@ out
 target/
 mill.*
 .bsp/
+.metals/
+.bloop/
 
 # IntelliJ project files to ignore. regenerate with `mill mill.idea.GenIdea/idea`
 .idea/
