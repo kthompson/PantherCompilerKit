@@ -234,25 +234,25 @@ object VmTests extends TestSuite {
       assertExecValueIntWithSetup(setup, "-Calculator.negativeValue", 42)
     }
 
-    // test("classes without args") {
-    //   assertExecValueIntWithSetup(
-    //    "class Foo() {\n" +
-    //      " def bar() = 12\n" +
-    //      "}",
-    //    "new Foo().bar()",
-    //    12
-    //  )
-    // }
+    test("classes without args") {
+      assertExecValueIntWithSetup(
+        "class Foo() {\n" +
+          " def bar() = 12\n" +
+          "}",
+        "new Foo().bar()",
+        12
+      )
+    }
 
-    // test("classes with args") {
-    //   assertExecValueIntWithSetup(
-    //     "class Foo(x: int, y: int) {\n" +
-    //       " def add() = x + y\n" +
-    //       "}",
-    //     "new Foo(12, 13).add()",
-    //     25
-    //   )
-    // }
+//    test("classes with args") {
+//      assertExecValueIntWithSetup(
+//        "class Foo(x: int, y: int) {\n" +
+//          " def add() = x + y\n" +
+//          "}",
+//        "new Foo(12, 13).add()",
+//        25
+//      )
+//    }
 
 //    test("class fields via constructor") {
 //      assertExecValueIntWithSetup(

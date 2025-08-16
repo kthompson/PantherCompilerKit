@@ -1568,7 +1568,9 @@ class Binder(
       symbol: Symbol,
       statements: List[MemberSyntax.GlobalStatementSyntax]
   ): unit = {
-    if (statements.length > 0) {
+    // ensure we add statements to bind for clases even when we dont have any to
+    // ensure that a constructor is created for classes that have no statements
+    if (statements.length > 0 || symbol.kind == SymbolKind.Class) {
       statementsToBind = statementsToBind.put(symbol, statements)
     }
   }
