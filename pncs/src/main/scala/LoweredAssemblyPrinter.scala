@@ -224,6 +224,8 @@ class LoweredAssemblyPrinter(
         printUnit()
       case expr: LoweredExpression.Variable =>
         printVariable(expr)
+      case expr: LoweredExpression.TypeCheck =>
+        printTypeCheck(expr)
     }
   }
 
@@ -326,6 +328,15 @@ class LoweredAssemblyPrinter(
     ast.printType(expr.resultType)
     ast.writeWithColor(ColorPalette.Punctuation, "(")
     printExpression(expr.operand)
+    ast.writeWithColor(ColorPalette.Punctuation, ")")
+  }
+
+  def printTypeCheck(expr: LoweredExpression.TypeCheck): unit = {
+    ast.writeWithColor(ColorPalette.Keyword, "typecheck")
+    ast.writeWithColor(ColorPalette.Punctuation, "(")
+    printExpression(expr.expression)
+    ast.writeWithColor(ColorPalette.Keyword, " is ")
+    ast.printType(expr.expectedType)
     ast.writeWithColor(ColorPalette.Punctuation, ")")
   }
 

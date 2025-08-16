@@ -294,6 +294,9 @@ case class Emitter(
         emitUnaryExpression(value, context)
       case value: LoweredExpression.Variable =>
         emitVariable(value, context)
+      case value: LoweredExpression.TypeCheck =>
+        // For now, just emit the expression (type checking is handled at compile time)
+        emitExpression(value.expression, context)
       case LoweredExpression.Unit =>
         emitUnitExpression(context)
     }

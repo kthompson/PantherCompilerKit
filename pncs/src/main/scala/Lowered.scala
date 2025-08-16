@@ -1,5 +1,6 @@
+import BoundExpression.Block
 import LoweredStatement.ExpressionStatement
-import panther._
+import panther.*
 
 case class LoweredAssembly(
     functionBodies: Dictionary[Symbol, LoweredBlock],
@@ -124,6 +125,11 @@ enum LoweredExpression {
   )
   case StringLiteral(location: TextLocation, value: string)
   case This(location: TextLocation)
+  case TypeCheck(
+      location: TextLocation,
+      expression: LoweredExpression,
+      expectedType: Type
+  )
   case Unary(
       location: TextLocation,
       operand: LoweredExpression,
@@ -147,6 +153,7 @@ enum LoweredExpression {
       case expr: LoweredExpression.Variable         => expr.location
       case expr: LoweredExpression.StringLiteral    => expr.location
       case expr: LoweredExpression.This             => expr.location
+      case expr: LoweredExpression.TypeCheck        => expr.location
       case expr: LoweredExpression.Unary            => expr.location
       case LoweredExpression.Unit => TextLocationFactory.empty()
     }
@@ -290,17 +297,19 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
         lhsBlockToBlock(lowerVariable(expr.location, expr.symbol, context))
       case expr: BoundExpression.WhileExpression =>
         lowerWhileExpression(expr, context)
+      case expr: BoundExpression.MatchExpression =>
+        lowerMatchExpression(expr, context)
     }
   }
 
-  private def lhsBlockToBlock(lhs: LoweredLeftHandSideBlock) = {
+  def lhsBlockToBlock(lhs: LoweredLeftHandSideBlock) = {
     LoweredBlock(
       lhs.statements,
       lhsToExpression(lhs.expression)
     )
   }
 
-  private def lhsToExpression(expression: LoweredLeftHandSide) = {
+  def lhsToExpression(expression: LoweredLeftHandSide) = {
     expression match {
       case LoweredLeftHandSide.Variable(location, symbol) =>
         // we have a variable so we can just return it
@@ -618,7 +627,6 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
          * <thenLabel>
          *   x = <thenBody>
          * <endLabel>
-         *
          */
 
         val variable = createTemporary()
@@ -948,6 +956,94 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
         .append(endLabelDecl),
       LoweredExpression.Unit
     )
+  }
+
+  def lowerMatchExpression(
+      expr: BoundExpression.MatchExpression,
+      context: LoweredBlock
+  ): LoweredBlock = {
+
+    /*
+     * match <expression>
+     *   case <pattern1> => <body1>
+     *   case <pattern2> => <body2>
+     *   case _ => <default>
+     *
+     * to
+     *
+     * var $temp = <expression>
+     * if (<pattern1Check>) <body1>
+     * else if (<pattern2Check>) <body2>
+     * else <default>
+     */
+
+    // First convert the match expression to an if expression, then lets lower it
+    val variable = createTemporary()
+    val assignment = BoundExpression.Assignment(
+      expr.location,
+      BoundLeftHandSide.Variable(expr.location, variable),
+      expr.expression
+    )
+
+    val expression = boundMatchCaseToExpression(
+      variable,
+      expr,
+      expr.cases.head,
+      expr.cases.tail
+    )
+    // Generate the if-then-else chain for the cases
+    lowerExpression(
+      BoundExpression.Block(
+        List.Cons(BoundStatement.ExpressionStatement(assignment), List.Nil),
+        expression
+      ),
+      context
+    )
+  }
+
+  def boundMatchCaseToExpression(
+      variable: Symbol,
+      node: BoundExpression.MatchExpression,
+      matchCase: BoundMatchCase,
+      cases: List[BoundMatchCase]
+  ): BoundExpression = {
+    matchCase.pattern match {
+      case BoundPattern.Literal(literal) =>
+        BoundExpression.IfExpression(
+          matchCase.location,
+          BoundExpression.BinaryExpression(
+            matchCase.location,
+            BoundExpression.Variable(matchCase.location, variable, None),
+            BinaryOperatorKind.Equals,
+            literal match {
+              case BoundLiteral.IntLiteral(location, value) =>
+                BoundExpression.IntLiteral(location, value)
+              case BoundLiteral.StringLiteral(location, value) =>
+                BoundExpression.StringLiteral(location, value)
+              case BoundLiteral.BoolLiteral(location, value) =>
+                BoundExpression.BooleanLiteral(location, value)
+              case BoundLiteral.CharLiteral(location, value) =>
+                BoundExpression.CharacterLiteral(location, value)
+            },
+            binder.boolType
+          ),
+          matchCase.result,
+          cases match {
+            case List.Nil => Option.None
+            case List.Cons(head, tail) =>
+              Option.Some(
+                boundMatchCaseToExpression(variable, node, head, tail)
+              )
+          },
+          node.resultType
+        )
+      case BoundPattern.Variable(symbol) =>
+        // TODO: not sure how to handle this yet
+        // For now, we just return the result of the match case
+        matchCase.result
+      case BoundPattern.Discard =>
+        matchCase.result
+    }
   }
 
   def lowerStatements(
