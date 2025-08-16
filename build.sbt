@@ -32,6 +32,8 @@ lazy val pncs = project
   .dependsOn(runtime, metadata, text)
   .settings(
     mainClass := Some("Program$"),
+    libraryDependencies += "com.lihaoyi" %% "utest" % "0.8.4" % Test,
+    testFrameworks += new TestFramework("utest.runner.Framework"),
     transpile := {
       val log = streams.value.log
       val sourceFiles = ((Compile / sources).value.map(_.getAbsolutePath) ++
@@ -151,3 +153,7 @@ lazy val pnc = project
 
 lazy val test = project
   .dependsOn(runtime, pncs)
+  .settings(
+    libraryDependencies += "com.lihaoyi" %% "utest" % "0.8.4" % Test,
+    testFrameworks += new TestFramework("utest.runner.Framework")
+  )

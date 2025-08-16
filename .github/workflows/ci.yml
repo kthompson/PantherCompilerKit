@@ -23,7 +23,7 @@ jobs:
       run: sbt pncs/compile
 
     - name: test
-      run: sbt test/run
+      run: sbt test/test
 
   transpile:
     runs-on: ubuntu-latest

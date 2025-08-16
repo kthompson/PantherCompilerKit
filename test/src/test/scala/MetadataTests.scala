@@ -1,8 +1,7 @@
-import panther._
-import Helpers._
-import TestFramework._
+import panther.{assert => _, *}
+import utest._
 
-object MetadataTests {
+object MetadataTests extends TestSuite {
 
   val metadata: Metadata = Metadata()
   val point: TypeDefToken = metadata.addTypeDef("Point", "", MetadataFlags.None)
@@ -54,59 +53,52 @@ object MetadataTests {
   val circleRadius: FieldToken =
     metadata.addField("radius", MetadataFlags.None, 1, 0)
 
-  def run(): unit = {
-    suite("Metadata Tests")
+  val tests = Tests {
+    test("findTypeDefForMethod") {
+      assert(point.token == metadata.findTypeDefForMethod(pointCtor).token)
+      assert(point.token == metadata.findTypeDefForMethod(pointGetX).token)
+      assert(point.token == metadata.findTypeDefForMethod(pointGetY).token)
+      assert(
+        point3.token ==
+          metadata.findTypeDefForMethod(point3Ctor).token
+      )
+      assert(
+        point3.token ==
+          metadata.findTypeDefForMethod(point3GetX).token
+      )
+      assert(
+        point3.token ==
+          metadata.findTypeDefForMethod(point3GetY).token
+      )
+      assert(
+        point3.token ==
+          metadata.findTypeDefForMethod(point3GetZ).token
+      )
+      assert(
+        circle.token ==
+          metadata.findTypeDefForMethod(circleCtor).token
+      )
+      assert(
+        circle.token ==
+          metadata.findTypeDefForMethod(circleGetCenter).token
+      )
+      assert(
+        circle.token ==
+          metadata.findTypeDefForMethod(circleGetRadius).token
+      )
+    }
 
-    findTypeDefForMethodTests()
-    getMethodParameterCountTests()
-  }
-
-  def findTypeDefForMethodTests(): unit = {
-    test("findTypeDefForMethod")
-    Assert.intEqual(point.token, metadata.findTypeDefForMethod(pointCtor).token)
-    Assert.intEqual(point.token, metadata.findTypeDefForMethod(pointGetX).token)
-    Assert.intEqual(point.token, metadata.findTypeDefForMethod(pointGetY).token)
-    Assert.intEqual(
-      point3.token,
-      metadata.findTypeDefForMethod(point3Ctor).token
-    )
-    Assert.intEqual(
-      point3.token,
-      metadata.findTypeDefForMethod(point3GetX).token
-    )
-    Assert.intEqual(
-      point3.token,
-      metadata.findTypeDefForMethod(point3GetY).token
-    )
-    Assert.intEqual(
-      point3.token,
-      metadata.findTypeDefForMethod(point3GetZ).token
-    )
-    Assert.intEqual(
-      circle.token,
-      metadata.findTypeDefForMethod(circleCtor).token
-    )
-    Assert.intEqual(
-      circle.token,
-      metadata.findTypeDefForMethod(circleGetCenter).token
-    )
-    Assert.intEqual(
-      circle.token,
-      metadata.findTypeDefForMethod(circleGetRadius).token
-    )
-  }
-
-  def getMethodParameterCountTests(): unit = {
-    test("getMethodParameterCount")
-    Assert.intEqual(2, metadata.getMethodParameterCount(pointCtor))
-    Assert.intEqual(0, metadata.getMethodParameterCount(pointGetX))
-    Assert.intEqual(0, metadata.getMethodParameterCount(pointGetY))
-    Assert.intEqual(3, metadata.getMethodParameterCount(point3Ctor))
-    Assert.intEqual(0, metadata.getMethodParameterCount(point3GetX))
-    Assert.intEqual(0, metadata.getMethodParameterCount(point3GetY))
-    Assert.intEqual(0, metadata.getMethodParameterCount(point3GetZ))
-    Assert.intEqual(2, metadata.getMethodParameterCount(circleCtor))
-    Assert.intEqual(0, metadata.getMethodParameterCount(circleGetCenter))
-    Assert.intEqual(0, metadata.getMethodParameterCount(circleGetRadius))
+    test("getMethodParameterCount") {
+      assert(metadata.getMethodParameterCount(pointCtor) == 2)
+      assert(metadata.getMethodParameterCount(pointGetX) == 0)
+      assert(metadata.getMethodParameterCount(pointGetY) == 0)
+      assert(metadata.getMethodParameterCount(point3Ctor) == 3)
+      assert(metadata.getMethodParameterCount(point3GetX) == 0)
+      assert(metadata.getMethodParameterCount(point3GetY) == 0)
+      assert(metadata.getMethodParameterCount(point3GetZ) == 0)
+      assert(metadata.getMethodParameterCount(circleCtor) == 2)
+      assert(metadata.getMethodParameterCount(circleGetCenter) == 0)
+      assert(metadata.getMethodParameterCount(circleGetRadius) == 0)
+    }
   }
 }
