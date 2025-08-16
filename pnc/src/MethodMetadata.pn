@@ -6,5 +6,6 @@ class MethodMetadata(
 methodSig: int,
     paramList: int,
 locals: int,
-address: int
+address: int,
+hasThis: bool
 )

@@ -806,8 +806,10 @@ case class Emitter(
       if (isStatic) MetadataFlags.Static
       else MetadataFlags.None
 
-    methodTokens =
-      methodTokens.put(symbol, metadata.addMethod(symbol.name, flags, 0, 0, -1))
+    methodTokens = methodTokens.put(
+      symbol,
+      metadata.addMethod(symbol.name, flags, !isStatic, 0, 0, -1)
+    )
 
     queueSymbolSignature(symbol)
 

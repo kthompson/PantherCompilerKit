@@ -6,5 +6,6 @@ case class MethodMetadata(
     var methodSig: int,
     paramList: int,
     var locals: int,
-    var address: int
+    var address: int,
+    var hasThis: bool
 )

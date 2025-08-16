@@ -29,14 +29,22 @@ class MethodTable() {
       methodSig: int,
       paramList: int,
       locals: int,
-      address: int
+      address: int,
+      hasThis: bool
   ): MethodToken = {
     // ensure methods capacity
     ensureCapacity(size + 1)
 
     // add MethodMetadata to methods
-    methods(size) =
-      MethodMetadata(name, flags, methodSig, paramList, locals, address)
+    methods(size) = MethodMetadata(
+      name,
+      flags,
+      methodSig,
+      paramList,
+      locals,
+      address,
+      hasThis
+    )
     size = size + 1
     MethodToken(size - 1)
   }
@@ -50,6 +58,7 @@ class MethodTable() {
       buffer.add(methods(i).paramList)
       buffer.add(methods(i).locals)
       buffer.add(methods(i).address)
+      buffer.add(if (methods(i).hasThis) 1 else 0)
     }
   }
 
@@ -59,7 +68,7 @@ class MethodTable() {
     ensureCapacity(tableSize)
     size = tableSize
 
-    val recordSize = 4
+    val recordSize = 7 // fields in MethodMetadata
 
     for (i <- 0 to (size - 1)) {
       val recordOffset = offset + 1 + i * recordSize
@@ -69,6 +78,7 @@ class MethodTable() {
       val paramList = buffer.read(recordOffset + 3)
       val locals = buffer.read(recordOffset + 4)
       val address = buffer.read(recordOffset + 5)
+      val hasThis = buffer.read(recordOffset + 6) == 1
 
       methods(i) = MethodMetadata(
         name,
@@ -76,7 +86,8 @@ class MethodTable() {
         methodSig,
         paramList,
         locals,
-        address
+        address,
+        hasThis
       )
     }
 

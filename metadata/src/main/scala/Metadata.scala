@@ -49,12 +49,21 @@ case class Metadata() {
   def addMethod(
       name: string,
       flags: MetadataFlags,
+      hasThis: bool,
       sigId: int,
       locals: int,
       address: int
   ): MethodToken = {
     val nameId = strings.addBlob(name)
-    methods.addMethod(nameId, flags, sigId, params.size, locals, address)
+    methods.addMethod(
+      nameId,
+      flags,
+      sigId,
+      params.size,
+      locals,
+      address,
+      hasThis
+    )
   }
 
   def addTypeDef(
@@ -222,6 +231,9 @@ case class Metadata() {
 
   def getMethodLocals(method: MethodToken): int =
     methods.get(method).locals
+
+  def getMethodHasThis(method: MethodToken): bool =
+    methods.get(method).hasThis
 
   def getMethodParameterCount(method: MethodToken): int = {
     val methodId = method.token
