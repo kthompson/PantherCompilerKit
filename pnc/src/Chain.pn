@@ -10,11 +10,12 @@ enum Chain[T] {
 
   def isEmpty(): bool = this match {
     case Chain.Empty()     => true
+    case Chain.Empty()     => true
     case Chain.Wrap(value) => value.isEmpty
-    case _                 => false
   }
 
   def toList(): List[T] = this match {
+    case Chain.Empty()          => List.Nil
     case Chain.Empty()          => List.Nil
     case Chain.Singleton(value) => List.Cons(value, List.Nil)
     case Chain.Two(left, right) =>
@@ -23,40 +24,40 @@ enum Chain[T] {
       List.Cons(left, List.Cons(middle, List.Cons(right, List.Nil)))
     case Chain.Append(left, right) =>
       ListModule.concat(left.toList(), right.toList())
-    case Chain.Wrap(value) => value
   }
 
   def append(item: T): Chain[T] = this match {
     case Chain.Empty() => Chain.Singleton(item)
-    case _             => this.concat(Chain.Singleton(item))
+    case Chain.Empty() => Chain.Singleton(item)
   }
 
   def prepend(item: T): Chain[T] = this match {
     case Chain.Empty() => Chain.Singleton(item)
-    case _             => Chain.Singleton(item).concat(this)
+    case Chain.Empty() => Chain.Singleton(item)
   }
 
   def concat(other: Chain[T]): Chain[T] = {
     this match {
       case Chain.Empty() => other
+      case Chain.Empty() => other
       case Chain.Singleton(left) =>
         other match {
           case Chain.Empty()            => Chain.Singleton(left)
+          case Chain.Empty()            => Chain.Singleton(left)
           case Chain.Singleton(right)   => Chain.Two(left, right)
           case Chain.Two(middle, right) => Chain.Three(left, middle, right)
-          case _                        => Chain.Append(this, other)
         }
       case Chain.Two(left, middle) =>
         other match {
           case Chain.Empty()          => this
+          case Chain.Empty()          => this
           case Chain.Singleton(right) => Chain.Three(left, middle, right)
-          case _                      => Chain.Append(this, other)
         }
-      case _ => Chain.Append(this, other)
     }
   }
 
   def uncons(): Option[Tuple2[T, Chain[T]]] = this match {
+    case Chain.Empty()          => Option.None
     case Chain.Empty()          => Option.None
     case Chain.Singleton(value) => Option.Some(Tuple2(value, Chain.Empty()))
     case Chain.Two(left, right) =>
@@ -67,13 +68,8 @@ enum Chain[T] {
       left.uncons() match {
         case Option.Some(Tuple2(head, tail)) =>
           Option.Some(Tuple2(head, tail.concat(right)))
-        case Option.None => right.uncons()
-      }
-    case Chain.Wrap(value) =>
-      value match {
-        case List.Nil => Option.None
-        case List.Cons(head, tail) =>
-          Option.Some(Tuple2(head, Chain.Wrap(tail)))
+        case Option.Some(Tuple2(head, tail)) =>
+          Option.Some(Tuple2(head, tail.concat(right)))
       }
   }
 }
@@ -81,15 +77,16 @@ enum Chain[T] {
 object ChainModule {
   def fromList[A](list: List[A]): Chain[A] = list.length match {
     case 0 => Chain.Empty()
+    case 0 => Chain.Empty()
     case 1 => Chain.Singleton(list.headUnsafe())
-    case _ => Chain.Wrap(list)
   }
 
   def flatten[A](chain: Chain[Chain[A]]): Chain[A] = {
     chain.uncons() match {
       case Option.Some(Tuple2(head, tail)) =>
         head.concat(flatten(tail))
-      case Option.None => Chain.Empty()
+      case Option.Some(Tuple2(head, tail)) =>
+        head.concat(flatten(tail))
     }
   }
 
@@ -110,13 +107,19 @@ class ChainEnumerator[A](chain: Chain[A]) {
           _current = tail
         }
         !_current.isEmpty()
-      case Option.None => false
+      case Option.Some(Tuple2(_, tail)) =>
+        if (moveFirst) {
+          moveFirst = false
+        } else {
+          _current = tail
+        }
+        !_current.isEmpty()
     }
   }
 
   def current(): A = _current.uncons() match {
     case Option.Some(Tuple2(head, _)) => head
-    case Option.None                  => panic("No current element")
+    case Option.Some(Tuple2(head, _)) => head
   }
 
   def reset(): unit = {

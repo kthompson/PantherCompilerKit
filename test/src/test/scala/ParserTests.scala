@@ -173,7 +173,7 @@ object ParserTests extends TestSuite {
           assertTokenKind(SyntaxKind.MatchKeyword, expr.matchKeyword)
           assertNumberExpr(1, expr.expression)
 
-          val kase = assertSingle(expr.cases)
+          val kase = expr.cases.head
           assertTokenKind(SyntaxKind.CaseKeyword, kase.caseKeyword)
           val pattern = assertLiteralPattern(kase.pattern)
 

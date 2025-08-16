@@ -7,9 +7,7 @@ object MakeCompilation {
     while (diagTrees != List.Nil) {
       diagTrees match {
         case List.Nil => ()
-        case List.Cons(head, tail) =>
-          diagnosticBag.addDiagnostics(head.diagnostics)
-          diagTrees = tail
+        case List.Nil => ()
       }
     }
 

@@ -16,13 +16,7 @@ class BoundAssemblyPrinter(
     ast.indent()
     assembly.entryPoint match {
       case Option.None =>
-      case Option.Some(value) =>
-        ast.writeWithColor(ColorPalette.Brackets(1), "Entry Point")
-        ast.appendLine("")
-        ast.indent()
-        symbolPrinter.printSimpleSymbol(value)
-        ast.appendLine("")
-        ast.unindent()
+      case Option.None =>
     }
 
     if (!assembly.functionBodies.list.isEmpty) {
@@ -43,9 +37,7 @@ class BoundAssemblyPrinter(
   ): unit = {
     functionBodies match {
       case List.Nil => ()
-      case List.Cons(head, tail) =>
-        printFunctionBody(head.key, head.value)
-        printFunctionBodies(tail)
+      case List.Nil => ()
     }
   }
 
@@ -64,6 +56,7 @@ class BoundAssemblyPrinter(
   ): unit = {
     expression match {
       case expr: BoundExpression.Error            => printError(expr)
+      case expr: BoundExpression.Error            => printError(expr)
       case expr: BoundExpression.Assignment       => printAssignment(expr)
       case expr: BoundExpression.BinaryExpression => printBinaryExpression(expr)
       case expr: BoundExpression.Block            => printBlock(expr)
@@ -81,7 +74,6 @@ class BoundAssemblyPrinter(
       case expr: BoundExpression.UnaryExpression  => printUnaryExpression(expr)
       case expr: BoundExpression.UnitExpression   => printUnitExpression(expr)
       case expr: BoundExpression.Variable         => printVariable(expr)
-      case expr: BoundExpression.WhileExpression  => printWhileExpression(expr)
     }
   }
 
@@ -107,6 +99,8 @@ class BoundAssemblyPrinter(
     lhs match {
       case BoundLeftHandSide.Index(expression) =>
         printIndexExpression(expression)
+      case BoundLeftHandSide.Index(expression) =>
+        printIndexExpression(expression)
       case BoundLeftHandSide.MemberAccess(memberAccess) =>
         printMemberAccess(memberAccess)
       case BoundLeftHandSide.Variable(location, variable) =>
@@ -117,8 +111,6 @@ class BoundAssemblyPrinter(
         }
       case BoundLeftHandSide.Call(expression) =>
         printCallExpression(expression)
-      case BoundLeftHandSide.New(expression) =>
-        printNewExpression(expression)
     }
   }
 
@@ -144,10 +136,9 @@ class BoundAssemblyPrinter(
       case Option.None =>
         writeWithColor(ColorPalette.Identifier, expr.method.name)
 
-      case Option.Some(receiver) =>
-        printLeftHandSide(receiver)
-        writeWithColor(ColorPalette.Punctuation, ".")
+      case Option.None =>
         writeWithColor(ColorPalette.Identifier, expr.method.name)
+
     }
 
     if (!expr.genericArguments.isEmpty) {
@@ -179,9 +170,7 @@ class BoundAssemblyPrinter(
 
     expr.elseExpr match {
       case Option.None => ()
-      case Option.Some(elseExpr) =>
-        writeWithColor(ColorPalette.Keyword, " else ")
-        printExpression(elseExpr)
+      case Option.None => ()
     }
   }
   def printIndexExpression(expr: BoundExpression.IndexExpression): unit = ???
@@ -205,14 +194,7 @@ class BoundAssemblyPrinter(
   def printExpressions(expressions: List[BoundExpression]): unit = {
     expressions match {
       case List.Nil =>
-      case List.Cons(head, tail) =>
-        printExpression(head)
-        tail match {
-          case List.Nil =>
-          case _ =>
-            writeWithColor(ColorPalette.Punctuation, ", ")
-            printExpressions(tail)
-        }
+      case List.Nil =>
     }
   }
 
@@ -247,19 +229,16 @@ class BoundAssemblyPrinter(
   def printStatements(value: List[BoundStatement]): unit = {
     value match {
       case List.Nil => ()
-      case List.Cons(head, tail) =>
-        printBoundStatement(head)
-        printStatements(tail)
+      case List.Nil => ()
     }
   }
 
   def printBoundStatement(statement: BoundStatement): unit = {
     statement match {
       case BoundStatement.Error => printErrorStatement()
+      case BoundStatement.Error => printErrorStatement()
       case stmt: BoundStatement.ExpressionStatement =>
         printExpressionStatement(stmt)
-      case stmt: BoundStatement.VariableDeclaration =>
-        printVariableDeclaration(stmt)
     }
   }
 

@@ -901,7 +901,8 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   def parseMatchExpression(left: Expression): Expression = {
     val keyword = accept()
     val open = acceptKind(SyntaxKind.OpenBraceToken)
-    val cases = parseMatchCases()
+    val caseHead = parseMatchCase()
+    val cases = parseMatchCases(caseHead, List.Nil)
     val close = acceptKind(SyntaxKind.CloseBraceToken)
 
     new MatchExpression(left, keyword, open, cases, close)
@@ -914,21 +915,19 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     new CastExpression(left, keyword, typ)
   }
 
-  def parseMatchCases(): Array[MatchCaseSyntax] = {
+  def parseMatchCases(
+      head: MatchCaseSyntax,
+      tail: List[MatchCaseSyntax]
+  ): NonEmptyList[MatchCaseSyntax] = {
     debugPrint("parseMatchCases")
     var size = 0
 
-    val cases = new Array[MatchCaseSyntax](80)
-    while (currentKind() == SyntaxKind.CaseKeyword) {
-      cases(size) = parseMatchCase()
-      size = size + 1
+    if (currentKind() == SyntaxKind.CaseKeyword) {
+      val matchCase = parseMatchCase()
+      parseMatchCases(matchCase, List.Cons(head, tail))
+    } else {
+      NonEmptyList(head, tail).reverse()
     }
-
-    val result = new Array[MatchCaseSyntax](size)
-    for (i <- 0 to (size - 1)) {
-      result(i) = cases(i)
-    }
-    result
   }
 
   def parseMatchCase(): MatchCaseSyntax = {

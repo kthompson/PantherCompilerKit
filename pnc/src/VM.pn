@@ -119,14 +119,18 @@ class VM(
       case Value.int(a) =>
         b match {
           case Value.int(b) => push(Value.int(a + b))
-          case _            => runtimeError("Expected int on stack")
+          case Value.int(b) => push(Value.int(a + b))
+        }
+      case Value.int(a) =>
+        b match {
+          case Value.int(b) => push(Value.int(a + b))
+          case Value.int(b) => push(Value.int(a + b))
         }
       case Value.string(a) =>
         b match {
           case Value.string(b) => push(Value.string(a + b))
-          case _               => runtimeError("Expected bool on stack")
+          case Value.string(b) => push(Value.string(a + b))
         }
-      case _ => runtimeError("Expected int or bool on stack")
     }
   }
 
@@ -153,17 +157,16 @@ class VM(
 
     val result = op match {
       case Opcode.Ceq => Option.Some(a == b)
+      case Opcode.Ceq => Option.Some(a == b)
       case Opcode.Cgt => Option.Some(a > b)
       case Opcode.Clt => Option.Some(a < b)
-      case _          => Option.None
     }
 
     result match {
       case Option.None =>
         runtimeError("Invalid operation: " + opName)
-      case Option.Some(value) =>
-        pushBool(value)
-        InterpretResult.Continue
+      case Option.None =>
+        runtimeError("Invalid operation: " + opName)
     }
   }
 
@@ -171,6 +174,8 @@ class VM(
     val b = popInt()
     val a = popInt()
     val result = op match {
+      case Opcode.Sub =>
+        Option.Some(a - b)
       case Opcode.Sub =>
         Option.Some(a - b)
       case Opcode.Mul =>
@@ -189,8 +194,6 @@ class VM(
         Option.Some(a << b)
       case Opcode.Shr =>
         Option.Some(a >> b)
-      case _ =>
-        Option.None
     }
 
     pushIntOrInvalidOp(result, opName)
@@ -201,8 +204,8 @@ class VM(
 
     val result = op match {
       case Opcode.Not => Option.Some(~a)
+      case Opcode.Not => Option.Some(~a)
       case Opcode.Neg => Option.Some(-a)
-      case _          => Option.None
     }
 
     pushIntOrInvalidOp(result, opName)
@@ -212,9 +215,8 @@ class VM(
     result match {
       case Option.None =>
         runtimeError("Invalid operation: " + opName)
-      case Option.Some(value) =>
-        push(Value.int(value))
-        InterpretResult.Continue
+      case Option.None =>
+        runtimeError("Invalid operation: " + opName)
     }
   }
 
@@ -222,8 +224,8 @@ class VM(
     val value = pop()
     value match {
       case Value.int(1) => true
+      case Value.int(1) => true
       case Value.int(0) => false
-      case _            => panic("Expected bool on stack, found " + value)
     }
   }
 
@@ -231,14 +233,14 @@ class VM(
     val value = pop()
     value match {
       case Value.int(i) => i
-      case _            => panic("Expected int on stack, found " + value)
+      case Value.int(i) => i
     }
   }
 
   def stackAsInt(pos: int): int = {
     stack(pos) match {
       case Value.int(value) => value
-      case _                => panic("Expected int on stack at position " + pos)
+      case Value.int(value) => value
     }
   }
 
@@ -247,12 +249,7 @@ class VM(
 
     var result = entry match {
       case Option.None => InterpretResult.Continue
-      case Option.Some(value) =>
-        if (CompilerSettings.enableTracing) {
-          val name = metadata.getMethodName(value)
-          println("Running program with entry point: " + name)
-        }
-        methodCall(value, -1)
+      case Option.None => InterpretResult.Continue
     }
 
     while (result == InterpretResult.Continue) {
@@ -268,6 +265,9 @@ class VM(
     }
     val instruction = readI4()
     instruction match {
+      case Opcode.Nop =>
+        InterpretResult.Continue
+
       case Opcode.Nop =>
         InterpretResult.Continue
 
@@ -402,15 +402,15 @@ class VM(
             // TODO: may need native function here
             push(Value.string(i.toString()))
             InterpretResult.Continue
+          case Value.int(i) =>
+            // TODO: may need native function here
+            push(Value.string(i.toString()))
+            InterpretResult.Continue
           case Value.string(s) =>
             push(Value.string(s))
             InterpretResult.Continue
           case Value.Uninitialized =>
             push(Value.string("unit"))
-            InterpretResult.Continue
-          case ref: Value.Ref =>
-            val fullName = metadata.getTypeName(ref.token)
-            push(Value.string(fullName))
             InterpretResult.Continue
         }
 
@@ -445,8 +445,11 @@ class VM(
             val value = heap(addr + field.index)
             push(value)
             InterpretResult.Continue
-          case _ =>
-            runtimeError("Expected object reference for field access")
+          case Value.Ref(typeToken, addr) =>
+            // load the instance field value
+            val value = heap(addr + field.index)
+            push(value)
+            InterpretResult.Continue
         }
 
       case Opcode.Stfld =>
@@ -463,8 +466,10 @@ class VM(
             // store the value in the instance field
             heap(addr + field.index) = value
             InterpretResult.Continue
-          case _ =>
-            runtimeError("Expected object reference for field assignment")
+          case Value.Ref(typeToken, addr) =>
+            // store the value in the instance field
+            heap(addr + field.index) = value
+            InterpretResult.Continue
         }
 
       case Opcode.Newobj =>
@@ -488,10 +493,6 @@ class VM(
         // call the constructor
         methodCall(token, ip)
 
-      case _ =>
-        val opcode = Opcode.nameOf(instruction)
-        panic("Unsupported opcode " + opcode)
-        InterpretResult.CompileError
     }
   }
 

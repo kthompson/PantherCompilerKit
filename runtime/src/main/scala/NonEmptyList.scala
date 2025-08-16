@@ -6,6 +6,14 @@ case class NonEmptyList[T](head: T, tail: List[T]) {
   def last(): T =
     if (tail.isEmpty) head
     else tail.lastUnsafe()
+
+  def toList(): List[T] = {
+    List.Cons(head, tail)
+  }
+
+  def reverse(): NonEmptyList[T] = {
+    NonEmptyList(last(), tail.reverse())
+  }
 }
 
 object NonEmptyListModule {

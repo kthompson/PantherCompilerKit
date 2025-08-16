@@ -134,7 +134,7 @@ enum Expression {
       expression: Expression,
       matchKeyword: SyntaxToken,
       openBrace: SyntaxToken,
-      cases: Array[MatchCaseSyntax],
+      cases: NonEmptyList[MatchCaseSyntax],
       closeBrace: SyntaxToken
   )
   case NewExpression(
