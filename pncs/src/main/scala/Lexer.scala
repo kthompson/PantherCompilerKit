@@ -377,8 +377,15 @@ case class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     }
     val span = makeSpan(start)
     val kind = SyntaxFacts.getKeywordKind(span)
+    val value = if (kind == SyntaxKind.TrueKeyword) {
+      SyntaxTokenValue.Boolean(true)
+    } else if (kind == SyntaxKind.FalseKeyword) {
+      SyntaxTokenValue.Boolean(false)
+    } else {
+      SyntaxTokenValue.None
+    }
 
-    new SimpleToken(kind, start, span, SyntaxTokenValue.None)
+    new SimpleToken(kind, start, span, value)
   }
 
   def scanOperator(): SimpleToken = {
