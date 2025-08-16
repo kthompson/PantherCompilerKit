@@ -1,4 +1,3 @@
-import panther.{assert => _, *}
 import TestHelpers._
 import utest._
 
@@ -78,15 +77,18 @@ object BinderTests extends TestSuite {
         assertNoSymbols(symbols)
       }
 
-// FIXME: this is not implemented yet
-//      test("fields") {
-//        val comp = mkCompilation(
-//          "class Foo() {\n" +
-//            "  var z = 0\n" +
-//            "}"
-//        )
-//        // Test implementation would go here if this feature is implemented
-//      }
+      test("fields") {
+        val comp = mkCompilation(
+          "class Foo() {\n" +
+            "  var z = 0\n" +
+            "}"
+        )
+
+        val symbols = enumNonBuiltinSymbols(comp)
+        assertSymbol(symbols, SymbolKind.Class, "Foo")
+        assertSymbol(symbols, SymbolKind.Field, "z")
+        assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
+      }
     }
 
     test("enums") {
