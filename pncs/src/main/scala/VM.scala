@@ -405,7 +405,7 @@ case class VM(
           case Value.String(s) =>
             push(Value.String(s))
             InterpretResult.Continue
-          case Value.Unit =>
+          case Value.Uninitialized =>
             push(Value.String("unit"))
             InterpretResult.Continue
           case ref: Value.Ref =>
@@ -432,6 +432,62 @@ case class VM(
         val value = heap(staticp + field.index)
         push(value)
         InterpretResult.Continue
+
+      case Opcode.Ldfld =>
+        val token = readFieldToken()
+        val field = metadata.fields.get(token)
+
+        // pop the object reference
+        val objRef = pop()
+        objRef match {
+          case Value.Ref(typeToken, addr) =>
+            // load the instance field value
+            val value = heap(addr + field.index)
+            push(value)
+            InterpretResult.Continue
+          case _ =>
+            runtimeError("Expected object reference for field access")
+        }
+
+      case Opcode.Stfld =>
+        val token = readFieldToken()
+        val field = metadata.fields.get(token)
+
+        // pop the value to store
+        val value = pop()
+
+        // pop the object reference
+        val objRef = pop()
+        objRef match {
+          case Value.Ref(typeToken, addr) =>
+            // store the value in the instance field
+            heap(addr + field.index) = value
+            InterpretResult.Continue
+          case _ =>
+            runtimeError("Expected object reference for field assignment")
+        }
+
+      case Opcode.Newobj =>
+        val token = readMethodToken()
+
+        // get the type definition for this constructor
+        val typeDef = metadata.findTypeDefForMethod(token)
+
+        // allocate space for the new object
+        val objSize = metadata.getTypeDefSize(typeDef)
+        val objAddr = alloc(objSize)
+
+        // initialize all fields to Unit (could be improved to use default values)
+        for (i <- 0 to (objSize - 1)) {
+          heap(objAddr + i) = Value.Uninitialized
+        }
+
+        // push the object reference onto the stack
+        push(Value.Ref(typeDef, objAddr))
+
+        // call the constructor
+        methodCall(token, ip)
+
       case _ =>
         val opcode = Opcode.nameOf(instruction)
         panic("Unsupported opcode " + opcode)
@@ -467,6 +523,7 @@ case class VM(
       returnAddress: int
   ): InterpretResult = {
     val numArgs = metadata.getMethodParameterCount(method)
+    val hasThis = if (metadata.getMethodHasThis(method)) 1 else 0
     val addr = metadata.getMethodAddress(method)
     val localCount = metadata.getMethodLocals(method)
 
@@ -477,12 +534,12 @@ case class VM(
     push(Value.Int(argsp))
 
     // set up the new frame
-    argsp = sp - numArgs - 3
+    argsp = sp - numArgs - hasThis - 3
     localp = sp
 
     // push the locals onto the stack
     for (i <- 0 to (localCount - 1)) {
-      push(Value.Unit)
+      push(Value.Uninitialized)
     }
 
     // argsp  = arg0            ━━━┓

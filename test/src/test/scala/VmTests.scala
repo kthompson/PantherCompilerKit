@@ -261,16 +261,16 @@ object VmTests extends TestSuite {
 //        6
 //      )
 //    }
-//
-//    test("class fields via field declaration") {
-//      assertExecValueIntWithSetup(
-//        "class Foo() {\n" +
-//          "  var x = 12\n" +
-//          "  var y = 13\n" +
-//          "}",
-//        "new Foo().x + new Foo().y",
-//        25
-//      )
-//    }
+
+    test("class fields via field declaration") {
+      assertExecValueIntWithSetup(
+        "class Foo() {\n" +
+          "  var x = 12\n" +
+          "  var y = 13\n" +
+          "}",
+        "new Foo().x + new Foo().y",
+        25
+      )
+    }
   }
 }

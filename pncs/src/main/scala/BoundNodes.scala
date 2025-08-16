@@ -39,6 +39,7 @@ enum BoundLeftHandSide {
   case Call(expression: BoundExpression.CallExpression)
   case Index(expression: BoundExpression.IndexExpression)
   case MemberAccess(expression: BoundExpression.MemberAccess)
+  case New(expression: BoundExpression.NewExpression)
   case Variable(location: TextLocation, symbol: Symbol)
 }
 

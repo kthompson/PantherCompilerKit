@@ -1,6 +1,6 @@
 import sbt.internal.inc.Analysis
 
-ThisBuild / scalaVersion := "3.3.3"
+ThisBuild / scalaVersion := "3.3.6"
 ThisBuild / scalacOptions ++= Seq(
   "-deprecation",
   "-Xfatal-warnings",

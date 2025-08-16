@@ -248,7 +248,11 @@ case class ExprBinder(
           case Result.Success(value) => value
         }
       case node: Expression.MatchExpression => bindMatchExpression(node, scope)
-      case node: Expression.NewExpression   => bindNewExpression(node, scope)
+      case node: Expression.NewExpression =>
+        bindNewExpression(node, scope) match {
+          case Result.Error(value)   => value
+          case Result.Success(value) => value
+        }
       case node: Expression.UnaryExpression => bindUnaryExpression(node, scope)
       case node: Expression.UnitExpression  => bindUnitExpression(node, scope)
       case node: Expression.WhileExpression => bindWhileExpression(node, scope)
@@ -282,6 +286,12 @@ case class ExprBinder(
             )
           case Result.Success(Either.Right(value)) =>
             ???
+        }
+      case node: Expression.NewExpression =>
+        bindNewExpression(node, scope) match {
+          case Result.Error(value) => Result.Error(value)
+          case Result.Success(value) =>
+            Result.Success(BoundLeftHandSide.New(value))
         }
       case _ =>
         panic(
@@ -1008,12 +1018,14 @@ case class ExprBinder(
     lhs match {
       case BoundLeftHandSide.Variable(_, variable) =>
         binder.getSymbolType(variable)
-      case BoundLeftHandSide.MemberAccess(memberAccess) =>
-        binder.getType(memberAccess)
-      case BoundLeftHandSide.Index(indexExpression) =>
-        binder.getType(indexExpression)
-      case BoundLeftHandSide.Call(call) =>
-        binder.getType(call)
+      case BoundLeftHandSide.MemberAccess(expression) =>
+        binder.getType(expression)
+      case BoundLeftHandSide.Index(expression) =>
+        binder.getType(expression)
+      case BoundLeftHandSide.Call(expression) =>
+        binder.getType(expression)
+      case BoundLeftHandSide.New(expression) =>
+        binder.getType(expression)
     }
   }
 
@@ -1021,14 +1033,19 @@ case class ExprBinder(
       node: Expression.MemberAccessExpression,
       scope: Scope
   ): Result[BoundExpression.Error, BoundExpression.MemberAccess] = {
-    bindLHS(node.left, scope) match {
-      case Result.Error(value) => Result.Error(value)
-      case Result.Success(left) =>
-
-        getLHSType(left) match {
+    // For member access, the left side doesn't need to be a left-hand side
+    // It just needs to be a valid expression that produces a value
+    val leftExpr = bindLHS(node.left, scope)
+    leftExpr match {
+      case Result.Error(error) =>
+        Result.Error(error)
+      case Result.Success(leftExpr) =>
+        getLHSType(leftExpr) match {
           case Type.Error(message) =>
             Result.Error(BoundExpression.Error(message))
           case leftType =>
+            // Check what kind of expression we have and create appropriate LHS wrapper
+
             node.right match {
               case SimpleNameSyntax.GenericNameSyntax(
                     right,
@@ -1044,7 +1061,7 @@ case class ExprBinder(
                     Result.Success(
                       BoundExpression.MemberAccess(
                         right.location,
-                        left,
+                        leftExpr,
                         member,
                         typeArguments,
                         typ
@@ -1068,7 +1085,7 @@ case class ExprBinder(
                     Result.Success(
                       BoundExpression.MemberAccess(
                         right.location,
-                        left,
+                        leftExpr,
                         member,
                         List.Nil,
                         typ
@@ -1078,7 +1095,6 @@ case class ExprBinder(
             }
         }
     }
-
   }
 
   def bindMemberForSymbolAndType(
@@ -1132,7 +1148,7 @@ case class ExprBinder(
   def bindNewExpression(
       node: Expression.NewExpression,
       scope: Scope
-  ): BoundExpression = {
+  ): Result[BoundExpression.Error, BoundExpression.NewExpression] = {
     val instantiationType = binder.bindTypeName(node.name, scope)
     instantiationType match {
       case Type.Class(_, ns, name, args, symbol) =>
@@ -1142,8 +1158,10 @@ case class ExprBinder(
               AstUtils.locationOfName(node.name),
               name
             )
-            BoundExpression.Error(
-              "Cannot find constructor for class: " + name
+            Result.Error(
+              BoundExpression.Error(
+                "Cannot find constructor for class: " + name
+              )
             )
           case Option.Some(ctor) =>
             val args = bindExpressions(
@@ -1161,18 +1179,17 @@ case class ExprBinder(
                   Type.Function(loc, params, instantiationType),
                   args,
                   scope
-                ) match {
-                  case Result.Error(value)   => value
-                  case Result.Success(value) => value
-                }
+                )
               case _ =>
                 diagnosticBag.reportNotCallable(location)
-                BoundExpression.Error(
-                  "Constructor symbol does not have a function type: " + name
+                Result.Error(
+                  BoundExpression.Error(
+                    "Constructor symbol does not have a function type: " + name
+                  )
                 )
             }
         }
-      case Type.Error(message) => BoundExpression.Error(message)
+      case Type.Error(message) => Result.Error(BoundExpression.Error(message))
       case _ =>
         println(node.closeParen.location.toString())
         panic("expected named type, got " + instantiationType)

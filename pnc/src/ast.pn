@@ -455,16 +455,17 @@ object AstUtils {
         whileKeyword.location.merge(locationOfExpression(body))
     }
   }
-
   def locationOfBoundLeftHandSide(
       value: BoundLeftHandSide
-  ): TextLocation =
+  ): TextLocation = {
     value match {
       case BoundLeftHandSide.Call(expr)            => expr.location
       case BoundLeftHandSide.Index(expr)           => expr.location
       case BoundLeftHandSide.MemberAccess(expr)    => expr.location
+      case BoundLeftHandSide.New(expr)             => expr.location
       case BoundLeftHandSide.Variable(location, _) => location
     }
+  }
 
   def locationOfBoundExpression(value: BoundExpression): TextLocation = {
     value match {

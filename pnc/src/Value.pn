@@ -4,5 +4,5 @@ enum Value {
   case int(value: int)
   case string(value: string)
   case Ref(token: TypeDefToken, value: int)
-  case unit
+  case Uninitialized
 }
