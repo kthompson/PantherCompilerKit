@@ -254,10 +254,10 @@ object Helpers {
 
   def assertLiteralPattern(
       expression: PatternSyntax
-  ): PatternSyntax.LiteralPattern = {
+  ): PatternSyntax.Literal = {
     expression match {
-      case expr: PatternSyntax.LiteralPattern => expr
-      case _ => failed("expected literal pattern")
+      case expr: PatternSyntax.Literal => expr
+      case _                           => failed("expected literal pattern")
     }
   }
 
