@@ -413,17 +413,20 @@ case class Transpiler(
     transpileExpression(expr.expression, context)
     transpileToken(expr.matchKeyword, context)
     transpileToken(expr.openBrace, context)
-    transpileMatchCases(expr.cases, context)
+    transpileMatchCase(expr.cases.head, context)
+    transpileMatchCases(expr.cases.tail, context)
     transpileToken(expr.closeBrace, context)
   }
 
   def transpileMatchCases(
-      cases: Array[MatchCaseSyntax],
+      cases: List[MatchCaseSyntax],
       context: TranspilerContext
   ): unit = {
-    for (x <- 0 to (cases.length - 1)) {
-      val case_ = cases(x)
-      transpileMatchCase(case_, context)
+    cases match {
+      case List.Nil =>
+      case List.Cons(head, tail) =>
+        transpileMatchCase(head, context)
+        transpileMatchCases(tail, context)
     }
   }
 

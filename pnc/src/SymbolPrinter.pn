@@ -8,11 +8,7 @@ class SymbolPrinter(
   def printSymbols(symbols: List[Symbol], indent: string): unit = {
     symbols match {
       case List.Nil => ()
-      case List.Cons(head, tail) =>
-        _printSymbolTree(head, indent, tail.isEmpty)
-        if (!tail.isEmpty) {
-          printSymbols(tail, indent)
-        }
+      case List.Nil => ()
     }
   }
 
@@ -68,8 +64,8 @@ class SymbolPrinter(
       typ match {
         case Option.Some(value) =>
           ast.printType(value)
-        case Option.None =>
-          ast.printSymbolQualifiedName(symbol)
+        case Option.Some(value) =>
+          ast.printType(value)
       }
     } else {
       ast.printSymbolQualifiedName(symbol)
@@ -82,14 +78,15 @@ class SymbolPrinter(
         case Option.Some(value) =>
           symbol.kind match {
             case SymbolKind.Class            =>
+            case SymbolKind.Class            =>
             case SymbolKind.TypeParameter(_) =>
-            case _ =>
-              ast.append(": ")
-              ast.printType(value)
           }
-        case Option.None =>
-          ast.append(": ")
-          ast.writeWithColor(ColorPalette.Error, "[missing type]")
+        case Option.Some(value) =>
+          symbol.kind match {
+            case SymbolKind.Class            =>
+            case SymbolKind.Class            =>
+            case SymbolKind.TypeParameter(_) =>
+          }
       }
     }
   }

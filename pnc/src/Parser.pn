@@ -172,8 +172,15 @@ class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
         value.initializer match {
           case Option.None =>
             value.closeBracket.isStatementTerminator()
-          case Option.Some(value) =>
-            value.closeBrace.isStatementTerminator()
+          case Option.None =>
+            value.closeBracket.isStatementTerminator()
+        }
+      case value: ArrayCreationExpression =>
+        value.initializer match {
+          case Option.None =>
+            value.closeBracket.isStatementTerminator()
+          case Option.None =>
+            value.closeBracket.isStatementTerminator()
         }
       case value: AssignmentExpression => hasStatementTerminator(value.right)
       case value: BinaryExpression     => hasStatementTerminator(value.right)
@@ -187,7 +194,7 @@ class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       case value: If =>
         hasStatementTerminator(value.elseExpr match {
           case Option.Some(value) => value.expression
-          case Option.None        => value.thenExpr
+          case Option.Some(value) => value.expression
         })
       case value: LiteralExpression => value.token.isStatementTerminator()
       case MatchExpression(_, _, _, _, closeBrace) =>
@@ -197,15 +204,13 @@ class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       case value: NewExpression   => value.closeParen.isStatementTerminator()
       case value: UnaryExpression => hasStatementTerminator(value.expression)
       case value: UnitExpression  => value.closeParen.isStatementTerminator()
-      case value: WhileExpression => hasStatementTerminator(value.body)
     }
   }
 
   def nameHasStatementTerminator(name: NameSyntax): bool = {
     name match {
       case NameSyntax.SimpleName(name) => simpleNameHasStatementTerminator(name)
-      case NameSyntax.QualifiedName(left, dotToken, right) =>
-        simpleNameHasStatementTerminator(right)
+      case NameSyntax.SimpleName(name) => simpleNameHasStatementTerminator(name)
     }
   }
 
@@ -213,12 +218,12 @@ class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     name match {
       case SimpleNameSyntax.GenericNameSyntax(identifier, typeArgumentlist) =>
         typeArgumentlist.greaterThanToken.isStatementTerminator()
+      case SimpleNameSyntax.GenericNameSyntax(identifier, typeArgumentlist) =>
+        typeArgumentlist.greaterThanToken.isStatementTerminator()
       case SimpleNameSyntax.IdentifierNameSyntax(identifier) =>
         identifier.isStatementTerminator()
       case SimpleNameSyntax.ScalaAliasSyntax(open, name, arrow, alias, close) =>
         close.isStatementTerminator()
-      case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) =>
-        alias.isStatementTerminator()
     }
   }
 
@@ -549,19 +554,8 @@ class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     NonEmptyListModule.fromList(statements) match {
       case Option.None =>
         new BlockExpressionListSyntax(statements, None)
-      case Option.Some(nel) =>
-        val lastStatement = nel.last()
-        lastStatement match {
-          case StatementSyntax.ExpressionStatement(value) =>
-            new BlockExpressionListSyntax(
-              dropStatement(statements),
-              Some(value)
-            )
-
-          case _ =>
-            new BlockExpressionListSyntax(statements, None)
-        }
-
+      case Option.None =>
+        new BlockExpressionListSyntax(statements, None)
     }
   }
 
@@ -901,7 +895,8 @@ class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   def parseMatchExpression(left: Expression): Expression = {
     val keyword = accept()
     val open = acceptKind(SyntaxKind.OpenBraceToken)
-    val cases = parseMatchCases()
+    val caseHead = parseMatchCase()
+    val cases = parseMatchCases(caseHead, List.Nil)
     val close = acceptKind(SyntaxKind.CloseBraceToken)
 
     new MatchExpression(left, keyword, open, cases, close)
@@ -914,21 +909,19 @@ class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     new CastExpression(left, keyword, typ)
   }
 
-  def parseMatchCases(): Array[MatchCaseSyntax] = {
+  def parseMatchCases(
+      head: MatchCaseSyntax,
+      tail: List[MatchCaseSyntax]
+  ): NonEmptyList[MatchCaseSyntax] = {
     debugPrint("parseMatchCases")
     var size = 0
 
-    val cases = new Array[MatchCaseSyntax](80)
-    while (currentKind() == SyntaxKind.CaseKeyword) {
-      cases(size) = parseMatchCase()
-      size = size + 1
+    if (currentKind() == SyntaxKind.CaseKeyword) {
+      val matchCase = parseMatchCase()
+      parseMatchCases(matchCase, List.Cons(head, tail))
+    } else {
+      NonEmptyList(head, tail).reverse()
     }
-
-    val result = new Array[MatchCaseSyntax](size)
-    for (i <- 0 to (size - 1)) {
-      result(i) = cases(i)
-    }
-    result
   }
 
   def parseMatchCase(): MatchCaseSyntax = {
@@ -976,13 +969,8 @@ class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
         identFromName(name) match {
           case Option.Some(identifier) =>
             PatternSyntax.Identifier(identifier, typeAnnotation)
-          case Option.None =>
-            diagnostics.reportUnexpectedToken(
-              current().location,
-              currentKind(),
-              SyntaxKind.IdentifierToken
-            )
-            PatternSyntax.Type(typeAnnotation.typ)
+          case Option.Some(identifier) =>
+            PatternSyntax.Identifier(identifier, typeAnnotation)
         }
 
       } else if (currentKind() == SyntaxKind.OpenParenToken) {
@@ -997,17 +985,7 @@ class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   def identFromName(name: NameSyntax): Option[SyntaxToken] = {
     name match {
       case _: QualifiedName => None
-      case NameSyntax.SimpleName(simpleName) =>
-        simpleName match {
-          case value: SimpleNameSyntax.GenericNameSyntax =>
-            None
-          case SimpleNameSyntax.ScalaAliasSyntax(_, identifier, _, _, _) =>
-            Some(identifier)
-          case SimpleNameSyntax.AliasSyntax(identifier, _, _) =>
-            Some(identifier)
-          case SimpleNameSyntax.IdentifierNameSyntax(identifier) =>
-            Some(identifier)
-        }
+      case _: QualifiedName => None
     }
   }
 

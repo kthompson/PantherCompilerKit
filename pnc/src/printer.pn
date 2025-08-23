@@ -41,22 +41,19 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
   def printMembers(nodes: List[MemberSyntax]): unit = {
     nodes match {
       case List.Nil => ()
-      case List.Cons(x, xs) =>
-        printMember(x)
-        printMembers(xs)
+      case List.Nil => ()
     }
   }
 
   def printMember(member: MemberSyntax): unit = {
     member match {
       case value: ObjectDeclarationSyntax   => printObjectDeclaration(value)
+      case value: ObjectDeclarationSyntax   => printObjectDeclaration(value)
       case value: ClassDeclarationSyntax    => printClassDeclaration(value)
       case value: FunctionDeclarationSyntax => printFunctionDeclaration(value)
       case value: GlobalStatementSyntax     => printGlobalStatement(value)
       case value: VariableDeclaration =>
         panic("VariableDeclaration not implemented")
-      case value: EnumDeclarationSyntax =>
-        panic("EnumDeclarationSyntax not implemented")
     }
   }
 
@@ -71,7 +68,7 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
   def printOptionalTemplate(node: Option[TemplateSyntax]): unit =
     node match {
       case Option.Some(value) => printTemplate(value)
-      case Option.None        =>
+      case Option.Some(value) => printTemplate(value)
     }
 
   def printTemplate(node: TemplateSyntax): unit = {
@@ -85,7 +82,7 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
     printTokenWithColor(node.identifier, ColorPalette.Identifier)
     node.genericParameters match {
       case Option.None        => ()
-      case Option.Some(value) => printGenericParameters(value)
+      case Option.None        => ()
     }
     printToken(node.openParenToken)
     printParameters(node.parameters)
@@ -110,35 +107,20 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
   ): unit = {
     items match {
       case List.Nil => ()
-      case List.Cons(genParam, parameterTail) =>
-        printGenericTypeParameter(genParam)
-        separators match {
-          case List.Nil =>
-            assert(
-              parameterTail.isEmpty,
-              "Expected no more generic parameters"
-            )
-
-          case List.Cons(head, separatorTail) =>
-            printTokenWithColor(head, ColorPalette.Punctuation)
-            printGenericTypeParameterList(parameterTail, separatorTail)
-        }
+      case List.Nil => ()
     }
   }
 
   def printGenericTypeParameter(node: GenericParameterSyntax): unit = {
     node.variance match {
       case Option.None => ()
-      case Option.Some(value) =>
-        printTokenWithColor(value, ColorPalette.TypeParameter)
+      case Option.None => ()
     }
 
     printTokenWithColor(node.identifier, ColorPalette.TypeParameter)
     node.bounds match {
       case Option.None => ()
-      case Option.Some(value) =>
-        printTokenWithColor(value.token, ColorPalette.Punctuation)
-        printName(value.name)
+      case Option.None => ()
     }
   }
 
@@ -188,6 +170,8 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
     node match {
       case value: Expression.ArrayCreationExpression =>
         printArrayCreationExpression(value)
+      case value: Expression.ArrayCreationExpression =>
+        printArrayCreationExpression(value)
       case value: Expression.AssignmentExpression =>
         printAssignmentExpression(value)
       case value: Expression.BinaryExpression  => printBinaryExpression(value)
@@ -205,7 +189,6 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
       case value: Expression.NewExpression   => printNewExpression(value)
       case value: Expression.UnaryExpression => printUnaryExpression(value)
       case value: Expression.UnitExpression  => printUnitExpression(value)
-      case value: Expression.WhileExpression => printWhileExpression(value)
     }
   }
 
@@ -310,7 +293,9 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
       case Option.Some(value) =>
         printToken(value.elseKeyword)
         printExpression(value.expression)
-      case Option.None => ()
+      case Option.Some(value) =>
+        printToken(value.elseKeyword)
+        printExpression(value.expression)
     }
   }
 
@@ -359,9 +344,7 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
   def printExpressionItems(nodes: List[ExpressionItemSyntax]): unit = {
     nodes match {
       case List.Nil => ()
-      case List.Cons(x, xs) =>
-        printExpressionItem(x)
-        printExpressionItems(xs)
+      case List.Nil => ()
     }
   }
 
@@ -374,9 +357,10 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
     node match {
       case value: VariableDeclarationStatement =>
         printVariableDeclarationStatement(value)
+      case value: VariableDeclarationStatement =>
+        printVariableDeclarationStatement(value)
       case value: BreakStatement      => printBreakStatement(value)
       case value: ContinueStatement   => printContinueStatement(value)
-      case value: ExpressionStatement => printExpressionStatement(value)
     }
   }
 
@@ -405,9 +389,7 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
   def printStatments(nodes: List[StatementSyntax]): unit = {
     nodes match {
       case List.Nil => ()
-      case List.Cons(x, xs) =>
-        printStatment(x)
-        printStatments(xs)
+      case List.Nil => ()
     }
   }
 
@@ -420,9 +402,7 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
   def printParameters(nodes: List[ParameterSyntax]): unit = {
     nodes match {
       case List.Nil =>
-      case List.Cons(head, tail) =>
-        printParameter(head)
-        printParameters(tail)
+      case List.Nil =>
     }
   }
 
@@ -438,7 +418,7 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
   def printName(name: NameSyntax): unit = {
     name match {
       case value: NameSyntax.QualifiedName => printQualifiedName(value)
-      case value: NameSyntax.SimpleName    => printSimpleName(value.name)
+      case value: NameSyntax.QualifiedName => printQualifiedName(value)
     }
   }
 
@@ -456,10 +436,10 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
   def printSimpleName(node: SimpleNameSyntax): unit = {
     node match {
       case value: SimpleNameSyntax.GenericNameSyntax => printGenericName(value)
+      case value: SimpleNameSyntax.GenericNameSyntax => printGenericName(value)
       case value: SimpleNameSyntax.IdentifierNameSyntax =>
         printIdentifierName(value, ColorPalette.Identifier)
       case value: SimpleNameSyntax.ScalaAliasSyntax => printScalaAlias(value)
-      case value: SimpleNameSyntax.AliasSyntax      => printAlias(value)
     }
   }
 
@@ -562,13 +542,7 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
   def _printTypes(types: List[Type], sep: string, first: bool): unit =
     types match {
       case List.Nil => writeClear()
-      case List.Cons(typ, tail) =>
-        if (!first) {
-          writeColor(ColorPalette.Punctuation)
-          append(sep)
-        }
-        _printType(typ, false)
-        _printTypes(tail, sep, false)
+      case List.Nil => writeClear()
     }
 
   def _printTypedParameters(
@@ -577,22 +551,19 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
   ): unit = {
     parameters match {
       case List.Nil => ()
-      case List.Cons(param, tail) =>
-        if (printedFirst) {
-          writeColor(ColorPalette.Punctuation)
-          append(", ")
-        } else {}
-        writeColor(ColorPalette.Identifier)
-        append(param.symbol.name)
-        writeColor(ColorPalette.Punctuation)
-        append(": ")
-        _printType(param.typ, false)
-        _printTypedParameters(tail, true)
+      case List.Nil => ()
     }
   }
 
   def _printType(typ: Type, clear: bool): unit = {
     typ match {
+      case Type.Function(_, parameters, returnType) =>
+        writeColor(ColorPalette.Punctuation)
+        append("(")
+        _printTypedParameters(parameters, false)
+        writeColor(ColorPalette.Punctuation)
+        append(") -> ")
+        _printType(returnType, false)
       case Type.Function(_, parameters, returnType) =>
         writeColor(ColorPalette.Punctuation)
         append("(")
@@ -623,10 +594,7 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
 
         args match {
           case List.Nil =>
-          case List.Cons(typ, tail) =>
-            append("<")
-            _printTypes(args, ", ", true)
-            append(">")
+          case List.Nil =>
         }
 
       case Type.Union(_, types) =>
@@ -647,10 +615,7 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
 
         args match {
           case List.Nil =>
-          case List.Cons(typ, tail) =>
-            append("<")
-            _printTypes(args, ", ", true)
-            append(">")
+          case List.Nil =>
         }
 
       case Type.GenericClass(_, ns, name, args, _) =>
@@ -664,10 +629,7 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
 
         args match {
           case List.Nil =>
-          case List.Cons(typ, tail) =>
-            append("<")
-            _printGenTypes(args, true)
-            append(">")
+          case List.Nil =>
         }
       case Type.Variable(_, i) =>
         writeColor(ColorPalette.Keyword)
@@ -678,9 +640,6 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
       case Type.Never =>
         writeColor(ColorPalette.Keyword)
         append("never")
-      case Type.Error(_) =>
-        writeColor(ColorPalette.Error)
-        append("error")
     }
 
     if (clear) writeClear() else ()
@@ -689,50 +648,23 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
   def _printGenTypes(types: List[GenericTypeParameter], first: bool): unit = {
     types match {
       case List.Nil => writeClear()
-      case List.Cons(typ, tail) =>
-        if (!first) {
-          writeColor(ColorPalette.Punctuation)
-          append(", ")
-        }
-
-        typ.variance match {
-          case Variance.Covariant =>
-            writeColor(ColorPalette.Keyword)
-            append("out ")
-          case Variance.Contravariant =>
-            writeColor(ColorPalette.Keyword)
-            append("in ")
-          case _ =>
-        }
-
-        writeColor(ColorPalette.Identifier)
-        append(typ.name)
-        typ.upperBound match {
-          case Option.Some(value) =>
-            writeColor(ColorPalette.Punctuation)
-            append(" <: ")
-            _printType(value, false)
-          case Option.None =>
-        }
-
-        _printGenTypes(tail, false)
+      case List.Nil => writeClear()
     }
   }
 
   def printSymbolQualifiedName(symbol: Symbol): unit = {
     symbol.parent match {
       case Option.None =>
-      case Option.Some(parent) =>
-        printSymbolQualifiedName(parent)
-        if (parent.name != "") {
-          writeWithColor(ColorPalette.Punctuation, ".")
-        }
+      case Option.None =>
     }
     writeWithColor(ColorPalette.Identifier, symbol.name)
   }
 
   def printSymbolKind(kind: SymbolKind): unit = {
     kind match {
+      case SymbolKind.Namespace =>
+        writeColor(ColorPalette.Keyword)
+        append("Namespace")
       case SymbolKind.Namespace =>
         writeColor(ColorPalette.Keyword)
         append("Namespace")
@@ -763,9 +695,6 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
       case SymbolKind.Parameter =>
         writeColor(ColorPalette.Identifier)
         append("Parameter")
-      case SymbolKind.Local =>
-        writeColor(ColorPalette.Identifier)
-        append("Local")
     }
 
     append(ANSI.Clear)

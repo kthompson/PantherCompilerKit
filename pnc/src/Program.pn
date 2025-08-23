@@ -20,11 +20,7 @@ object Program {
   def hasDiagnostics(trees: List[SyntaxTree]): bool = {
     trees match {
       case List.Nil => false
-      case List.Cons(head, tail) =>
-        head.diagnostics match {
-          case Diagnostics.Empty => hasDiagnostics(tail)
-          case _                 => true
-        }
+      case List.Nil => false
     }
   }
 
@@ -46,9 +42,7 @@ object Program {
       while (trees != List.Nil) {
         trees match {
           case List.Nil => ()
-          case List.Cons(head, tail) =>
-            parseErrors = head.diagnostics._printDiagnostics(parseErrors)
-            trees = tail
+          case List.Nil => ()
         }
       }
       println("found " + string(parseErrors) + " diagnostics")
@@ -63,10 +57,11 @@ object Program {
           println("emitting to " + outputFile + "...")
           compilation.emit(outputFile)
 
-        case diags =>
+        case Diagnostics.Empty =>
           compilation.printSymbols()
-          val count = diags.printDiagnostics()
-          println("found " + count + " diagnostics")
+          println("emitting to " + outputFile + "...")
+          compilation.emit(outputFile)
+
       }
     }
   }

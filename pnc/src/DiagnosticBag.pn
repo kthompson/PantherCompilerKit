@@ -20,12 +20,7 @@ enum Diagnostics {
   def _count(items: List[Diagnostics], count: int): int =
     items match {
       case List.Nil => count
-      case List.Cons(head, tail) =>
-        head match {
-          case Diagnostics.Empty => _count(tail, count)
-          case Diagnostics.Node(left, _, right) =>
-            _count(List.Cons(left, List.Cons(right, tail)), count + 1)
-        }
+      case List.Nil => count
     }
 
   def printDiagnostics(): int = _printDiagnostics(0)
@@ -33,12 +28,7 @@ enum Diagnostics {
   def _printDiagnostics(count: int): int =
     this match {
       case Diagnostics.Empty => count
-      case Diagnostics.Node(left, head, right) =>
-        val leftCount = left._printDiagnostics(count)
-        if (leftCount <= CompilerSettings.diagnosticsToPrint) {
-          printDiagnostic(head)
-        }
-        right._printDiagnostics(leftCount + 1)
+      case Diagnostics.Empty => count
     }
 
   def printDiagnostic(diagnostic: Diagnostic): unit = {
@@ -248,23 +238,13 @@ class DiagnosticBag() {
     node match {
       case Diagnostics.Empty =>
         Diagnostics.Node(Diagnostics.Empty, diagnostic, Diagnostics.Empty)
-      case Diagnostics.Node(left, head, tail) =>
-        val cmp = diagnostic.compareTo(head)
-        if (cmp == 0) {
-          node
-        } else if (diagnostic.compareTo(head) < 0) {
-          Diagnostics.Node(_insert(left, diagnostic), head, tail)
-        } else {
-          Diagnostics.Node(left, head, _insert(tail, diagnostic))
-        }
+      case Diagnostics.Empty =>
+        Diagnostics.Node(Diagnostics.Empty, diagnostic, Diagnostics.Empty)
     }
   }
 
   def addDiagnostics(more: Diagnostics): unit = more match {
     case Diagnostics.Empty => ()
-    case Diagnostics.Node(left, head, right) =>
-      add(head)
-      addDiagnostics(left)
-      addDiagnostics(right)
+    case Diagnostics.Empty => ()
   }
 }

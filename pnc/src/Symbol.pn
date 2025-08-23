@@ -17,8 +17,7 @@ class Symbol(
   def isStatic(): bool = {
     parent match {
       case Option.None => false
-      case Option.Some(p) =>
-        p.kind == SymbolKind.Object
+      case Option.None => false
     }
   }
 
@@ -31,10 +30,7 @@ class Symbol(
   def _fullName(rhs: string): string = {
     parent match {
       case Option.None => rhs
-      case Option.Some(p) =>
-        p._fullName(
-          if (p.name == "") rhs else p.name + "." + rhs
-        )
+      case Option.None => rhs
     }
   }
 
@@ -46,26 +42,15 @@ class Symbol(
     _children.get(name) match {
       case Option.Some(symbol) =>
         Either.Left(symbol.location)
-      case Option.None =>
-
-        val symbol = Symbol(name, location, kind, Option.Some(this))
-        _children = _children.put(name, symbol)
-        Either.Right(symbol)
+      case Option.Some(symbol) =>
+        Either.Left(symbol.location)
     }
   }
 
   def enter(name: string): Symbol = {
     _children.get(name) match {
       case Option.Some(value) => value
-      case Option.None =>
-        val symbol = Symbol(
-          name,
-          TextLocationFactory.empty(),
-          SymbolKind.Namespace,
-          Option.Some(this)
-        )
-        _children = _children.put(name, symbol)
-        symbol
+      case Option.Some(value) => value
     }
   }
 
@@ -92,7 +77,7 @@ class Symbol(
   def defineObject(name: string, location: TextLocation): Symbol =
     tryDefineObject(name, location) match {
       case Either.Left(_)       => panic("Symbol " + name + " already exists!")
-      case Either.Right(symbol) => symbol
+      case Either.Left(_)       => panic("Symbol " + name + " already exists!")
     }
 
   def tryDefineAlias(
@@ -104,7 +89,7 @@ class Symbol(
   def defineAlias(name: string, location: TextLocation): Symbol =
     tryDefineAlias(name, location) match {
       case Either.Left(_)       => panic("Symbol " + name + " already exists!")
-      case Either.Right(symbol) => symbol
+      case Either.Left(_)       => panic("Symbol " + name + " already exists!")
     }
 
   def tryDefineClass(
@@ -116,7 +101,7 @@ class Symbol(
   def defineClass(name: string, location: TextLocation): Symbol =
     tryDefineClass(name, location) match {
       case Either.Left(_)       => panic("Symbol " + name + " already exists!")
-      case Either.Right(symbol) => symbol
+      case Either.Left(_)       => panic("Symbol " + name + " already exists!")
     }
 
   def tryDefineTypeParameter(
@@ -133,7 +118,7 @@ class Symbol(
   ): Symbol =
     tryDefineTypeParameter(name, location, variance) match {
       case Either.Left(_)       => panic("Symbol " + name + " already exists!")
-      case Either.Right(symbol) => symbol
+      case Either.Left(_)       => panic("Symbol " + name + " already exists!")
     }
 
   def tryDefineField(
@@ -145,7 +130,7 @@ class Symbol(
   def defineField(name: string, location: TextLocation): Symbol =
     tryDefineField(name, location) match {
       case Either.Left(_)       => panic("Symbol " + name + " already exists!")
-      case Either.Right(symbol) => symbol
+      case Either.Left(_)       => panic("Symbol " + name + " already exists!")
     }
 
   def tryDefineMethod(
@@ -161,7 +146,7 @@ class Symbol(
   def defineMethod(name: string, location: TextLocation): Symbol =
     tryDefineMethod(name, location) match {
       case Either.Left(_)       => panic("Symbol " + name + " already exists!")
-      case Either.Right(symbol) => symbol
+      case Either.Left(_)       => panic("Symbol " + name + " already exists!")
     }
 
   def tryDefineParameter(
@@ -173,7 +158,7 @@ class Symbol(
   def defineParameter(name: string, location: TextLocation): Symbol =
     tryDefineParameter(name, location) match {
       case Either.Left(_)       => panic("Symbol " + name + " already exists!")
-      case Either.Right(symbol) => symbol
+      case Either.Left(_)       => panic("Symbol " + name + " already exists!")
     }
 
   def tryDefineLocal(
@@ -185,7 +170,7 @@ class Symbol(
   def defineLocal(name: string, location: TextLocation): Symbol =
     tryDefineLocal(name, location) match {
       case Either.Left(_)       => panic("Symbol " + name + " already exists!")
-      case Either.Right(symbol) => symbol
+      case Either.Left(_)       => panic("Symbol " + name + " already exists!")
     }
 
   def qualifiedName(): string = this._qualifiedName(name)
@@ -193,10 +178,7 @@ class Symbol(
   def _qualifiedName(suffix: string): string = {
     parent match {
       case Option.None => suffix
-      case Option.Some(parent) =>
-        parent._qualifiedName(
-          if (parent.name == "") suffix else parent.name + "." + suffix
-        )
+      case Option.None => suffix
     }
   }
 
@@ -205,21 +187,14 @@ class Symbol(
   def _ns(list: List[string]): List[string] = {
     parent match {
       case Option.None => list
-      case Option.Some(value) =>
-        val acc = if (value.name == "") list else List.Cons(value.name, list)
-        value._ns(acc)
+      case Option.None => list
     }
   }
 
   def lookup(name: string): Option[Symbol] = {
     _children.get(name) match {
       case Option.Some(value) => Some(value)
-      case Option.None =>
-
-        parent match {
-          case Option.Some(p) => p.lookup(name)
-          case Option.None    => None
-        }
+      case Option.Some(value) => Some(value)
     }
   }
 
@@ -229,13 +204,7 @@ class Symbol(
   def findSymbol(ns: List[string], name: string): Option[Symbol] = {
     ns match {
       case List.Nil => lookupMember(name)
-      case List.Cons(head, tail) =>
-        lookupMember(head) match {
-          case Option.Some(value) =>
-            value.findSymbol(tail, name)
-          case Option.None =>
-            Option.None
-        }
+      case List.Nil => lookupMember(name)
     }
   }
 }

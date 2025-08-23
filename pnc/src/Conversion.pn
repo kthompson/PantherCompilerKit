@@ -34,22 +34,21 @@ class ConversionClassifier(binder: Binder) {
           generics match {
             case List.Nil =>
               classify(from, value)
-            case _ =>
-              println("ConversionClassifier: Generics not supported yet")
-              Conversion.None
+            case List.Nil =>
+              classify(from, value)
+          }
+        case Type.Alias(_, _, _, generics, value, _) =>
+          generics match {
+            case List.Nil =>
+              classify(from, value)
+            case List.Nil =>
+              classify(from, value)
           }
         case Type.Union(location, cases) =>
           cases match {
             case List.Nil => Conversion.None
-            case List.Cons(head, tail) =>
-              classify(from, head) match {
-                case Conversion.None =>
-                  classify(from, Type.Union(location, tail))
-                case conversion => conversion
-              }
+            case List.Nil => Conversion.None
           }
-        case _ =>
-          Conversion.None
       }
     }
   }

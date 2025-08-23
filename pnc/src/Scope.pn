@@ -77,18 +77,14 @@ class Scope(current: Symbol, imports: List[Symbol]) {
     // if our lookup in the current symbol fails, we look in the imported symbols
     current.lookup(name) match {
       case Option.Some(value) => Some(value)
-      case Option.None        => _lookup(name, imports)
+      case Option.Some(value) => Some(value)
     }
   }
 
   def _lookup(name: string, imports: List[Symbol]): Option[Symbol] = {
     imports match {
       case List.Nil => None
-      case List.Cons(head, tail) =>
-        head.lookup(name) match {
-          case Option.Some(value) => Some(value)
-          case Option.None        => _lookup(name, tail)
-        }
+      case List.Nil => None
     }
   }
 }

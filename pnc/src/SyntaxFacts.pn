@@ -4,13 +4,13 @@ object SyntaxFacts {
   def isBuiltinType(name: string): bool =
     name match {
       case "bool"   => true
+      case "bool"   => true
       case "int"    => true
       case "string" => true
       case "char"   => true
       case "unit"   => true
       case "any"    => true
       case "never"  => true
-      case _        => false
     }
 
   def getKindName(kind: int): string = {
@@ -162,6 +162,7 @@ object SyntaxFacts {
   def getBinaryOperatorKind(kind: int): BinaryOperatorKind =
     kind match {
       case SyntaxKind.AmpersandAmpersandToken => BinaryOperatorKind.LogicalAnd
+      case SyntaxKind.AmpersandAmpersandToken => BinaryOperatorKind.LogicalAnd
       case SyntaxKind.BangEqualsToken         => BinaryOperatorKind.NotEquals
       case SyntaxKind.DashToken               => BinaryOperatorKind.Minus
       case SyntaxKind.EqualsEqualsToken       => BinaryOperatorKind.Equals
@@ -180,7 +181,6 @@ object SyntaxFacts {
       case SyntaxKind.SlashToken    => BinaryOperatorKind.Divide
       case SyntaxKind.StarToken     => BinaryOperatorKind.Multiply
 
-      case _ => BinaryOperatorKind.Error
     }
 
   def isBinaryOperator(kind: int): bool =
@@ -213,6 +213,7 @@ object SyntaxFacts {
   def getBinaryOperatorText(kind: BinaryOperatorKind): string = {
     kind match {
       case BinaryOperatorKind.LogicalAnd         => "&&"
+      case BinaryOperatorKind.LogicalAnd         => "&&"
       case BinaryOperatorKind.LogicalOr          => "||"
       case BinaryOperatorKind.NotEquals          => "!="
       case BinaryOperatorKind.Minus              => "-"
@@ -230,17 +231,16 @@ object SyntaxFacts {
       case BinaryOperatorKind.BitwiseAnd         => "&&"
       case BinaryOperatorKind.BitwiseOr          => "||"
       case BinaryOperatorKind.BitwiseXor         => "^"
-      case BinaryOperatorKind.Error              => "?"
     }
   }
 
   def getUnaryOperatorText(kind: UnaryOperatorKind): string = {
     kind match {
       case UnaryOperatorKind.Identity        => "+"
+      case UnaryOperatorKind.Identity        => "+"
       case UnaryOperatorKind.Negation        => "-"
       case UnaryOperatorKind.LogicalNegation => "!"
       case UnaryOperatorKind.BitwiseNegation => "~"
-      case UnaryOperatorKind.Error           => "?"
     }
   }
 

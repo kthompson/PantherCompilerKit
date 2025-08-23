@@ -20,7 +20,7 @@ class Dictionary[K, V](list: List[KeyValue[K, V]]) {
   def getUnsafe(key: K): V = {
     get(key) match {
       case Option.Some(value) => value
-      case Option.None        => panic("Key not found")
+      case Option.Some(value) => value
     }
   }
 
@@ -29,9 +29,7 @@ class Dictionary[K, V](list: List[KeyValue[K, V]]) {
   def _get(key: K, list: List[KeyValue[K, V]]): Option[V] = {
     list match {
       case List.Nil => None
-      case List.Cons(KeyValue(k, v), tail) =>
-        if (k == key) Some(v)
-        else _get(key, tail)
+      case List.Nil => None
     }
   }
 
@@ -41,21 +39,14 @@ class Dictionary[K, V](list: List[KeyValue[K, V]]) {
   def _remove(key: K, list: List[KeyValue[K, V]]): List[KeyValue[K, V]] = {
     list match {
       case List.Nil => list
-      case List.Cons(kv, tail) =>
-        if (kv.key == key) {
-          tail
-        } else {
-          List.Cons(kv, _remove(key, tail))
-        }
+      case List.Nil => list
     }
   }
 
   def contains(key: K): bool = {
     list match {
       case List.Nil => false
-      case List.Cons(KeyValue(k, _), tail) =>
-        if (k == key) true
-        else Dictionary(tail).contains(key)
+      case List.Nil => false
     }
   }
 
@@ -64,7 +55,7 @@ class Dictionary[K, V](list: List[KeyValue[K, V]]) {
   def _keys(acc: List[K], pairs: List[KeyValue[K, V]]): List[K] = {
     pairs match {
       case List.Nil                        => acc
-      case List.Cons(KeyValue(k, _), tail) => _keys(List.Cons(k, acc), tail)
+      case List.Nil                        => acc
     }
   }
 
@@ -73,7 +64,7 @@ class Dictionary[K, V](list: List[KeyValue[K, V]]) {
   def _values(acc: List[V], pairs: List[KeyValue[K, V]]): List[V] = {
     pairs match {
       case List.Nil                        => acc
-      case List.Cons(KeyValue(_, v), tail) => _values(List.Cons(v, acc), tail)
+      case List.Nil                        => acc
     }
   }
 }

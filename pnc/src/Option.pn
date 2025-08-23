@@ -6,14 +6,14 @@ enum Option[in T] {
 
   def isEmpty(): bool = this match {
     case Option.None    => true
-    case Option.Some(_) => false
+    case Option.None    => true
   }
 
   def isDefined(): bool = !isEmpty()
 
   def get(): T = this match {
     case Option.Some(value) => value
-    case Option.None        => panic("Option is empty")
+    case Option.Some(value) => value
   }
 
 }
@@ -22,22 +22,18 @@ object OptionModule {
 
   def orElse[A](a: Option[A], b: Option[A]): Option[A] = a match {
     case Option.None    => b
-    case Option.Some(_) => a
+    case Option.None    => b
   }
 
   def getOrElse[A](a: Option[A], b: A): A = a match {
     case Option.None        => b
-    case Option.Some(value) => value
+    case Option.None        => b
   }
 
   def product[A, B](a: Option[A], b: Option[B]): Option[Tuple2[A, B]] = {
     a match {
       case Option.None => Option.None
-      case Option.Some(aValue) =>
-        b match {
-          case Option.None         => Option.None
-          case Option.Some(bValue) => Option.Some(Tuple2(aValue, bValue))
-        }
+      case Option.None => Option.None
     }
   }
 }
