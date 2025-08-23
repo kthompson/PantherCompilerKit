@@ -24,7 +24,7 @@ sbt version
 
 ### Core Build Commands
 
-**CRITICAL: NEVER CANCEL BUILDS OR TESTS. Set timeouts of 60+ minutes for safety.**
+**CRITICAL: NEVER CANCEL BUILDS OR TESTS. Set timeouts of 5+ minutes for safety.**
 
 #### Working Commands (Validated)
 ```bash
