@@ -468,10 +468,10 @@ object AstUtils {
         locationOfBoundExpression(left).merge(locationOfBoundExpression(right))
       case BoundExpression.Block(statements, expression) =>
         locationOfBoundExpression(expression)
-      case BoundExpression.BooleanLiteral(location, _)             => location
+      case BoundExpression.Boolean(location, _)                    => location
       case BoundExpression.CallExpression(location, _, _, _, _, _) => location
       case BoundExpression.CastExpression(location, expression, _) => location
-      case BoundExpression.CharacterLiteral(location, _)           => location
+      case BoundExpression.Character(location, _)                  => location
       case BoundExpression.ForExpression(location, _, _, _, _)     => location
       case BoundExpression.IfExpression(
             location,
@@ -488,10 +488,10 @@ object AstUtils {
         )
       case BoundExpression.IndexExpression(location, _, _, _)  => location
       case BoundExpression.MatchExpression(location, _, _, _)  => location
-      case BoundExpression.IntLiteral(location, _)             => location
+      case BoundExpression.Int(location, _)                    => location
       case BoundExpression.MemberAccess(location, _, _, _, _)  => location
       case BoundExpression.NewExpression(location, _, _, _, _) => location
-      case BoundExpression.StringLiteral(location, _)          => location
+      case BoundExpression.String(location, _)                 => location
       case BoundExpression.UnaryExpression(location, _, operand, _) =>
         location.merge(locationOfBoundExpression(operand))
       case BoundExpression.UnitExpression(location)        => location

@@ -95,7 +95,7 @@ enum LoweredExpression {
       right: LoweredExpression,
       resultType: Type
   )
-  case BooleanLiteral(location: TextLocation, value: bool)
+  case Boolean(location: TextLocation, value: bool)
   case Cast(
       location: TextLocation,
       operand: LoweredExpression,
@@ -109,8 +109,8 @@ enum LoweredExpression {
       arguments: Chain[LoweredExpression],
       resultType: Type
   )
-  case CharacterLiteral(location: TextLocation, value: char)
-  case IntegerLiteral(location: TextLocation, value: int)
+  case Character(location: TextLocation, value: char)
+  case Integer(location: TextLocation, value: int)
   case MemberAccess(
       location: TextLocation,
       left: LoweredLeftHandSide,
@@ -123,7 +123,7 @@ enum LoweredExpression {
       arguments: Chain[LoweredExpression],
       resultType: Type
   )
-  case StringLiteral(location: TextLocation, value: string)
+  case String(location: TextLocation, value: string)
   case This(location: TextLocation)
   case TypeCheck(
       location: TextLocation,
@@ -143,15 +143,15 @@ enum LoweredExpression {
     this match {
       case LoweredExpression.Error => TextLocationFactory.empty()
       case expr: LoweredExpression.BinaryExpression => expr.location
-      case expr: LoweredExpression.BooleanLiteral   => expr.location
+      case expr: LoweredExpression.Boolean          => expr.location
       case expr: LoweredExpression.Call             => expr.location
       case expr: LoweredExpression.Cast             => expr.location
-      case expr: LoweredExpression.CharacterLiteral => expr.location
-      case expr: LoweredExpression.IntegerLiteral   => expr.location
+      case expr: LoweredExpression.Character        => expr.location
+      case expr: LoweredExpression.Integer          => expr.location
       case expr: LoweredExpression.MemberAccess     => expr.location
       case expr: LoweredExpression.New              => expr.location
       case expr: LoweredExpression.Variable         => expr.location
-      case expr: LoweredExpression.StringLiteral    => expr.location
+      case expr: LoweredExpression.String           => expr.location
       case expr: LoweredExpression.This             => expr.location
       case expr: LoweredExpression.TypeCheck        => expr.location
       case expr: LoweredExpression.Unary            => expr.location
@@ -268,13 +268,13 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       case expr: BoundExpression.BinaryExpression =>
         lowerBinaryExpression(expr, context)
       case expr: BoundExpression.Block => lowerBlock(expr, context)
-      case expr: BoundExpression.BooleanLiteral =>
+      case expr: BoundExpression.Boolean =>
         lowerBooleanLiteral(expr, context)
       case expr: BoundExpression.CallExpression =>
         lowerCallExpression(expr, context)
       case expr: BoundExpression.CastExpression =>
         lowerCastExpression(expr, context)
-      case expr: BoundExpression.CharacterLiteral =>
+      case expr: BoundExpression.Character =>
         lowerCharacterLiteral(expr, context)
       case expr: BoundExpression.ForExpression =>
         lowerForExpression(expr, context)
@@ -282,12 +282,12 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
         lowerIfExpression(expr, context)
       case expr: BoundExpression.IndexExpression =>
         lowerIndexExpression(expr, context)
-      case expr: BoundExpression.IntLiteral => lowerIntLiteral(expr, context)
+      case expr: BoundExpression.Int => lowerIntLiteral(expr, context)
       case expr: BoundExpression.MemberAccess =>
         lhsBlockToBlock(lowerMemberAccess(expr, context))
       case expr: BoundExpression.NewExpression =>
         lhsBlockToBlock(lowerNewExpression(expr, context))
-      case expr: BoundExpression.StringLiteral =>
+      case expr: BoundExpression.String =>
         lowerStringLiteral(expr, context)
       case expr: BoundExpression.UnaryExpression =>
         lowerUnaryExpression(expr, context)
@@ -445,10 +445,10 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   }
 
   def lowerBooleanLiteral(
-      expr: BoundExpression.BooleanLiteral,
+      expr: BoundExpression.Boolean,
       context: LoweredBlock
   ): LoweredBlock = {
-    val lowered = LoweredExpression.BooleanLiteral(
+    val lowered = LoweredExpression.Boolean(
       expr.location,
       expr.value
     )
@@ -545,10 +545,10 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   }
 
   def lowerCharacterLiteral(
-      expr: BoundExpression.CharacterLiteral,
+      expr: BoundExpression.Character,
       context: LoweredBlock
   ): LoweredBlock = {
-    val lowered = LoweredExpression.CharacterLiteral(
+    val lowered = LoweredExpression.Character(
       expr.location,
       expr.value
     )
@@ -722,10 +722,10 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   ): LoweredBlock = ???
 
   def lowerIntLiteral(
-      expr: BoundExpression.IntLiteral,
+      expr: BoundExpression.Int,
       context: LoweredBlock
   ): LoweredBlock = {
-    val lowered = LoweredExpression.IntegerLiteral(
+    val lowered = LoweredExpression.Integer(
       expr.location,
       expr.value
     )
@@ -843,10 +843,10 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   }
 
   def lowerStringLiteral(
-      expr: BoundExpression.StringLiteral,
+      expr: BoundExpression.String,
       context: LoweredBlock
   ): LoweredBlock = {
-    val lowered = LoweredExpression.StringLiteral(
+    val lowered = LoweredExpression.String(
       expr.location,
       expr.value
     )
@@ -1016,14 +1016,14 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
             BoundExpression.Variable(matchCase.location, variable, None),
             BinaryOperatorKind.Equals,
             literal match {
-              case BoundLiteral.IntLiteral(location, value) =>
-                BoundExpression.IntLiteral(location, value)
-              case BoundLiteral.StringLiteral(location, value) =>
-                BoundExpression.StringLiteral(location, value)
-              case BoundLiteral.BoolLiteral(location, value) =>
-                BoundExpression.BooleanLiteral(location, value)
-              case BoundLiteral.CharLiteral(location, value) =>
-                BoundExpression.CharacterLiteral(location, value)
+              case BoundLiteral.Int(location, value) =>
+                BoundExpression.Int(location, value)
+              case BoundLiteral.String(location, value) =>
+                BoundExpression.String(location, value)
+              case BoundLiteral.Bool(location, value) =>
+                BoundExpression.Boolean(location, value)
+              case BoundLiteral.Char(location, value) =>
+                BoundExpression.Character(location, value)
             },
             binder.boolType
           ),

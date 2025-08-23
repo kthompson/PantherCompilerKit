@@ -191,27 +191,27 @@ class LoweredAssemblyPrinter(
         printError()
       case expr: LoweredExpression.BinaryExpression =>
         printBinaryExpression(expr)
-      case expr: LoweredExpression.BooleanLiteral =>
+      case expr: LoweredExpression.Boolean =>
         printBooleanLiteral(expr)
       case expr: LoweredExpression.Cast =>
         printCast(expr)
       case expr: LoweredExpression.Call =>
         printCall(expr)
-      case expr: LoweredExpression.CharacterLiteral =>
+      case expr: LoweredExpression.Character =>
         printCharacterLiteral(expr)
-      case expr: LoweredExpression.IntegerLiteral =>
+      case expr: LoweredExpression.Integer =>
         printIntegerLiteral(expr)
       case expr: LoweredExpression.MemberAccess =>
         printMemberAccessExpression(expr)
       case expr: LoweredExpression.New =>
         printNew(expr)
-      case expr: LoweredExpression.StringLiteral =>
+      case expr: LoweredExpression.String =>
         printStringLiteral(expr)
       case expr: LoweredExpression.This =>
         printThis(expr)
       case expr: LoweredExpression.Unary =>
         printUnary(expr)
-      case LoweredExpression.unit =>
+      case LoweredExpression.Unit =>
         printUnit()
       case expr: LoweredExpression.Variable =>
         printVariable(expr)
@@ -234,19 +234,19 @@ class LoweredAssemblyPrinter(
     ast.writeWithColor(ColorPalette.Punctuation, ")")
   }
 
-  def printVariable(expr: LoweredExpression.Variable): unit = {
+  def printVariable(expr: LoweredExpression.Variable): Unit = {
     ast.writeWithColor(ColorPalette.Identifier, expr.symbol.name)
   }
 
-  def printThis(expr: LoweredExpression.This): unit = {
+  def printThis(expr: LoweredExpression.This): Unit = {
     ast.writeWithColor(ColorPalette.Keyword, "this")
   }
 
-  def printUnit(): unit = {
+  def printUnit(): Unit = {
     ast.writeWithColor(ColorPalette.Keyword, "()")
   }
 
-  def printUnary(expr: LoweredExpression.Unary): unit = {
+  def printUnary(expr: LoweredExpression.Unary): Unit = {
     ast.writeWithColor(
       ColorPalette.Punctuation,
       SyntaxFacts.getUnaryOperatorText(expr.operator)
@@ -257,21 +257,21 @@ class LoweredAssemblyPrinter(
   }
 
   def printStringLiteral(
-      expr: LoweredExpression.StringLiteral
-  ): unit = {
-    ast.writeWithColor(ColorPalette.string, "\"" + expr.value + "\"")
+      expr: LoweredExpression.String
+  ): Unit = {
+    ast.writeWithColor(ColorPalette.String, "\"" + expr.value + "\"")
   }
 
   def printIntegerLiteral(
-      expr: LoweredExpression.IntegerLiteral
-  ): unit = {
+      expr: LoweredExpression.Integer
+  ): Unit = {
     ast.writeWithColor(ColorPalette.Number, expr.value.toString())
   }
 
   def printCharacterLiteral(
-      expr: LoweredExpression.CharacterLiteral
-  ): unit = {
-    ast.writeWithColor(ColorPalette.string, "'" + expr.value + "'")
+      expr: LoweredExpression.Character
+  ): Unit = {
+    ast.writeWithColor(ColorPalette.String, "'" + expr.value + "'")
   }
 
   def printCall(call: LoweredExpression.Call): unit = {
@@ -303,7 +303,7 @@ class LoweredAssemblyPrinter(
     printExpression(expr.right)
   }
 
-  def printBooleanLiteral(expr: LoweredExpression.BooleanLiteral): unit = {
+  def printBooleanLiteral(expr: LoweredExpression.Boolean): unit = {
     ast.writeWithColor(ColorPalette.Keyword, expr.value.toString)
   }
 

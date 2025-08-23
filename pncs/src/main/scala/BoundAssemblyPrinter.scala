@@ -67,17 +67,17 @@ class BoundAssemblyPrinter(
       case expr: BoundExpression.Assignment       => printAssignment(expr)
       case expr: BoundExpression.BinaryExpression => printBinaryExpression(expr)
       case expr: BoundExpression.Block            => printBlock(expr)
-      case expr: BoundExpression.BooleanLiteral   => printBooleanLiteral(expr)
+      case expr: BoundExpression.Boolean          => printBooleanLiteral(expr)
       case expr: BoundExpression.CallExpression   => printCallExpression(expr)
       case expr: BoundExpression.CastExpression   => printCastExpression(expr)
-      case expr: BoundExpression.CharacterLiteral => printCharacterLiteral(expr)
+      case expr: BoundExpression.Character        => printCharacterLiteral(expr)
       case expr: BoundExpression.ForExpression    => printForExpression(expr)
       case expr: BoundExpression.IfExpression     => printIfExpression(expr)
       case expr: BoundExpression.IndexExpression  => printIndexExpression(expr)
-      case expr: BoundExpression.IntLiteral       => printIntLiteral(expr)
+      case expr: BoundExpression.Int              => printIntLiteral(expr)
       case expr: BoundExpression.MemberAccess     => printMemberAccess(expr)
       case expr: BoundExpression.NewExpression    => printNewExpression(expr)
-      case expr: BoundExpression.StringLiteral    => printStringLiteral(expr)
+      case expr: BoundExpression.String           => printStringLiteral(expr)
       case expr: BoundExpression.UnaryExpression  => printUnaryExpression(expr)
       case expr: BoundExpression.UnitExpression   => printUnitExpression(expr)
       case expr: BoundExpression.Variable         => printVariable(expr)
@@ -135,7 +135,7 @@ class BoundAssemblyPrinter(
     ast.appendLine("")
   }
 
-  def printBooleanLiteral(expr: BoundExpression.BooleanLiteral): unit =
+  def printBooleanLiteral(expr: BoundExpression.Boolean): unit =
     writeWithColor(
       ColorPalette.Keyword,
       if (expr.value) "true" else "false"
@@ -167,7 +167,7 @@ class BoundAssemblyPrinter(
     printExpression(expr.expression)
     writeWithColor(ColorPalette.Punctuation, ")")
   }
-  def printCharacterLiteral(expr: BoundExpression.CharacterLiteral): unit =
+  def printCharacterLiteral(expr: BoundExpression.Character): unit =
     writeWithColor(ColorPalette.String, "'" + expr.value + "'")
   def printForExpression(expr: BoundExpression.ForExpression): unit = ???
   def printIfExpression(expr: BoundExpression.IfExpression): unit = {
@@ -186,7 +186,7 @@ class BoundAssemblyPrinter(
     }
   }
   def printIndexExpression(expr: BoundExpression.IndexExpression): unit = ???
-  def printIntLiteral(expr: BoundExpression.IntLiteral): unit = {
+  def printIntLiteral(expr: BoundExpression.Int): unit = {
     writeWithColor(ColorPalette.Number, string(expr.value))
   }
   def printMemberAccess(expr: BoundExpression.MemberAccess): unit = {
@@ -217,7 +217,7 @@ class BoundAssemblyPrinter(
     }
   }
 
-  def printStringLiteral(expr: BoundExpression.StringLiteral): unit = {
+  def printStringLiteral(expr: BoundExpression.String): unit = {
     writeWithColor(ColorPalette.String, "\"" + expr.value + "\"")
   }
 
@@ -325,13 +325,13 @@ class BoundAssemblyPrinter(
   }
 
   def printBoundLiteral(lit: BoundLiteral): unit = lit match {
-    case BoundLiteral.IntLiteral(location, value) =>
+    case BoundLiteral.Int(location, value) =>
       writeWithColor(ColorPalette.Number, value.toString())
-    case BoundLiteral.StringLiteral(location, value) =>
+    case BoundLiteral.String(location, value) =>
       writeWithColor(ColorPalette.String, "\"" + value + "\"")
-    case BoundLiteral.BoolLiteral(location, value) =>
+    case BoundLiteral.Bool(location, value) =>
       writeWithColor(ColorPalette.Keyword, value.toString())
-    case BoundLiteral.CharLiteral(location, value) =>
+    case BoundLiteral.Char(location, value) =>
       writeWithColor(ColorPalette.String, "'" + value.toString() + "'")
   }
 }
