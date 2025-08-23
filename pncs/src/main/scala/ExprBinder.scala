@@ -831,7 +831,17 @@ case class ExprBinder(
   ): BoundExpression = {
     val expr = bind(cast.expression, scope)
     val typ = binder.bindTypeName(cast.typ, scope)
-    bindConversion(expr, typ, true)
+
+    expr match {
+      case _: BoundExpression.Error => expr
+      case _ =>
+        typ match {
+          case Type.Error(message) => BoundExpression.Error(message)
+          case _ =>
+            val location = AstUtils.locationOfExpression(cast)
+            BoundExpression.CastExpression(location, expr, typ)
+        }
+    }
   }
 
   def bindIsExpression(

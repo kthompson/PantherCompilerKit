@@ -320,5 +320,100 @@ object VmTests extends TestSuite {
         0
       )
     }
+
+    test("cast expressions: identity casts") {
+      // Test identity casts (casting to the same type)
+      assertExecValueInt("12 as int", 12)
+      assertExecValueBool("true as bool", true)
+      assertExecValueBool("false as bool", false)
+      assertExecValueString("\"hello\" as string", "hello")
+
+      // Test with variables
+      assertExecValueIntWithSetup("val x = 42", "x as int", 42)
+      assertExecValueBoolWithSetup("val flag = true", "flag as bool", true)
+      assertExecValueStringWithSetup(
+        "val text = \"world\"",
+        "text as string",
+        "world"
+      )
+    }
+
+    test("cast expressions: valid conversions") {
+      // Test casts that should succeed at runtime
+      // Skip char literals for now since emitCharacterLiteral is not implemented
+      assertExecValueString("42 as string", "42") // int to string
+      assertExecValueString("true as string", "true") // bool to string
+      assertExecValueString("false as string", "false") // bool to string
+
+      // Test with expressions
+      assertExecValueInt("(1 + 2) as int", 3)
+      assertExecValueString("(5 * 6) as string", "30")
+      assertExecValueBool("(10 > 5) as bool", true)
+    }
+
+//    test("cast expressions: cast to any type") {
+//      // Test casting various types to 'any' type
+//      // Note: The actual value should remain the same, just the type changes
+//      assertExecValueInt("42 as any as int", 42)
+//      assertExecValueBool("true as any as bool", true)
+//      assertExecValueString("\"test\" as any as string", "test")
+//
+//      // Test with variables
+//      assertExecValueIntWithSetup("val x = 100", "x as any as int", 100)
+//      assertExecValueBoolWithSetup("val flag = false", "flag as any as bool", false)
+//    }
+//
+//    test("cast expressions: cast from any type") {
+//      // Test casting from 'any' type to specific types
+//      val anySetup = "val obj: any = 42"
+//      assertExecValueIntWithSetup(anySetup, "obj as int", 42)
+//
+//      val anyBoolSetup = "val obj: any = true"
+//      assertExecValueBoolWithSetup(anyBoolSetup, "obj as bool", true)
+//
+//      val anyStringSetup = "val obj: any = \"hello\""
+//      assertExecValueStringWithSetup(anyStringSetup, "obj as string", "hello")
+//    }
+//
+//    test("cast expressions: chained casts") {
+//      // Test multiple casts in sequence
+//      assertExecValueInt("42 as any as int", 42)
+//      assertExecValueString("42 as string as any as string", "42")
+//      assertExecValueBool("true as any as bool as any as bool", true)
+//
+//      // Test with expressions in between
+//      assertExecValueInt("(20 + 22) as any as int", 42)
+//      assertExecValueString("(\"hel\" + \"lo\") as any as string", "hello")
+//    }
+
+    test("cast expressions: cast with operators") {
+      // Test that cast has correct precedence with other operators
+      assertExecValueBool("42 as int == 42", true)
+      assertExecValueBool("42 as string == \"42\"", true)
+      assertExecValueBool("true as bool && false", false)
+      assertExecValueBool("false as bool || true", true)
+
+      // Test cast in arithmetic expressions
+      assertExecValueInt("(40 + 2) as int", 42)
+      assertExecValueInt("40 + 2 as int", 42) // Should be: 40 + (2 as int)
+    }
+
+    test("cast expressions: cast in control flow") {
+      // Test cast expressions in if conditions
+      assertExecValueInt("if (42 as int == 42) 1 else 0", 1)
+      assertExecValueInt("if (true as bool) 100 else 200", 100)
+      assertExecValueInt("if (false as bool) 100 else 200", 200)
+
+      // Test cast in if branches
+      assertExecValueInt("if (true) 42 as int else 0", 42)
+      assertExecValueString("if (false) \"no\" else \"yes\" as string", "yes")
+
+      // Test with variables
+      assertExecValueIntWithSetup(
+        "val x = 50",
+        "if (x as int > 40) 1 else 0",
+        1
+      )
+    }
   }
 }

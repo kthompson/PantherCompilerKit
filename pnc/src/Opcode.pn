@@ -88,6 +88,7 @@ object Opcode {
 
   // type checking
   val IsInst = 120
+  val Cast = 121
 
   def nameOf(opcode: int): string = {
     if (opcode == Nop) {
@@ -194,6 +195,8 @@ object Opcode {
       "conv.bool"
     } else if (opcode == IsInst) {
       "isinst"
+    } else if (opcode == Cast) {
+      "cast"
     } else {
       panic("Unknown opcode: " + opcode)
     }

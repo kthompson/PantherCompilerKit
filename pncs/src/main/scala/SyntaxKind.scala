@@ -18,8 +18,8 @@ object SyntaxKind {
   val AnnotationToken = 11
 
   // Keywords
-  val FirstKeyword =
-    14 // this is a marker and should be set to the first keyword
+  // this is a marker and should be set to the first keyword
+  val FirstKeyword = 14
   val AsKeyword = 14
   val BreakKeyword = 15
   val CaseKeyword = 16

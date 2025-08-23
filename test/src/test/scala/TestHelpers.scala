@@ -576,4 +576,22 @@ object TestHelpers {
     val value = execValue(program)
     assertValueString(value, expected)
   }
+
+  def assertExecValueBoolWithSetup(
+      setup: string,
+      program: string,
+      expected: bool
+  ): Unit = {
+    val value = execValue(setup + "\n\n" + program)
+    assertValueBool(value, expected)
+  }
+
+  def assertExecValueStringWithSetup(
+      setup: string,
+      program: string,
+      expected: string
+  ): Unit = {
+    val value = execValue(setup + "\n\n" + program)
+    assertValueString(value, expected)
+  }
 }

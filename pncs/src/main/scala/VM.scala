@@ -163,18 +163,37 @@ case class VM(
       op: int,
       opName: string
   ): InterpretResult = {
-    // HACK: this shouldnt be converting bools to ints but its easier for now
-    val b = toInt(pop())
-    val a = toInt(pop())
+    val b = pop()
+    val a = pop()
 
-    val result = op match {
-      case Opcode.Ceq => Option.Some(a == b)
-      case Opcode.Cgt => Option.Some(a > b)
-      case Opcode.Clt => Option.Some(a < b)
-      case _          => Option.None
+    // Handle string comparisons
+    Tuple2(a, b) match {
+      case Tuple2(Value.String(aStr), Value.String(bStr)) =>
+        val result = op match {
+          case Opcode.Ceq => Option.Some(aStr == bStr)
+          case Opcode.Cgt =>
+            Option.Some(aStr > bStr) // lexicographic comparison
+          case Opcode.Clt =>
+            Option.Some(aStr < bStr) // lexicographic comparison
+          case _ => Option.None
+        }
+        pushBoolOrInvalidOp(result, opName)
+
+      // Handle numeric and boolean comparisons (original logic)
+      case _ =>
+        // Convert to int for comparison (HACK: this shouldnt be converting bools to ints but its easier for now)
+        val bInt = toInt(b)
+        val aInt = toInt(a)
+
+        val result = op match {
+          case Opcode.Ceq => Option.Some(aInt == bInt)
+          case Opcode.Cgt => Option.Some(aInt > bInt)
+          case Opcode.Clt => Option.Some(aInt < bInt)
+          case _          => Option.None
+        }
+
+        pushBoolOrInvalidOp(result, opName)
     }
-
-    pushBoolOrInvalidOp(result, opName)
   }
 
   def binaryIntOp(op: int, opName: string): InterpretResult = {
@@ -303,6 +322,71 @@ case class VM(
         actualTypeToken.token == expectedTypeToken.token
       case Value.Uninitialized =>
         false
+    }
+  }
+
+  def performCast(value: Value, targetTypeToken: TypeDefToken): Value = {
+    // Get the target type name from metadata
+    val targetTypeName = metadata.getTypeName(targetTypeToken)
+
+    value match {
+      case Value.Int(i) =>
+        targetTypeName match {
+          case "int" => value // identity cast
+          case "char" =>
+            Value.Int(i) // int to char (keeping as int for simplicity)
+          case "string" => Value.String(i.toString())
+          case "bool"   => Value.Bool(i != 0)
+          case "any"    => value // cast to any preserves the value
+          case _ =>
+            runtimeError("Cannot cast int to " + targetTypeName)
+            Value.Uninitialized
+        }
+
+      case Value.Bool(b) =>
+        targetTypeName match {
+          case "bool"   => value // identity cast
+          case "int"    => Value.Int(if (b) 1 else 0)
+          case "string" => Value.String(b.toString())
+          case "any"    => value // cast to any preserves the value
+          case _ =>
+            runtimeError("Cannot cast bool to " + targetTypeName)
+            Value.Uninitialized
+        }
+
+      case Value.String(s) =>
+        targetTypeName match {
+          case "string" => value // identity cast
+          case "any"    => value // cast to any preserves the value
+          case _ =>
+            runtimeError("Cannot cast string to " + targetTypeName)
+            Value.Uninitialized
+        }
+
+      case Value.Ref(actualTypeToken, addr) =>
+        targetTypeName match {
+          case "any" => value // cast to any preserves the value
+          case _ =>
+            if (actualTypeToken.token == targetTypeToken.token) {
+              value // identity cast for same type
+            } else {
+              runtimeError(
+                "Cannot cast " + metadata.getTypeName(
+                  actualTypeToken
+                ) + " to " + targetTypeName
+              )
+              Value.Uninitialized
+            }
+        }
+
+      case Value.Uninitialized =>
+        targetTypeName match {
+          case "unit" => value
+          case "any"  => value
+          case _ =>
+            runtimeError("Cannot cast uninitialized value to " + targetTypeName)
+            Value.Uninitialized
+        }
     }
   }
 
@@ -511,6 +595,12 @@ case class VM(
         val value = pop()
         val result = checkIsInstance(value, typeToken)
         pushBool(result)
+
+      case Opcode.Cast =>
+        val typeToken = readTypeDefToken()
+        val value = pop()
+        val castedValue = performCast(value, typeToken)
+        push(castedValue)
 
       case Opcode.Stsfld =>
         val token = readFieldToken()

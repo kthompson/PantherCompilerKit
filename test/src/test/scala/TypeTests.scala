@@ -351,5 +351,89 @@ object TypeTests extends TestSuite {
 //        assertExprTypeWithSetup(setup, "array(0)", "int")
 //      }
     }
+
+    test("casting") {
+      test("primitive casts") {
+        // Basic numeric casting
+        assertExprTypeTest("42 as int", "int")
+        assertExprTypeTest("42 as bool", "bool")
+        assertExprTypeTest("42 as char", "char")
+        assertExprTypeTest("42 as string", "string")
+
+        // Boolean casting
+        assertExprTypeTest("true as int", "int")
+        assertExprTypeTest("true as bool", "bool")
+        assertExprTypeTest("false as string", "string")
+
+        // Character casting
+        assertExprTypeTest("'a' as int", "int")
+        assertExprTypeTest("'a' as char", "char")
+        assertExprTypeTest("'a' as string", "string")
+
+        // String casting
+        assertExprTypeTest("\"hello\" as string", "string")
+        assertExprTypeTest("\"hello\" as any", "any")
+      }
+
+      test("variable casts") {
+        val setup =
+          "val x = 42\nval flag = true\nval ch = 'a'\nval text = \"hello\""
+
+        assertExprTypeWithSetup(setup, "x as bool", "bool")
+        assertExprTypeWithSetup(setup, "x as char", "char")
+        assertExprTypeWithSetup(setup, "x as string", "string")
+
+        assertExprTypeWithSetup(setup, "flag as int", "int")
+        assertExprTypeWithSetup(setup, "flag as string", "string")
+
+        assertExprTypeWithSetup(setup, "ch as int", "int")
+        assertExprTypeWithSetup(setup, "ch as string", "string")
+
+        assertExprTypeWithSetup(setup, "text as any", "any")
+      }
+
+      test("cast to any type") {
+        assertExprTypeTest("42 as any", "any")
+        assertExprTypeTest("true as any", "any")
+        assertExprTypeTest("\"hello\" as any", "any")
+        assertExprTypeTest("'a' as any", "any")
+        assertExprTypeTest("() as any", "any")
+      }
+
+      test("cast from any type") {
+        val setup = "val obj: any = 42"
+
+        assertExprTypeWithSetup(setup, "obj as int", "int")
+        assertExprTypeWithSetup(setup, "obj as bool", "bool")
+        assertExprTypeWithSetup(setup, "obj as char", "char")
+        assertExprTypeWithSetup(setup, "obj as string", "string")
+        assertExprTypeWithSetup(setup, "obj as unit", "unit")
+      }
+
+      test("expression casts") {
+        // Cast results of binary operations
+        assertExprTypeTest("(1 + 2) as bool", "bool")
+        assertExprTypeTest("(true && false) as int", "int")
+        assertExprTypeTest("(1 == 2) as string", "string")
+
+        // Cast results of unary operations
+        assertExprTypeTest("(!true) as int", "int")
+        assertExprTypeTest("(-42) as bool", "bool")
+      }
+
+      test("cast with parentheses") {
+        assertExprTypeTest("(42) as string", "string")
+        assertExprTypeTest("(true) as int", "int")
+        assertExprTypeTest("(\"hello\") as any", "any")
+      }
+
+      test("chained operations with casts") {
+        val setup = "val x = 42"
+
+        // Cast should have appropriate precedence
+        assertExprTypeWithSetup(setup, "x as bool == true", "bool")
+        assertExprTypeWithSetup(setup, "(x as bool) == true", "bool")
+      }
+    }
   }
 }
