@@ -641,6 +641,7 @@ class Binder(
       case _: BoundExpression.Character       => charType
       case _: BoundExpression.ForExpression   => unitType
       case _: BoundExpression.Int             => intType
+      case _: BoundExpression.IsExpression    => boolType
       case _: BoundExpression.String          => stringType
       case _: BoundExpression.UnitExpression  => unitType
       case _: BoundExpression.WhileExpression => unitType

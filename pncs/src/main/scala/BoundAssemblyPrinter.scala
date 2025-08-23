@@ -75,6 +75,7 @@ class BoundAssemblyPrinter(
       case expr: BoundExpression.IfExpression     => printIfExpression(expr)
       case expr: BoundExpression.IndexExpression  => printIndexExpression(expr)
       case expr: BoundExpression.Int              => printIntLiteral(expr)
+      case expr: BoundExpression.IsExpression     => printIsExpression(expr)
       case expr: BoundExpression.MemberAccess     => printMemberAccess(expr)
       case expr: BoundExpression.NewExpression    => printNewExpression(expr)
       case expr: BoundExpression.String           => printStringLiteral(expr)
@@ -169,6 +170,13 @@ class BoundAssemblyPrinter(
   }
   def printCharacterLiteral(expr: BoundExpression.Character): unit =
     writeWithColor(ColorPalette.String, "'" + expr.value + "'")
+  def printIsExpression(expr: BoundExpression.IsExpression): unit = {
+    printExpression(expr.expression)
+    writeWithColor(ColorPalette.Identifier, " ")
+    writeWithColor(ColorPalette.Keyword, "is")
+    writeWithColor(ColorPalette.Identifier, " ")
+    writeWithColor(ColorPalette.Keyword, expr.targetType.toString())
+  }
   def printForExpression(expr: BoundExpression.ForExpression): unit = ???
   def printIfExpression(expr: BoundExpression.IfExpression): unit = {
     writeWithColor(ColorPalette.Keyword, "if")

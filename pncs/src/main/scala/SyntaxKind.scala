@@ -34,102 +34,104 @@ object SyntaxKind {
   val InKeyword = 25
   val ImplicitKeyword = 26
   val ImportKeyword = 27
-  val MatchKeyword = 28
-  val NamespaceKeyword = 29
-  val NewKeyword = 30
-  val ObjectKeyword = 31
-  val OutKeyword = 32
-  val OverrideKeyword = 33
-  val StaticKeyword = 34
-  val ToKeyword = 35
-  val TrueKeyword = 36
-  val UsingKeyword = 37
-  val ValKeyword = 38
-  val VarKeyword = 39
-  val WhileKeyword = 40
-  val LastKeyword = 40 // this is a marker and should be set to the last keyword
+  val IsKeyword = 28
+  val MatchKeyword = 29
+  val NamespaceKeyword = 30
+  val NewKeyword = 31
+  val ObjectKeyword = 32
+  val OutKeyword = 33
+  val OverrideKeyword = 34
+  val StaticKeyword = 35
+  val ToKeyword = 36
+  val TrueKeyword = 37
+  val UsingKeyword = 38
+  val ValKeyword = 39
+  val VarKeyword = 40
+  val WhileKeyword = 41
+  val LastKeyword = 41 // this is a marker and should be set to the last keyword
 
   // Operators
-  val AmpersandAmpersandToken = 41
-  val AmpersandToken = 42
-  val BangEqualsToken = 43
-  val BangToken = 44
-  val CaretToken = 45
-  val ColonToken = 46
-  val DashToken = 47
-  val DotToken = 48
-  val EqualsEqualsToken = 49
-  val EqualsGreaterThanToken = 50
-  val EqualsToken = 51
-  val GreaterThanEqualsToken = 52
-  val GreaterThanToken = 53
-  val GreaterThanGreaterThanToken = 54
-  val LessThanDashToken = 55
-  val LessThanLessThanToken = 56
-  val LessThanEqualsToken = 57
-  val LessThanToken = 58
-  val PercentToken = 59
-  val PipePipeToken = 60
-  val PipeToken = 61
-  val PlusToken = 62
-  val SlashToken = 63
-  val StarToken = 64
-  val TildeToken = 65
+  val AmpersandAmpersandToken = 42
+  val AmpersandToken = 43
+  val BangEqualsToken = 44
+  val BangToken = 45
+  val CaretToken = 46
+  val ColonToken = 47
+  val DashToken = 48
+  val DotToken = 49
+  val EqualsEqualsToken = 50
+  val EqualsGreaterThanToken = 51
+  val EqualsToken = 52
+  val GreaterThanEqualsToken = 53
+  val GreaterThanToken = 54
+  val GreaterThanGreaterThanToken = 55
+  val LessThanDashToken = 56
+  val LessThanLessThanToken = 57
+  val LessThanEqualsToken = 58
+  val LessThanToken = 59
+  val PercentToken = 60
+  val PipePipeToken = 61
+  val PipeToken = 62
+  val PlusToken = 63
+  val SlashToken = 64
+  val StarToken = 65
+  val TildeToken = 66
 
   // grouping tokens
-  val CloseParenToken = 70
-  val OpenParenToken = 71
-  val OpenBraceToken = 72 // {
-  val CloseBraceToken = 73 // }
-  val OpenBracketToken = 74 // [
-  val CloseBracketToken = 75 // ]
+  val CloseParenToken = 71
+  val OpenParenToken = 72
+  val OpenBraceToken = 73 // {
+  val CloseBraceToken = 74 // }
+  val OpenBracketToken = 75 // [
+  val CloseBracketToken = 76 // ]
 
   // Expressions
-  val ArrayCreationExpression = 80
-  val AssignmentExpression = 81
-  val BinaryExpression = 82
-  val BlockExpression = 83
-  val CallExpression = 84
-  val ForExpression = 85
-  val GroupExpression = 86
-  val IfExpression = 87
-  val IndexExpression = 88
-  val LiteralExpression = 89
-  val MemberAccessExpression = 90
-  val NewExpression = 91
-  val UnaryExpression = 92
-  val UnitExpression = 93
-  val WhileExpression = 94
+  val ArrayCreationExpression = 81
+  val AssignmentExpression = 82
+  val BinaryExpression = 83
+  val BlockExpression = 84
+  val CallExpression = 85
+  val ForExpression = 86
+  val GroupExpression = 87
+  val IfExpression = 88
+  val IndexExpression = 89
+  val IsExpression = 90
+  val LiteralExpression = 91
+  val MemberAccessExpression = 92
+  val NewExpression = 93
+  val UnaryExpression = 94
+  val UnitExpression = 95
+  val WhileExpression = 96
 
   // Types
-  val QualifiedName = 100
-  val GenericName = 101
-  val IdentifierName = 102
-  val SimpleName = 103
+  val QualifiedName = 101
+  val GenericName = 102
+  val IdentifierName = 103
+  val SimpleName = 104
 
   // Statements
-  val BreakStatement = 110
-  val ContinueStatement = 111
-  val ExpressionStatement = 112
-  val VariableDeclarationStatement = 113
+  val BreakStatement = 111
+  val ContinueStatement = 112
+  val ExpressionStatement = 113
+  val VariableDeclarationStatement = 114
 
   //  Nodes
-  val ArrayInitializer = 120
-  val CompilationUnit = 121
-  val FunctionBody = 122
-  val Initializer = 123
-  val Parameter = 124
-  val Template = 125
-  val TypeAnnotation = 126
-  val TypeArgumentList = 127
+  val ArrayInitializer = 121
+  val CompilationUnit = 122
+  val FunctionBody = 123
+  val Initializer = 124
+  val Parameter = 125
+  val Template = 126
+  val TypeAnnotation = 127
+  val TypeArgumentList = 128
 
   // Members
-  val ClassDeclaration = 130
-  val FunctionDeclaration = 131
-  val ObjectDeclaration = 132
-  val GlobalStatement = 133
+  val ClassDeclaration = 131
+  val FunctionDeclaration = 132
+  val ObjectDeclaration = 133
+  val GlobalStatement = 134
 
   // Top level items
-  val UsingDirective = 140
-  val NamespaceDeclaration = 141
+  val UsingDirective = 141
+  val NamespaceDeclaration = 142
 }

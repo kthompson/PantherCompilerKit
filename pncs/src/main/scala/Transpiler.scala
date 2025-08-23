@@ -373,6 +373,8 @@ case class Transpiler(
       case Expression.IdentifierName(value) =>
         transpileSimpleName(value, context)
       case value: Expression.If => transpileIfExpression(value, context)
+      case value: Expression.IsExpression =>
+        transpileIsExpression(value, context)
       case value: Expression.LiteralExpression =>
         transpileLiteralExpression(value, context)
       case value: Expression.MatchExpression =>
@@ -524,6 +526,15 @@ case class Transpiler(
   ): unit = {
     transpileExpression(expr.expression, context)
     transpileToken(expr.asKeyword, context)
+    transpileName(expr.typ, context)
+  }
+
+  def transpileIsExpression(
+      expr: Expression.IsExpression,
+      context: TranspilerContext
+  ): unit = {
+    transpileExpression(expr.expression, context)
+    transpileToken(expr.isKeyword, context)
     transpileName(expr.typ, context)
   }
 
