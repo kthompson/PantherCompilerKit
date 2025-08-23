@@ -239,7 +239,7 @@ case class ExprBinder(
           case Result.Error(value)   => value
           case Result.Success(value) => value
         }
-      case node: Expression.If => bindIf(node, scope)
+      case node: Expression.If           => bindIf(node, scope)
       case node: Expression.IsExpression => bindIsExpression(node, scope)
       case node: Expression.LiteralExpression =>
         bindLiteralExpression(node, scope)
@@ -841,7 +841,7 @@ case class ExprBinder(
     val expr = bind(isExpr.expression, scope)
     val typ = binder.bindTypeName(isExpr.typ, scope)
     val location = AstUtils.locationOfExpression(isExpr)
-    
+
     new BoundExpression.IsExpression(location, expr, typ)
   }
 

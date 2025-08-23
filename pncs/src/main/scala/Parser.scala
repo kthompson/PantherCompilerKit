@@ -90,7 +90,9 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       1
     else if (kind == SyntaxKind.PipeToken || kind == SyntaxKind.PipePipeToken) 2
     else if (kind == SyntaxKind.CaretToken) 3
-    else if (kind == SyntaxKind.AsKeyword || kind == SyntaxKind.IsKeyword || kind == SyntaxKind.MatchKeyword) 4
+    else if (
+      kind == SyntaxKind.AsKeyword || kind == SyntaxKind.IsKeyword || kind == SyntaxKind.MatchKeyword
+    ) 4
     else if (
       kind == SyntaxKind.AmpersandToken || kind == SyntaxKind.AmpersandAmpersandToken
     ) 5
@@ -189,7 +191,7 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
           case Option.Some(value) => value.expression
           case Option.None        => value.thenExpr
         })
-      case value: IsExpression => nameHasStatementTerminator(value.typ)
+      case value: IsExpression      => nameHasStatementTerminator(value.typ)
       case value: LiteralExpression => value.token.isStatementTerminator()
       case MatchExpression(_, _, _, _, closeBrace) =>
         closeBrace.isStatementTerminator()
