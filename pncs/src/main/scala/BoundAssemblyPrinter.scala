@@ -163,7 +163,7 @@ class BoundAssemblyPrinter(
     writeWithColor(ColorPalette.Punctuation, ")")
   }
   def printCastExpression(expr: BoundExpression.CastExpression): unit = {
-    writeWithColor(ColorPalette.Keyword, expr.targetType.toString())
+    ast._printType(expr.targetType, true)
     writeWithColor(ColorPalette.Punctuation, "(")
     printExpression(expr.expression)
     writeWithColor(ColorPalette.Punctuation, ")")
@@ -175,7 +175,7 @@ class BoundAssemblyPrinter(
     writeWithColor(ColorPalette.Punctuation, " ")
     writeWithColor(ColorPalette.Keyword, "is")
     writeWithColor(ColorPalette.Punctuation, " ")
-    writeWithColor(ColorPalette.Keyword, expr.targetType.toString())
+    ast._printType(expr.targetType, true)
   }
   def printForExpression(expr: BoundExpression.ForExpression): unit = ???
   def printIfExpression(expr: BoundExpression.IfExpression): unit = {

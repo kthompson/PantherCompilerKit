@@ -75,6 +75,8 @@ object SyntaxFacts {
     else if (kind == SyntaxKind.InKeyword) "InKeyword"
     else if (kind == SyntaxKind.IndexExpression) "IndexExpression"
     else if (kind == SyntaxKind.Initializer) "Initializer"
+    else if (kind == SyntaxKind.IsExpression) "IsExpression"
+    else if (kind == SyntaxKind.IsKeyword) "IsKeyword"
     else if (kind == SyntaxKind.InvalidTokenTrivia) "InvalidTokenTrivia"
     else if (kind == SyntaxKind.LessThanDashToken) "LessThanDashToken"
     else if (kind == SyntaxKind.LessThanEqualsToken) "LessThanEqualsToken"
@@ -143,6 +145,7 @@ object SyntaxFacts {
     else if (span == "implicit") SyntaxKind.ImplicitKeyword
     else if (span == "import") SyntaxKind.ImportKeyword
     else if (span == "in") SyntaxKind.InKeyword
+    else if (span == "is") SyntaxKind.IsKeyword
     else if (span == "match") SyntaxKind.MatchKeyword
     else if (span == "namespace") SyntaxKind.NamespaceKeyword
     else if (span == "object") SyntaxKind.ObjectKeyword
