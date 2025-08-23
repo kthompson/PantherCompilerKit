@@ -172,9 +172,9 @@ class BoundAssemblyPrinter(
     writeWithColor(ColorPalette.String, "'" + expr.value + "'")
   def printIsExpression(expr: BoundExpression.IsExpression): unit = {
     printExpression(expr.expression)
-    writeWithColor(ColorPalette.Identifier, " ")
+    writeWithColor(ColorPalette.Punctuation, " ")
     writeWithColor(ColorPalette.Keyword, "is")
-    writeWithColor(ColorPalette.Identifier, " ")
+    writeWithColor(ColorPalette.Punctuation, " ")
     writeWithColor(ColorPalette.Keyword, expr.targetType.toString())
   }
   def printForExpression(expr: BoundExpression.ForExpression): unit = ???
