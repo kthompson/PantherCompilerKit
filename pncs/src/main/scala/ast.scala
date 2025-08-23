@@ -500,13 +500,13 @@ object AstUtils {
             case Option.None        => locationOfBoundExpression(thenExpr)
           }
         )
-      case BoundExpression.IndexExpression(location, _, _, _)    => location
-      case BoundExpression.MatchExpression(location, _, _, _)    => location
-      case BoundExpression.Int(location, _)                      => location
-      case BoundExpression.IsExpression(location, expression, _) => location
-      case BoundExpression.MemberAccess(location, _, _, _, _)    => location
-      case BoundExpression.NewExpression(location, _, _, _, _)   => location
-      case BoundExpression.String(location, _)                   => location
+      case BoundExpression.IndexExpression(location, _, _, _)  => location
+      case BoundExpression.MatchExpression(location, _, _, _)  => location
+      case BoundExpression.Int(location, _)                    => location
+      case BoundExpression.IsExpression(location, _, _)        => location
+      case BoundExpression.MemberAccess(location, _, _, _, _)  => location
+      case BoundExpression.NewExpression(location, _, _, _, _) => location
+      case BoundExpression.String(location, _)                 => location
       case BoundExpression.UnaryExpression(location, _, operand, _) =>
         location.merge(locationOfBoundExpression(operand))
       case BoundExpression.UnitExpression(location)        => location

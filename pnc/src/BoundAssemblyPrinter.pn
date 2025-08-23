@@ -169,6 +169,7 @@ class BoundAssemblyPrinter(
     ast._printType(expr.targetType, true)
   }
   def printForExpression(expr: BoundExpression.ForExpression): unit = ???
+
   def printIfExpression(expr: BoundExpression.IfExpression): unit = {
     writeWithColor(ColorPalette.Keyword, "if")
     writeWithColor(ColorPalette.Punctuation, " (")

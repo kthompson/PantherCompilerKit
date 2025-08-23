@@ -104,34 +104,34 @@ object SyntaxKind {
   val WhileExpression = 95
 
   // Types
-  val QualifiedName = 101
-  val GenericName = 102
-  val IdentifierName = 103
-  val SimpleName = 104
+  val QualifiedName = 100
+  val GenericName = 101
+  val IdentifierName = 102
+  val SimpleName = 103
 
   // Statements
-  val BreakStatement = 111
-  val ContinueStatement = 112
-  val ExpressionStatement = 113
-  val VariableDeclarationStatement = 114
+  val BreakStatement = 110
+  val ContinueStatement = 111
+  val ExpressionStatement = 112
+  val VariableDeclarationStatement = 113
 
   //  Nodes
-  val ArrayInitializer = 121
-  val CompilationUnit = 122
-  val FunctionBody = 123
-  val Initializer = 124
-  val Parameter = 125
-  val Template = 126
-  val TypeAnnotation = 127
-  val TypeArgumentList = 128
+  val ArrayInitializer = 120
+  val CompilationUnit = 121
+  val FunctionBody = 122
+  val Initializer = 123
+  val Parameter = 124
+  val Template = 125
+  val TypeAnnotation = 126
+  val TypeArgumentList = 127
 
   // Members
-  val ClassDeclaration = 131
-  val FunctionDeclaration = 132
-  val ObjectDeclaration = 133
-  val GlobalStatement = 134
+  val ClassDeclaration = 130
+  val FunctionDeclaration = 131
+  val ObjectDeclaration = 132
+  val GlobalStatement = 133
 
   // Top level items
-  val UsingDirective = 141
-  val NamespaceDeclaration = 142
+  val UsingDirective = 140
+  val NamespaceDeclaration = 141
 }
