@@ -3,6 +3,7 @@ import panther._
 enum Value {
   case Int(value: int)
   case String(value: string)
+  case Bool(value: bool)
   case Ref(token: TypeDefToken, value: int)
   case Uninitialized
 }

@@ -75,6 +75,10 @@ case class Disassembler(chunk: Chunk, metadata: Metadata) {
       //      i4Instruction(chunk, offset, name)
       //    } else if (opcode == Opcode.Stlocn) {
       //      i4Instruction(chunk, offset, name)
+    } else if (opcode == Opcode.Ldtrue) {
+      simpleInstruction(name, offset)
+    } else if (opcode == Opcode.Ldfalse) {
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Ldstr) {
       stringTokenInstruction(chunk, offset, name)
     } else if (opcode == Opcode.Newobj) {
@@ -89,6 +93,8 @@ case class Disassembler(chunk: Chunk, metadata: Metadata) {
       fieldTokenInstruction(chunk, offset, name)
     } else if (opcode == Opcode.Stsfld) {
       fieldTokenInstruction(chunk, offset, name)
+    } else if (opcode == Opcode.IsInst) {
+      typeTokenInstruction(chunk, offset, name)
     } else if (opcode == Opcode.Dup) {
       simpleInstruction(name, offset)
     } else if (opcode == Opcode.Pop) {
@@ -152,6 +158,13 @@ case class Disassembler(chunk: Chunk, metadata: Metadata) {
   def simpleInstruction(name: string, offset: int): int = {
     println(name)
     offset + 1
+  }
+
+  def typeTokenInstruction(chunk: Chunk, offset: int, name: string): int = {
+    val token = chunk.readI4(offset + 1)
+    val typeName = metadata.getTypeName(TypeDefToken(token))
+    println(name + " " + typeName)
+    offset + 2
   }
 
   def fieldTokenInstruction(chunk: Chunk, offset: int, name: string): int = {

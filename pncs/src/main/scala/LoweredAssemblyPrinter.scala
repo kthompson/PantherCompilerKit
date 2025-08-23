@@ -332,7 +332,6 @@ class LoweredAssemblyPrinter(
   }
 
   def printTypeCheck(expr: LoweredExpression.TypeCheck): unit = {
-    ast.writeWithColor(ColorPalette.Keyword, "typecheck")
     ast.writeWithColor(ColorPalette.Punctuation, "(")
     printExpression(expr.expression)
     ast.writeWithColor(ColorPalette.Keyword, " is ")
