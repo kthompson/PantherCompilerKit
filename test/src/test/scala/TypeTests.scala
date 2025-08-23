@@ -103,6 +103,14 @@ object TypeTests extends TestSuite {
       assertExprTypeTest("true as string", "string")
     }
 
+    test("is expressions") {
+      assertExprTypeTest("12 is int", "bool")
+      assertExprTypeTest("'a' is char", "bool")
+      assertExprTypeTest("\"hello\" is string", "bool")
+      assertExprTypeTest("true is bool", "bool")
+      assertExprTypeTest("12 is bool", "bool") // should return false at runtime
+    }
+
     test("blocks") {
       assertExprTypeTest("{ 1 }", "int")
       assertExprTypeTest("{ true }", "bool")

@@ -198,6 +198,7 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
       case value: Expression.GroupExpression   => printGroupExpression(value)
       case IdentifierName(value)               => printSimpleName(value)
       case value: Expression.If                => printIfExpression(value)
+      case value: Expression.IsExpression      => printIsExpression(value)
       case value: Expression.LiteralExpression => printLiteralExpression(value)
       case value: MatchExpression => panic("MatchExpression not implemented")
       case value: Expression.MemberAccessExpression =>
@@ -275,6 +276,12 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
   def printCastExpression(node: Expression.CastExpression): unit = {
     printExpression(node.expression)
     printToken(node.asKeyword)
+    printName(node.typ)
+  }
+
+  def printIsExpression(node: Expression.IsExpression): unit = {
+    printExpression(node.expression)
+    printToken(node.isKeyword)
     printName(node.typ)
   }
 

@@ -239,7 +239,8 @@ case class ExprBinder(
           case Result.Error(value)   => value
           case Result.Success(value) => value
         }
-      case node: Expression.If => bindIf(node, scope)
+      case node: Expression.If           => bindIf(node, scope)
+      case node: Expression.IsExpression => bindIsExpression(node, scope)
       case node: Expression.LiteralExpression =>
         bindLiteralExpression(node, scope)
       case node: Expression.MemberAccessExpression =>
@@ -831,6 +832,17 @@ case class ExprBinder(
     val expr = bind(cast.expression, scope)
     val typ = binder.bindTypeName(cast.typ, scope)
     bindConversion(expr, typ, true)
+  }
+
+  def bindIsExpression(
+      isExpr: Expression.IsExpression,
+      scope: Scope
+  ): BoundExpression = {
+    val expr = bind(isExpr.expression, scope)
+    val typ = binder.bindTypeName(isExpr.typ, scope)
+    val location = AstUtils.locationOfExpression(isExpr)
+
+    new BoundExpression.IsExpression(location, expr, typ)
   }
 
   def getParameterTypes(parameters: List[BoundParameter]): List[Type] = {

@@ -73,6 +73,11 @@ object TestHelpers {
     assertBlockExpr(expr)
   }
 
+  def mkIsExpr(text: string): Expression.IsExpression = {
+    val expression = mkSyntaxTreeExpr(text)
+    assertIsExpr(expression)
+  }
+
   def mkSyntaxTreeExpr(text: string): Expression = {
     mkSyntaxTreeStatement(text) match {
       case StatementSyntax.ExpressionStatement(expr) => expr
@@ -220,6 +225,13 @@ object TestHelpers {
     expr match {
       case expr: Expression.UnaryExpression => expr
       case _ => throw new AssertionError("expected unary expression", Seq())
+    }
+  }
+
+  def assertIsExpr(expr: Expression): Expression.IsExpression = {
+    expr match {
+      case expr: Expression.IsExpression => expr
+      case _ => throw new AssertionError("expected is expression", Seq())
     }
   }
 

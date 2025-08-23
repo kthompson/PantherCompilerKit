@@ -113,6 +113,11 @@ enum BoundExpression {
       resultType: Type
   )
   case Int(location: TextLocation, value: int)
+  case IsExpression(
+      location: TextLocation,
+      expression: BoundExpression,
+      targetType: Type
+  )
   case MemberAccess(
       location: TextLocation,
       receiver: BoundLeftHandSide,

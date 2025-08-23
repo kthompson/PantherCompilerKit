@@ -270,6 +270,8 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       case expr: BoundExpression.IndexExpression =>
         lowerIndexExpression(expr, context)
       case expr: BoundExpression.Int => lowerIntLiteral(expr, context)
+      case expr: BoundExpression.IsExpression =>
+        lowerIsExpression(expr, context)
       case expr: BoundExpression.MemberAccess =>
         lhsBlockToBlock(lowerMemberAccess(expr, context))
       case expr: BoundExpression.NewExpression =>
@@ -514,6 +516,22 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
     )
 
     LoweredBlock(block.statements, casted)
+  }
+
+  def lowerIsExpression(
+      expr: BoundExpression.IsExpression,
+      context: LoweredBlock
+  ): LoweredBlock = {
+
+    val block = lowerExpression(expr.expression, context)
+
+    val typeCheck = LoweredExpression.TypeCheck(
+      expr.location,
+      block.expression,
+      expr.targetType
+    )
+
+    LoweredBlock(block.statements, typeCheck)
   }
 
   def lowerCharacterLiteral(

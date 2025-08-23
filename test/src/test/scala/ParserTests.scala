@@ -197,6 +197,13 @@ object ParserTests extends TestSuite {
           assert(expr.diagnostics.count() == 0)
         }
       }
+
+      test("is expressions") {
+        val expr = mkIsExpr("x is int")
+        assertIdentifierExpr("x", expr.expression)
+        assertTokenKind(SyntaxKind.IsKeyword, expr.isKeyword)
+        // TODO: add assertion for the type name
+      }
     }
 
     test("functions") {

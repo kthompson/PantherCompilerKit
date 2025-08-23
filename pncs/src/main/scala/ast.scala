@@ -124,6 +124,11 @@ enum Expression {
       thenExpr: Expression,
       elseExpr: Option[ElseSyntax]
   )
+  case IsExpression(
+      expression: Expression,
+      isKeyword: SyntaxToken,
+      typ: NameSyntax
+  )
   case LiteralExpression(token: SyntaxToken, value: SyntaxTokenValue)
   case MemberAccessExpression(
       left: Expression,
@@ -439,6 +444,8 @@ object AstUtils {
           case Option.Some(value) => value.expression
           case Option.None        => expression
         }))
+      case Expression.IsExpression(expression, isKeyword, typ) =>
+        locationOfExpression(expression).merge(locationOfName(typ))
       case Expression.LiteralExpression(token, value) =>
         token.location
       case Expression.MemberAccessExpression(left, dotToken, right) =>
@@ -496,6 +503,7 @@ object AstUtils {
       case BoundExpression.IndexExpression(location, _, _, _)  => location
       case BoundExpression.MatchExpression(location, _, _, _)  => location
       case BoundExpression.Int(location, _)                    => location
+      case BoundExpression.IsExpression(location, _, _)        => location
       case BoundExpression.MemberAccess(location, _, _, _, _)  => location
       case BoundExpression.NewExpression(location, _, _, _, _) => location
       case BoundExpression.String(location, _)                 => location
