@@ -103,6 +103,11 @@ case class VM(
     FieldToken(value)
   }
 
+  def readTypeDefToken(): TypeDefToken = {
+    val value = readI4()
+    TypeDefToken(value)
+  }
+
   def push(value: Value): InterpretResult = {
     stack(sp) = value
     sp = sp + 1
@@ -110,7 +115,7 @@ case class VM(
   }
 
   def pushBool(value: bool): InterpretResult =
-    push(Value.Int(if (value) 1 else 0))
+    push(Value.Bool(value))
 
   def binaryAdd(): InterpretResult = {
     val b = pop()
@@ -144,12 +149,23 @@ case class VM(
     InterpretResult.RuntimeError
   }
 
+  // Helper function to convert values to int for comparison
+  def toInt(value: Value): int = {
+    value match {
+      case Value.Int(i)      => i
+      case Value.Bool(true)  => 1
+      case Value.Bool(false) => 0
+      case _ => panic("Cannot convert " + value + " to int for comparison")
+    }
+  }
+
   def binaryIntBoolOp(
       op: int,
       opName: string
   ): InterpretResult = {
-    val b = popInt()
-    val a = popInt()
+    // HACK: this shouldnt be converting bools to ints but its easier for now
+    val b = toInt(pop())
+    val a = toInt(pop())
 
     val result = op match {
       case Opcode.Ceq => Option.Some(a == b)
@@ -158,13 +174,7 @@ case class VM(
       case _          => Option.None
     }
 
-    result match {
-      case Option.None =>
-        runtimeError("Invalid operation: " + opName)
-      case Option.Some(value) =>
-        pushBool(value)
-        InterpretResult.Continue
-    }
+    pushBoolOrInvalidOp(result, opName)
   }
 
   def binaryIntOp(op: int, opName: string): InterpretResult = {
@@ -218,12 +228,47 @@ case class VM(
     }
   }
 
+  def pushBoolOrInvalidOp(result: Option[bool], opName: string) = {
+    result match {
+      case Option.None =>
+        runtimeError("Invalid operation: " + opName)
+      case Option.Some(value) =>
+        pushBool(value)
+        InterpretResult.Continue
+    }
+  }
+
+  def binaryBitwiseOp(op: int, opName: string): InterpretResult = {
+    val b = pop()
+    val a = pop()
+
+    Tuple2(a, b) match {
+      case Tuple2(Value.Int(a), Value.Int(b)) =>
+        val result = op match {
+          case Opcode.And => Option.Some(a & b)
+          case Opcode.Or  => Option.Some(a | b)
+          case _          => Option.None
+        }
+        pushIntOrInvalidOp(result, opName)
+
+      case Tuple2(Value.Bool(a), Value.Bool(b)) =>
+        val result = op match {
+          case Opcode.And => Option.Some(a && b)
+          case Opcode.Or  => Option.Some(a || b)
+          case _          => Option.None
+        }
+        pushBoolOrInvalidOp(result, opName)
+
+      case _ =>
+        runtimeError("Expected int or bool on stack")
+    }
+  }
+
   def popBool(): bool = {
     val value = pop()
     value match {
-      case Value.Int(1) => true
-      case Value.Int(0) => false
-      case _            => panic("Expected bool on stack, found " + value)
+      case Value.Bool(b) => b
+      case _             => panic("Expected bool on stack, found " + value)
     }
   }
 
@@ -239,6 +284,25 @@ case class VM(
     stack(pos) match {
       case Value.Int(value) => value
       case _                => panic("Expected int on stack at position " + pos)
+    }
+  }
+
+  def checkIsInstance(value: Value, expectedTypeToken: TypeDefToken): bool = {
+    // Get the type name from metadata to compare against runtime value
+    val expectedTypeName = metadata.getTypeName(expectedTypeToken)
+
+    value match {
+      case Value.Int(_) =>
+        expectedTypeName == "int"
+      case Value.String(_) =>
+        expectedTypeName == "string"
+      case Value.Bool(_) =>
+        expectedTypeName == "bool"
+      case Value.Ref(actualTypeToken, _) =>
+        // Compare type tokens directly for object references
+        actualTypeToken.token == expectedTypeToken.token
+      case Value.Uninitialized =>
+        false
     }
   }
 
@@ -312,6 +376,14 @@ case class VM(
         val str = metadata.getString(value)
         push(Value.String(str))
 
+      case Opcode.Ldtrue =>
+        pushBool(true)
+        InterpretResult.Continue
+
+      case Opcode.Ldfalse =>
+        pushBool(false)
+        InterpretResult.Continue
+
       // load args
       case Opcode.Ldarg0 =>
         push(stack(argsp))
@@ -358,9 +430,9 @@ case class VM(
       case Opcode.Rem =>
         binaryIntOp(Opcode.Rem, "rem")
       case Opcode.And =>
-        binaryIntOp(Opcode.And, "and")
+        binaryBitwiseOp(Opcode.And, "and")
       case Opcode.Or =>
-        binaryIntOp(Opcode.Or, "or")
+        binaryBitwiseOp(Opcode.Or, "and")
       case Opcode.Xor =>
         binaryIntOp(Opcode.Xor, "xor")
       case Opcode.Shl =>
@@ -398,6 +470,9 @@ case class VM(
       case Opcode.ConvStr =>
         val a = pop()
         a match {
+          case Value.Bool(b) =>
+            push(Value.String(b.toString()))
+            InterpretResult.Continue
           case Value.Int(i) =>
             // TODO: may need native function here
             push(Value.String(i.toString()))
@@ -413,6 +488,29 @@ case class VM(
             push(Value.String(fullName))
             InterpretResult.Continue
         }
+
+      case Opcode.ConvBool =>
+        val a = pop()
+        a match {
+          case Value.Int(0) =>
+            pushBool(false)
+            InterpretResult.Continue
+          case Value.Int(1) =>
+            pushBool(true)
+            InterpretResult.Continue
+          case Value.Bool(b) =>
+            pushBool(b)
+            InterpretResult.Continue
+          case _ =>
+            runtimeError("Cannot convert value to bool")
+        }
+
+      // type checking ops
+      case Opcode.IsInst =>
+        val typeToken = readTypeDefToken()
+        val value = pop()
+        val result = checkIsInstance(value, typeToken)
+        pushBool(result)
 
       case Opcode.Stsfld =>
         val token = readFieldToken()

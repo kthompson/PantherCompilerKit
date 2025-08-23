@@ -29,6 +29,8 @@ object Opcode {
   //  val Stlocn = 22 // store local n
   val LdcI4 = 30 // load constant i4
   val Ldstr = 31 // load constant string
+  val Ldtrue = 32 // load true
+  val Ldfalse = 33 // load false
 
   // object operand
   val Ldfld = 40 // load field of object
@@ -82,6 +84,10 @@ object Opcode {
   // conversion
   val ConvI4 = 110
   val ConvStr = 111
+  val ConvBool = 112
+
+  // type checking
+  val IsInst = 120
 
   def nameOf(opcode: int): string = {
     if (opcode == Nop) {
@@ -122,6 +128,10 @@ object Opcode {
       "ldc.i4"
     } else if (opcode == Ldstr) {
       "ldstr"
+    } else if (opcode == Ldtrue) {
+      "ldtrue"
+    } else if (opcode == Ldfalse) {
+      "ldfalse"
     } else if (opcode == Ldfld) {
       "ldfld"
     } else if (opcode == Ldsfld) {
@@ -180,6 +190,10 @@ object Opcode {
       "conv.i4"
     } else if (opcode == ConvStr) {
       "conv.str"
+    } else if (opcode == ConvBool) {
+      "conv.bool"
+    } else if (opcode == IsInst) {
+      "isinst"
     } else {
       panic("Unknown opcode: " + opcode)
     }

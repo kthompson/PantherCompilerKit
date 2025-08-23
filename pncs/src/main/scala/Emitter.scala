@@ -295,8 +295,7 @@ case class Emitter(
       case value: LoweredExpression.Variable =>
         emitVariable(value, context)
       case value: LoweredExpression.TypeCheck =>
-        // For now, just emit the expression (type checking is handled at compile time)
-        emitExpression(value.expression, context)
+        emitTypeCheckExpression(value, context)
       case LoweredExpression.Unit =>
         emitUnitExpression(context)
     }
@@ -379,7 +378,7 @@ case class Emitter(
       case BinaryOperatorKind.NotEquals =>
         chunk.emitOpcode(Opcode.Ceq, expr.location.startLine)
 
-        emitLoadConstant(0, expr.location.startLine)
+        emitLoadBool(false, expr.location.startLine)
         chunk.emitOpcode(Opcode.Ceq, expr.location.startLine)
 
       case BinaryOperatorKind.LessThan =>
@@ -387,7 +386,8 @@ case class Emitter(
 
       case BinaryOperatorKind.LessThanOrEqual =>
         chunk.emitOpcode(Opcode.Cgt, expr.location.startLine)
-        emitLoadConstant(0, expr.location.startLine)
+
+        emitLoadBool(false, expr.location.startLine)
         chunk.emitOpcode(Opcode.Ceq, expr.location.startLine)
 
       case BinaryOperatorKind.GreaterThan =>
@@ -395,7 +395,8 @@ case class Emitter(
 
       case BinaryOperatorKind.GreaterThanOrEqual =>
         chunk.emitOpcode(Opcode.Clt, expr.location.startLine)
-        emitLoadConstant(0, expr.location.startLine)
+
+        emitLoadBool(false, expr.location.startLine)
         chunk.emitOpcode(Opcode.Ceq, expr.location.startLine)
 
       case BinaryOperatorKind.LogicalAnd =>
@@ -426,10 +427,8 @@ case class Emitter(
   def emitBooleanLiteral(
       expr: LoweredExpression.Boolean,
       context: EmitContext
-  ): unit = {
-    val value = if (expr.value) 1 else 0
-    emitLoadConstant(value, expr.location.startLine)
-  }
+  ): unit =
+    emitLoadBool(expr.value, expr.location.startLine)
 
   def emitCallExpression(
       expr: LoweredExpression.Call,
@@ -673,6 +672,11 @@ case class Emitter(
     }
   }
 
+  def emitLoadBool(b: bool, startLine: int): unit = {
+    val op = if (b) Opcode.Ldtrue else Opcode.Ldfalse
+    chunk.emitOpcode(op, startLine)
+  }
+
   def emitLoadConstant(i: int, startLine: int): unit = {
     chunk.emitOpcode(Opcode.LdcI4, startLine)
     chunk.emitI4(i, startLine)
@@ -887,6 +891,39 @@ case class Emitter(
       case Type.Any                => emitAnyTypeSignature(sig)
       case Type.Never              => emitNeverTypeSignature(sig)
       case Type.Error(_)           => emitErrorTypeSignature(sig)
+    }
+  }
+
+  def getTypeDefToken(typ: Type): Option[TypeDefToken] = {
+    typ match {
+      case Type.Class(_, _, _, _, symbol) =>
+        typeTokens.get(symbol)
+      case Type.GenericClass(_, _, _, _, symbol) =>
+        typeTokens.get(symbol)
+      case Type.Alias(_, _, _, _, _, symbol) =>
+        typeTokens.get(symbol)
+      case _ =>
+        Option.None
+    }
+  }
+
+  def emitTypeCheckExpression(
+      expr: LoweredExpression.TypeCheck,
+      context: EmitContext
+  ): unit = {
+    // Emit the inner expression to be checked
+    emitExpression(expr.expression, context)
+
+    // Get the TypeDefToken for the expected type
+    getTypeDefToken(expr.expectedType) match {
+      case Option.None =>
+        panic(
+          "emitTypeCheckExpression: no TypeDefToken for type " + expr.expectedType.toString
+        )
+      case Option.Some(typeToken) =>
+        // Emit IsInstance opcode with the type token
+        chunk.emitOpcode(Opcode.IsInst, expr.location.startLine)
+        chunk.emitI4(typeToken.token, expr.location.startLine)
     }
   }
 

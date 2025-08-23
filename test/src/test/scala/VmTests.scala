@@ -25,6 +25,8 @@ object VmTests extends TestSuite {
       assertExecValueInt("4 * 3", 12)
       assertExecValueInt("15 / 3", 5)
       assertExecValueInt("17 % 5", 2)
+      assertExecValueInt("17 & 5", 1)
+      assertExecValueInt("17 | 5", 21)
 
       assertExecValueBool("5 == 5", true)
       assertExecValueBool("5 == 3", false)
@@ -300,10 +302,23 @@ object VmTests extends TestSuite {
     }
 
     test("is expression basic functionality") {
-      // Test that is expressions compile and execute
-      // Note: Current implementation returns the expression value, not type check result
-      // This test demonstrates the syntax is working
-      assertExprTypeWithSetup("val x = 12", "x is int", "bool")
+      // Test that is expressions execute properly and return correct boolean values
+      assertExecValueBool("12 is int", true)
+      assertExecValueBool("12 is bool", false)
+      assertExecValueBool("true is bool", true)
+      assertExecValueBool("true is int", false)
+      assertExecValueBool("\"hello\" is string", true)
+      assertExecValueBool("\"hello\" is int", false)
+
+      // Test with variables
+      assertExecValueIntWithSetup("val x = 12", "if (x is int) 1 else 0", 1)
+      assertExecValueIntWithSetup("val x = 12", "if (x is bool) 1 else 0", 0)
+      assertExecValueIntWithSetup("val y = true", "if (y is bool) 1 else 0", 1)
+      assertExecValueIntWithSetup(
+        "val y = true",
+        "if (y is string) 1 else 0",
+        0
+      )
     }
   }
 }

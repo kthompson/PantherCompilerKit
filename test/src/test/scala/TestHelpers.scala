@@ -524,7 +524,15 @@ object TestHelpers {
   }
 
   def assertValueBool(value: Value, expected: bool): Unit = {
-    assertValueInt(value, if (expected) 1 else 0)
+    value match {
+      case Value.Bool(v) =>
+        assert(v == expected)
+      case _ =>
+        throw new AssertionError(
+          "Expected " + string(expected) + ", got: " + value,
+          Seq()
+        )
+    }
   }
 
   def assertValueString(value: Value, expected: string): Unit = {
