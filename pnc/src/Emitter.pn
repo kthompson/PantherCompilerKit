@@ -441,7 +441,22 @@ class Emitter(
   def emitCastExpression(
       expr: LoweredExpression.Cast,
       context: EmitContext
-  ): unit = ???
+  ): unit = {
+    // First emit the operand expression
+    emitExpression(expr.operand, context)
+
+    // Get the TypeDefToken for the target type
+    getTypeDefToken(expr.resultType) match {
+      case Option.None =>
+        panic(
+          "emitCastExpression: no TypeDefToken for type " + expr.resultType.toString
+        )
+      case Option.None =>
+        panic(
+          "emitCastExpression: no TypeDefToken for type " + expr.resultType.toString
+        )
+    }
+  }
 
   def emitCharacterLiteral(
       expr: LoweredExpression.Character,

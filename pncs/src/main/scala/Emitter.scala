@@ -500,7 +500,22 @@ case class Emitter(
   def emitCastExpression(
       expr: LoweredExpression.Cast,
       context: EmitContext
-  ): unit = ???
+  ): unit = {
+    // First emit the operand expression
+    emitExpression(expr.operand, context)
+
+    // Get the TypeDefToken for the target type
+    getTypeDefToken(expr.resultType) match {
+      case Option.None =>
+        panic(
+          "emitCastExpression: no TypeDefToken for type " + expr.resultType.toString
+        )
+      case Option.Some(typeToken) =>
+        // Emit Cast opcode with the type token
+        chunk.emitOpcode(Opcode.Cast, expr.location.startLine)
+        chunk.emitI4(typeToken.token, expr.location.startLine)
+    }
+  }
 
   def emitCharacterLiteral(
       expr: LoweredExpression.Character,
