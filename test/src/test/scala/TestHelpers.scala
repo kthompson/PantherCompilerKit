@@ -158,9 +158,9 @@ object TestHelpers {
 
   def assertLiteralPattern(
       expression: PatternSyntax
-  ): PatternSyntax.LiteralPattern = {
+  ): PatternSyntax.Literal = {
     expression match {
-      case expr: PatternSyntax.LiteralPattern => expr
+      case expr: PatternSyntax.Literal => expr
       case _ => throw new AssertionError("expected literal pattern", Seq())
     }
   }

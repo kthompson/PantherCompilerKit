@@ -967,7 +967,7 @@ class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
       currentKind() == SyntaxKind.FalseKeyword
     ) {
       val token = accept()
-      PatternSyntax.LiteralPattern(token)
+      PatternSyntax.Literal(token)
     } else {
       val name = parseName(false)
       if (currentKind() == SyntaxKind.ColonToken) {
@@ -975,21 +975,21 @@ class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
         val typeAnnotation = parseTypeAnnotation()
         identFromName(name) match {
           case Option.Some(identifier) =>
-            PatternSyntax.IdentifierPattern(identifier, typeAnnotation)
+            PatternSyntax.Identifier(identifier, typeAnnotation)
           case Option.None =>
             diagnostics.reportUnexpectedToken(
               current().location,
               currentKind(),
               SyntaxKind.IdentifierToken
             )
-            PatternSyntax.TypePattern(typeAnnotation.typ)
+            PatternSyntax.Type(typeAnnotation.typ)
         }
 
       } else if (currentKind() == SyntaxKind.OpenParenToken) {
         // must be extract pattern
         parseExtractPattern(name)
       } else {
-        PatternSyntax.TypePattern(name)
+        PatternSyntax.Type(name)
       }
     }
   }
@@ -1016,7 +1016,7 @@ class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     if (currentKind() == SyntaxKind.CloseParenToken) {
       // empty pattern list
       val close = accept()
-      PatternSyntax.ExtractPattern(
+      PatternSyntax.Extract(
         nameSyntax,
         open,
         new Array[PatternItemSyntax](0),
@@ -1025,7 +1025,7 @@ class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     } else {
       val patterns = parsePatternList()
       val close = acceptKind(SyntaxKind.CloseParenToken)
-      PatternSyntax.ExtractPattern(nameSyntax, open, patterns, close)
+      PatternSyntax.Extract(nameSyntax, open, patterns, close)
     }
   }
 
