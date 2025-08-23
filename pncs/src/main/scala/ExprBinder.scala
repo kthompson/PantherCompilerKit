@@ -1139,11 +1139,181 @@ case class ExprBinder(
     }
   }
 
+  def bindPattern(
+      pattern: PatternSyntax,
+      scope: Scope
+  ): Result[BoundExpression.Error, BoundPattern] = {
+    pattern match {
+      case PatternSyntax.Literal(token) =>
+        token.value match {
+          case SyntaxTokenValue.Number(value) =>
+            Result.Success(
+              BoundPattern.Literal(
+                BoundLiteral.IntLiteral(token.location, value)
+              )
+            )
+          case SyntaxTokenValue.String(value) =>
+            Result.Success(
+              BoundPattern.Literal(
+                BoundLiteral.StringLiteral(token.location, value)
+              )
+            )
+          case SyntaxTokenValue.Boolean(value) =>
+            Result.Success(
+              BoundPattern.Literal(
+                BoundLiteral.BoolLiteral(token.location, value)
+              )
+            )
+          case SyntaxTokenValue.Character(value) =>
+            Result.Success(
+              BoundPattern.Literal(
+                BoundLiteral.CharLiteral(token.location, value)
+              )
+            )
+          case _ =>
+            diagnosticBag.reportInvalidPattern(token.location)
+            Result.Error(
+              BoundExpression.Error(
+                "Invalid literal pattern: " + token.text
+              )
+            )
+        }
+      case PatternSyntax.Discard(_) =>
+        Result.Success(BoundPattern.Discard)
+      case PatternSyntax.Identifier(identifier, typeAnnotation) =>
+        // Create a new local variable for the pattern binding
+        scope.defineLocal(identifier.text, identifier.location) match {
+          case Either.Left(originalLocation) =>
+            diagnosticBag.reportDuplicateDefinition(
+              identifier.text,
+              originalLocation,
+              identifier.location
+            )
+            Result.Error(
+              BoundExpression.Error(
+                "Duplicate pattern variable: " + identifier.text
+              )
+            )
+          case Either.Right(symbol) =>
+            panic(
+              "this isnt quite right, this should be a type check, not setting the type here"
+            )
+            // Set the symbol type from the type annotation
+            val boundType = binder.bindTypeName(typeAnnotation.typ, scope)
+            binder.setSymbolType(symbol, boundType)
+            Result.Success(BoundPattern.Variable(symbol))
+        }
+      case PatternSyntax.Type(typ) =>
+        // For type patterns, we create a wildcard pattern
+        // Type checking will be handled elsewhere
+        Result.Success(BoundPattern.Discard)
+      case PatternSyntax.Extract(_, _, patterns, _) =>
+        // For now, treat extract patterns as wildcards
+        // Full ADT support would require more complex pattern matching
+        Result.Success(BoundPattern.Discard)
+    }
+  }
+
+  def bindMatchCase(
+      matchCase: MatchCaseSyntax,
+      scope: Scope
+  ): Result[BoundExpression.Error, BoundMatchCase] = {
+    // Create a new scope for this case to allow pattern variables
+    val caseScope = scope.newBlock()
+
+    bindPattern(matchCase.pattern, caseScope) match {
+      case Result.Error(error)          => Result.Error(error)
+      case Result.Success(boundPattern) =>
+        // Bind the statements and expression within the case scope
+        val statements = bindStatements(matchCase.block.statements, caseScope)
+        val resultExpr = matchCase.block.expression match {
+          case Option.None =>
+            BoundExpression.UnitExpression(TextLocationFactory.empty())
+          case Option.Some(expr) => bind(expr, caseScope)
+        }
+
+        resultExpr match {
+          case error: BoundExpression.Error => Result.Error(error)
+          case _ =>
+            val caseResult = if (statements.isEmpty) {
+              resultExpr
+            } else {
+              BoundExpression.Block(statements, resultExpr)
+            }
+            Result.Success(
+              BoundMatchCase(
+                matchCase.caseKeyword.location,
+                boundPattern,
+                caseResult
+              )
+            )
+        }
+    }
+  }
+
+  def bindMatchCases(
+      head: MatchCaseSyntax,
+      tail: List[MatchCaseSyntax],
+      scope: Scope
+  ): Result[BoundExpression.Error, NonEmptyList[BoundMatchCase]] = {
+    bindMatchCase(head, scope) match {
+      case Result.Error(expr) =>
+        Result.Error(expr)
+      case Result.Success(boundCase) =>
+        tail match {
+          case List.Nil =>
+            Result.Success(NonEmptyList(boundCase, List.Nil))
+          case List.Cons(head, tail) =>
+            bindMatchCases(head, tail, scope) match {
+              case Result.Error(expr) => Result.Error(expr)
+              case Result.Success(tailCases) =>
+                Result.Success(NonEmptyList(boundCase, tailCases.toList()))
+            }
+        }
+    }
+  }
+
+  def calculateMatchResultType(typ: Type, tail: List[BoundMatchCase]): Type = {
+    tail match {
+      case List.Nil              => typ
+      case List.Cons(head, tail) =>
+        // Multiple cases - for now, use Any as the union type
+        // In a more sophisticated implementation, this would compute
+        // the least upper bound (LUB) of all case types
+        val headType = binder.getType(head.result)
+
+        calculateMatchResultType(Types.union(typ, headType), tail)
+    }
+  }
+
   def bindMatchExpression(
       node: Expression.MatchExpression,
       scope: Scope
-  ): BoundExpression =
-    boundErrorExpression("bindMatchExpression")
+  ): BoundExpression = {
+    // Bind the expression being matched against
+    val matchedExpr = bind(node.expression, scope)
+
+    matchedExpr match {
+      case error: BoundExpression.Error => error
+      case _                            =>
+        // Bind all the match cases
+        bindMatchCases(node.cases.head, node.cases.tail, scope) match {
+          case Result.Error(value)        => value
+          case Result.Success(boundCases) =>
+            // Calculate the result type from all cases
+            val headType = binder.getType(boundCases.head.result)
+            val resultType = calculateMatchResultType(headType, boundCases.tail)
+            val location = AstUtils.locationOfExpression(node)
+
+            BoundExpression.MatchExpression(
+              location,
+              resultType,
+              matchedExpr,
+              boundCases
+            )
+        }
+    }
+  }
 
   def bindNewExpression(
       node: Expression.NewExpression,

@@ -43,6 +43,25 @@ enum BoundLeftHandSide {
   case Variable(location: TextLocation, symbol: Symbol)
 }
 
+enum BoundLiteral {
+  case IntLiteral(location: TextLocation, value: int)
+  case StringLiteral(location: TextLocation, value: string)
+  case BoolLiteral(location: TextLocation, value: bool)
+  case CharLiteral(location: TextLocation, value: char)
+}
+
+enum BoundPattern {
+  case Literal(literal: BoundLiteral)
+  case Variable(symbol: Symbol)
+  case Discard
+}
+
+class BoundMatchCase(
+    location: TextLocation,
+    pattern: BoundPattern,
+    result: BoundExpression
+)
+
 enum BoundExpression {
   case Error(message: string)
   case Assignment(
@@ -125,5 +144,11 @@ enum BoundExpression {
       location: TextLocation,
       condition: BoundExpression,
       body: BoundExpression
+  )
+  case MatchExpression(
+      location: TextLocation,
+      resultType: Type,
+      expression: BoundExpression,
+      cases: NonEmptyList[BoundMatchCase]
   )
 }

@@ -82,6 +82,7 @@ class BoundAssemblyPrinter(
       case expr: BoundExpression.UnitExpression   => printUnitExpression(expr)
       case expr: BoundExpression.Variable         => printVariable(expr)
       case expr: BoundExpression.WhileExpression  => printWhileExpression(expr)
+      case expr: BoundExpression.MatchExpression  => printMatchExpression(expr)
     }
   }
 
@@ -285,5 +286,52 @@ class BoundAssemblyPrinter(
     writeWithColor(ColorPalette.Punctuation, " = ")
     printExpression(statement.initializer)
     ast.appendLine("")
+  }
+
+  def printMatchExpression(expr: BoundExpression.MatchExpression): unit = {
+    printExpression(expr.expression)
+    writeWithColor(ColorPalette.Keyword, "match ")
+    writeWithColor(ColorPalette.Punctuation, " {")
+    ast.appendLine("")
+    ast.indent()
+    printMatchCase(expr.cases.head)
+    printMatchCases(expr.cases.tail)
+    ast.unindent()
+    writeWithColor(ColorPalette.Punctuation, "}")
+  }
+
+  def printMatchCases(value: List[BoundMatchCase]): unit = {
+    value match {
+      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        printMatchCase(head)
+        printMatchCases(tail)
+    }
+  }
+
+  def printMatchCase(matchCase: BoundMatchCase): unit = {
+    writeWithColor(ColorPalette.Keyword, "case ")
+    printPattern(matchCase.pattern)
+    writeWithColor(ColorPalette.Punctuation, " => ")
+    printExpression(matchCase.result)
+    ast.appendLine("")
+  }
+
+  def printPattern(pattern: BoundPattern): unit = pattern match {
+    case BoundPattern.Literal(lit) => printBoundLiteral(lit)
+    case BoundPattern.Variable(symbol) =>
+      writeWithColor(ColorPalette.Identifier, symbol.name)
+    case BoundPattern.Discard => writeWithColor(ColorPalette.Punctuation, "_")
+  }
+
+  def printBoundLiteral(lit: BoundLiteral): unit = lit match {
+    case BoundLiteral.IntLiteral(location, value) =>
+      writeWithColor(ColorPalette.Number, value.toString())
+    case BoundLiteral.StringLiteral(location, value) =>
+      writeWithColor(ColorPalette.String, "\"" + value + "\"")
+    case BoundLiteral.BoolLiteral(location, value) =>
+      writeWithColor(ColorPalette.Keyword, value.toString())
+    case BoundLiteral.CharLiteral(location, value) =>
+      writeWithColor(ColorPalette.String, "'" + value.toString() + "'")
   }
 }

@@ -253,7 +253,7 @@ object VmTests extends TestSuite {
 //        25
 //      )
 //    }
-
+//
 //    test("class fields via constructor") {
 //      assertExecValueIntWithSetup(
 //        "class Foo(x: int, y: int)",
@@ -270,6 +270,32 @@ object VmTests extends TestSuite {
           "}",
         "new Foo().x + new Foo().y",
         25
+      )
+    }
+
+    test("pattern matching: integer cases") {
+      assertExecValueIntWithSetup(
+        "val x = 1",
+        "x match {\n  case 1 => 10\n  case 2 => 20\n  case _ => 0\n}",
+        10
+      )
+      assertExecValueIntWithSetup(
+        "val x = 2",
+        "x match {\n  case 1 => 10\n  case 2 => 20\n  case _ => 0\n}",
+        20
+      )
+      assertExecValueIntWithSetup(
+        "val x = 5",
+        "x match {\n  case 1 => 10\n  case 2 => 20\n  case _ => 0\n}",
+        0
+      )
+    }
+
+    test("pattern matching: wildcard only") {
+      assertExecValueIntWithSetup(
+        "val x = 42",
+        "x match {\n  case _ => 99\n}",
+        99
       )
     }
   }

@@ -1,11 +1,15 @@
+import panther._
+
 object CompilerSettings {
   val kindRecoveryAttempts = 5
   val diagnosticsToPrint = 10
   val defaultStackSize = 50
   val defaultHeapSize = 1024
-  val enableTracing = true
+  val debug = false
 
-  val printSymbols = true
-  val printBoundAssembly = true
-  val printLoweredAssembly = true
+  val enableTracing: bool = debug
+
+  val printSymbols: bool = debug
+  val printBoundAssembly: bool = debug
+  val printLoweredAssembly: bool = debug
 }

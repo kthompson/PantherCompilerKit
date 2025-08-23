@@ -239,6 +239,9 @@ case class DiagnosticBag() {
       ) + ", expected pattern"
     )
 
+  def reportInvalidPattern(location: TextLocation): unit =
+    report(location, "Invalid pattern")
+
   def add(diagnostic: Diagnostic): unit = {
     count = count + 1
     diagnostics = _insert(diagnostics, diagnostic)
