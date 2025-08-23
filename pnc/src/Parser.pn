@@ -707,7 +707,7 @@ class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
 
   def parseBooleanLiteralExpression(): Expression = {
     val value =
-      SyntaxTokenValue.bool(currentKind() == SyntaxKind.TrueKeyword)
+      SyntaxTokenValue.Boolean(currentKind() == SyntaxKind.TrueKeyword)
 
     new Expression.LiteralExpression(accept(), value)
   }

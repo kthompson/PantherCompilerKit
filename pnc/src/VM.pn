@@ -110,26 +110,26 @@ class VM(
   }
 
   def pushBool(value: bool): InterpretResult =
-    push(Value.int(if (value) 1 else 0))
+    push(Value.Int(if (value) 1 else 0))
 
   def binaryAdd(): InterpretResult = {
     val b = pop()
     val a = pop()
     a match {
-      case Value.int(a) =>
+      case Value.Int(a) =>
         b match {
-          case Value.int(b) => push(Value.int(a + b))
-          case Value.int(b) => push(Value.int(a + b))
+          case Value.Int(b) => push(Value.Int(a + b))
+          case Value.Int(b) => push(Value.Int(a + b))
         }
-      case Value.int(a) =>
+      case Value.Int(a) =>
         b match {
-          case Value.int(b) => push(Value.int(a + b))
-          case Value.int(b) => push(Value.int(a + b))
+          case Value.Int(b) => push(Value.Int(a + b))
+          case Value.Int(b) => push(Value.Int(a + b))
         }
-      case Value.string(a) =>
+      case Value.String(a) =>
         b match {
-          case Value.string(b) => push(Value.string(a + b))
-          case Value.string(b) => push(Value.string(a + b))
+          case Value.String(b) => push(Value.String(a + b))
+          case Value.String(b) => push(Value.String(a + b))
         }
     }
   }
@@ -223,24 +223,24 @@ class VM(
   def popBool(): bool = {
     val value = pop()
     value match {
-      case Value.int(1) => true
-      case Value.int(1) => true
-      case Value.int(0) => false
+      case Value.Int(1) => true
+      case Value.Int(1) => true
+      case Value.Int(0) => false
     }
   }
 
   def popInt(): int = {
     val value = pop()
     value match {
-      case Value.int(i) => i
-      case Value.int(i) => i
+      case Value.Int(i) => i
+      case Value.Int(i) => i
     }
   }
 
   def stackAsInt(pos: int): int = {
     stack(pos) match {
-      case Value.int(value) => value
-      case Value.int(value) => value
+      case Value.Int(value) => value
+      case Value.Int(value) => value
     }
   }
 
@@ -305,12 +305,12 @@ class VM(
       // load constant
       case Opcode.LdcI4 =>
         val value = readI4()
-        push(Value.int(value))
+        push(Value.Int(value))
 
       case Opcode.Ldstr =>
         val value = readStringToken()
         val str = metadata.getString(value)
-        push(Value.string(str))
+        push(Value.String(str))
 
       // load args
       case Opcode.Ldarg0 =>
@@ -398,19 +398,19 @@ class VM(
       case Opcode.ConvStr =>
         val a = pop()
         a match {
-          case Value.int(i) =>
+          case Value.Int(i) =>
             // TODO: may need native function here
-            push(Value.string(i.toString()))
+            push(Value.String(i.toString()))
             InterpretResult.Continue
-          case Value.int(i) =>
+          case Value.Int(i) =>
             // TODO: may need native function here
-            push(Value.string(i.toString()))
+            push(Value.String(i.toString()))
             InterpretResult.Continue
-          case Value.string(s) =>
-            push(Value.string(s))
+          case Value.String(s) =>
+            push(Value.String(s))
             InterpretResult.Continue
           case Value.Uninitialized =>
-            push(Value.string("unit"))
+            push(Value.String("unit"))
             InterpretResult.Continue
         }
 
@@ -528,11 +528,11 @@ class VM(
     val addr = metadata.getMethodAddress(method)
     val localCount = metadata.getMethodLocals(method)
 
-    push(Value.int(returnAddress))
+    push(Value.Int(returnAddress))
 
     // save this frames segments
-    push(Value.int(localp))
-    push(Value.int(argsp))
+    push(Value.Int(localp))
+    push(Value.Int(argsp))
 
     // set up the new frame
     argsp = sp - numArgs - hasThis - 3

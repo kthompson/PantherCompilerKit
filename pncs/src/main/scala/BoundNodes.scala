@@ -44,10 +44,10 @@ enum BoundLeftHandSide {
 }
 
 enum BoundLiteral {
-  case IntLiteral(location: TextLocation, value: int)
-  case StringLiteral(location: TextLocation, value: string)
-  case BoolLiteral(location: TextLocation, value: bool)
-  case CharLiteral(location: TextLocation, value: char)
+  case Int(location: TextLocation, value: int)
+  case String(location: TextLocation, value: string)
+  case Bool(location: TextLocation, value: bool)
+  case Char(location: TextLocation, value: char)
 }
 
 enum BoundPattern {
@@ -77,7 +77,7 @@ enum BoundExpression {
       resultType: Type
   )
   case Block(statements: List[BoundStatement], expression: BoundExpression)
-  case BooleanLiteral(location: TextLocation, value: bool)
+  case Boolean(location: TextLocation, value: bool)
   case CallExpression(
       location: TextLocation,
       receiver: Option[BoundLeftHandSide],
@@ -91,7 +91,7 @@ enum BoundExpression {
       expression: BoundExpression,
       targetType: Type
   )
-  case CharacterLiteral(location: TextLocation, value: char)
+  case Character(location: TextLocation, value: char)
   case ForExpression(
       location: TextLocation,
       variable: Symbol,
@@ -112,7 +112,7 @@ enum BoundExpression {
       index: BoundExpression,
       resultType: Type
   )
-  case IntLiteral(location: TextLocation, value: int)
+  case Int(location: TextLocation, value: int)
   case MemberAccess(
       location: TextLocation,
       receiver: BoundLeftHandSide,
@@ -127,7 +127,7 @@ enum BoundExpression {
       arguments: List[BoundExpression],
       resultType: Type
   )
-  case StringLiteral(location: TextLocation, value: string)
+  case String(location: TextLocation, value: string)
   case UnaryExpression(
       location: TextLocation,
       operator: UnaryOperatorKind,

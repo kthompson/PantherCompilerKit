@@ -80,24 +80,8 @@ case class Transpiler(
 
   def transpileToken(token: SyntaxToken, context: TranspilerContext): unit = {
     if (token.kind == SyntaxKind.AnnotationToken) ()
-    else if (token.kind == SyntaxKind.OverrideKeyword)
+    else if (token.kind == SyntaxKind.OverrideKeyword) {
       transpileTrivia(token.leading, context)
-    else if (
-      token.kind == SyntaxKind.IdentifierToken && token.text == "String"
-    ) {
-      transpileTokenWithText(token, "string", context)
-    } else if (
-      token.kind == SyntaxKind.IdentifierToken && token.text == "Int"
-    ) {
-      transpileTokenWithText(token, "int", context)
-    } else if (
-      token.kind == SyntaxKind.IdentifierToken && token.text == "Unit"
-    ) {
-      transpileTokenWithText(token, "unit", context)
-    } else if (
-      token.kind == SyntaxKind.IdentifierToken && token.text == "Boolean"
-    ) {
-      transpileTokenWithText(token, "bool", context)
     } else {
       transpileTrivia(token.leading, context)
       if (inGenericTypeArgumentList && token.kind == SyntaxKind.LessThanToken) {

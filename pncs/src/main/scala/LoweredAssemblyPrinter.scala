@@ -200,21 +200,21 @@ class LoweredAssemblyPrinter(
         printError()
       case expr: LoweredExpression.BinaryExpression =>
         printBinaryExpression(expr)
-      case expr: LoweredExpression.BooleanLiteral =>
+      case expr: LoweredExpression.Boolean =>
         printBooleanLiteral(expr)
       case expr: LoweredExpression.Cast =>
         printCast(expr)
       case expr: LoweredExpression.Call =>
         printCall(expr)
-      case expr: LoweredExpression.CharacterLiteral =>
+      case expr: LoweredExpression.Character =>
         printCharacterLiteral(expr)
-      case expr: LoweredExpression.IntegerLiteral =>
+      case expr: LoweredExpression.Integer =>
         printIntegerLiteral(expr)
       case expr: LoweredExpression.MemberAccess =>
         printMemberAccessExpression(expr)
       case expr: LoweredExpression.New =>
         printNew(expr)
-      case expr: LoweredExpression.StringLiteral =>
+      case expr: LoweredExpression.String =>
         printStringLiteral(expr)
       case expr: LoweredExpression.This =>
         printThis(expr)
@@ -268,19 +268,19 @@ class LoweredAssemblyPrinter(
   }
 
   def printStringLiteral(
-      expr: LoweredExpression.StringLiteral
+      expr: LoweredExpression.String
   ): Unit = {
     ast.writeWithColor(ColorPalette.String, "\"" + expr.value + "\"")
   }
 
   def printIntegerLiteral(
-      expr: LoweredExpression.IntegerLiteral
+      expr: LoweredExpression.Integer
   ): Unit = {
     ast.writeWithColor(ColorPalette.Number, expr.value.toString())
   }
 
   def printCharacterLiteral(
-      expr: LoweredExpression.CharacterLiteral
+      expr: LoweredExpression.Character
   ): Unit = {
     ast.writeWithColor(ColorPalette.String, "'" + expr.value + "'")
   }
@@ -320,7 +320,7 @@ class LoweredAssemblyPrinter(
     printExpression(expr.right)
   }
 
-  def printBooleanLiteral(expr: LoweredExpression.BooleanLiteral): unit = {
+  def printBooleanLiteral(expr: LoweredExpression.Boolean): unit = {
     ast.writeWithColor(ColorPalette.Keyword, expr.value.toString)
   }
 

@@ -636,14 +636,14 @@ class Binder(
     expr match {
       case BoundExpression.Error(message) => Type.Error(message)
 
-      case _: BoundExpression.Assignment       => unitType
-      case _: BoundExpression.BooleanLiteral   => boolType
-      case _: BoundExpression.CharacterLiteral => charType
-      case _: BoundExpression.ForExpression    => unitType
-      case _: BoundExpression.IntLiteral       => intType
-      case _: BoundExpression.StringLiteral    => stringType
-      case _: BoundExpression.UnitExpression   => unitType
-      case _: BoundExpression.WhileExpression  => unitType
+      case _: BoundExpression.Assignment      => unitType
+      case _: BoundExpression.Boolean         => boolType
+      case _: BoundExpression.Character       => charType
+      case _: BoundExpression.ForExpression   => unitType
+      case _: BoundExpression.Int             => intType
+      case _: BoundExpression.String          => stringType
+      case _: BoundExpression.UnitExpression  => unitType
+      case _: BoundExpression.WhileExpression => unitType
 
       case expr: BoundExpression.BinaryExpression => expr.resultType
       case expr: BoundExpression.Block            => getType(expr.expression)

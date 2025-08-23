@@ -5,7 +5,7 @@ object ColorPalette {
   //  Colors taken from IntelliJ IDEA's dark theme language defaults
   val Keyword = "CF8E6D"
   val Number = "2AACB8"
-  val string = "6AAB73"
+  val String = "6AAB73"
   val Identifier = "BCBEC4"
   val Punctuation = "BCBEC4"
   val Method = "57AAF7"

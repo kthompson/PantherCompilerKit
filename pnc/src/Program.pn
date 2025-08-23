@@ -1,7 +1,7 @@
 using panther
 
 object Program {
-  def main(args: Array[string]): unit = {
+  def main(args: Array[String]): Unit = {
     print("pncs")
     for (i <- 0 to (args.length - 1)) {
       print(" " + args(i))

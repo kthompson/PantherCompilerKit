@@ -6,7 +6,7 @@ using SimpleNameSyntax
 using NameSyntax
 
 class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
-  def toString(): string = buffer.toString()
+  def toString(): String = buffer.toString()
 
   def indent(): unit = {
     buffer.indent()
@@ -706,7 +706,7 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
     } else if (SyntaxFacts.isKeywordKind(kind)) {
       writeColor(ColorPalette.Keyword)
     } else if (kind == SyntaxKind.StringToken || kind == SyntaxKind.CharToken) {
-      writeColor(ColorPalette.string)
+      writeColor(ColorPalette.String)
     } else if (kind == SyntaxKind.DashToken) {
       writeColor(ColorPalette.Punctuation)
     } else if (

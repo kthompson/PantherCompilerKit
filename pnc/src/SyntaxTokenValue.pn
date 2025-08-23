@@ -1,8 +1,8 @@
 using panther
 
 enum SyntaxTokenValue {
-  case bool(value: bool)
-  case string(value: string)
+  case Boolean(value: bool)
+  case String(value: string)
   case Character(value: char)
   case Number(value: int)
   case None

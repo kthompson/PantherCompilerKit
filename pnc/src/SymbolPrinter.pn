@@ -38,7 +38,7 @@ class SymbolPrinter(
     }
   }
 
-  def printSymbolBodyType(symbol: Symbol): unit = {
+  def printSymbolBodyType(symbol: Symbol): Unit = {
     if (
       symbol.kind == SymbolKind.Constructor || symbol.kind == SymbolKind.Method
     ) {

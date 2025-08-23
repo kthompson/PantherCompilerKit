@@ -272,21 +272,21 @@ case class Emitter(
       case LoweredExpression.Error => panic("emitExpression: Error")
       case value: LoweredExpression.BinaryExpression =>
         emitBinaryExpression(value, context)
-      case value: LoweredExpression.BooleanLiteral =>
+      case value: LoweredExpression.Boolean =>
         emitBooleanLiteral(value, context)
       case value: LoweredExpression.Call =>
         emitCallExpression(value, context)
       case value: LoweredExpression.Cast =>
         emitCastExpression(value, context)
-      case value: LoweredExpression.CharacterLiteral =>
+      case value: LoweredExpression.Character =>
         emitCharacterLiteral(value, context)
-      case value: LoweredExpression.IntegerLiteral =>
+      case value: LoweredExpression.Integer =>
         emitIntLiteral(value, context)
       case value: LoweredExpression.MemberAccess =>
         emitMemberAccess(value, context)
       case value: LoweredExpression.New =>
         emitNewExpression(value, context)
-      case value: LoweredExpression.StringLiteral =>
+      case value: LoweredExpression.String =>
         emitStringLiteral(value, context)
       case value: LoweredExpression.This =>
         emitThisExpression(value, context)
@@ -424,7 +424,7 @@ case class Emitter(
   }
 
   def emitBooleanLiteral(
-      expr: LoweredExpression.BooleanLiteral,
+      expr: LoweredExpression.Boolean,
       context: EmitContext
   ): unit = {
     val value = if (expr.value) 1 else 0
@@ -504,12 +504,12 @@ case class Emitter(
   ): unit = ???
 
   def emitCharacterLiteral(
-      expr: LoweredExpression.CharacterLiteral,
+      expr: LoweredExpression.Character,
       context: EmitContext
   ): unit = ???
 
   def emitIntLiteral(
-      expr: LoweredExpression.IntegerLiteral,
+      expr: LoweredExpression.Integer,
       context: EmitContext
   ): unit = {
     chunk.emitOpcode(Opcode.LdcI4, expr.location.startLine)
@@ -575,7 +575,7 @@ case class Emitter(
   }
 
   def emitStringLiteral(
-      expr: LoweredExpression.StringLiteral,
+      expr: LoweredExpression.String,
       context: EmitContext
   ): unit = {
     val token = metadata.addString(expr.value)

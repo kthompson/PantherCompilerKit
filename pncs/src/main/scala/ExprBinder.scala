@@ -1001,13 +1001,13 @@ case class ExprBinder(
   ): BoundExpression = {
     node.value match {
       case SyntaxTokenValue.Number(value) =>
-        BoundExpression.IntLiteral(node.token.location, value)
+        BoundExpression.Int(node.token.location, value)
       case SyntaxTokenValue.Boolean(value) =>
-        BoundExpression.BooleanLiteral(node.token.location, value)
+        BoundExpression.Boolean(node.token.location, value)
       case SyntaxTokenValue.String(value) =>
-        BoundExpression.StringLiteral(node.token.location, value)
+        BoundExpression.String(node.token.location, value)
       case SyntaxTokenValue.Character(value) =>
-        BoundExpression.CharacterLiteral(node.token.location, value)
+        BoundExpression.Character(node.token.location, value)
       case _ =>
         panic("unexpected literal expression")
         BoundExpression.Error("unexpected literal expression")
@@ -1149,25 +1149,25 @@ case class ExprBinder(
           case SyntaxTokenValue.Number(value) =>
             Result.Success(
               BoundPattern.Literal(
-                BoundLiteral.IntLiteral(token.location, value)
+                BoundLiteral.Int(token.location, value)
               )
             )
           case SyntaxTokenValue.String(value) =>
             Result.Success(
               BoundPattern.Literal(
-                BoundLiteral.StringLiteral(token.location, value)
+                BoundLiteral.String(token.location, value)
               )
             )
           case SyntaxTokenValue.Boolean(value) =>
             Result.Success(
               BoundPattern.Literal(
-                BoundLiteral.BoolLiteral(token.location, value)
+                BoundLiteral.Bool(token.location, value)
               )
             )
           case SyntaxTokenValue.Character(value) =>
             Result.Success(
               BoundPattern.Literal(
-                BoundLiteral.CharLiteral(token.location, value)
+                BoundLiteral.Char(token.location, value)
               )
             )
           case _ =>
