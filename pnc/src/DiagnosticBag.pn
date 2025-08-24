@@ -23,9 +23,9 @@ enum Diagnostics {
       case List.Nil => count
     }
 
-  def printDiagnostics(): int = _printDiagnostics(0)
+  def printDiagnostics(maxToPrint: int): int = _printDiagnostics(maxToPrint, 0)
 
-  def _printDiagnostics(count: int): int =
+  def _printDiagnostics(maxToPrint: int, count: int): int =
     this match {
       case Diagnostics.Empty => count
       case Diagnostics.Empty => count
@@ -75,7 +75,7 @@ enum Diagnostics {
   }
 }
 
-class DiagnosticBag() {
+class DiagnosticBag(settings: CompilerSettings) {
   var count: int = 0
   var diagnostics: Diagnostics = Diagnostics.Empty
 
@@ -252,5 +252,9 @@ class DiagnosticBag() {
   def addDiagnostics(more: Diagnostics): unit = more match {
     case Diagnostics.Empty => ()
     case Diagnostics.Empty => ()
+  }
+
+  def printDiagnostics(): int = {
+    diagnostics.printDiagnostics(settings.diagnosticsToPrint)
   }
 }

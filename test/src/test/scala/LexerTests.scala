@@ -4,7 +4,7 @@ import utest._
 object LexerTests extends TestSuite {
   def mkTokens(text: string): Array[SyntaxToken] = {
     val sourceFile = new SourceFile(text, "test.pn")
-    val diagnostics = new DiagnosticBag()
+    val diagnostics = new DiagnosticBag(CompilerSettingsFactory.default)
     val lexer = new Lexer(sourceFile, diagnostics)
     MakeTokenList.create(lexer)
   }

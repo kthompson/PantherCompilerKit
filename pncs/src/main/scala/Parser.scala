@@ -5,7 +5,11 @@ import StatementSyntax._
 import SimpleNameSyntax._
 import NameSyntax._
 
-case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
+case class Parser(
+    sourceFile: SourceFile,
+    diagnostics: DiagnosticBag,
+    settings: CompilerSettings
+) {
 
   val printer = new AstPrinter(true, IndentedStringBuilder(true))
 
@@ -128,7 +132,7 @@ case class Parser(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
     } else {
       diagnostics.reportUnexpectedToken(curr.location, curr.kind, kind)
 
-      recoverKind(kind, _position, CompilerSettings.kindRecoveryAttempts)
+      recoverKind(kind, _position, settings.kindRecoveryAttempts)
     }
   }
 

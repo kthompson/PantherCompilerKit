@@ -5,23 +5,27 @@ object TestHelpers {
 
   def mkTokens(text: string): Array[SyntaxToken] = {
     val sourceFile = new SourceFile(text, "test.pn")
-    val diagnostics = new DiagnosticBag()
+    val diagnostics = new DiagnosticBag(CompilerSettingsFactory.default)
     val lexer = new Lexer(sourceFile, diagnostics)
     MakeTokenList.create(lexer)
   }
 
   def mkCompilation(text: string): Compilation = {
-    val tree = MakeSyntaxTree.parseContent(text)
-    val comp = MakeCompilation.create(ListModule.one(tree))
+    val tree =
+      MakeSyntaxTree.parseContent(text, CompilerSettingsFactory.default)
+    val comp = MakeCompilation.create(
+      ListModule.one(tree),
+      CompilerSettingsFactory.default
+    )
     if (comp.diagnostics.count() > 0) {
-      comp.diagnostics.printDiagnostics()
+      comp.diagnostics.printDiagnostics(20)
       throw new AssertionError("Compilation failed", Seq())
     }
     comp
   }
 
   def mkSyntaxTree(text: string): SyntaxTree =
-    MakeSyntaxTree.parseContent(text)
+    MakeSyntaxTree.parseContent(text, CompilerSettingsFactory.default)
 
   def mkBinaryExpr(text: string): Expression.BinaryExpression = {
     val expression = mkSyntaxTreeExpr(text)

@@ -1,17 +1,20 @@
 using panther
 
 object MakeSyntaxTree {
-  def parseSourceFile(file: SourceFile): SyntaxTree = {
-    val diagnosticBag = new DiagnosticBag()
-    val parser = new Parser(file, diagnosticBag)
+  def parseSourceFile(
+      file: SourceFile,
+      settings: CompilerSettings
+  ): SyntaxTree = {
+    val diagnosticBag = new DiagnosticBag(settings)
+    val parser = new Parser(file, diagnosticBag, settings)
     val root = parser.parseCompilationUnit()
 
     new SyntaxTree(file, root, diagnosticBag.diagnostics)
   }
 
-  def parseFile(filename: string): SyntaxTree =
-    parseSourceFile(MakeSourceFile.fromFile(filename))
+  def parseFile(filename: string, settings: CompilerSettings): SyntaxTree =
+    parseSourceFile(MakeSourceFile.fromFile(filename), settings)
 
-  def parseContent(content: string): SyntaxTree =
-    parseSourceFile(MakeSourceFile.fromContent(content))
+  def parseContent(content: string, settings: CompilerSettings): SyntaxTree =
+    parseSourceFile(MakeSourceFile.fromContent(content), settings)
 }

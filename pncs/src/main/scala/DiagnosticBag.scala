@@ -28,20 +28,20 @@ enum Diagnostics {
         }
     }
 
-  def printDiagnostics(): int = _printDiagnostics(0)
+  def printDiagnostics(maxToPrint: int): int = _printDiagnostics(maxToPrint, 0)
 
-  def _printDiagnostics(count: int): int =
+  def _printDiagnostics(maxToPrint: int, count: int): int =
     this match {
       case Diagnostics.Empty => count
       case Diagnostics.Node(left, head, right) =>
-        val leftCount = left._printDiagnostics(count)
-        if (leftCount <= CompilerSettings.diagnosticsToPrint) {
+        val leftCount = left._printDiagnostics(maxToPrint, count)
+        if (leftCount <= maxToPrint) {
           printDiagnostic(head)
-        } else if (leftCount == CompilerSettings.diagnosticsToPrint + 1) {
+        } else if (leftCount == maxToPrint + 1) {
           // exceeded limit, print notice
           print("... skipping remaining diagnostics ... ")
         }
-        right._printDiagnostics(leftCount + 1)
+        right._printDiagnostics(maxToPrint, leftCount + 1)
     }
 
   def printDiagnostic(diagnostic: Diagnostic): unit = {
@@ -88,7 +88,7 @@ enum Diagnostics {
   }
 }
 
-case class DiagnosticBag() {
+case class DiagnosticBag(settings: CompilerSettings) {
   var count: int = 0
   var diagnostics: Diagnostics = Diagnostics.Empty
 
@@ -275,5 +275,9 @@ case class DiagnosticBag() {
       add(head)
       addDiagnostics(left)
       addDiagnostics(right)
+  }
+
+  def printDiagnostics(): int = {
+    diagnostics.printDiagnostics(settings.diagnosticsToPrint)
   }
 }

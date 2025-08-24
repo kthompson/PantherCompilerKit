@@ -58,7 +58,7 @@ object InferenceTests extends TestSuite {
             intType
           )
 
-          val diagnostics = new DiagnosticBag()
+          val diagnostics = new DiagnosticBag(CompilerSettingsFactory.default)
           val inference = new Inference(diagnostics)
 
           inference.instantiate(DictionaryModule.empty(), f) match {
@@ -94,7 +94,7 @@ object InferenceTests extends TestSuite {
             g
           )
 
-          val diagnostics = new DiagnosticBag()
+          val diagnostics = new DiagnosticBag(CompilerSettingsFactory.default)
           val inference = new Inference(diagnostics)
 
           inference.instantiate(DictionaryModule.empty(), f) match {
