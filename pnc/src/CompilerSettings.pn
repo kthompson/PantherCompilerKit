@@ -1,15 +1,30 @@
 using panther
 
-object CompilerSettings {
-  val kindRecoveryAttempts = 5
-  val diagnosticsToPrint = 20
-  val defaultStackSize = 50
-  val defaultHeapSize = 1024
-  val debug = false
+class CompilerSettings(
+    kindRecoveryAttempts: int,
+    diagnosticsToPrint: int,
+    stackSize: int,
+    heapSize: int,
+    debug: bool,
+    enableTracing: bool,
+    printSymbols: bool,
+    printBoundAssembly: bool,
+    printLoweredAssembly: bool,
+    transpile: bool
+)
 
-  val enableTracing: bool = debug
-
-  val printSymbols: bool = debug
-  val printBoundAssembly: bool = debug
-  val printLoweredAssembly: bool = debug
+object CompilerSettingsFactory {
+  // Default instance
+  val default = CompilerSettings(
+    kindRecoveryAttempts = 5,
+    diagnosticsToPrint = 20,
+    stackSize = 50,
+    heapSize = 1024,
+    debug = false,
+    enableTracing = false,
+    printSymbols = false,
+    printBoundAssembly = false,
+    printLoweredAssembly = false,
+    transpile = false
+  )
 }

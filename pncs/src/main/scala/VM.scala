@@ -49,7 +49,8 @@ case class VM(
     metadata: Metadata,
     entry: Option[MethodToken],
     stack: Array[Value],
-    heap: Array[Value]
+    heap: Array[Value],
+    settings: CompilerSettings
 ) {
   var sp = 0 // stack pointer
   var ip = 0 // instruction pointer
@@ -141,7 +142,7 @@ case class VM(
   }
 
   def runtimeError(msg: string): InterpretResult = {
-    if (CompilerSettings.enableTracing) {
+    if (settings.enableTracing) {
       panic("Runtime error: " + msg)
     } else {
       println("Runtime error: " + msg)
@@ -396,7 +397,7 @@ case class VM(
     var result = entry match {
       case Option.None => InterpretResult.Continue
       case Option.Some(value) =>
-        if (CompilerSettings.enableTracing) {
+        if (settings.enableTracing) {
           val name = metadata.getMethodName(value)
           println("Running program with entry point: " + name)
         }
@@ -410,7 +411,7 @@ case class VM(
   }
 
   def step(): InterpretResult = {
-    if (CompilerSettings.enableTracing) {
+    if (settings.enableTracing) {
       disassembler.extra = Pad.left(Hex.toString(sp), 4, '0') + " "
       disassembler.disassembleInstruction(ip)
     }

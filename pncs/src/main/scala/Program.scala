@@ -2,18 +2,22 @@ import panther._
 
 object Program {
   def main(args: Array[String]): Unit = {
-    print("pncs")
-    for (i <- 0 to (args.length - 1)) {
-      print(" " + args(i))
-    }
-    println("")
+    val parseResult = ArgsParser.parse(args)
 
-    if (args.length < 2) {
-      printHelp()
-    } else if (args(0) == "-t") {
-      run(true, args)
-    } else {
-      run(false, args)
+    parseResult.error match {
+      case Option.Some(errorMsg) =>
+        println("Error: " + errorMsg)
+        ArgsParser.printUsage()
+      case Option.None =>
+        if (parseResult.showHelp) {
+          ArgsParser.printUsage()
+        } else {
+          run(
+            parseResult.settings,
+            parseResult.outputFile,
+            parseResult.sourceFiles
+          )
+        }
     }
   }
 
@@ -28,16 +32,26 @@ object Program {
     }
   }
 
-  def run(transpile: bool, args: Array[string]): unit = {
-    val firstFile = if (transpile) 2 else 1
-    val numTrees = args.length - firstFile
-    val outputFile = args(firstFile - 1)
+  def run(
+      settings: CompilerSettings,
+      outputFile: string,
+      sourceFiles: List[string]
+  ): unit = {
     printLogo()
     var trees: List[SyntaxTree] = List.Nil
-    for (x <- firstFile to (args.length - 1)) {
-      print("parsing " + args(x) + "...")
-      trees = List.Cons(MakeSyntaxTree.parseFile(args(x)), trees)
-      println("done")
+
+    // Parse source files from the list
+    var currentFiles = sourceFiles
+    while (currentFiles != List.Nil) {
+      currentFiles match {
+        case List.Nil => ()
+        case List.Cons(sourceFile, remainingFiles) =>
+          print("parsing " + sourceFile + "...")
+          trees =
+            List.Cons(MakeSyntaxTree.parseFile(sourceFile, settings), trees)
+          println("done")
+          currentFiles = remainingFiles
+      }
     }
 
     // verify no diagnostics from parse trees
@@ -47,25 +61,26 @@ object Program {
         trees match {
           case List.Nil => ()
           case List.Cons(head, tail) =>
-            parseErrors = head.diagnostics._printDiagnostics(parseErrors)
+            parseErrors =
+              head.diagnostics.printDiagnostics(settings.diagnosticsToPrint)
             trees = tail
         }
       }
       println("found " + string(parseErrors) + " diagnostics")
-    } else if (transpile) {
+    } else if (settings.transpile) {
       val transpiler = new Transpiler(trees, outputFile)
       transpiler.transpile()
     } else {
-      val compilation = MakeCompilation.create(trees)
-      if (CompilerSettings.printSymbols) {
+      val compilation = MakeCompilation.create(trees, settings)
+      if (settings.printSymbols) {
         compilation.printSymbols()
       }
 
-      if (CompilerSettings.printBoundAssembly) {
+      if (settings.printBoundAssembly) {
         compilation.printBoundAssembly()
       }
 
-      if (CompilerSettings.printLoweredAssembly) {
+      if (settings.printLoweredAssembly) {
         compilation.printLoweredAssembly()
       }
 
@@ -75,7 +90,7 @@ object Program {
           compilation.emit(outputFile)
 
         case diags =>
-          val count = diags.printDiagnostics()
+          val count = diags.printDiagnostics(settings.diagnosticsToPrint)
           println("found " + count + " diagnostics")
       }
     }
@@ -93,9 +108,4 @@ object Program {
     )
 
   def printLogo(): unit = println("panther compiler - 0.0.1")
-
-  def printHelp(): unit = {
-    println("pncs output.c [sources]")
-    println("pncs -t output/ [sources]")
-  }
 }

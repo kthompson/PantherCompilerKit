@@ -61,7 +61,7 @@ object CompilationTests extends TestSuite {
             "val y = Option.Some(10)"
         )
         compilation.printSymbols()
-        compilation.diagnostics.printDiagnostics()
+        compilation.diagnostics.printDiagnostics(20)
         assert(compilation.diagnostics.count() == 0)
         compilation.root.lookup("x") match {
           case Option.Some(symbol) =>

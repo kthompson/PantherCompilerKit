@@ -1,8 +1,11 @@
 import panther._
 
 object MakeCompilation {
-  def create(trees: List[SyntaxTree]): Compilation = {
-    val diagnosticBag = new DiagnosticBag()
+  def create(
+      trees: List[SyntaxTree],
+      settings: CompilerSettings
+  ): Compilation = {
+    val diagnosticBag = new DiagnosticBag(settings)
     var diagTrees = trees
     while (diagTrees != List.Nil) {
       diagTrees match {
@@ -48,7 +51,8 @@ object MakeCompilation {
       rootSymbol,
       binder,
       assembly,
-      lowered
+      lowered,
+      settings
     )
   }
 }
@@ -59,7 +63,8 @@ case class Compilation(
     root: Symbol,
     binder: Binder,
     bound: BoundAssembly,
-    assembly: LoweredAssembly
+    assembly: LoweredAssembly,
+    settings: CompilerSettings
 ) {
 
   def getSymbols(): Chain[Symbol] = SymbolChain.fromList(root.members())
@@ -99,10 +104,10 @@ case class Compilation(
     val emitResult = emitter.emit()
     val disassembler = new Disassembler(emitResult.chunk, emitResult.metadata)
 
-    val stack = new Array[Value](CompilerSettings.defaultStackSize)
-    val heap = new Array[Value](CompilerSettings.defaultHeapSize)
+    val stack = new Array[Value](settings.stackSize)
+    val heap = new Array[Value](settings.heapSize)
 
-    if (CompilerSettings.enableTracing) {
+    if (settings.enableTracing) {
       val metadata = emitResult.metadata
       for (i <- 0 to (metadata.methods.size - 1)) {
         val token = MethodToken(i)
@@ -112,7 +117,14 @@ case class Compilation(
     }
 
     val vm =
-      VM(emitResult.chunk, emitResult.metadata, emitResult.entry, stack, heap)
+      VM(
+        emitResult.chunk,
+        emitResult.metadata,
+        emitResult.entry,
+        stack,
+        heap,
+        settings
+      )
     vm.run()
   }
 
