@@ -42,7 +42,7 @@ case class ConstructorParams(
     parameters: List[ParameterSyntax]
 )
 
-class Binder(
+case class Binder(
     trees: List[SyntaxTree],
     rootSymbol: Symbol,
     diagnosticBag: DiagnosticBag

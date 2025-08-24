@@ -30,14 +30,14 @@ class ConversionClassifier(binder: Binder) {
       Conversion.Implicit
     } else {
       toType match {
-        case Type.Alias(_, _, _, generics, value, _) =>
+        case Type.Alias(location, _, _, generics, value, _) =>
           generics match {
             case List.Nil =>
               classify(from, value)
             case List.Nil =>
               classify(from, value)
           }
-        case Type.Alias(_, _, _, generics, value, _) =>
+        case Type.Alias(location, _, _, generics, value, _) =>
           generics match {
             case List.Nil =>
               classify(from, value)

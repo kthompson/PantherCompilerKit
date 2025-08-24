@@ -286,7 +286,16 @@ case class ExprBinder(
               BoundLeftHandSide.Call(value)
             )
           case Result.Success(Either.Right(value)) =>
-            ???
+            diagnosticBag.reportInternalError(
+              value.location,
+              "NewExpression in bindLHS"
+            )
+
+            Result.Error(
+              BoundExpression.Error(
+                "bindLHS for NewExpresion not implemented yet"
+              )
+            )
         }
       case node: Expression.NewExpression =>
         bindNewExpression(node, scope) match {
@@ -579,12 +588,9 @@ case class ExprBinder(
           }
 
         case _ =>
-          panic(
-            "\nbinding error: bindCallExpression: functionType = " + functionType
-              .toString() + "\n"
-          )
+          val location = AstUtils.locationOfBoundLeftHandSide(function)
+          diagnosticBag.reportInternalError(location, "bindCallExpression")
 
-          ???
           Result.Error(
             BoundExpression.Error(
               "binding error: bindCallExpression"
@@ -1217,13 +1223,17 @@ case class ExprBinder(
               )
             )
           case Either.Right(symbol) =>
-            panic(
-              "this isnt quite right, this should be a type check, not setting the type here"
+            diagnosticBag.reportInternalError(symbol.location, "bindPattern")
+
+            Result.Error(
+              BoundExpression.Error(
+                "this isnt quite right, this should be a type check, not setting the type here"
+              )
             )
-            // Set the symbol type from the type annotation
-            val boundType = binder.bindTypeName(typeAnnotation.typ, scope)
-            binder.setSymbolType(symbol, boundType)
-            Result.Success(BoundPattern.Variable(symbol))
+//            // Set the symbol type from the type annotation
+//            val boundType = binder.bindTypeName(typeAnnotation.typ, scope)
+//            binder.setSymbolType(symbol, boundType)
+//            Result.Success(BoundPattern.Variable(symbol))
         }
       case PatternSyntax.Type(typ) =>
         // For type patterns, we create a wildcard pattern

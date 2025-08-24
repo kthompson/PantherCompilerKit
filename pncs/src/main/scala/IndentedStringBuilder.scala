@@ -1,6 +1,6 @@
 import panther._
 
-case class IndentedStringBuilder() {
+case class IndentedStringBuilder(useConsole: bool) {
   val indentValue: string = "  "
 
   var currentIndent: string = ""
@@ -9,7 +9,11 @@ case class IndentedStringBuilder() {
 
   def appendChar(value: char): unit = {
     if (needsIndent) {
-      sb.append(currentIndent)
+      if (useConsole) {
+        print(currentIndent)
+      } else {
+        sb.append(currentIndent)
+      }
       needsIndent = false
     }
 
@@ -17,7 +21,11 @@ case class IndentedStringBuilder() {
       needsIndent = true
     }
 
-    sb.appendChar(value)
+    if (useConsole) {
+      print(value)
+    } else {
+      sb.appendChar(value)
+    }
   }
 
   def appendString(str: string, index: int, count: int): unit = {

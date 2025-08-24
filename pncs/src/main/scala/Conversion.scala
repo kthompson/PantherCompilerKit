@@ -30,12 +30,15 @@ class ConversionClassifier(binder: Binder) {
       Conversion.Implicit
     } else {
       toType match {
-        case Type.Alias(_, _, _, generics, value, _) =>
+        case Type.Alias(location, _, _, generics, value, _) =>
           generics match {
             case List.Nil =>
               classify(from, value)
             case _ =>
-              println("ConversionClassifier: Generics not supported yet")
+              binder.diagnosticBag.reportInternalError(
+                location,
+                "generic type alias in conversion"
+              )
               Conversion.None
           }
         case Type.Union(location, cases) =>

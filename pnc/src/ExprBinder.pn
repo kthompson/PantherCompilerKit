@@ -1034,6 +1034,10 @@ class ExprBinder(
                 "Duplicate pattern variable: " + identifier.text
               )
             )
+//            // Set the symbol type from the type annotation
+//            val boundType = binder.bindTypeName(typeAnnotation.typ, scope)
+//            binder.setSymbolType(symbol, boundType)
+//            Result.Success(BoundPattern.Variable(symbol))
         }
       case PatternSyntax.Type(typ) =>
         // For type patterns, we create a wildcard pattern
