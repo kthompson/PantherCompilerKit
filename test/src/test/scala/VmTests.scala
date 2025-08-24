@@ -415,5 +415,74 @@ object VmTests extends TestSuite {
         1
       )
     }
+
+    test("array indexing - basic access") {
+      // Test basic array indexing with literal indices
+      val setup = "val array = new Array[int](3)"
+      // Note: These tests assume array elements are initialized to 0
+      // If that's not the case, we may need to modify the setup
+      assertExecValueIntWithSetup(setup, "array(0)", 0)
+      assertExecValueIntWithSetup(setup, "array(1)", 0)
+      assertExecValueIntWithSetup(setup, "array(2)", 0)
+    }
+
+    test("array indexing - with assignment") {
+      // Test the specific "NewExpression in bindLHS" fix
+      val setup = "var array = new Array[int](5)"
+      // First test assignment returns unit
+      assertExecValueIntWithSetup(
+        setup + "\narray(0) = 42",
+        "0",
+        0
+      ) // dummy assertion to ensure compilation
+
+      // Test assignment followed by access
+      val assignAndRead = setup + "\narray(0) = 42\narray(1) = 13"
+      assertExecValueIntWithSetup(assignAndRead, "array(0)", 42)
+      assertExecValueIntWithSetup(assignAndRead, "array(1)", 13)
+    }
+
+    test("array indexing - computed indices") {
+      val setup = "var array = new Array[int](10)\nval i = 5\narray(i) = 99"
+      assertExecValueIntWithSetup(setup, "array(i)", 99)
+      assertExecValueIntWithSetup(setup, "array(5)", 99)
+
+      // Test with arithmetic expressions as indices
+      val complexSetup = setup + "\narray(2 * 3) = 77\narray(1 + 4) = 55"
+      assertExecValueIntWithSetup(complexSetup, "array(6)", 77)
+      assertExecValueIntWithSetup(
+        complexSetup,
+        "array(5)",
+        55
+      ) // This overwrites the previous value at index 5
+    }
+
+    test("array indexing - in expressions") {
+      val setup =
+        "var array = new Array[int](5)\narray(0) = 10\narray(1) = 20\narray(2) = 30"
+
+      // Test array indexing in arithmetic expressions
+      assertExecValueIntWithSetup(setup, "array(0) + array(1)", 30)
+      assertExecValueIntWithSetup(setup, "array(2) - array(0)", 20)
+      assertExecValueIntWithSetup(setup, "array(1) * 2", 40)
+
+      // Test array indexing in boolean expressions
+      assertExecValueBoolWithSetup(setup, "array(0) == 10", true)
+      assertExecValueBoolWithSetup(setup, "array(1) > array(0)", true)
+      assertExecValueBoolWithSetup(setup, "array(2) < array(1)", false)
+    }
+
+    test("array indexing - different types") {
+      // Test array indexing with different element types
+      val boolSetup =
+        "var boolArray = new Array[bool](3)\nboolArray(0) = true\nboolArray(1) = false"
+      assertExecValueBoolWithSetup(boolSetup, "boolArray(0)", true)
+      assertExecValueBoolWithSetup(boolSetup, "boolArray(1)", false)
+
+      val stringSetup =
+        "var stringArray = new Array[string](2)\nstringArray(0) = \"hello\"\nstringArray(1) = \"world\""
+      assertExecValueStringWithSetup(stringSetup, "stringArray(0)", "hello")
+      assertExecValueStringWithSetup(stringSetup, "stringArray(1)", "world")
+    }
   }
 }

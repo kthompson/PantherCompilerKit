@@ -64,6 +64,7 @@ class BoundAssemblyPrinter(
   ): unit = {
     expression match {
       case expr: BoundExpression.Error            => printError(expr)
+      case expr: BoundExpression.ArrayCreation    => printArrayCreation(expr)
       case expr: BoundExpression.Assignment       => printAssignment(expr)
       case expr: BoundExpression.BinaryExpression => printBinaryExpression(expr)
       case expr: BoundExpression.Block            => printBlock(expr)
@@ -88,6 +89,15 @@ class BoundAssemblyPrinter(
   }
 
   def printError(expr: BoundExpression.Error): unit = ???
+
+  def printArrayCreation(expr: BoundExpression.ArrayCreation): unit = {
+    writeWithColor(ColorPalette.Keyword, "new")
+    writeWithColor(ColorPalette.Punctuation, " ")
+    ast._printType(expr.resultType, true)
+    writeWithColor(ColorPalette.Punctuation, "(")
+    printExpression(expr.sizeExpression)
+    writeWithColor(ColorPalette.Punctuation, ")")
+  }
   def printAssignment(expr: BoundExpression.Assignment): unit = {
     printLeftHandSide(expr.receiver)
     writeWithColor(ColorPalette.Punctuation, " = ")
@@ -107,6 +117,8 @@ class BoundAssemblyPrinter(
 
   def printLeftHandSide(lhs: BoundLeftHandSide): unit = {
     lhs match {
+      case BoundLeftHandSide.ArrayCreation(expression) =>
+        printArrayCreation(expression)
       case BoundLeftHandSide.Index(expression) =>
         printIndexExpression(expression)
       case BoundLeftHandSide.MemberAccess(memberAccess) =>

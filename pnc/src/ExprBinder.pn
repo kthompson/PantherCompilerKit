@@ -74,107 +74,28 @@ class ExprBinder(
 
   val operators = new BinaryOperators(binder)
 
-//  /**   1. Base rules:
-//    *      - Never is a subtype of all types.
-//    *      - All types are subtypes of Any.
-//    *      - A type is a subtype of itself.
-//    *        2. Function Subtyping:
-//    *   - Function types are covariant in the return type and contravariant in
-//    *     the parameter types:
-//    *     - (A1, A2) => R1 is a subtype of (B1, B2) => R2 if:
-//    *     - B1 is a subtype of A1 (contravariant in parameters),
-//    *     - B2 is a subtype of A2 (contravariant in parameters), and
-//    *     - R1 is a subtype of R2 (covariant in the return type).
-//    *
-//    *   3. Array Subtyping:
-//    *      - ArrayType(T1) is a subtype of ArrayType(T2) if T1 is a subtype of
-//    *        T2.
-//    *        4. Option Subtyping:
-//    *      - OptionType(T1) is a subtype of OptionType(T2) if T1 is a subtype of
-//    *        T2.
-//    *        5. Reference Types:
-//    *      - Reference(S1) is a subtype of Reference(S2) if they refer to the
-//    *        same symbol (assuming no polymorphism in this example).
-//    */
-//  def isSubtype(t1: Type, t2: Type): bool = {
-//    // Reflexivity: a type is a subtype of itself
-//    if (t1 == t2) true
-//    else {
-//      TypePair(t1, t2) match {
-//        // `Never` is a subtype of everything
-//        case TypePair(Type.Never, _) => true
-//
-//        // Everything is a subtype of `Any`
-//        case TypePair(_, Type.Any) => true
-//
-//        // Function subtyping: contravariant in parameters, covariant in return type
-//        case TypePair(
-//              Type.Function(_, params1, return1),
-//              Type.Function(_, params2, return2)
-//            ) =>
-//          isSubtype(return1, return2) && areParametersSubtype(params2, params1)
-//
-//        // Array subtyping: inner types must be subtypes
-//        case TypePair(
-//              Type.Class(_, ns1, name1, args1),
-//              Type.Class(_, ns2, name2, args2)
-//            ) =>
-//          if (ns1 == ns2 && name1 == name2) {
-//            areArgsSubtype(args1, args2)
-//          } else {
-//            false
-//          }
-//
-//        // Error type: not a subtype of anything
-//        case TypePair(Type.Error, _) => false
-//
-//        // Otherwise, not a subtype
-//        case _ => false
-//      }
-//    }
-//  }
-
-//  def areArgsSubtype(args1: List[Type], args2: List[Type]): bool = {
-//    args1 match {
-//      case List.Nil =>
-//        args2 match {
-//          case List.Nil        => true
-//          case List.Cons(_, _) => false
-//        }
-//      case List.Cons(head1, tail1) =>
-//        args2 match {
-//          case List.Nil => false
-//          case List.Cons(head2, tail2) =>
-//            if (isSubtype(head1, head2)) {
-//              areArgsSubtype(tail1, tail2)
-//            } else {
-//              false
-//            }
-//        }
-//    }
-//  }
-
-//  def areParametersSubtype(
-//      params1: List[BoundParameter],
-//      params2: List[BoundParameter]
-//  ): bool = {
-//    params1 match {
-//      case List.Nil =>
-//        params2 match {
-//          case List.Nil        => true
-//          case List.Cons(_, _) => false
-//        }
-//      case List.Cons(parameter, tail) =>
-//        params2 match {
-//          case List.Nil => false
-//          case List.Cons(parameter2, tail2) =>
-//            isSubtype(parameter.typ, parameter2.typ) && areParametersSubtype(
-//              tail,
-//              tail2
-//            )
-//        }
-//    }
-//  }
+  /**   1. Base rules:
+    *      - Never is a subtype of all types.
+    *      - All types are subtypes of Any.
+    *      - A type is a subtype of itself.
+    *        2. Function Subtyping:
+    *   - Function types are covariant in the return type and contravariant in
+    *     the parameter types:
+    *     - (A1, A2) => R1 is a subtype of (B1, B2) => R2 if:
+    *     - B1 is a subtype of A1 (contravariant in parameters),
+    *     - B2 is a subtype of A2 (contravariant in parameters), and
+    *     - R1 is a subtype of R2 (covariant in the return type).
+    *
+    *   3. Array Subtyping:
+    *      - ArrayType(T1) is a subtype of ArrayType(T2) if T1 is a subtype of
+    *        T2.
+    *        4. Option Subtyping:
+    *      - OptionType(T1) is a subtype of OptionType(T2) if T1 is a subtype of
+    *        T2.
+    *        5. Reference Types:
+    *      - Reference(S1) is a subtype of Reference(S2) if they refer to the
+    *        same symbol (assuming no polymorphism in this example).
+    */
 
   def bindUnaryOperator(token: SyntaxToken): UnaryOperatorKind = {
     token.kind match {
@@ -225,9 +146,8 @@ class ExprBinder(
       case node: Expression.BlockExpression => bindBlockExpression(node, scope)
       case node: Expression.CallExpression =>
         bindCallExpression(node, scope) match {
-          case Result.Error(value)                 => value
-          case Result.Error(value)                 => value
-          case Result.Success(Either.Left(value))  => value
+          case Result.Error(value)   => value
+          case Result.Error(value)   => value
         }
       case node: Expression.CastExpression  => bindCast(node, scope)
       case node: Expression.ForExpression   => bindForExpression(node, scope)
@@ -279,17 +199,13 @@ class ExprBinder(
         }
       case node: Expression.CallExpression =>
         bindCallExpression(node, scope) match {
-          case Result.Error(value) => Result.Error(value)
-          case Result.Error(value) => Result.Error(value)
-          case Result.Success(Either.Left(value)) =>
-            Result.Success(
-              BoundLeftHandSide.Call(value)
-            )
+          case Result.Error(value)   => Result.Error(value)
+          case Result.Error(value)   => Result.Error(value)
         }
       case node: Expression.NewExpression =>
         bindNewExpression(node, scope) match {
-          case Result.Error(value) => Result.Error(value)
-          case Result.Error(value) => Result.Error(value)
+          case Result.Error(value)   => Result.Error(value)
+          case Result.Error(value)   => Result.Error(value)
         }
     }
   }
@@ -331,8 +247,45 @@ class ExprBinder(
   def bindArrayCreationExpression(
       node: Expression.ArrayCreationExpression,
       scope: Scope
-  ): BoundExpression =
-    boundErrorExpression("bindArrayCreationExpression")
+  ): BoundExpression = {
+    // Extract the array element type from the name (e.g., Array[int])
+    val arrayType = binder.bindTypeName(node.name, scope)
+
+    // Extract the element type from the Array[T] type
+    arrayType match {
+      case Type.Class(_, _, "Array", List.Cons(elementType, List.Nil), _) =>
+        // Bind the array size expression
+        val sizeExpr = node.arrayRank match {
+          case Option.Some(rankExpr) =>
+            bindConversion(bind(rankExpr, scope), binder.intType, false)
+          case Option.Some(rankExpr) =>
+            bindConversion(bind(rankExpr, scope), binder.intType, false)
+        }
+
+        val location = AstUtils.locationOfExpression(node)
+
+        elementType match {
+          case Type.Error(message) => BoundExpression.Error(message)
+          case Type.Error(message) => BoundExpression.Error(message)
+        }
+      case Type.Class(_, _, "Array", List.Cons(elementType, List.Nil), _) =>
+        // Bind the array size expression
+        val sizeExpr = node.arrayRank match {
+          case Option.Some(rankExpr) =>
+            bindConversion(bind(rankExpr, scope), binder.intType, false)
+          case Option.Some(rankExpr) =>
+            bindConversion(bind(rankExpr, scope), binder.intType, false)
+        }
+
+        val location = AstUtils.locationOfExpression(node)
+
+        elementType match {
+          case Type.Error(message) => BoundExpression.Error(message)
+          case Type.Error(message) => BoundExpression.Error(message)
+        }
+    }
+
+  }
 
   def bindAssignmentExpression(
       node: Expression.AssignmentExpression,
@@ -420,7 +373,7 @@ class ExprBinder(
       scope: Scope
   ): Result[
     BoundExpression.Error,
-    Either[BoundExpression.CallExpression, BoundExpression.NewExpression]
+    BoundLeftHandSide
   ] = {
     bindLHS(node.name, scope) match {
       case Result.Error(error) => Result.Error(error)
@@ -436,12 +389,13 @@ class ExprBinder(
       scope: Scope
   ): Result[
     BoundExpression.Error,
-    Either[BoundExpression.CallExpression, BoundExpression.NewExpression]
+    BoundLeftHandSide
   ] = {
     // cases:
     // 1. functions
     // 2. generic functions
-    // 3. class instantiation
+    // 3. array indexing - array(0)
+    // 3. class instantiation - Enum.Case(0)
     // 4. generic class instantiation
     // 5. string indexing
 
@@ -457,148 +411,99 @@ class ExprBinder(
       functionType match {
         case func: Type.Function =>
           bindFunctionCall(function, func, args, scope) match {
-            case Result.Error(value)   => Result.Error(value)
-            case Result.Error(value)   => Result.Error(value)
+            case Result.Error(value) => Result.Error(value)
+            case Result.Error(value) => Result.Error(value)
           }
         case func: Type.Function =>
           bindFunctionCall(function, func, args, scope) match {
-            case Result.Error(value)   => Result.Error(value)
-            case Result.Error(value)   => Result.Error(value)
+            case Result.Error(value) => Result.Error(value)
+            case Result.Error(value) => Result.Error(value)
           }
-        case Type.Class(_, ns, name, _, symbol) =>
+        case Type.Class(_, ns, name, typeArgs, symbol) =>
           val location = AstUtils.locationOfBoundLeftHandSide(function)
-          findConstructor(symbol) match {
-            case Option.None =>
-              diagnosticBag.reportNotCallable(location)
-              Result.Error(
-                BoundExpression.Error(
-                  "Cannot find constructor for class: " + name
+          // Handle array indexing
+          if (name == "Array") {
+            args match {
+              case List.Cons(indexArg, List.Nil) =>
+                val boundIndex = bindConversion(indexArg, binder.intType, false)
+                val elementType = typeArgs match {
+                  case List.Cons(elemType, List.Nil) => elemType
+                  case List.Cons(elemType, List.Nil) => elemType
+                }
+                val arrayExpr = function match {
+                  case BoundLeftHandSide.Variable(loc, sym) =>
+                    BoundExpression.Variable(
+                      loc,
+                      sym,
+                      binder.tryGetSymbolType(sym)
+                    )
+                  case BoundLeftHandSide.Variable(loc, sym) =>
+                    BoundExpression.Variable(
+                      loc,
+                      sym,
+                      binder.tryGetSymbolType(sym)
+                    )
+                  case BoundLeftHandSide.MemberAccess(memberAccess) =>
+                    memberAccess
+                }
+                val indexExpr = new BoundExpression.IndexExpression(
+                  location,
+                  arrayExpr,
+                  boundIndex,
+                  elementType
                 )
-              )
-            case Option.None =>
-              diagnosticBag.reportNotCallable(location)
-              Result.Error(
-                BoundExpression.Error(
-                  "Cannot find constructor for class: " + name
+                Result.Success(BoundLeftHandSide.Index(indexExpr))
+              case List.Cons(indexArg, List.Nil) =>
+                val boundIndex = bindConversion(indexArg, binder.intType, false)
+                val elementType = typeArgs match {
+                  case List.Cons(elemType, List.Nil) => elemType
+                  case List.Cons(elemType, List.Nil) => elemType
+                }
+                val arrayExpr = function match {
+                  case BoundLeftHandSide.Variable(loc, sym) =>
+                    BoundExpression.Variable(
+                      loc,
+                      sym,
+                      binder.tryGetSymbolType(sym)
+                    )
+                  case BoundLeftHandSide.Variable(loc, sym) =>
+                    BoundExpression.Variable(
+                      loc,
+                      sym,
+                      binder.tryGetSymbolType(sym)
+                    )
+                  case BoundLeftHandSide.MemberAccess(memberAccess) =>
+                    memberAccess
+                }
+                val indexExpr = new BoundExpression.IndexExpression(
+                  location,
+                  arrayExpr,
+                  boundIndex,
+                  elementType
                 )
-              )
+                Result.Success(BoundLeftHandSide.Index(indexExpr))
+            }
+          } else {
+            // Handle regular class constructors
+            findConstructor(symbol) match {
+              case Option.None =>
+                diagnosticBag.reportNotCallable(location)
+                Result.Error(
+                  BoundExpression.Error(
+                    "Cannot find constructor for class: " + name
+                  )
+                )
+              case Option.None =>
+                diagnosticBag.reportNotCallable(location)
+                Result.Error(
+                  BoundExpression.Error(
+                    "Cannot find constructor for class: " + name
+                  )
+                )
+            }
           }
 
       }
-    //    {
-    //          val inference = new Inference(diagnosticBag)
-    //          val methodType = inference.instantiate(
-    //            DictionaryModule.empty(),
-    //            binder.getType(function)
-    //          )
-    //          methodType match {
-    //            case Type.Function(_, parameters, returnType) =>
-    //              if (parameters.length != args.length) {
-    //                diagnosticBag.reportArgumentCountMismatch(
-    //                  location,
-    //                  parameters.length,
-    //                  args.length
-    //                )
-    //                BoundExpression.Error
-    //              } else {
-    //                val paramTypes = getParameterTypes(parameters)
-    //                val constraints =
-    //                  buildConstraints(paramTypes, argTypes, List.Nil)
-    //                val func = inference.inferFunction(
-    //                  constraints,
-    //                  Type.Function(location, parameters, returnType)
-    //                )
-    //
-    //                BoundExpression.CallExpression(
-    //                  location,
-    //                  function,
-    //                  List.Nil,
-    //                  args,
-    //                  func.returnType
-    //                )
-    //              }
-    //            case Type.Error => BoundExpression.Error
-    //            case Type.Class(
-    //                  _,
-    //                  List.Nil,
-    //                  "Array",
-    //                  List.Cons(elementType, List.Nil)
-    //                ) =>
-    //              if (node.openParen.sourceFile.isScala()) {
-    //                args match {
-    //                  case List.Nil =>
-    //                    diagnosticBag.reportArgumentCountMismatch(
-    //                      location,
-    //                      1,
-    //                      args.length
-    //                    )
-    //                    BoundExpression.Error
-    //                  case List.Cons(head, List.Nil) =>
-    //                    val arg = bindConversion(head, binder.intType)
-    //                    BoundExpression.IndexExpression(
-    //                      location,
-    //                      function,
-    //                      arg,
-    //                      elementType
-    //                    )
-    //                  case List.Cons(_, _) =>
-    //                    diagnosticBag.reportArgumentCountMismatch(
-    //                      location,
-    //                      1,
-    //                      args.length
-    //                    )
-    //                    BoundExpression.Error
-    //                }
-    //              } else {
-    //                diagnosticBag.reportNotCallable(location)
-    //                BoundExpression.Error
-    //              }
-    //
-    //            case Type.Class(_, List.Nil, "string", List.Nil) =>
-    //              if (node.openParen.sourceFile.isScala()) {
-    //                args match {
-    //                  case List.Nil =>
-    //                    diagnosticBag.reportArgumentCountMismatch(
-    //                      location,
-    //                      1,
-    //                      args.length
-    //                    )
-    //                    BoundExpression.Error
-    //                  case List.Cons(head, List.Nil) =>
-    //                    val arg = bindConversion(head, binder.intType)
-    //                    BoundExpression.IndexExpression(
-    //                      location,
-    //                      function,
-    //                      arg,
-    //                      binder.charType
-    //                    )
-    //                  case List.Cons(_, _) =>
-    //                    diagnosticBag.reportArgumentCountMismatch(
-    //                      location,
-    //                      1,
-    //                      args.length
-    //                    )
-    //                    BoundExpression.Error
-    //                }
-    //              } else {
-    //                diagnosticBag.reportNotCallable(location)
-    //                BoundExpression.Error
-    //              }
-    //
-    //            case Type.Class(_, ns, name, genericTypeParameters) =>
-    //              findConstructor(ns, name) match {
-    //                case Option.Some(ctor) =>
-    //                  bindNewExpressionForSymbol(location, ctor, args, scope)
-    //
-    //                case Option.None =>
-    //                  diagnosticBag.reportNotCallable(location)
-    //                  BoundExpression.Error
-    //              }
-    //            case _ =>
-    //              diagnosticBag.reportNotCallable(location)
-    //              BoundExpression.Error
-    //          }
-    //    }
   }
 
   def bindFunctionCall(
@@ -657,39 +562,13 @@ class ExprBinder(
     }
   }
 
-//  def buildConstraints(
-//      params: List[Type],
-//      args: List[Type],
-//      constraints: List[Constraint]
-//  ): List[Constraint] = {
-//    params match {
-//      case List.Nil =>
-//        args match {
-//          case List.Nil => constraints
-//          case List.Cons(_, _) =>
-//            panic("params is empty but args is not")
-//        }
-//      case List.Cons(param, tail) =>
-//        args match {
-//          case List.Nil =>
-//            panic("params is not empty but args is")
-//          case List.Cons(arg, argTail) =>
-//            buildConstraints(
-//              tail,
-//              argTail,
-//              List.Cons(Constraint.Equality(param, arg), constraints)
-//            )
-//        }
-//    }
-//  }
-
   def bindNewExpressionForSymbol(
       location: TextLocation,
       ctor: Symbol,
       ctorType: Type.Function,
       args: List[BoundExpression],
       scope: Scope
-  ): Result[BoundExpression.Error, BoundExpression.NewExpression] = {
+  ): Result[BoundExpression.Error, BoundLeftHandSide] = {
     if (ctorType.parameters.length != args.length) {
       diagnosticBag.reportArgumentCountMismatch(
         location,
@@ -704,13 +583,20 @@ class ExprBinder(
       )
     } else {
       val boundArgs = bindArguments(ctorType.parameters, args, scope)
+      // Extract generic arguments from the return type (instantiation type)
+      val genericArguments = ctorType.returnType match {
+        case Type.Class(_, _, _, args, _) => args
+        case Type.Class(_, _, _, args, _) => args
+      }
       Result.Success(
-        BoundExpression.NewExpression(
-          location,
-          ctor,
-          List.Nil,
-          boundArgs,
-          ctorType.returnType
+        BoundLeftHandSide.New(
+          BoundExpression.NewExpression(
+            location,
+            ctor,
+            genericArguments,
+            boundArgs,
+            ctorType.returnType
+          )
         )
       )
     }
@@ -880,16 +766,36 @@ class ExprBinder(
 
   def getLHSType(lhs: BoundLeftHandSide): Type = {
     lhs match {
-      case BoundLeftHandSide.Variable(_, variable) =>
-        binder.getSymbolType(variable)
-      case BoundLeftHandSide.Variable(_, variable) =>
-        binder.getSymbolType(variable)
-      case BoundLeftHandSide.MemberAccess(expression) =>
+      case BoundLeftHandSide.ArrayCreation(expression) =>
         binder.getType(expression)
-      case BoundLeftHandSide.Index(expression) =>
+      case BoundLeftHandSide.ArrayCreation(expression) =>
         binder.getType(expression)
       case BoundLeftHandSide.Call(expression) =>
         binder.getType(expression)
+      case BoundLeftHandSide.Index(expression) =>
+        binder.getType(expression)
+      case BoundLeftHandSide.MemberAccess(expression) =>
+        binder.getType(expression)
+      case BoundLeftHandSide.New(expression) =>
+        binder.getType(expression)
+
+    }
+  }
+
+  def convertLHSToExpression(lhs: BoundLeftHandSide): BoundExpression = {
+    lhs match {
+      case BoundLeftHandSide.ArrayCreation(expression) =>
+        expression
+      case BoundLeftHandSide.ArrayCreation(expression) =>
+        expression
+      case BoundLeftHandSide.Call(expression) =>
+        expression
+      case BoundLeftHandSide.MemberAccess(expression) =>
+        expression
+      case BoundLeftHandSide.Index(expression) =>
+        expression
+      case BoundLeftHandSide.New(expression) =>
+        expression
     }
   }
 
@@ -905,6 +811,44 @@ class ExprBinder(
         Result.Error(error)
       case Result.Error(error) =>
         Result.Error(error)
+    }
+  }
+
+  def getListElement(list: List[Type], index: int): Option[Type] = {
+    list match {
+      case List.Nil => Option.None
+      case List.Nil => Option.None
+    }
+  }
+
+  def substituteParameterTypes(
+      params: List[BoundParameter],
+      typeArgs: List[Type]
+  ): List[BoundParameter] = {
+    params match {
+      case List.Nil => List.Nil
+      case List.Nil => List.Nil
+    }
+  }
+
+  def substituteTypeVariable(typ: Type, typeArgs: List[Type]): Type = {
+    typ match {
+      case Type.Variable(loc, index) =>
+        getListElement(typeArgs, index) match {
+          case Option.Some(substituted) => substituted
+          case Option.Some(substituted) => substituted
+        }
+      case Type.Variable(loc, index) =>
+        getListElement(typeArgs, index) match {
+          case Option.Some(substituted) => substituted
+          case Option.Some(substituted) => substituted
+        }
+      case Type.Function(loc, params, returnType) =>
+        Type.Function(
+          loc,
+          substituteParameterTypes(params, typeArgs),
+          substituteTypeVariable(returnType, typeArgs)
+        )
     }
   }
 
@@ -1095,56 +1039,70 @@ class ExprBinder(
   def bindNewExpression(
       node: Expression.NewExpression,
       scope: Scope
-  ): Result[BoundExpression.Error, BoundExpression.NewExpression] = {
+  ): Result[BoundExpression.Error, BoundLeftHandSide] = {
     val instantiationType = binder.bindTypeName(node.name, scope)
     instantiationType match {
-      case Type.Class(_, ns, name, args, symbol) =>
-        findConstructor(symbol) match {
-          case Option.None =>
-            diagnosticBag.reportSymbolNotFound(
-              AstUtils.locationOfName(node.name),
-              name
-            )
-            Result.Error(
-              BoundExpression.Error(
-                "Cannot find constructor for class: " + name
-              )
-            )
-          case Option.None =>
-            diagnosticBag.reportSymbolNotFound(
-              AstUtils.locationOfName(node.name),
-              name
-            )
-            Result.Error(
-              BoundExpression.Error(
-                "Cannot find constructor for class: " + name
-              )
-            )
-        }
-      case Type.Class(_, ns, name, args, symbol) =>
-        findConstructor(symbol) match {
-          case Option.None =>
-            diagnosticBag.reportSymbolNotFound(
-              AstUtils.locationOfName(node.name),
-              name
-            )
-            Result.Error(
-              BoundExpression.Error(
-                "Cannot find constructor for class: " + name
-              )
-            )
-          case Option.None =>
-            diagnosticBag.reportSymbolNotFound(
-              AstUtils.locationOfName(node.name),
-              name
-            )
-            Result.Error(
-              BoundExpression.Error(
-                "Cannot find constructor for class: " + name
-              )
-            )
-        }
       case Type.Error(message) => Result.Error(BoundExpression.Error(message))
+      case Type.Error(message) => Result.Error(BoundExpression.Error(message))
+      case Type.Class(_, ns, name, args, symbol) =>
+        // Special handling for Array construction - convert to ArrayCreation
+        if (name == "Array") {
+          val elementType = args match {
+            case List.Cons(elemType, List.Nil) => elemType
+            case List.Cons(elemType, List.Nil) => elemType
+          }
+          val argsList = bindExpressions(
+            fromExpressionList(node.arguments.expressions),
+            scope
+          )
+          argsList match {
+            case List.Cons(sizeArg, List.Nil) =>
+              val boundSize = bindConversion(sizeArg, binder.intType, false)
+              val location = AstUtils.locationOfExpression(node)
+              val arrayCreation = new BoundExpression.ArrayCreation(
+                location,
+                elementType,
+                boundSize,
+                instantiationType // This is the Array[T] type
+              )
+
+              Result.Success(BoundLeftHandSide.ArrayCreation(arrayCreation))
+            case List.Cons(sizeArg, List.Nil) =>
+              val boundSize = bindConversion(sizeArg, binder.intType, false)
+              val location = AstUtils.locationOfExpression(node)
+              val arrayCreation = new BoundExpression.ArrayCreation(
+                location,
+                elementType,
+                boundSize,
+                instantiationType // This is the Array[T] type
+              )
+
+              Result.Success(BoundLeftHandSide.ArrayCreation(arrayCreation))
+          }
+        } else {
+          findConstructor(symbol) match {
+            case Option.None =>
+              diagnosticBag.reportSymbolNotFound(
+                AstUtils.locationOfName(node.name),
+                name
+              )
+              Result.Error(
+                BoundExpression.Error(
+                  "Cannot find constructor for class: " + name
+                )
+              )
+            case Option.None =>
+              diagnosticBag.reportSymbolNotFound(
+                AstUtils.locationOfName(node.name),
+                name
+              )
+              Result.Error(
+                BoundExpression.Error(
+                  "Cannot find constructor for class: " + name
+                )
+              )
+          }
+        }
     }
   }
 

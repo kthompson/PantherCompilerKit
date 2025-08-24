@@ -28,6 +28,12 @@ enum LoweredStatement {
       local: Symbol,
       expression: LoweredExpression
   )
+  case AssignArrayElement(
+      location: TextLocation,
+      array: LoweredExpression,
+      index: LoweredExpression,
+      value: LoweredExpression
+  )
   case ConditionalGoto(
       location: TextLocation,
       label: Label,
@@ -67,8 +73,7 @@ enum LoweredLeftHandSide {
       location: TextLocation,
       constructor: Symbol,
       genericArguments: List[Type],
-      arguments: Chain[LoweredExpression],
-      resultType: Type
+      arguments: Chain[LoweredExpression]
   )
 //  case Index(
 //      location: TextLocation,
@@ -88,6 +93,18 @@ enum LoweredLeftHandSide {
 
 enum LoweredExpression {
   case Error
+  case ArrayAccess(
+      location: TextLocation,
+      array: LoweredExpression,
+      index: LoweredExpression,
+      resultType: Type
+  )
+  case ArrayCreation(
+      location: TextLocation,
+      elementType: Type,
+      sizeExpression: LoweredExpression,
+      resultType: Type
+  )
   case BinaryExpression(
       location: TextLocation,
       left: LoweredExpression,
@@ -120,8 +137,7 @@ enum LoweredExpression {
       location: TextLocation,
       constructor: Symbol,
       genericArguments: List[Type],
-      arguments: Chain[LoweredExpression],
-      resultType: Type
+      arguments: Chain[LoweredExpression]
   )
   case String(location: TextLocation, value: string)
   case This(location: TextLocation)
@@ -141,8 +157,10 @@ enum LoweredExpression {
 
   def getLocation(): TextLocation = {
     this match {
-      case LoweredExpression.Error => TextLocationFactory.empty()
-      case LoweredExpression.Error => TextLocationFactory.empty()
+      case LoweredExpression.Error               => TextLocationFactory.empty()
+      case LoweredExpression.Error               => TextLocationFactory.empty()
+      case expr: LoweredExpression.ArrayAccess   => expr.location
+      case expr: LoweredExpression.ArrayCreation => expr.location
       case expr: LoweredExpression.BinaryExpression => expr.location
       case expr: LoweredExpression.Boolean          => expr.location
       case expr: LoweredExpression.Call             => expr.location
@@ -249,8 +267,10 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       context: LoweredBlock
   ): LoweredBlock = {
     expression match {
-      case BoundExpression.Error(message)   => panic(message)
-      case BoundExpression.Error(message)   => panic(message)
+      case BoundExpression.Error(message) => panic(message)
+      case BoundExpression.Error(message) => panic(message)
+      case expr: BoundExpression.ArrayCreation =>
+        lowerArrayCreation(expr, context)
       case expr: BoundExpression.Assignment => lowerAssignment(expr, context)
       case expr: BoundExpression.BinaryExpression =>
         lowerBinaryExpression(expr, context)
@@ -309,6 +329,24 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
     }
   }
 
+  def lowerArrayCreation(
+      expr: BoundExpression.ArrayCreation,
+      context: LoweredBlock
+  ): LoweredBlock = {
+    // Lower the size expression first
+    val sizeBlock = lowerExpression(expr.sizeExpression, context)
+
+    // Create a lowered array creation expression
+    val arrayCreation = LoweredExpression.ArrayCreation(
+      expr.location,
+      expr.elementType,
+      sizeBlock.expression,
+      expr.resultType
+    )
+
+    LoweredBlock(sizeBlock.statements, arrayCreation)
+  }
+
   def lowerAssignment(
       expr: BoundExpression.Assignment,
       context: LoweredBlock
@@ -316,11 +354,40 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
     val block = lowerExpression(expr.expression, context)
 
     expr.receiver match {
-      case BoundLeftHandSide.Call(expression)         => ???
-      case BoundLeftHandSide.Call(expression)         => ???
-      case BoundLeftHandSide.Index(expression)        => ???
+      case BoundLeftHandSide.ArrayCreation(expression) => ???
+      case BoundLeftHandSide.ArrayCreation(expression) => ???
+      case BoundLeftHandSide.Call(expression)          => ???
+      case BoundLeftHandSide.Index(expression) =>
+        lowerIndexAssignment(expression, block)
       case BoundLeftHandSide.MemberAccess(expression) => ???
       case BoundLeftHandSide.New(expression)          => ???
+    }
+  }
+
+  def lowerIndexAssignment(
+      indexExpr: BoundExpression.IndexExpression,
+      valueBlock: LoweredBlock
+  ): LoweredBlock = {
+    // Lower the array expression first
+    val arrayBlock = lowerExpression(indexExpr.array, valueBlock)
+
+    // Lower the index expression
+    consumeExpr(arrayBlock) match {
+      case Tuple2(arrayLowered, arrayStatements) =>
+        val indexBlock = lowerExpression(indexExpr.index, arrayStatements)
+
+        // Generate array assignment statement
+        LoweredBlock(
+          indexBlock.statements.append(
+            LoweredStatement.AssignArrayElement(
+              indexExpr.location,
+              arrayLowered,
+              indexBlock.expression,
+              valueBlock.expression
+            )
+          ),
+          LoweredExpression.Unit
+        )
     }
   }
 
@@ -726,7 +793,26 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   def lowerIndexExpression(
       expr: BoundExpression.IndexExpression,
       context: LoweredBlock
-  ): LoweredBlock = ???
+  ): LoweredBlock = {
+    // Lower the array expression first
+    val arrayBlock = lowerExpression(expr.array, context)
+
+    // Lower the index expression
+    consumeExpr(arrayBlock) match {
+      case Tuple2(arrayLowered, arrayStatements) =>
+        val indexBlock = lowerExpression(expr.index, arrayStatements)
+
+        // Create array access expression
+        val arrayAccess = LoweredExpression.ArrayAccess(
+          expr.location,
+          arrayLowered,
+          indexBlock.expression,
+          expr.resultType
+        )
+
+        LoweredBlock(indexBlock.statements, arrayAccess)
+    }
+  }
 
   def lowerIntLiteral(
       expr: BoundExpression.Int,
@@ -747,7 +833,9 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       context: LoweredBlock
   ): LoweredLeftHandSideBlock = {
     lhs match {
-      case BoundLeftHandSide.Call(expression) =>
+      case BoundLeftHandSide.ArrayCreation(expression) =>
+        ???
+      case BoundLeftHandSide.ArrayCreation(expression) =>
         ???
       case BoundLeftHandSide.Call(expression) =>
         ???
@@ -804,8 +892,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
             expr.location,
             expr.constructor,
             expr.genericArguments,
-            loweredArguments,
-            expr.resultType
+            loweredArguments
           )
         )
       case List.Nil =>
@@ -816,8 +903,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
             expr.location,
             expr.constructor,
             expr.genericArguments,
-            loweredArguments,
-            expr.resultType
+            loweredArguments
           )
         )
     }
@@ -1120,7 +1206,25 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   def lowerVariableDeclaration(
       statement: BoundStatement.VariableDeclaration,
       context: LoweredBlock
-  ): LoweredBlock = ???
+  ): LoweredBlock = {
+    checkUnusedExpr(context)
+
+    // Lower the initializer expression
+    val initializerBlock = lowerExpression(statement.initializer, context)
+
+    // Create an assignment statement to the local variable
+    val assignStatement = LoweredStatement.AssignLocal(
+      statement.variable.location,
+      statement.variable,
+      initializerBlock.expression
+    )
+
+    // Return a block with the assignment statement and unit expression
+    LoweredBlock(
+      initializerBlock.statements.append(assignStatement),
+      LoweredExpression.Unit
+    )
+  }
 
   def checkUnusedExpr(context: LoweredBlock): unit = {
     if (context.expression != LoweredExpression.Unit) {
