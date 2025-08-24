@@ -341,15 +341,45 @@ object TypeTests extends TestSuite {
         assertExprTypeWithSetup(setup, "array.length", "int")
       }
 
-//      test("apply") {
-//        val setup = "val array = new Array[int](1)"
-//        assertExprTypeWithSetup(setup, "array.apply(0)", "int")
-//      }
-//
-//      test("apply with indexer") {
-//        val setup = "val array = new Array[int](1)"
-//        assertExprTypeWithSetup(setup, "array(0)", "int")
-//      }
+      test("apply with method call") {
+        val setup = "val array = new Array[int](1)"
+        assertExprTypeWithSetup(setup, "array.apply(0)", "int")
+      }
+
+      test("apply with indexer syntax - basic types") {
+        val setup = "val intArray = new Array[int](1)"
+        assertExprTypeWithSetup(setup, "intArray(0)", "int")
+
+        val boolSetup = "val boolArray = new Array[bool](1)"
+        assertExprTypeWithSetup(boolSetup, "boolArray(0)", "bool")
+
+        val stringSetup = "val stringArray = new Array[string](1)"
+        assertExprTypeWithSetup(stringSetup, "stringArray(0)", "string")
+
+        val charSetup = "val charArray = new Array[char](1)"
+        assertExprTypeWithSetup(charSetup, "charArray(0)", "char")
+      }
+
+      test("array indexing in expressions") {
+        val setup = "val array = new Array[int](5)"
+        assertExprTypeWithSetup(setup, "array(0) + array(1)", "int")
+        assertExprTypeWithSetup(setup, "array(2) * 3", "int")
+        assertExprTypeWithSetup(setup, "array(0) == array(1)", "bool")
+      }
+
+      test("array indexing with computed indices") {
+        val setup = "val array = new Array[int](10)\nval i = 5"
+        assertExprTypeWithSetup(setup, "array(i)", "int")
+        assertExprTypeWithSetup(setup, "array(1 + 2)", "int")
+        assertExprTypeWithSetup(setup, "array(i * 2)", "int")
+      }
+
+      test("array indexing assignment - LHS binding fix") {
+        // This tests the specific fix for "NewExpression in bindLHS" error
+        val setup = "var array = new Array[int](5)"
+        assertExprTypeWithSetup(setup, "array(0) = 42", "unit")
+        assertExprTypeWithSetup(setup, "array(1) = array(0) + 1", "unit")
+      }
     }
 
     test("casting") {

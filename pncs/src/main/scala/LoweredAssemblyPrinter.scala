@@ -95,7 +95,9 @@ class LoweredAssemblyPrinter(
       case stmt: LoweredStatement.AssignField => printAssignField(stmt)
       case stmt: LoweredStatement.AssignStaticField =>
         printAssignStaticField(stmt)
-      case stmt: LoweredStatement.AssignLocal     => printAssignLocal(stmt)
+      case stmt: LoweredStatement.AssignLocal => printAssignLocal(stmt)
+      case stmt: LoweredStatement.AssignArrayElement =>
+        printAssignArrayElement(stmt)
       case stmt: LoweredStatement.ConditionalGoto => printConditionalGoto(stmt)
       case stmt: LoweredStatement.ExpressionStatement =>
         printExpressionStatement(stmt)
@@ -169,6 +171,17 @@ class LoweredAssemblyPrinter(
     sb.appendLine("")
   }
 
+  def printAssignArrayElement(
+      statement: LoweredStatement.AssignArrayElement
+  ): unit = {
+    printExpression(statement.array)
+    ast.writeWithColor(ColorPalette.Punctuation, "[")
+    printExpression(statement.index)
+    ast.writeWithColor(ColorPalette.Punctuation, "] = ")
+    printExpression(statement.value)
+    sb.appendLine("")
+  }
+
   def printLeftHandSide(leftHandSide: LoweredLeftHandSide): unit = {
     leftHandSide match {
       case LoweredLeftHandSide.Variable(_, symbol) =>
@@ -226,6 +239,10 @@ class LoweredAssemblyPrinter(
         printVariable(expr)
       case expr: LoweredExpression.TypeCheck =>
         printTypeCheck(expr)
+      case expr: LoweredExpression.ArrayAccess =>
+        printArrayAccess(expr)
+      case expr: LoweredExpression.ArrayCreation =>
+        printArrayCreation(expr)
     }
   }
 
@@ -337,6 +354,21 @@ class LoweredAssemblyPrinter(
     ast.writeWithColor(ColorPalette.Keyword, " is ")
     ast.printType(expr.expectedType)
     ast.writeWithColor(ColorPalette.Punctuation, ")")
+  }
+
+  def printArrayAccess(expr: LoweredExpression.ArrayAccess): unit = {
+    printExpression(expr.array)
+    ast.writeWithColor(ColorPalette.Punctuation, "[")
+    printExpression(expr.index)
+    ast.writeWithColor(ColorPalette.Punctuation, "]")
+  }
+
+  def printArrayCreation(expr: LoweredExpression.ArrayCreation): unit = {
+    ast.writeWithColor(ColorPalette.Keyword, "new ")
+    ast.printType(expr.elementType)
+    ast.writeWithColor(ColorPalette.Punctuation, "[")
+    printExpression(expr.sizeExpression)
+    ast.writeWithColor(ColorPalette.Punctuation, "]")
   }
 
 }

@@ -83,6 +83,19 @@ case class VM(
     addr
   }
 
+  def getDefaultValueForType(typeToken: TypeDefToken): Value = {
+    // Get the type definition and return appropriate default value
+    val typeDef = metadata.typeDefs.typeDefs(typeToken.token)
+    val typeName = metadata.getString(typeDef.name)
+    typeName match {
+      case "int"    => Value.Int(0)
+      case "bool"   => Value.Bool(false)
+      case "string" => Value.String("")
+      case "char"   => Value.Int(0) // char represented as int
+      case _ => Value.Uninitialized // For reference types and unknown types
+    }
+  }
+
   def readI4(): int = {
     val value = chunk.readI4(ip)
     ip = ip + 1
@@ -422,7 +435,7 @@ case class VM(
 
       // control instructions
       case Opcode.Ret =>
-        methodReturn()
+        return methodReturn()
 
       case Opcode.Call =>
         val token = readMethodToken()
@@ -676,6 +689,73 @@ case class VM(
 
         // call the constructor
         methodCall(token, ip)
+
+      // Array operations
+      case Opcode.Newarr =>
+        // Read the element type token
+        val elementTypeToken = readTypeDefToken()
+
+        // Pop the array size from the stack
+        val sizeValue = pop()
+        sizeValue match {
+          case Value.Int(size) =>
+            // Allocate space for the array
+            val arrayAddr = alloc(size)
+
+            // Initialize all elements with appropriate default values based on type
+            val defaultValue = getDefaultValueForType(elementTypeToken)
+            for (i <- 0 to (size - 1)) {
+              heap(arrayAddr + i) = defaultValue
+            }
+
+            // Use the element type token for the array reference
+            // Note: In a complete implementation, we might need a separate array type token
+            // but for now we'll use the element type token
+            push(Value.Ref(elementTypeToken, arrayAddr))
+            InterpretResult.Continue
+          case _ =>
+            runtimeError("Expected integer size for array creation")
+        }
+
+      case Opcode.Ldelem =>
+        // Pop the index and array reference from the stack
+        val index = pop()
+        val arrayRef = pop()
+
+        index match {
+          case Value.Int(indexValue) =>
+            arrayRef match {
+              case Value.Ref(typeToken, addr) =>
+                // Load the element from the array
+                val elementValue = heap(addr + indexValue)
+                push(elementValue)
+                InterpretResult.Continue
+              case _ =>
+                runtimeError("Expected array reference for element access")
+            }
+          case _ =>
+            runtimeError("Expected integer index for array access")
+        }
+
+      case Opcode.Stelem =>
+        // Pop the value, index, and array reference from the stack
+        val value = pop()
+        val index = pop()
+        val arrayRef = pop()
+
+        index match {
+          case Value.Int(indexValue) =>
+            arrayRef match {
+              case Value.Ref(typeToken, addr) =>
+                // Store the value in the array
+                heap(addr + indexValue) = value
+                InterpretResult.Continue
+              case _ =>
+                runtimeError("Expected array reference for element assignment")
+            }
+          case _ =>
+            runtimeError("Expected integer index for array assignment")
+        }
 
       case _ =>
         val opcode = Opcode.nameOf(instruction)

@@ -187,7 +187,7 @@ case class Binder(
         BoundParameter(arrayApplyIndex, intType),
         List.Nil
       ),
-      classType("T", arrayTSymbol)
+      Type.Variable(noLoc, 0)
     )
   )
 
@@ -646,6 +646,7 @@ case class Binder(
       case _: BoundExpression.UnitExpression  => unitType
       case _: BoundExpression.WhileExpression => unitType
 
+      case expr: BoundExpression.ArrayCreation    => expr.resultType
       case expr: BoundExpression.BinaryExpression => expr.resultType
       case expr: BoundExpression.Block            => getType(expr.expression)
       case expr: BoundExpression.CallExpression   => expr.resultType

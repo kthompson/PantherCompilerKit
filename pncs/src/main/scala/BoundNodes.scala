@@ -36,6 +36,7 @@ enum BoundStatement {
 }
 
 enum BoundLeftHandSide {
+  case ArrayCreation(expression: BoundExpression.ArrayCreation)
   case Call(expression: BoundExpression.CallExpression)
   case Index(expression: BoundExpression.IndexExpression)
   case MemberAccess(expression: BoundExpression.MemberAccess)
@@ -64,6 +65,12 @@ case class BoundMatchCase(
 
 enum BoundExpression {
   case Error(message: string)
+  case ArrayCreation(
+      location: TextLocation,
+      elementType: Type,
+      sizeExpression: BoundExpression,
+      resultType: Type
+  )
   case Assignment(
       location: TextLocation,
       receiver: BoundLeftHandSide,

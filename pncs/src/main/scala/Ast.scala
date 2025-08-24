@@ -466,6 +466,7 @@ object AstUtils {
       value: BoundLeftHandSide
   ): TextLocation = {
     value match {
+      case BoundLeftHandSide.ArrayCreation(expr)   => expr.location
       case BoundLeftHandSide.Call(expr)            => expr.location
       case BoundLeftHandSide.Index(expr)           => expr.location
       case BoundLeftHandSide.MemberAccess(expr)    => expr.location
@@ -476,6 +477,7 @@ object AstUtils {
 
   def locationOfBoundExpression(value: BoundExpression): TextLocation = {
     value match {
+      case BoundExpression.ArrayCreation(location, _, _, _) => location
       case BoundExpression.Assignment(location, _, expression) =>
         location.merge(locationOfBoundExpression(expression))
       case BoundExpression.BinaryExpression(location, left, _, right, _) =>
