@@ -22,48 +22,24 @@ object MakeCompilation {
     // creation of the Binder will initialize all of the builtin symbols and their types into the
     // root symbol table
     val binder = new Binder(trees, rootSymbol, diagnosticBag)
+    val assembly = if (diagnosticBag.count == 0) {
+      binder.bind()
+    } else {
+      BoundAssembly(
+        diagnosticBag.diagnostics,
+        DictionaryModule.empty[Symbol, BoundExpression](),
+        Option.None
+      )
+    }
 
     // don't bother lowering if there are any diagnostics
     val lowered = if (diagnosticBag.count == 0) {
-      val assembly = binder.bind()
-
-      if (CompilerSettings.printSymbols) {
-        val sb = IndentedStringBuilder(true)
-        val ast = new AstPrinter(true, sb)
-        ast.writeWithColor(ColorPalette.Keyword, "Symbols:")
-        ast.appendLine("")
-        val printer = SymbolPrinter(binder, ast)
-        printer.printSymbolTree(rootSymbol)
-        println(sb.toString())
-      }
-
-      if (CompilerSettings.printBoundAssembly) {
-        val boundAssembly = BoundAssembly(
-          assembly.diagnostics,
-          assembly.functionBodies,
-          assembly.entryPoint
-        )
-        val sb = IndentedStringBuilder(true)
-        val ast = new AstPrinter(true, sb)
-        val sym = SymbolPrinter(binder, ast)
-        val printer = new BoundAssemblyPrinter(binder, ast, sym)
-        printer.printAssembly(boundAssembly)
-        println(sb.toString())
-      }
-
-      if (diagnosticBag.count == 0) Lower.lower(assembly, binder)
-      else emptyLoweredAssembly()
+      Lower.lower(assembly, binder)
     } else {
-      emptyLoweredAssembly()
-    }
-
-    if (CompilerSettings.printLoweredAssembly) {
-      val sb = IndentedStringBuilder(true)
-      val ast = new AstPrinter(true, sb)
-      val sym = SymbolPrinter(binder, ast)
-      val printer = new LoweredAssemblyPrinter(binder, sb)
-      printer.printAssembly(lowered)
-      println(sb.toString())
+      LoweredAssembly(
+        DictionaryModule.empty[Symbol, LoweredBlock](),
+        Option.None
+      )
     }
 
     new Compilation(
@@ -71,14 +47,8 @@ object MakeCompilation {
       diagnosticBag.diagnostics,
       rootSymbol,
       binder,
+      assembly,
       lowered
-    )
-  }
-
-  def emptyLoweredAssembly(): LoweredAssembly = {
-    LoweredAssembly(
-      DictionaryModule.empty[Symbol, LoweredBlock](),
-      Option.None
     )
   }
 }
@@ -88,15 +58,34 @@ case class Compilation(
     diagnostics: Diagnostics,
     root: Symbol,
     binder: Binder,
+    bound: BoundAssembly,
     assembly: LoweredAssembly
 ) {
+
   def getSymbols(): Chain[Symbol] = SymbolChain.fromList(root.members())
 
   def printSymbols(): unit = {
     val sb = IndentedStringBuilder(true)
-    val printer = new AstPrinter(true, sb)
-    val symbols = SymbolPrinter(binder, printer)
+    val ast = new AstPrinter(true, sb)
+    val symbols = SymbolPrinter(binder, ast)
     symbols.printSymbolTree(root)
+    println(sb.toString())
+  }
+
+  def printBoundAssembly(): unit = {
+    val sb = IndentedStringBuilder(true)
+    val ast = new AstPrinter(true, sb)
+    val symbols = SymbolPrinter(binder, ast)
+    val printer = new BoundAssemblyPrinter(binder, ast, symbols)
+    printer.printAssembly(bound)
+    println(sb.toString())
+  }
+
+  def printLoweredAssembly(): unit = {
+    val sb = IndentedStringBuilder(true)
+    val ast = new AstPrinter(true, sb)
+    val printer = new LoweredAssemblyPrinter(binder, sb)
+    printer.printAssembly(assembly)
     println(sb.toString())
   }
 

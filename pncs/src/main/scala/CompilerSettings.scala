@@ -2,7 +2,7 @@ import panther._
 
 object CompilerSettings {
   val kindRecoveryAttempts = 5
-  val diagnosticsToPrint = 10
+  val diagnosticsToPrint = 20
   val defaultStackSize = 50
   val defaultHeapSize = 1024
   val debug = false
