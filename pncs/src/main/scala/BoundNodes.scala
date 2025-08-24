@@ -64,6 +64,12 @@ case class BoundMatchCase(
 
 enum BoundExpression {
   case Error(message: string)
+  case ArrayCreation(
+      location: TextLocation,
+      elementType: Type,
+      sizeExpression: BoundExpression,
+      resultType: Type
+  )
   case Assignment(
       location: TextLocation,
       receiver: BoundLeftHandSide,
