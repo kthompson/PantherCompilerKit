@@ -28,7 +28,7 @@ object MakeCompilation {
       val assembly = binder.bind()
 
       if (CompilerSettings.printSymbols) {
-        val sb = IndentedStringBuilder()
+        val sb = IndentedStringBuilder(true)
         val ast = new AstPrinter(true, sb)
         ast.writeWithColor(ColorPalette.Keyword, "Symbols:")
         ast.appendLine("")
@@ -43,7 +43,7 @@ object MakeCompilation {
           assembly.functionBodies,
           assembly.entryPoint
         )
-        val sb = IndentedStringBuilder()
+        val sb = IndentedStringBuilder(true)
         val ast = new AstPrinter(true, sb)
         val sym = SymbolPrinter(binder, ast)
         val printer = new BoundAssemblyPrinter(binder, ast, sym)
@@ -58,7 +58,7 @@ object MakeCompilation {
     }
 
     if (CompilerSettings.printLoweredAssembly) {
-      val sb = IndentedStringBuilder()
+      val sb = IndentedStringBuilder(true)
       val ast = new AstPrinter(true, sb)
       val sym = SymbolPrinter(binder, ast)
       val printer = new LoweredAssemblyPrinter(binder, sb)
@@ -93,7 +93,7 @@ case class Compilation(
   def getSymbols(): Chain[Symbol] = SymbolChain.fromList(root.members())
 
   def printSymbols(): unit = {
-    val sb = IndentedStringBuilder()
+    val sb = IndentedStringBuilder(true)
     val printer = new AstPrinter(true, sb)
     val symbols = SymbolPrinter(binder, printer)
     symbols.printSymbolTree(root)

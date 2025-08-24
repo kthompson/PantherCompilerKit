@@ -93,6 +93,9 @@ case class DiagnosticBag() {
     new Diagnostic(location, message)
   )
 
+  def reportInternalError(location: TextLocation, extra: string): unit =
+    report(location, "internal compiler error - " + extra)
+
   def reportNotCallable(location: TextLocation): unit =
     report(location, "expression is not callable")
 

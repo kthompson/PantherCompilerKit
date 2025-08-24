@@ -95,7 +95,8 @@ lazy val pncs = project
         .exitValue()
 
       if (result != 0) sys.error(s"Transpile failed with exit code $result")
-    }
+    },
+
   )
 
 /** Panther Compiler in Panther

@@ -341,7 +341,7 @@ object TestHelpers {
     assert(token.text == expected)
 
   def assertName(expected: string, actual: NameSyntax): Unit = {
-    val sb = IndentedStringBuilder()
+    val sb = IndentedStringBuilder(false)
     val printer = new AstPrinter(false, sb)
     printer.printName(actual)
     assert(Trim.both(printer.toString()) == expected)
