@@ -10,17 +10,27 @@ class ArgsParseResult(
 
 object ArgsParser {
   def parse(args: Array[string]): ArgsParseResult = {
+    val settings = CompilerSettingsFactory.default
     if (args.length == 0) {
       ArgsParseResult(
-        CompilerSettingsFactory.default,
+        settings,
         "",
         List.Nil,
         showHelp = true,
         error = Option.None
       )
     } else {
+      var kindRecoveryAttempts = settings.kindRecoveryAttempts
+      var diagnosticsToPrint = settings.diagnosticsToPrint
+      var stackSize = settings.stackSize
+      var heapSize = settings.heapSize
+      var debug = settings.debug
+      var enableTracing = settings.enableTracing
+      var printSymbols = settings.printSymbols
+      var printBoundAssembly = settings.printBoundAssembly
+      var printLoweredAssembly = settings.printLoweredAssembly
+      var transpile = settings.transpile
 
-      var settings = CompilerSettingsFactory.default
       var outputFile = ""
       var sourceFiles: List[string] = List.Nil
       var currentIndex = 0
@@ -34,28 +44,26 @@ object ArgsParser {
           showHelp = true
           currentIndex = currentIndex + 1
         } else if (arg == "--transpile" || arg == "-t") {
-          settings = settings.copy(transpile = true)
+          transpile = true
           currentIndex = currentIndex + 1
         } else if (arg == "--debug") {
-          settings = settings.copy(
-            debug = true,
-            enableTracing = true,
-            printSymbols = true,
-            printBoundAssembly = true,
-            printLoweredAssembly = true
-          )
+          debug = true
+          enableTracing = true
+          printSymbols = true
+          printBoundAssembly = true
+          printLoweredAssembly = true
           currentIndex = currentIndex + 1
         } else if (arg == "--trace") {
-          settings = settings.copy(enableTracing = true)
+          enableTracing = true
           currentIndex = currentIndex + 1
         } else if (arg == "--print-symbols") {
-          settings = settings.copy(printSymbols = true)
+          printSymbols = true
           currentIndex = currentIndex + 1
         } else if (arg == "--print-bound-assembly") {
-          settings = settings.copy(printBoundAssembly = true)
+          printBoundAssembly = true
           currentIndex = currentIndex + 1
         } else if (arg == "--print-lowered-assembly") {
-          settings = settings.copy(printLoweredAssembly = true)
+          printLoweredAssembly = true
           currentIndex = currentIndex + 1
         } else if (arg == "--stack-size") {
           if (currentIndex + 1 >= args.length) {
@@ -64,11 +72,11 @@ object ArgsParser {
             currentIndex = currentIndex + 1
             val stackSizeStr = args(currentIndex)
             // Parse integer (simplified for Panther language)
-            val stackSize = parseInt(stackSizeStr)
-            if (stackSize <= 0) {
+            val stackSizeCheck = parseInt(stackSizeStr)
+            if (stackSizeCheck <= 0) {
               error = Option.Some("stack size must be positive")
             } else {
-              settings = settings.copy(stackSize = stackSize)
+              stackSize = stackSizeCheck
             }
             currentIndex = currentIndex + 1
           }
@@ -78,11 +86,11 @@ object ArgsParser {
           } else {
             currentIndex = currentIndex + 1
             val heapSizeStr = args(currentIndex)
-            val heapSize = parseInt(heapSizeStr)
-            if (heapSize <= 0) {
+            val heapSizeCheck = parseInt(heapSizeStr)
+            if (heapSizeCheck <= 0) {
               error = Option.Some("heap size must be positive")
             } else {
-              settings = settings.copy(heapSize = heapSize)
+              heapSize = heapSizeCheck
             }
             currentIndex = currentIndex + 1
           }
@@ -96,7 +104,7 @@ object ArgsParser {
             if (attempts < 0) {
               error = Option.Some("recovery attempts must be non-negative")
             } else {
-              settings = settings.copy(kindRecoveryAttempts = attempts)
+              kindRecoveryAttempts = attempts
             }
             currentIndex = currentIndex + 1
           }
@@ -110,7 +118,7 @@ object ArgsParser {
             if (limit <= 0) {
               error = Option.Some("diagnostics limit must be positive")
             } else {
-              settings = settings.copy(diagnosticsToPrint = limit)
+              diagnosticsToPrint = limit
             }
             currentIndex = currentIndex + 1
           }
@@ -139,7 +147,24 @@ object ArgsParser {
         }
       }
 
-      ArgsParseResult(settings, outputFile, sourceFiles, showHelp, error)
+      ArgsParseResult(
+        CompilerSettings(
+          kindRecoveryAttempts,
+          diagnosticsToPrint,
+          stackSize,
+          heapSize,
+          debug,
+          enableTracing,
+          printSymbols,
+          printBoundAssembly,
+          printLoweredAssembly,
+          transpile
+        ),
+        outputFile,
+        sourceFiles,
+        showHelp,
+        error
+      )
     }
   }
 
