@@ -37,6 +37,9 @@ enum Diagnostics {
         val leftCount = left._printDiagnostics(count)
         if (leftCount <= CompilerSettings.diagnosticsToPrint) {
           printDiagnostic(head)
+        } else if (leftCount == CompilerSettings.diagnosticsToPrint + 1) {
+          // exceeded limit, print notice
+          print("... skipping remaining diagnostics ... ")
         }
         right._printDiagnostics(leftCount + 1)
     }

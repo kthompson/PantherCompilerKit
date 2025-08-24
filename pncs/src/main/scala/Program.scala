@@ -57,14 +57,24 @@ object Program {
       transpiler.transpile()
     } else {
       val compilation = MakeCompilation.create(trees)
+      if (CompilerSettings.printSymbols) {
+        compilation.printSymbols()
+      }
+
+      if (CompilerSettings.printBoundAssembly) {
+        compilation.printBoundAssembly()
+      }
+
+      if (CompilerSettings.printLoweredAssembly) {
+        compilation.printLoweredAssembly()
+      }
+
       compilation.diagnostics match {
         case Diagnostics.Empty =>
-          compilation.printSymbols()
           println("emitting to " + outputFile + "...")
           compilation.emit(outputFile)
 
         case diags =>
-          compilation.printSymbols()
           val count = diags.printDiagnostics()
           println("found " + count + " diagnostics")
       }
