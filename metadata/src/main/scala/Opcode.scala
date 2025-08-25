@@ -53,11 +53,11 @@ object Opcode {
   // call
   val Call = 60 // call
 
-  //  // array
-  //  val Newarr = 70 // new array
-  //  val Ldelem = 71 // load element of array
-  //  val Stelem = 72 // store element of array
-  //  val Ldlen = 73 // load length of array
+  // array
+  val Newarr = 70 // new array
+  val Ldelem = 71 // load element of array
+  val Stelem = 72 // store element of array
+  val Ldlen = 73 // load length of array
 
   // stack
   val Dup = 80 // duplicate top of stack
@@ -151,6 +151,14 @@ object Opcode {
       "brtrue"
     } else if (opcode == Call) {
       "call"
+    } else if (opcode == Newarr) {
+      "newarr"
+    } else if (opcode == Ldelem) {
+      "ldelem"
+    } else if (opcode == Stelem) {
+      "stelem"
+    } else if (opcode == Ldlen) {
+      "ldlen"
     } else if (opcode == Dup) {
       "dup"
     } else if (opcode == Pop) {

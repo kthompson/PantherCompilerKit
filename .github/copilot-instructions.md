@@ -50,7 +50,7 @@ sbt scalafmtCheckAll
 
 # Show compiler help
 sbt "pncs/run --help"
-# Takes: ~2 seconds. Shows usage: pncs output.c [sources] or pncs -t output/ [sources]
+# Takes: ~10 seconds. Shows full usage with options and examples
 ```
 
 #### Commands That Currently Fail
@@ -94,11 +94,17 @@ pwsh scripts/lint.ps1    # Equivalent to: sbt scalafmt
 ```bash
 # Test basic compiler functionality
 sbt "pncs/run --help"
-# Shows: pncs output.c [sources] OR pncs -t output/ [sources]
+# Shows full usage with options:
+#   Usage: pncs [options] <output> <sources...>
+#   Options include: --help, --transpile, --debug, --trace, --print-symbols, 
+#   --print-bound-assembly, --print-lowered-assembly, --stack-size, --heap-size,
+#   --recovery-attempts, --diagnostics-limit
+#   Examples: pncs output.pnb source1.scala source2.scala
+#             pncs --transpile output/ source1.scala source2.scala
 
 # Test compiler with minimal input (create test file first)
 echo "val x = 42" > /tmp/test.pn
-sbt "pncs/run /tmp/output.c /tmp/test.pn"
+sbt "pncs/run /tmp/output.pnb /tmp/test.pn"
 # Should compile without errors and show symbol tree
 
 # Verify transpiled code was generated (after pncs/transpile)
@@ -139,7 +145,7 @@ ls -la pnc/src/*.pn | wc -l
 
 ### Key Patterns
 - Main compiler logic is in `pncs/src/main/scala/`
-- Tests are in `test/src/test/scala/` using utest framework
+- Tests are in `test/src/test/scala/` using ujjwork
 - Test helpers are in `test/src/test/scala/TestHelpers.scala`
 - Transpiled Panther code appears in `pnc/src/` as `.pn` files
 

@@ -134,7 +134,29 @@ case class Emitter(
     symbolsToProcessSignatures = List.Cons(symbol, symbolsToProcessSignatures)
   }
 
+  def registerPrimitiveTypes(): unit = {
+    // Register primitive types that need to be available for array creation
+    registerPrimitiveType(binder.intSymbol)
+    registerPrimitiveType(binder.boolSymbol)
+    registerPrimitiveType(binder.stringSymbol)
+    registerPrimitiveType(binder.charSymbol)
+    registerPrimitiveType(binder.unitSymbol)
+    registerPrimitiveType(binder.anySymbol)
+  }
+
+  def registerPrimitiveType(symbol: Symbol): unit = {
+    if (!typeTokens.contains(symbol)) {
+      typeTokens = typeTokens.put(
+        symbol,
+        metadata.addTypeDef(symbol.name, ns(symbol.ns()), MetadataFlags.None)
+      )
+    }
+  }
+
   def emit(): EmitResult = {
+    // register primitive types explicitly
+    registerPrimitiveTypes()
+
     // populate symbol metadata
     emitSymbolMetadata(root, true)
 
@@ -270,6 +292,10 @@ case class Emitter(
   def emitExpression(expr: LoweredExpression, context: EmitContext): unit = {
     expr match {
       case LoweredExpression.Error => panic("emitExpression: Error")
+      case value: LoweredExpression.ArrayAccess =>
+        emitArrayAccess(value, context)
+      case value: LoweredExpression.ArrayCreation =>
+        emitArrayCreation(value, context)
       case value: LoweredExpression.BinaryExpression =>
         emitBinaryExpression(value, context)
       case value: LoweredExpression.Boolean =>
@@ -347,6 +373,46 @@ case class Emitter(
     } else {
       chunk.emitOpcode(Opcode.Stlocn, expr.location.startLine)
       chunk.emitI4(index, expr.location.startLine)
+    }
+  }
+
+  def emitAssignArrayElement(
+      expr: LoweredStatement.AssignArrayElement,
+      context: EmitContext
+  ): unit = {
+    emitExpression(expr.array, context)
+    emitExpression(expr.index, context)
+    emitExpression(expr.value, context)
+
+    chunk.emitOpcode(Opcode.Stelem, expr.location.startLine)
+  }
+
+  def emitArrayAccess(
+      expr: LoweredExpression.ArrayAccess,
+      context: EmitContext
+  ): unit = {
+    emitExpression(expr.array, context)
+    emitExpression(expr.index, context)
+
+    chunk.emitOpcode(Opcode.Ldelem, expr.location.startLine)
+  }
+
+  def emitArrayCreation(
+      expr: LoweredExpression.ArrayCreation,
+      context: EmitContext
+  ): unit = {
+    // Emit the size expression
+    emitExpression(expr.sizeExpression, context)
+
+    // Get the element type token for Newarr
+    getTypeDefToken(expr.elementType) match {
+      case Option.None =>
+        panic(
+          "emitArrayCreation: no TypeDefToken for array element type " + expr.elementType.toString
+        )
+      case Option.Some(elementTypeToken) =>
+        chunk.emitOpcode(Opcode.Newarr, expr.location.startLine)
+        chunk.emitI4(elementTypeToken.token, expr.location.startLine)
     }
   }
 
@@ -434,16 +500,14 @@ case class Emitter(
       expr: LoweredExpression.Call,
       context: EmitContext
   ): unit = {
-    // emit receiver
     expr.receiver match {
       case Option.None => // no receiver, static call
       case Option.Some(receiver) =>
         emitLHS(receiver, context)
     }
-    // emit args
+
     emitExpressions(expr.arguments, context)
 
-    // emit call opcode
     val startLine = expr.location.startLine
     methodTokens.get(expr.method) match {
       case Option.None =>
@@ -480,8 +544,7 @@ case class Emitter(
             location,
             constructor,
             genericArguments,
-            arguments,
-            resultType
+            arguments
           ) =>
         // Emit the new expression
         emitNewExpression(
@@ -489,8 +552,7 @@ case class Emitter(
             location,
             constructor,
             genericArguments,
-            arguments,
-            resultType
+            arguments
           ),
           context
         )
@@ -504,16 +566,23 @@ case class Emitter(
     // First emit the operand expression
     emitExpression(expr.operand, context)
 
-    // Get the TypeDefToken for the target type
-    getTypeDefToken(expr.resultType) match {
-      case Option.None =>
-        panic(
-          "emitCastExpression: no TypeDefToken for type " + expr.resultType.toString
-        )
-      case Option.Some(typeToken) =>
-        // Emit Cast opcode with the type token
-        chunk.emitOpcode(Opcode.Cast, expr.location.startLine)
-        chunk.emitI4(typeToken.token, expr.location.startLine)
+    // Special case: casts to Type.Any are no-ops (everything is already Any in the runtime)
+    expr.resultType match {
+      case Type.Any =>
+        // No cast opcode needed - Any is the top type and everything is already Any at runtime
+        ()
+      case _ =>
+        // Get the TypeDefToken for the target type
+        getTypeDefToken(expr.resultType) match {
+          case Option.None =>
+            panic(
+              "emitCastExpression: no TypeDefToken for type " + expr.resultType.toString
+            )
+          case Option.Some(typeToken) =>
+            // Emit Cast opcode with the type token
+            chunk.emitOpcode(Opcode.Cast, expr.location.startLine)
+            chunk.emitI4(typeToken.token, expr.location.startLine)
+        }
     }
   }
 
@@ -573,7 +642,6 @@ case class Emitter(
       expr: LoweredExpression.New,
       context: EmitContext
   ): unit = {
-    // Emit the constructor arguments on the stack first
     emitExpressions(expr.arguments, context)
 
     // Get the constructor token and emit the newobj opcode
@@ -723,6 +791,8 @@ case class Emitter(
         emitAssignFieldStatement(statement, context)
       case statement: LoweredStatement.AssignStaticField =>
         emitAssignStaticField(statement, context)
+      case statement: LoweredStatement.AssignArrayElement =>
+        emitAssignArrayElement(statement, context)
       case statement: LoweredStatement.ConditionalGoto =>
         emitConditionalGotoStatement(statement, context)
       case statement: LoweredStatement.Goto =>

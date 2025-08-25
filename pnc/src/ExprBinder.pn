@@ -225,9 +225,8 @@ class ExprBinder(
       case node: Expression.BlockExpression => bindBlockExpression(node, scope)
       case node: Expression.CallExpression =>
         bindCallExpression(node, scope) match {
-          case Result.Error(value)                 => value
-          case Result.Error(value)                 => value
-          case Result.Success(Either.Left(value))  => value
+          case Result.Error(value)   => value
+          case Result.Error(value)   => value
         }
       case node: Expression.CastExpression  => bindCast(node, scope)
       case node: Expression.ForExpression   => bindForExpression(node, scope)
@@ -248,9 +247,85 @@ class ExprBinder(
         }
       case node: Expression.MatchExpression => bindMatchExpression(node, scope)
       case node: Expression.NewExpression =>
-        bindNewExpression(node, scope) match {
-          case Result.Error(value)   => value
-          case Result.Error(value)   => value
+        // Check if this is an Array construction and handle it specially
+        val instantiationType = binder.bindTypeName(node.name, scope)
+        instantiationType match {
+          case Type.Class(_, _, name, args, _) =>
+            if (name == "Array") {
+              // This is array construction - convert to ArrayCreation
+              val elementType = args match {
+                case List.Cons(elemType, List.Nil) => elemType
+                case List.Cons(elemType, List.Nil) => elemType
+              }
+              val argsList = bindExpressions(
+                fromExpressionList(node.arguments.expressions),
+                scope
+              )
+              argsList match {
+                case List.Cons(sizeArg, List.Nil) =>
+                  val boundSize = bindConversion(sizeArg, binder.intType, false)
+                  val location = AstUtils.locationOfExpression(node)
+                  BoundExpression.ArrayCreation(
+                    location,
+                    elementType,
+                    boundSize,
+                    instantiationType
+                  )
+                case List.Cons(sizeArg, List.Nil) =>
+                  val boundSize = bindConversion(sizeArg, binder.intType, false)
+                  val location = AstUtils.locationOfExpression(node)
+                  BoundExpression.ArrayCreation(
+                    location,
+                    elementType,
+                    boundSize,
+                    instantiationType
+                  )
+              }
+            } else {
+              // Regular new expression
+              bindNewExpression(node, scope) match {
+                case Result.Error(value)   => value
+                case Result.Error(value)   => value
+              }
+            }
+          case Type.Class(_, _, name, args, _) =>
+            if (name == "Array") {
+              // This is array construction - convert to ArrayCreation
+              val elementType = args match {
+                case List.Cons(elemType, List.Nil) => elemType
+                case List.Cons(elemType, List.Nil) => elemType
+              }
+              val argsList = bindExpressions(
+                fromExpressionList(node.arguments.expressions),
+                scope
+              )
+              argsList match {
+                case List.Cons(sizeArg, List.Nil) =>
+                  val boundSize = bindConversion(sizeArg, binder.intType, false)
+                  val location = AstUtils.locationOfExpression(node)
+                  BoundExpression.ArrayCreation(
+                    location,
+                    elementType,
+                    boundSize,
+                    instantiationType
+                  )
+                case List.Cons(sizeArg, List.Nil) =>
+                  val boundSize = bindConversion(sizeArg, binder.intType, false)
+                  val location = AstUtils.locationOfExpression(node)
+                  BoundExpression.ArrayCreation(
+                    location,
+                    elementType,
+                    boundSize,
+                    instantiationType
+                  )
+              }
+            } else {
+              // Regular new expression
+              bindNewExpression(node, scope) match {
+                case Result.Error(value)   => value
+                case Result.Error(value)   => value
+              }
+            }
         }
       case node: Expression.UnaryExpression => bindUnaryExpression(node, scope)
       case node: Expression.UnitExpression  => bindUnitExpression(node, scope)
@@ -279,12 +354,8 @@ class ExprBinder(
         }
       case node: Expression.CallExpression =>
         bindCallExpression(node, scope) match {
-          case Result.Error(value) => Result.Error(value)
-          case Result.Error(value) => Result.Error(value)
-          case Result.Success(Either.Left(value)) =>
-            Result.Success(
-              BoundLeftHandSide.Call(value)
-            )
+          case Result.Error(value)   => Result.Error(value)
+          case Result.Error(value)   => Result.Error(value)
         }
       case node: Expression.NewExpression =>
         bindNewExpression(node, scope) match {
@@ -331,8 +402,33 @@ class ExprBinder(
   def bindArrayCreationExpression(
       node: Expression.ArrayCreationExpression,
       scope: Scope
-  ): BoundExpression =
-    boundErrorExpression("bindArrayCreationExpression")
+  ): BoundExpression = {
+    // Extract the array element type from the name (e.g., Array[int])
+    val arrayType = binder.bindTypeName(node.name, scope)
+
+    // Extract the element type from the Array[T] type
+    val elementType = arrayType match {
+      case Type.Class(_, _, "Array", List.Cons(elemType, List.Nil), _) =>
+        elemType
+      case Type.Class(_, _, "Array", List.Cons(elemType, List.Nil), _) =>
+        elemType
+    }
+
+    // Bind the array size expression
+    val sizeExpr = node.arrayRank match {
+      case Option.Some(rankExpr) =>
+        bindConversion(bind(rankExpr, scope), binder.intType, false)
+      case Option.Some(rankExpr) =>
+        bindConversion(bind(rankExpr, scope), binder.intType, false)
+    }
+
+    val location = AstUtils.locationOfExpression(node)
+
+    elementType match {
+      case Type.Error(message) => BoundExpression.Error(message)
+      case Type.Error(message) => BoundExpression.Error(message)
+    }
+  }
 
   def bindAssignmentExpression(
       node: Expression.AssignmentExpression,
@@ -420,7 +516,7 @@ class ExprBinder(
       scope: Scope
   ): Result[
     BoundExpression.Error,
-    Either[BoundExpression.CallExpression, BoundExpression.NewExpression]
+    BoundExpression
   ] = {
     bindLHS(node.name, scope) match {
       case Result.Error(error) => Result.Error(error)
@@ -436,7 +532,7 @@ class ExprBinder(
       scope: Scope
   ): Result[
     BoundExpression.Error,
-    Either[BoundExpression.CallExpression, BoundExpression.NewExpression]
+    BoundExpression
   ] = {
     // cases:
     // 1. functions
@@ -465,23 +561,118 @@ class ExprBinder(
             case Result.Error(value)   => Result.Error(value)
             case Result.Error(value)   => Result.Error(value)
           }
-        case Type.Class(_, ns, name, _, symbol) =>
+        case Type.Class(_, ns, name, typeArgs, symbol) =>
           val location = AstUtils.locationOfBoundLeftHandSide(function)
-          findConstructor(symbol) match {
-            case Option.None =>
-              diagnosticBag.reportNotCallable(location)
-              Result.Error(
-                BoundExpression.Error(
-                  "Cannot find constructor for class: " + name
+          // Handle array indexing
+          if (name == "Array") {
+            args match {
+              case List.Cons(indexArg, List.Nil) =>
+                val boundIndex = bindConversion(indexArg, binder.intType, false)
+                val elementType = typeArgs match {
+                  case List.Cons(elemType, List.Nil) => elemType
+                  case List.Cons(elemType, List.Nil) => elemType
+                }
+                val arrayExpr = function match {
+                  case BoundLeftHandSide.Variable(loc, sym) =>
+                    BoundExpression.Variable(
+                      loc,
+                      sym,
+                      binder.tryGetSymbolType(sym)
+                    )
+                  case BoundLeftHandSide.Variable(loc, sym) =>
+                    BoundExpression.Variable(
+                      loc,
+                      sym,
+                      binder.tryGetSymbolType(sym)
+                    )
+                  case BoundLeftHandSide.MemberAccess(memberAccess) =>
+                    memberAccess
+                }
+                val indexExpr = BoundExpression.IndexExpression(
+                  location,
+                  arrayExpr,
+                  boundIndex,
+                  elementType
                 )
-              )
-            case Option.None =>
-              diagnosticBag.reportNotCallable(location)
-              Result.Error(
-                BoundExpression.Error(
-                  "Cannot find constructor for class: " + name
+                Result.Success(indexExpr)
+              case List.Cons(indexArg, List.Nil) =>
+                val boundIndex = bindConversion(indexArg, binder.intType, false)
+                val elementType = typeArgs match {
+                  case List.Cons(elemType, List.Nil) => elemType
+                  case List.Cons(elemType, List.Nil) => elemType
+                }
+                val arrayExpr = function match {
+                  case BoundLeftHandSide.Variable(loc, sym) =>
+                    BoundExpression.Variable(
+                      loc,
+                      sym,
+                      binder.tryGetSymbolType(sym)
+                    )
+                  case BoundLeftHandSide.Variable(loc, sym) =>
+                    BoundExpression.Variable(
+                      loc,
+                      sym,
+                      binder.tryGetSymbolType(sym)
+                    )
+                  case BoundLeftHandSide.MemberAccess(memberAccess) =>
+                    memberAccess
+                }
+                val indexExpr = BoundExpression.IndexExpression(
+                  location,
+                  arrayExpr,
+                  boundIndex,
+                  elementType
                 )
-              )
+                Result.Success(indexExpr)
+            }
+          } else {
+            // Handle regular class constructors
+            
+            // Special handling for Array construction - convert to ArrayCreation
+            if (name == "Array") {
+              val elementType = typeArgs match {
+                case List.Cons(elemType, List.Nil) => elemType
+                case List.Cons(elemType, List.Nil) => elemType
+              }
+              args match {
+                case List.Cons(sizeArg, List.Nil) =>
+                  val boundSize = bindConversion(sizeArg, binder.intType, false)
+                  val arrayCreation = BoundExpression.ArrayCreation(
+                    location,
+                    elementType,
+                    boundSize,
+                    functionType // This should be the Array[T] type
+                  )
+                  Result.Success(arrayCreation)
+                case List.Cons(sizeArg, List.Nil) =>
+                  val boundSize = bindConversion(sizeArg, binder.intType, false)
+                  val arrayCreation = BoundExpression.ArrayCreation(
+                    location,
+                    elementType,
+                    boundSize,
+                    functionType // This should be the Array[T] type
+                  )
+                  Result.Success(arrayCreation)
+              }
+            } else {
+              // Handle regular class constructors
+              findConstructor(symbol) match {
+                case Option.None =>
+                  diagnosticBag.reportNotCallable(location)
+                  Result.Error(
+                    BoundExpression.Error(
+                      "Cannot find constructor for class: " + name
+                    )
+                  )
+                case Option.None =>
+                  diagnosticBag.reportNotCallable(location)
+                  Result.Error(
+                    BoundExpression.Error(
+                      "Cannot find constructor for class: " + name
+                    )
+                  )
+              }
+            }
           }
 
       }
@@ -704,11 +895,16 @@ class ExprBinder(
       )
     } else {
       val boundArgs = bindArguments(ctorType.parameters, args, scope)
+      // Extract generic arguments from the return type (instantiation type)
+      val genericArguments = ctorType.returnType match {
+        case Type.Class(_, _, _, args, _) => args
+        case Type.Class(_, _, _, args, _) => args
+      }
       Result.Success(
         BoundExpression.NewExpression(
           location,
           ctor,
-          List.Nil,
+          genericArguments,
           boundArgs,
           ctorType.returnType
         )
@@ -893,6 +1089,29 @@ class ExprBinder(
     }
   }
 
+  def convertLHSToExpression(lhs: BoundLeftHandSide): BoundExpression = {
+    lhs match {
+      case BoundLeftHandSide.Variable(location, variable) =>
+        BoundExpression.Variable(
+          location,
+          variable,
+          binder.tryGetSymbolType(variable)
+        )
+      case BoundLeftHandSide.Variable(location, variable) =>
+        BoundExpression.Variable(
+          location,
+          variable,
+          binder.tryGetSymbolType(variable)
+        )
+      case BoundLeftHandSide.MemberAccess(expression) =>
+        expression
+      case BoundLeftHandSide.Index(expression) =>
+        expression
+      case BoundLeftHandSide.Call(expression) =>
+        expression
+    }
+  }
+
   def bindMemberAccessExpression(
       node: Expression.MemberAccessExpression,
       scope: Scope
@@ -905,6 +1124,44 @@ class ExprBinder(
         Result.Error(error)
       case Result.Error(error) =>
         Result.Error(error)
+    }
+  }
+
+  def getListElement(list: List[Type], index: int): Option[Type] = {
+    list match {
+      case List.Nil => Option.None
+      case List.Nil => Option.None
+    }
+  }
+
+  def substituteParameterTypes(
+      params: List[BoundParameter],
+      typeArgs: List[Type]
+  ): List[BoundParameter] = {
+    params match {
+      case List.Nil => List.Nil
+      case List.Nil => List.Nil
+    }
+  }
+
+  def substituteTypeVariable(typ: Type, typeArgs: List[Type]): Type = {
+    typ match {
+      case Type.Variable(loc, index) =>
+        getListElement(typeArgs, index) match {
+          case Option.Some(substituted) => substituted
+          case Option.Some(substituted) => substituted
+        }
+      case Type.Variable(loc, index) =>
+        getListElement(typeArgs, index) match {
+          case Option.Some(substituted) => substituted
+          case Option.Some(substituted) => substituted
+        }
+      case Type.Function(loc, params, returnType) =>
+        Type.Function(
+          loc,
+          substituteParameterTypes(params, typeArgs),
+          substituteTypeVariable(returnType, typeArgs)
+        )
     }
   }
 
@@ -1099,50 +1356,146 @@ class ExprBinder(
     val instantiationType = binder.bindTypeName(node.name, scope)
     instantiationType match {
       case Type.Class(_, ns, name, args, symbol) =>
-        findConstructor(symbol) match {
-          case Option.None =>
-            diagnosticBag.reportSymbolNotFound(
-              AstUtils.locationOfName(node.name),
-              name
-            )
-            Result.Error(
-              BoundExpression.Error(
-                "Cannot find constructor for class: " + name
+        // Special handling for Array construction - convert to ArrayCreation
+        if (name == "Array") {
+          val elementType = args match {
+            case List.Cons(elemType, List.Nil) => elemType
+            case List.Cons(elemType, List.Nil) => elemType
+          }
+          val argsList = bindExpressions(
+            fromExpressionList(node.arguments.expressions),
+            scope
+          )
+          argsList match {
+            case List.Cons(sizeArg, List.Nil) =>
+              val boundSize = bindConversion(sizeArg, binder.intType, false)
+              val location = AstUtils.locationOfExpression(node)
+              val arrayCreation = BoundExpression.ArrayCreation(
+                location,
+                elementType,
+                boundSize,
+                instantiationType // This is the Array[T] type
               )
-            )
-          case Option.None =>
-            diagnosticBag.reportSymbolNotFound(
-              AstUtils.locationOfName(node.name),
-              name
-            )
-            Result.Error(
-              BoundExpression.Error(
-                "Cannot find constructor for class: " + name
+              // We need to convert this to a NewExpression result to match the return type
+              // For now, let's create a dummy NewExpression but this needs to be handled properly
+              // in the return type or method signature
+              Result.Error(
+                BoundExpression.Error(
+                  "Array construction should be handled in bindCall, not bindNewExpression"
+                )
               )
-            )
+            case List.Cons(sizeArg, List.Nil) =>
+              val boundSize = bindConversion(sizeArg, binder.intType, false)
+              val location = AstUtils.locationOfExpression(node)
+              val arrayCreation = BoundExpression.ArrayCreation(
+                location,
+                elementType,
+                boundSize,
+                instantiationType // This is the Array[T] type
+              )
+              // We need to convert this to a NewExpression result to match the return type
+              // For now, let's create a dummy NewExpression but this needs to be handled properly
+              // in the return type or method signature
+              Result.Error(
+                BoundExpression.Error(
+                  "Array construction should be handled in bindCall, not bindNewExpression"
+                )
+              )
+          }
+        } else {
+          findConstructor(symbol) match {
+            case Option.None =>
+              diagnosticBag.reportSymbolNotFound(
+                AstUtils.locationOfName(node.name),
+                name
+              )
+              Result.Error(
+                BoundExpression.Error(
+                  "Cannot find constructor for class: " + name
+                )
+              )
+            case Option.None =>
+              diagnosticBag.reportSymbolNotFound(
+                AstUtils.locationOfName(node.name),
+                name
+              )
+              Result.Error(
+                BoundExpression.Error(
+                  "Cannot find constructor for class: " + name
+                )
+              )
+          }
         }
       case Type.Class(_, ns, name, args, symbol) =>
-        findConstructor(symbol) match {
-          case Option.None =>
-            diagnosticBag.reportSymbolNotFound(
-              AstUtils.locationOfName(node.name),
-              name
-            )
-            Result.Error(
-              BoundExpression.Error(
-                "Cannot find constructor for class: " + name
+        // Special handling for Array construction - convert to ArrayCreation
+        if (name == "Array") {
+          val elementType = args match {
+            case List.Cons(elemType, List.Nil) => elemType
+            case List.Cons(elemType, List.Nil) => elemType
+          }
+          val argsList = bindExpressions(
+            fromExpressionList(node.arguments.expressions),
+            scope
+          )
+          argsList match {
+            case List.Cons(sizeArg, List.Nil) =>
+              val boundSize = bindConversion(sizeArg, binder.intType, false)
+              val location = AstUtils.locationOfExpression(node)
+              val arrayCreation = BoundExpression.ArrayCreation(
+                location,
+                elementType,
+                boundSize,
+                instantiationType // This is the Array[T] type
               )
-            )
-          case Option.None =>
-            diagnosticBag.reportSymbolNotFound(
-              AstUtils.locationOfName(node.name),
-              name
-            )
-            Result.Error(
-              BoundExpression.Error(
-                "Cannot find constructor for class: " + name
+              // We need to convert this to a NewExpression result to match the return type
+              // For now, let's create a dummy NewExpression but this needs to be handled properly
+              // in the return type or method signature
+              Result.Error(
+                BoundExpression.Error(
+                  "Array construction should be handled in bindCall, not bindNewExpression"
+                )
               )
-            )
+            case List.Cons(sizeArg, List.Nil) =>
+              val boundSize = bindConversion(sizeArg, binder.intType, false)
+              val location = AstUtils.locationOfExpression(node)
+              val arrayCreation = BoundExpression.ArrayCreation(
+                location,
+                elementType,
+                boundSize,
+                instantiationType // This is the Array[T] type
+              )
+              // We need to convert this to a NewExpression result to match the return type
+              // For now, let's create a dummy NewExpression but this needs to be handled properly
+              // in the return type or method signature
+              Result.Error(
+                BoundExpression.Error(
+                  "Array construction should be handled in bindCall, not bindNewExpression"
+                )
+              )
+          }
+        } else {
+          findConstructor(symbol) match {
+            case Option.None =>
+              diagnosticBag.reportSymbolNotFound(
+                AstUtils.locationOfName(node.name),
+                name
+              )
+              Result.Error(
+                BoundExpression.Error(
+                  "Cannot find constructor for class: " + name
+                )
+              )
+            case Option.None =>
+              diagnosticBag.reportSymbolNotFound(
+                AstUtils.locationOfName(node.name),
+                name
+              )
+              Result.Error(
+                BoundExpression.Error(
+                  "Cannot find constructor for class: " + name
+                )
+              )
+          }
         }
       case Type.Error(message) => Result.Error(BoundExpression.Error(message))
     }
