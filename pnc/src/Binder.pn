@@ -358,7 +358,7 @@ class Binder(
             init,
             BoundExpression.Block(
               statements,
-              BoundExpression.UnitExpression(noLoc)
+              BoundExpression.Unit(noLoc)
             )
           )
       case List.Nil =>
@@ -367,7 +367,7 @@ class Binder(
             init,
             BoundExpression.Block(
               statements,
-              BoundExpression.UnitExpression(noLoc)
+              BoundExpression.Unit(noLoc)
             )
           )
     }
@@ -378,16 +378,16 @@ class Binder(
     val mainBody = functionBodies.get(main) match {
       case Option.None =>
         // main has no body, so we create a new one
-        BoundExpression.UnitExpression(noLoc)
+        BoundExpression.Unit(noLoc)
       case Option.None =>
         // main has no body, so we create a new one
-        BoundExpression.UnitExpression(noLoc)
+        BoundExpression.Unit(noLoc)
     }
 
     val newMainBody = BoundExpression.Block(
       List.Cons(
         BoundStatement.ExpressionStatement(
-          BoundExpression.CallExpression(
+          BoundExpression.Call(
             noLoc,
             Option.None,
             init,
@@ -428,7 +428,7 @@ class Binder(
           ctor,
           BoundExpression.Block(
             statements,
-            BoundExpression.UnitExpression(noLoc)
+            BoundExpression.Unit(noLoc)
           )
         )
         setSymbolType(
@@ -443,7 +443,7 @@ class Binder(
           ctor,
           BoundExpression.Block(
             statements,
-            BoundExpression.UnitExpression(noLoc)
+            BoundExpression.Unit(noLoc)
           )
         )
         setSymbolType(
@@ -590,27 +590,27 @@ class Binder(
 
       case BoundExpression.Error(message) => Type.Error(message)
 
-      case _: BoundExpression.Assignment      => unitType
-      case _: BoundExpression.Boolean         => boolType
-      case _: BoundExpression.Character       => charType
-      case _: BoundExpression.ForExpression   => unitType
-      case _: BoundExpression.Int             => intType
-      case _: BoundExpression.IsExpression    => boolType
-      case _: BoundExpression.String          => stringType
-      case _: BoundExpression.UnitExpression  => unitType
-      case _: BoundExpression.WhileExpression => unitType
+      case _: BoundExpression.Assignment => unitType
+      case _: BoundExpression.Boolean    => boolType
+      case _: BoundExpression.Character  => charType
+      case _: BoundExpression.For        => unitType
+      case _: BoundExpression.Int        => intType
+      case _: BoundExpression.Is         => boolType
+      case _: BoundExpression.String     => stringType
+      case _: BoundExpression.Unit       => unitType
+      case _: BoundExpression.While      => unitType
 
-      case expr: BoundExpression.ArrayCreation    => expr.resultType
-      case expr: BoundExpression.BinaryExpression => expr.resultType
-      case expr: BoundExpression.Block            => getType(expr.expression)
-      case expr: BoundExpression.CallExpression   => expr.resultType
-      case expr: BoundExpression.CastExpression   => expr.targetType
-      case expr: BoundExpression.IndexExpression  => expr.resultType
-      case expr: BoundExpression.IfExpression     => expr.resultType
-      case expr: BoundExpression.MatchExpression  => expr.resultType
-      case expr: BoundExpression.MemberAccess     => expr.resultType
-      case expr: BoundExpression.NewExpression    => expr.resultType
-      case expr: BoundExpression.UnaryExpression  => expr.resultType
+      case expr: BoundExpression.ArrayCreation => expr.resultType
+      case expr: BoundExpression.Binary        => expr.resultType
+      case expr: BoundExpression.Block         => getType(expr.expression)
+      case expr: BoundExpression.Call          => expr.resultType
+      case expr: BoundExpression.Cast          => expr.targetType
+      case expr: BoundExpression.Index         => expr.resultType
+      case expr: BoundExpression.If            => expr.resultType
+      case expr: BoundExpression.Match         => expr.resultType
+      case expr: BoundExpression.MemberAccess  => expr.resultType
+      case expr: BoundExpression.New           => expr.resultType
+      case expr: BoundExpression.Unary         => expr.resultType
     }
   }
 

@@ -168,28 +168,28 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
 
   def printExpression(node: Expression): unit = {
     node match {
-      case value: Expression.ArrayCreationExpression =>
+      case value: Expression.ArrayCreation =>
         printArrayCreationExpression(value)
-      case value: Expression.ArrayCreationExpression =>
+      case value: Expression.ArrayCreation =>
         printArrayCreationExpression(value)
-      case value: Expression.AssignmentExpression =>
+      case value: Expression.Assignment =>
         printAssignmentExpression(value)
-      case value: Expression.BinaryExpression  => printBinaryExpression(value)
-      case value: Expression.BlockExpression   => printBlockExpression(value)
-      case value: Expression.CallExpression    => printCallExpression(value)
-      case value: Expression.CastExpression    => printCastExpression(value)
-      case value: Expression.ForExpression     => printForExpression(value)
-      case value: Expression.GroupExpression   => printGroupExpression(value)
-      case IdentifierName(value)               => printSimpleName(value)
-      case value: Expression.If                => printIfExpression(value)
-      case value: Expression.IsExpression      => printIsExpression(value)
-      case value: Expression.LiteralExpression => printLiteralExpression(value)
-      case value: MatchExpression => panic("MatchExpression not implemented")
-      case value: Expression.MemberAccessExpression =>
+      case value: Expression.Binary  => printBinaryExpression(value)
+      case value: Expression.Block   => printBlockExpression(value)
+      case value: Expression.Call    => printCallExpression(value)
+      case value: Expression.Cast    => printCastExpression(value)
+      case value: Expression.For     => printForExpression(value)
+      case value: Expression.Group   => printGroupExpression(value)
+      case IdentifierName(value)     => printSimpleName(value)
+      case value: Expression.If      => printIfExpression(value)
+      case value: Expression.Is      => printIsExpression(value)
+      case value: Expression.Literal => printLiteralExpression(value)
+      case value: Match              => panic("MatchExpression not implemented")
+      case value: Expression.MemberAccess =>
         printMemberAccessExpression(value)
-      case value: Expression.NewExpression   => printNewExpression(value)
-      case value: Expression.UnaryExpression => printUnaryExpression(value)
-      case value: Expression.UnitExpression  => printUnitExpression(value)
+      case value: Expression.New   => printNewExpression(value)
+      case value: Expression.Unary => printUnaryExpression(value)
+      case value: Expression.Unit  => printUnitExpression(value)
     }
   }
 
@@ -200,7 +200,7 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
   }
 
   def printArrayCreationExpression(
-      node: Expression.ArrayCreationExpression
+      node: Expression.ArrayCreation
   ): unit = {
     printToken(node.newKeyword)
     printName(node.name)
@@ -226,19 +226,19 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
     printToken(node.closeBrace)
   }
 
-  def printAssignmentExpression(node: Expression.AssignmentExpression): unit = {
+  def printAssignmentExpression(node: Expression.Assignment): unit = {
     printExpression(node.left)
     printToken(node.equals)
     printExpression(node.right)
   }
 
-  def printBinaryExpression(node: Expression.BinaryExpression): unit = {
+  def printBinaryExpression(node: Expression.Binary): unit = {
     printExpression(node.left)
     printToken(node.operator)
     printExpression(node.right)
   }
 
-  def printBlockExpression(node: Expression.BlockExpression): unit = {
+  def printBlockExpression(node: Expression.Block): unit = {
     printToken(node.openBrace)
     printBlockExpressionList(node.block)
     printToken(node.closeBrace)
@@ -249,26 +249,26 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
     printOptionalExpression(node.expression)
   }
 
-  def printCallExpression(node: Expression.CallExpression): unit = {
+  def printCallExpression(node: Expression.Call): unit = {
     printExpression(node.name)
     printToken(node.openParen)
     printExpressionList(node.arguments)
     printToken(node.closeParen)
   }
 
-  def printCastExpression(node: Expression.CastExpression): unit = {
+  def printCastExpression(node: Expression.Cast): unit = {
     printExpression(node.expression)
     printToken(node.asKeyword)
     printName(node.typ)
   }
 
-  def printIsExpression(node: Expression.IsExpression): unit = {
+  def printIsExpression(node: Expression.Is): unit = {
     printExpression(node.expression)
     printToken(node.isKeyword)
     printName(node.typ)
   }
 
-  def printForExpression(node: Expression.ForExpression): unit = {
+  def printForExpression(node: Expression.For): unit = {
     printToken(node.forKeyword)
     printToken(node.openParen)
     printToken(node.identifier)
@@ -280,7 +280,7 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
     printExpression(node.body)
   }
 
-  def printGroupExpression(node: Expression.GroupExpression): unit = {
+  def printGroupExpression(node: Expression.Group): unit = {
     printToken(node.openParen)
     printExpression(node.expression)
     printToken(node.closeParen)
@@ -306,19 +306,19 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
     }
   }
 
-  def printLiteralExpression(node: Expression.LiteralExpression): unit = {
+  def printLiteralExpression(node: Expression.Literal): unit = {
     printToken(node.token)
   }
 
   def printMemberAccessExpression(
-      node: Expression.MemberAccessExpression
+      node: Expression.MemberAccess
   ): unit = {
     printExpression(node.left)
     printToken(node.dotToken)
     printSimpleName(node.right)
   }
 
-  def printNewExpression(node: Expression.NewExpression): unit = {
+  def printNewExpression(node: Expression.New): unit = {
     printToken(node.newKeyword)
     printName(node.name)
     printToken(node.openParen)
@@ -326,17 +326,17 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
     printToken(node.closeParen)
   }
 
-  def printUnaryExpression(node: Expression.UnaryExpression): unit = {
+  def printUnaryExpression(node: Expression.Unary): unit = {
     printToken(node.operator)
     printExpression(node.expression)
   }
 
-  def printUnitExpression(node: Expression.UnitExpression): unit = {
+  def printUnitExpression(node: Expression.Unit): unit = {
     printToken(node.openParen)
     printToken(node.closeParen)
   }
 
-  def printWhileExpression(node: Expression.WhileExpression): unit = {
+  def printWhileExpression(node: Expression.While): unit = {
     printToken(node.whileKeyword)
     printToken(node.openParen)
     printExpression(node.condition)

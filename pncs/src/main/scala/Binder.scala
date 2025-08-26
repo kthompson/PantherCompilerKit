@@ -358,13 +358,13 @@ case class Binder(
             init,
             BoundExpression.Block(
               statements,
-              BoundExpression.UnitExpression(noLoc)
+              BoundExpression.Unit(noLoc)
             )
           )
       case List.Cons(head, tail) =>
         // call the static constructor
         val call = BoundStatement.ExpressionStatement(
-          BoundExpression.CallExpression(
+          BoundExpression.Call(
             noLoc,
             Option.None,
             head,
@@ -384,7 +384,7 @@ case class Binder(
     val mainBody = functionBodies.get(main) match {
       case Option.None =>
         // main has no body, so we create a new one
-        BoundExpression.UnitExpression(noLoc)
+        BoundExpression.Unit(noLoc)
       case Option.Some(value) =>
         // main already has a body, so we add the call to init at the start
         value
@@ -393,7 +393,7 @@ case class Binder(
     val newMainBody = BoundExpression.Block(
       List.Cons(
         BoundStatement.ExpressionStatement(
-          BoundExpression.CallExpression(
+          BoundExpression.Call(
             noLoc,
             Option.None,
             init,
@@ -436,7 +436,7 @@ case class Binder(
           ctor,
           BoundExpression.Block(
             statements,
-            BoundExpression.UnitExpression(noLoc)
+            BoundExpression.Unit(noLoc)
           )
         )
         setSymbolType(
@@ -636,27 +636,27 @@ case class Binder(
     expr match {
       case BoundExpression.Error(message) => Type.Error(message)
 
-      case _: BoundExpression.Assignment      => unitType
-      case _: BoundExpression.Boolean         => boolType
-      case _: BoundExpression.Character       => charType
-      case _: BoundExpression.ForExpression   => unitType
-      case _: BoundExpression.Int             => intType
-      case _: BoundExpression.IsExpression    => boolType
-      case _: BoundExpression.String          => stringType
-      case _: BoundExpression.UnitExpression  => unitType
-      case _: BoundExpression.WhileExpression => unitType
+      case _: BoundExpression.Assignment => unitType
+      case _: BoundExpression.Boolean    => boolType
+      case _: BoundExpression.Character  => charType
+      case _: BoundExpression.For        => unitType
+      case _: BoundExpression.Int        => intType
+      case _: BoundExpression.Is         => boolType
+      case _: BoundExpression.String     => stringType
+      case _: BoundExpression.Unit       => unitType
+      case _: BoundExpression.While      => unitType
 
-      case expr: BoundExpression.ArrayCreation    => expr.resultType
-      case expr: BoundExpression.BinaryExpression => expr.resultType
-      case expr: BoundExpression.Block            => getType(expr.expression)
-      case expr: BoundExpression.CallExpression   => expr.resultType
-      case expr: BoundExpression.CastExpression   => expr.targetType
-      case expr: BoundExpression.IndexExpression  => expr.resultType
-      case expr: BoundExpression.IfExpression     => expr.resultType
-      case expr: BoundExpression.MatchExpression  => expr.resultType
-      case expr: BoundExpression.MemberAccess     => expr.resultType
-      case expr: BoundExpression.NewExpression    => expr.resultType
-      case expr: BoundExpression.UnaryExpression  => expr.resultType
+      case expr: BoundExpression.ArrayCreation => expr.resultType
+      case expr: BoundExpression.Binary        => expr.resultType
+      case expr: BoundExpression.Block         => getType(expr.expression)
+      case expr: BoundExpression.Call          => expr.resultType
+      case expr: BoundExpression.Cast          => expr.targetType
+      case expr: BoundExpression.Index         => expr.resultType
+      case expr: BoundExpression.If            => expr.resultType
+      case expr: BoundExpression.Match         => expr.resultType
+      case expr: BoundExpression.MemberAccess  => expr.resultType
+      case expr: BoundExpression.New           => expr.resultType
+      case expr: BoundExpression.Unary         => expr.resultType
       case expr: BoundExpression.Variable =>
         expr.resultType match {
           case Option.None        => getSymbolType(expr.symbol)
@@ -899,7 +899,7 @@ case class Binder(
       case List.Cons(field, tail) =>
         val assignmentStatement = new MemberSyntax.GlobalStatementSyntax(
           StatementSyntax.ExpressionStatement(
-            Expression.AssignmentExpression(
+            Expression.Assignment(
               Expression.IdentifierName(
                 SimpleNameSyntax.IdentifierNameSyntax(field.identifier)
               ),
@@ -1830,7 +1830,7 @@ case class Binder(
         // convert variable declaration to a global statement
         val statement = new MemberSyntax.GlobalStatementSyntax(
           StatementSyntax.ExpressionStatement(
-            Expression.AssignmentExpression(
+            Expression.Assignment(
               Expression.IdentifierName(
                 SimpleNameSyntax.IdentifierNameSyntax(variable.identifier)
               ),
