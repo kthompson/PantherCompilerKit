@@ -193,27 +193,27 @@ object Helpers {
   def mkSyntaxTree(text: string): SyntaxTree =
     MakeSyntaxTree.parseContent(text, CompilerSettingsFactory.default)
 
-  def mkBinaryExpr(text: string): Expression.BinaryExpression = {
+  def mkBinaryExpr(text: string): Expression.Binary = {
     val expression = mkSyntaxTreeExpr(text)
     assertBinaryExpr(expression)
   }
 
-  def mkMemberAccessExpr(text: string): Expression.MemberAccessExpression = {
+  def mkMemberAccessExpr(text: string): Expression.MemberAccess = {
     val expression = mkSyntaxTreeExpr(text)
     assertMemberAccess(expression)
   }
 
-  def mkMatchExpr(text: string): Expression.MatchExpression = {
+  def mkMatchExpr(text: string): Expression.Match = {
     val expression = mkSyntaxTreeExpr(text)
     assertMatch(expression)
   }
 
-  def mkAssignmentExpr(text: string): Expression.AssignmentExpression = {
+  def mkAssignmentExpr(text: string): Expression.Assignment = {
     val expression = mkSyntaxTreeExpr(text)
     assertAssignmentExpr(expression)
   }
 
-  def mkCallExpr(text: string): Expression.CallExpression = {
+  def mkCallExpr(text: string): Expression.Call = {
     val expression = mkSyntaxTreeExpr(text)
     assertCallExpr(expression)
   }
@@ -223,38 +223,38 @@ object Helpers {
     assertIfExpr(expression)
   }
 
-  def mkWhileExpr(text: string): Expression.WhileExpression = {
+  def mkWhileExpr(text: string): Expression.While = {
     val expression = mkSyntaxTreeExpr(text)
     assertWhileExpr(expression)
   }
 
-  def mkUnaryExpr(text: string): Expression.UnaryExpression = {
+  def mkUnaryExpr(text: string): Expression.Unary = {
     val expr = mkSyntaxTreeExpr(text)
     assertUnaryExpr(expr)
   }
 
-  def assertBinaryExpr(expression: Expression): Expression.BinaryExpression = {
+  def assertBinaryExpr(expression: Expression): Expression.Binary = {
     expression match {
-      case expr: Expression.BinaryExpression => expr
-      case _ => failed("expected binary expression")
+      case expr: Expression.Binary => expr
+      case _                       => failed("expected binary expression")
     }
   }
 
   def assertMemberAccess(
       expression: Expression
-  ): Expression.MemberAccessExpression = {
+  ): Expression.MemberAccess = {
     expression match {
-      case expr: Expression.MemberAccessExpression => expr
+      case expr: Expression.MemberAccess => expr
       case _ => failed("expected member access expression")
     }
   }
 
   def assertMatch(
       expression: Expression
-  ): Expression.MatchExpression = {
+  ): Expression.Match = {
     expression match {
-      case expr: Expression.MatchExpression => expr
-      case _ => failed("expected match expression")
+      case expr: Expression.Match => expr
+      case _                      => failed("expected match expression")
     }
   }
 
@@ -269,9 +269,9 @@ object Helpers {
 
   def assertAssignmentExpr(
       expression: Expression
-  ): Expression.AssignmentExpression = {
+  ): Expression.Assignment = {
     expression match {
-      case expr: Expression.AssignmentExpression => expr
+      case expr: Expression.Assignment => expr
       case _ => failed("expected assignment expression")
     }
   }
@@ -287,40 +287,40 @@ object Helpers {
 
   def assertCallExpr(
       expression: Expression
-  ): Expression.CallExpression = {
+  ): Expression.Call = {
     expression match {
-      case expr: Expression.CallExpression => expr
-      case _                               => failed("expected call expression")
+      case expr: Expression.Call => expr
+      case _                     => failed("expected call expression")
     }
   }
 
   def assertWhileExpr(
       expression: Expression
-  ): Expression.WhileExpression = {
+  ): Expression.While = {
     expression match {
-      case expr: Expression.WhileExpression => expr
-      case _ => failed("expected while expression")
+      case expr: Expression.While => expr
+      case _                      => failed("expected while expression")
     }
   }
 
-  def assertGroupExpr(expr: Expression): Expression.GroupExpression = {
+  def assertGroupExpr(expr: Expression): Expression.Group = {
     expr match {
-      case expr: Expression.GroupExpression => expr
-      case _ => failed("expected group expression")
+      case expr: Expression.Group => expr
+      case _                      => failed("expected group expression")
     }
   }
 
-  def assertBlockExpr(expr: Expression): Expression.BlockExpression = {
+  def assertBlockExpr(expr: Expression): Expression.Block = {
     expr match {
-      case expr: Expression.BlockExpression => expr
-      case _ => failed("expected block expression")
+      case expr: Expression.Block => expr
+      case _                      => failed("expected block expression")
     }
   }
 
-  def assertUnaryExpr(expr: Expression): Expression.UnaryExpression = {
+  def assertUnaryExpr(expr: Expression): Expression.Unary = {
     expr match {
-      case expr: Expression.UnaryExpression => expr
-      case _ => failed("expected unary expression")
+      case expr: Expression.Unary => expr
+      case _                      => failed("expected unary expression")
     }
   }
 
@@ -362,7 +362,7 @@ object Helpers {
     }
   }
 
-  def mkGroupExpr(text: string): Expression.GroupExpression = {
+  def mkGroupExpr(text: string): Expression.Group = {
     val expr = mkSyntaxTreeExpr(text)
     assertGroupExpr(expr)
   }
@@ -374,7 +374,7 @@ object Helpers {
     }
   }
 
-  def mkBlockExpr(text: string): Expression.BlockExpression = {
+  def mkBlockExpr(text: string): Expression.Block = {
     val expr = mkSyntaxTreeExpr(text)
     assertBlockExpr(expr)
   }
@@ -413,7 +413,7 @@ object Helpers {
 
   def assertNumberExpr(expected: int, expression: Expression): unit = {
     expression match {
-      case Expression.LiteralExpression(_, SyntaxTokenValue.Number(n)) =>
+      case Expression.Literal(_, SyntaxTokenValue.Number(n)) =>
         Assert.intEqual(expected, n)
       case _ => failed("Expected number expression")
     }
@@ -421,7 +421,7 @@ object Helpers {
 
   def assertBoolExpr(expected: bool, expression: Expression): unit = {
     expression match {
-      case Expression.LiteralExpression(_, SyntaxTokenValue.Boolean(b)) =>
+      case Expression.Literal(_, SyntaxTokenValue.Boolean(b)) =>
         Assert.boolEqual(expected, b)
       case _ => failed("Expected boolean expression")
     }
@@ -429,14 +429,14 @@ object Helpers {
 
   def assertTrueExpr(expression: Expression): unit = {
     expression match {
-      case Expression.LiteralExpression(_, SyntaxTokenValue.Boolean(true)) =>
+      case Expression.Literal(_, SyntaxTokenValue.Boolean(true)) =>
       case _ => failed("Expected true expression")
     }
   }
 
   def assertFalseExpr(expression: Expression): unit = {
     expression match {
-      case Expression.LiteralExpression(_, SyntaxTokenValue.Boolean(false)) =>
+      case Expression.Literal(_, SyntaxTokenValue.Boolean(false)) =>
       case _ => failed("Expected false expression")
     }
   }

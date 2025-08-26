@@ -64,7 +64,7 @@ class BlockExpressionListSyntax(
 class ElseSyntax(elseKeyword: SyntaxToken, expression: Expression)
 
 enum Expression {
-  case ArrayCreationExpression(
+  case ArrayCreation(
       newKeyword: SyntaxToken,
       name: NameSyntax,
       openBracket: SyntaxToken,
@@ -72,34 +72,34 @@ enum Expression {
       closeBracket: SyntaxToken,
       initializer: Option[ArrayInitializerExpressionSyntax]
   )
-  case AssignmentExpression(
+  case Assignment(
       left: Expression,
       equals: SyntaxToken,
       right: Expression
   )
-  case BinaryExpression(
+  case Binary(
       left: Expression,
       operator: SyntaxToken,
       right: Expression
   )
-  case BlockExpression(
+  case Block(
       openBrace: SyntaxToken,
       block: BlockExpressionListSyntax,
       closeBrace: SyntaxToken
   )
-  case CallExpression(
+  case Call(
       name: Expression,
       genericArguments: Option[TypeArgumentListSyntax],
       openParen: SyntaxToken,
       arguments: ExpressionListSyntax,
       closeParen: SyntaxToken
   )
-  case CastExpression(
+  case Cast(
       expression: Expression,
       asKeyword: SyntaxToken,
       typ: NameSyntax
   )
-  case ForExpression(
+  case For(
       forKeyword: SyntaxToken,
       openParen: SyntaxToken,
       identifier: SyntaxToken,
@@ -110,7 +110,7 @@ enum Expression {
       closeParen: SyntaxToken,
       body: Expression
   )
-  case GroupExpression(
+  case Group(
       openParen: SyntaxToken,
       expression: Expression,
       closeParen: SyntaxToken
@@ -124,34 +124,34 @@ enum Expression {
       thenExpr: Expression,
       elseExpr: Option[ElseSyntax]
   )
-  case IsExpression(
+  case Is(
       expression: Expression,
       isKeyword: SyntaxToken,
       typ: NameSyntax
   )
-  case LiteralExpression(token: SyntaxToken, value: SyntaxTokenValue)
-  case MemberAccessExpression(
+  case Literal(token: SyntaxToken, value: SyntaxTokenValue)
+  case MemberAccess(
       left: Expression,
       dotToken: SyntaxToken,
       right: SimpleNameSyntax
   )
-  case MatchExpression(
+  case Match(
       expression: Expression,
       matchKeyword: SyntaxToken,
       openBrace: SyntaxToken,
       cases: NonEmptyList[MatchCaseSyntax],
       closeBrace: SyntaxToken
   )
-  case NewExpression(
+  case New(
       newKeyword: SyntaxToken,
       name: NameSyntax,
       openParen: SyntaxToken,
       arguments: ExpressionListSyntax,
       closeParen: SyntaxToken
   )
-  case UnaryExpression(operator: SyntaxToken, expression: Expression)
-  case UnitExpression(openParen: SyntaxToken, closeParen: SyntaxToken)
-  case WhileExpression(
+  case Unary(operator: SyntaxToken, expression: Expression)
+  case Unit(openParen: SyntaxToken, closeParen: SyntaxToken)
+  case While(
       whileKeyword: SyntaxToken,
       openParen: SyntaxToken,
       condition: Expression,
@@ -390,7 +390,7 @@ object AstUtils {
 
   def locationOfExpression(value: Expression): TextLocation = {
     value match {
-      case Expression.ArrayCreationExpression(
+      case Expression.ArrayCreation(
             newKeyword,
             _,
             _,
@@ -403,7 +403,7 @@ object AstUtils {
           case Option.Some(value) => value.closeBrace.location
         }
         newKeyword.location.merge(end)
-      case Expression.ArrayCreationExpression(
+      case Expression.ArrayCreation(
             newKeyword,
             _,
             _,
@@ -416,19 +416,19 @@ object AstUtils {
           case Option.Some(value) => value.closeBrace.location
         }
         newKeyword.location.merge(end)
-      case Expression.AssignmentExpression(left, equals, right) =>
+      case Expression.Assignment(left, equals, right) =>
         locationOfExpression(left).merge(locationOfExpression(right))
-      case Expression.BinaryExpression(left, operator, right) =>
+      case Expression.Binary(left, operator, right) =>
         locationOfExpression(left).merge(locationOfExpression(right))
-      case Expression.BlockExpression(openBrace, block, closeBrace) =>
+      case Expression.Block(openBrace, block, closeBrace) =>
         openBrace.location.merge(closeBrace.location)
-      case Expression.CallExpression(name, _, _, _, closeParen) =>
+      case Expression.Call(name, _, _, _, closeParen) =>
         locationOfExpression(name).merge(closeParen.location)
-      case Expression.CastExpression(expression, asKeyword, typ) =>
+      case Expression.Cast(expression, asKeyword, typ) =>
         locationOfExpression(expression).merge(locationOfName(typ))
-      case Expression.ForExpression(forKeyword, _, _, _, _, _, _, _, body) =>
+      case Expression.For(forKeyword, _, _, _, _, _, _, _, body) =>
         forKeyword.location.merge(locationOfExpression(body))
-      case Expression.GroupExpression(openParen, expression, closeParen) =>
+      case Expression.Group(openParen, expression, closeParen) =>
         openParen.location.merge(closeParen.location)
       case Expression.IdentifierName(value) =>
         locationOfSimpleName(value)
@@ -437,19 +437,19 @@ object AstUtils {
           case Option.Some(value) => value.expression
           case Option.Some(value) => value.expression
         }))
-      case Expression.IsExpression(expression, isKeyword, typ) =>
+      case Expression.Is(expression, isKeyword, typ) =>
         locationOfExpression(expression).merge(locationOfName(typ))
-      case Expression.LiteralExpression(token, value) =>
+      case Expression.Literal(token, value) =>
         token.location
-      case Expression.MemberAccessExpression(left, dotToken, right) =>
+      case Expression.MemberAccess(left, dotToken, right) =>
         locationOfExpression(left).merge(locationOfSimpleName(right))
-      case Expression.MatchExpression(expression, _, _, _, closeBrace) =>
+      case Expression.Match(expression, _, _, _, closeBrace) =>
         locationOfExpression(expression).merge(closeBrace.location)
-      case Expression.NewExpression(newKeyword, _, _, _, closeParen) =>
+      case Expression.New(newKeyword, _, _, _, closeParen) =>
         newKeyword.location.merge(closeParen.location)
-      case Expression.UnaryExpression(operator, expression) =>
+      case Expression.Unary(operator, expression) =>
         operator.location.merge(locationOfExpression(expression))
-      case Expression.UnitExpression(openParen, closeParen) =>
+      case Expression.Unit(openParen, closeParen) =>
         openParen.location.merge(closeParen.location)
     }
   }
@@ -472,16 +472,16 @@ object AstUtils {
       case BoundExpression.ArrayCreation(location, _, _, _) => location
       case BoundExpression.Assignment(location, _, expression) =>
         location.merge(locationOfBoundExpression(expression))
-      case BoundExpression.BinaryExpression(location, left, _, right, _) =>
+      case BoundExpression.Binary(location, left, _, right, _) =>
         locationOfBoundExpression(left).merge(locationOfBoundExpression(right))
       case BoundExpression.Block(statements, expression) =>
         locationOfBoundExpression(expression)
-      case BoundExpression.Boolean(location, _)                    => location
-      case BoundExpression.CallExpression(location, _, _, _, _, _) => location
-      case BoundExpression.CastExpression(location, expression, _) => location
-      case BoundExpression.Character(location, _)                  => location
-      case BoundExpression.ForExpression(location, _, _, _, _)     => location
-      case BoundExpression.IfExpression(
+      case BoundExpression.Boolean(location, _)          => location
+      case BoundExpression.Call(location, _, _, _, _, _) => location
+      case BoundExpression.Cast(location, expression, _) => location
+      case BoundExpression.Character(location, _)        => location
+      case BoundExpression.For(location, _, _, _, _)     => location
+      case BoundExpression.If(
             location,
             cond,
             thenExpr,
@@ -494,18 +494,18 @@ object AstUtils {
             case Option.Some(value) => locationOfBoundExpression(value)
           }
         )
-      case BoundExpression.IndexExpression(location, _, _, _)  => location
-      case BoundExpression.MatchExpression(location, _, _, _)  => location
-      case BoundExpression.Int(location, _)                    => location
-      case BoundExpression.IsExpression(location, _, _)        => location
-      case BoundExpression.MemberAccess(location, _, _, _, _)  => location
-      case BoundExpression.NewExpression(location, _, _, _, _) => location
-      case BoundExpression.String(location, _)                 => location
-      case BoundExpression.UnaryExpression(location, _, operand, _) =>
+      case BoundExpression.Index(location, _, _, _)           => location
+      case BoundExpression.Match(location, _, _, _)           => location
+      case BoundExpression.Int(location, _)                   => location
+      case BoundExpression.Is(location, _, _)                 => location
+      case BoundExpression.MemberAccess(location, _, _, _, _) => location
+      case BoundExpression.New(location, _, _, _, _)          => location
+      case BoundExpression.String(location, _)                => location
+      case BoundExpression.Unary(location, _, operand, _) =>
         location.merge(locationOfBoundExpression(operand))
-      case BoundExpression.UnitExpression(location)        => location
-      case BoundExpression.Variable(location, _, _)        => location
-      case BoundExpression.WhileExpression(location, _, _) => location
+      case BoundExpression.Unit(location)           => location
+      case BoundExpression.Variable(location, _, _) => location
+      case BoundExpression.While(location, _, _)    => location
 
     }
   }

@@ -63,28 +63,28 @@ class BoundAssemblyPrinter(
       expression: BoundExpression
   ): unit = {
     expression match {
-      case expr: BoundExpression.Error            => printError(expr)
-      case expr: BoundExpression.ArrayCreation    => printArrayCreation(expr)
-      case expr: BoundExpression.Assignment       => printAssignment(expr)
-      case expr: BoundExpression.BinaryExpression => printBinaryExpression(expr)
-      case expr: BoundExpression.Block            => printBlock(expr)
-      case expr: BoundExpression.Boolean          => printBooleanLiteral(expr)
-      case expr: BoundExpression.CallExpression   => printCallExpression(expr)
-      case expr: BoundExpression.CastExpression   => printCastExpression(expr)
-      case expr: BoundExpression.Character        => printCharacterLiteral(expr)
-      case expr: BoundExpression.ForExpression    => printForExpression(expr)
-      case expr: BoundExpression.IfExpression     => printIfExpression(expr)
-      case expr: BoundExpression.IndexExpression  => printIndexExpression(expr)
-      case expr: BoundExpression.Int              => printIntLiteral(expr)
-      case expr: BoundExpression.IsExpression     => printIsExpression(expr)
-      case expr: BoundExpression.MemberAccess     => printMemberAccess(expr)
-      case expr: BoundExpression.NewExpression    => printNewExpression(expr)
-      case expr: BoundExpression.String           => printStringLiteral(expr)
-      case expr: BoundExpression.UnaryExpression  => printUnaryExpression(expr)
-      case expr: BoundExpression.UnitExpression   => printUnitExpression(expr)
-      case expr: BoundExpression.Variable         => printVariable(expr)
-      case expr: BoundExpression.WhileExpression  => printWhileExpression(expr)
-      case expr: BoundExpression.MatchExpression  => printMatchExpression(expr)
+      case expr: BoundExpression.Error         => printError(expr)
+      case expr: BoundExpression.ArrayCreation => printArrayCreation(expr)
+      case expr: BoundExpression.Assignment    => printAssignment(expr)
+      case expr: BoundExpression.Binary        => printBinaryExpression(expr)
+      case expr: BoundExpression.Block         => printBlock(expr)
+      case expr: BoundExpression.Boolean       => printBooleanLiteral(expr)
+      case expr: BoundExpression.Call          => printCallExpression(expr)
+      case expr: BoundExpression.Cast          => printCastExpression(expr)
+      case expr: BoundExpression.Character     => printCharacterLiteral(expr)
+      case expr: BoundExpression.For           => printForExpression(expr)
+      case expr: BoundExpression.If            => printIfExpression(expr)
+      case expr: BoundExpression.Index         => printIndexExpression(expr)
+      case expr: BoundExpression.Int           => printIntLiteral(expr)
+      case expr: BoundExpression.Is            => printIsExpression(expr)
+      case expr: BoundExpression.MemberAccess  => printMemberAccess(expr)
+      case expr: BoundExpression.New           => printNewExpression(expr)
+      case expr: BoundExpression.String        => printStringLiteral(expr)
+      case expr: BoundExpression.Unary         => printUnaryExpression(expr)
+      case expr: BoundExpression.Unit          => printUnitExpression(expr)
+      case expr: BoundExpression.Variable      => printVariable(expr)
+      case expr: BoundExpression.While         => printWhileExpression(expr)
+      case expr: BoundExpression.Match         => printMatchExpression(expr)
     }
   }
 
@@ -104,7 +104,7 @@ class BoundAssemblyPrinter(
     printExpression(expr.expression)
   }
 
-  def printBinaryExpression(expr: BoundExpression.BinaryExpression): unit = {
+  def printBinaryExpression(expr: BoundExpression.Binary): unit = {
     printExpression(expr.left)
     writeWithColor(ColorPalette.Punctuation, " ")
     writeWithColor(
@@ -153,7 +153,7 @@ class BoundAssemblyPrinter(
       ColorPalette.Keyword,
       if (expr.value) "true" else "false"
     )
-  def printCallExpression(expr: BoundExpression.CallExpression): unit = {
+  def printCallExpression(expr: BoundExpression.Call): unit = {
     expr.receiver match {
       case Option.None =>
         writeWithColor(ColorPalette.Identifier, expr.method.name)
@@ -174,7 +174,7 @@ class BoundAssemblyPrinter(
     printExpressions(expr.arguments)
     writeWithColor(ColorPalette.Punctuation, ")")
   }
-  def printCastExpression(expr: BoundExpression.CastExpression): unit = {
+  def printCastExpression(expr: BoundExpression.Cast): unit = {
     ast._printType(expr.targetType, true)
     writeWithColor(ColorPalette.Punctuation, "(")
     printExpression(expr.expression)
@@ -182,16 +182,16 @@ class BoundAssemblyPrinter(
   }
   def printCharacterLiteral(expr: BoundExpression.Character): unit =
     writeWithColor(ColorPalette.String, "'" + expr.value + "'")
-  def printIsExpression(expr: BoundExpression.IsExpression): unit = {
+  def printIsExpression(expr: BoundExpression.Is): unit = {
     printExpression(expr.expression)
     writeWithColor(ColorPalette.Punctuation, " ")
     writeWithColor(ColorPalette.Keyword, "is")
     writeWithColor(ColorPalette.Punctuation, " ")
     ast._printType(expr.targetType, true)
   }
-  def printForExpression(expr: BoundExpression.ForExpression): unit = ???
+  def printForExpression(expr: BoundExpression.For): unit = ???
 
-  def printIfExpression(expr: BoundExpression.IfExpression): unit = {
+  def printIfExpression(expr: BoundExpression.If): unit = {
     writeWithColor(ColorPalette.Keyword, "if")
     writeWithColor(ColorPalette.Punctuation, " (")
     printExpression(expr.cond)
@@ -206,7 +206,7 @@ class BoundAssemblyPrinter(
         printExpression(elseExpr)
     }
   }
-  def printIndexExpression(expr: BoundExpression.IndexExpression): unit = ???
+  def printIndexExpression(expr: BoundExpression.Index): unit = ???
   def printIntLiteral(expr: BoundExpression.Int): unit = {
     writeWithColor(ColorPalette.Number, string(expr.value))
   }
@@ -215,7 +215,7 @@ class BoundAssemblyPrinter(
     writeWithColor(ColorPalette.Punctuation, ".")
     writeWithColor(ColorPalette.Identifier, expr.member.name)
   }
-  def printNewExpression(expr: BoundExpression.NewExpression): unit = {
+  def printNewExpression(expr: BoundExpression.New): unit = {
     writeWithColor(ColorPalette.Keyword, "new")
     ast.append(" ")
     writeWithColor(ColorPalette.Identifier, expr.constructor.parent.get().name)
@@ -242,7 +242,7 @@ class BoundAssemblyPrinter(
     writeWithColor(ColorPalette.String, "\"" + expr.value + "\"")
   }
 
-  def printUnaryExpression(expr: BoundExpression.UnaryExpression): unit = {
+  def printUnaryExpression(expr: BoundExpression.Unary): unit = {
     writeWithColor(
       ColorPalette.Punctuation,
       SyntaxFacts.getUnaryOperatorText(expr.operator)
@@ -250,14 +250,14 @@ class BoundAssemblyPrinter(
     printExpression(expr.operand)
   }
 
-  def printUnitExpression(expr: BoundExpression.UnitExpression): unit =
+  def printUnitExpression(expr: BoundExpression.Unit): unit =
     writeWithColor(ColorPalette.Punctuation, "()")
 
   def printVariable(expr: BoundExpression.Variable): unit = {
     writeWithColor(ColorPalette.Identifier, expr.symbol.name)
   }
 
-  def printWhileExpression(expr: BoundExpression.WhileExpression): unit = {
+  def printWhileExpression(expr: BoundExpression.While): unit = {
     writeWithColor(ColorPalette.Keyword, "while")
     writeWithColor(ColorPalette.Punctuation, " (")
     printExpression(expr.condition)
@@ -309,7 +309,7 @@ class BoundAssemblyPrinter(
     ast.appendLine("")
   }
 
-  def printMatchExpression(expr: BoundExpression.MatchExpression): unit = {
+  def printMatchExpression(expr: BoundExpression.Match): unit = {
     printExpression(expr.expression)
     writeWithColor(ColorPalette.Keyword, "match ")
     writeWithColor(ColorPalette.Punctuation, " {")

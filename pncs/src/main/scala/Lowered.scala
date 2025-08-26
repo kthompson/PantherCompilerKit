@@ -285,41 +285,41 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       case expr: BoundExpression.ArrayCreation =>
         lowerArrayCreation(expr, context)
       case expr: BoundExpression.Assignment => lowerAssignment(expr, context)
-      case expr: BoundExpression.BinaryExpression =>
+      case expr: BoundExpression.Binary =>
         lowerBinaryExpression(expr, context)
       case expr: BoundExpression.Block => lowerBlock(expr, context)
       case expr: BoundExpression.Boolean =>
         lowerBooleanLiteral(expr, context)
-      case expr: BoundExpression.CallExpression =>
+      case expr: BoundExpression.Call =>
         lowerCallExpression(expr, context)
-      case expr: BoundExpression.CastExpression =>
+      case expr: BoundExpression.Cast =>
         lowerCastExpression(expr, context)
       case expr: BoundExpression.Character =>
         lowerCharacterLiteral(expr, context)
-      case expr: BoundExpression.ForExpression =>
+      case expr: BoundExpression.For =>
         lowerForExpression(expr, context)
-      case expr: BoundExpression.IfExpression =>
+      case expr: BoundExpression.If =>
         lowerIfExpression(expr, context)
-      case expr: BoundExpression.IndexExpression =>
+      case expr: BoundExpression.Index =>
         lowerIndexExpression(expr, context)
       case expr: BoundExpression.Int => lowerIntLiteral(expr, context)
-      case expr: BoundExpression.IsExpression =>
+      case expr: BoundExpression.Is =>
         lowerIsExpression(expr, context)
       case expr: BoundExpression.MemberAccess =>
         lhsBlockToBlock(lowerMemberAccess(expr, context))
-      case expr: BoundExpression.NewExpression =>
+      case expr: BoundExpression.New =>
         lhsBlockToBlock(lowerNewExpression(expr, context))
       case expr: BoundExpression.String =>
         lowerStringLiteral(expr, context)
-      case expr: BoundExpression.UnaryExpression =>
+      case expr: BoundExpression.Unary =>
         lowerUnaryExpression(expr, context)
-      case expr: BoundExpression.UnitExpression =>
+      case expr: BoundExpression.Unit =>
         lowerUnitExpression(expr, context)
       case expr: BoundExpression.Variable =>
         lhsBlockToBlock(lowerVariable(expr.location, expr.symbol, context))
-      case expr: BoundExpression.WhileExpression =>
+      case expr: BoundExpression.While =>
         lowerWhileExpression(expr, context)
-      case expr: BoundExpression.MatchExpression =>
+      case expr: BoundExpression.Match =>
         lowerMatchExpression(expr, context)
     }
   }
@@ -398,7 +398,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   }
 
   def lowerIndexAssignment(
-      indexExpr: BoundExpression.IndexExpression,
+      indexExpr: BoundExpression.Index,
       valueBlock: LoweredBlock
   ): LoweredBlock = {
     // Lower the array expression first
@@ -477,7 +477,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   }
 
   def lowerBinaryExpression(
-      expr: BoundExpression.BinaryExpression,
+      expr: BoundExpression.Binary,
       context: LoweredBlock
   ): LoweredBlock = {
     consumeExpr(
@@ -521,7 +521,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   }
 
   def lowerCallExpression(
-      expr: BoundExpression.CallExpression,
+      expr: BoundExpression.Call,
       context: LoweredBlock
   ): LoweredBlock = {
     checkUnusedExpr(context)
@@ -534,7 +534,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   }
 
   def lowerCallExpressionArguments(
-      call: BoundExpression.CallExpression,
+      call: BoundExpression.Call,
       arguments: List[BoundExpression],
       loweredArguments: Chain[LoweredExpression],
       statements: Chain[LoweredStatement]
@@ -590,7 +590,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   }
 
   def lowerCastExpression(
-      expr: BoundExpression.CastExpression,
+      expr: BoundExpression.Cast,
       context: LoweredBlock
   ): LoweredBlock = {
 
@@ -607,7 +607,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   }
 
   def lowerIsExpression(
-      expr: BoundExpression.IsExpression,
+      expr: BoundExpression.Is,
       context: LoweredBlock
   ): LoweredBlock = {
 
@@ -637,12 +637,12 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   }
 
   def lowerForExpression(
-      expr: BoundExpression.ForExpression,
+      expr: BoundExpression.For,
       context: LoweredBlock
   ): LoweredBlock = ???
 
   def lowerIfExpression(
-      expr: BoundExpression.IfExpression,
+      expr: BoundExpression.If,
       context: LoweredBlock
   ): LoweredBlock = {
 
@@ -795,7 +795,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   }
 
   def lowerIndexExpression(
-      expr: BoundExpression.IndexExpression,
+      expr: BoundExpression.Index,
       context: LoweredBlock
   ): LoweredBlock = {
     // Lower the array expression first
@@ -868,7 +868,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   }
 
   def lowerNewExpression(
-      expr: BoundExpression.NewExpression,
+      expr: BoundExpression.New,
       context: LoweredBlock
   ): LoweredLeftHandSideBlock = {
     checkUnusedExpr(context)
@@ -882,7 +882,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   }
 
   def lowerNewExpressionArguments(
-      expr: BoundExpression.NewExpression,
+      expr: BoundExpression.New,
       arguments: List[BoundExpression],
       loweredArguments: Chain[LoweredExpression],
       statements: Chain[LoweredStatement]
@@ -955,7 +955,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   }
 
   def lowerUnaryExpression(
-      expr: BoundExpression.UnaryExpression,
+      expr: BoundExpression.Unary,
       context: LoweredBlock
   ): LoweredBlock = {
     val block = lowerExpression(expr.operand, context)
@@ -971,7 +971,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   }
 
   def lowerUnitExpression(
-      expr: BoundExpression.UnitExpression,
+      expr: BoundExpression.Unit,
       context: LoweredBlock
   ): LoweredBlock = {
     checkUnusedExpr(context)
@@ -992,7 +992,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   }
 
   def lowerWhileExpression(
-      expr: BoundExpression.WhileExpression,
+      expr: BoundExpression.While,
       context: LoweredBlock
   ): LoweredBlock = {
 
@@ -1057,7 +1057,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   }
 
   def lowerMatchExpression(
-      expr: BoundExpression.MatchExpression,
+      expr: BoundExpression.Match,
       context: LoweredBlock
   ): LoweredBlock = {
 
@@ -1101,15 +1101,15 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
 
   def boundMatchCaseToExpression(
       variable: Symbol,
-      node: BoundExpression.MatchExpression,
+      node: BoundExpression.Match,
       matchCase: BoundMatchCase,
       cases: List[BoundMatchCase]
   ): BoundExpression = {
     matchCase.pattern match {
       case BoundPattern.Literal(literal) =>
-        BoundExpression.IfExpression(
+        BoundExpression.If(
           matchCase.location,
-          BoundExpression.BinaryExpression(
+          BoundExpression.Binary(
             matchCase.location,
             BoundExpression.Variable(matchCase.location, variable, None),
             BinaryOperatorKind.Equals,

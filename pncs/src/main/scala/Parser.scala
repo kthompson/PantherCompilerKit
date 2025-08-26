@@ -174,20 +174,20 @@ case class Parser(
 
   def hasStatementTerminator(expression: Expression): bool = {
     expression match {
-      case value: ArrayCreationExpression =>
+      case value: ArrayCreation =>
         value.initializer match {
           case Option.None =>
             value.closeBracket.isStatementTerminator()
           case Option.Some(value) =>
             value.closeBrace.isStatementTerminator()
         }
-      case value: AssignmentExpression => hasStatementTerminator(value.right)
-      case value: BinaryExpression     => hasStatementTerminator(value.right)
-      case value: BlockExpression => value.closeBrace.isStatementTerminator()
-      case value: CallExpression  => value.closeParen.isStatementTerminator()
-      case value: CastExpression  => nameHasStatementTerminator(value.typ)
-      case value: ForExpression   => hasStatementTerminator(value.body)
-      case value: GroupExpression => value.closeParen.isStatementTerminator()
+      case value: Assignment => hasStatementTerminator(value.right)
+      case value: Binary     => hasStatementTerminator(value.right)
+      case value: Block      => value.closeBrace.isStatementTerminator()
+      case value: Call       => value.closeParen.isStatementTerminator()
+      case value: Cast       => nameHasStatementTerminator(value.typ)
+      case value: For        => hasStatementTerminator(value.body)
+      case value: Group      => value.closeParen.isStatementTerminator()
       case Expression.IdentifierName(value) =>
         simpleNameHasStatementTerminator(value)
       case value: If =>
@@ -195,16 +195,16 @@ case class Parser(
           case Option.Some(value) => value.expression
           case Option.None        => value.thenExpr
         })
-      case value: IsExpression      => nameHasStatementTerminator(value.typ)
-      case value: LiteralExpression => value.token.isStatementTerminator()
-      case MatchExpression(_, _, _, _, closeBrace) =>
+      case value: Is      => nameHasStatementTerminator(value.typ)
+      case value: Literal => value.token.isStatementTerminator()
+      case Match(_, _, _, _, closeBrace) =>
         closeBrace.isStatementTerminator()
-      case value: MemberAccessExpression =>
+      case value: MemberAccess =>
         simpleNameHasStatementTerminator(value.right)
-      case value: NewExpression   => value.closeParen.isStatementTerminator()
-      case value: UnaryExpression => hasStatementTerminator(value.expression)
-      case value: UnitExpression  => value.closeParen.isStatementTerminator()
-      case value: WhileExpression => hasStatementTerminator(value.body)
+      case value: New   => value.closeParen.isStatementTerminator()
+      case value: Unary => hasStatementTerminator(value.expression)
+      case value: Unit  => value.closeParen.isStatementTerminator()
+      case value: While => hasStatementTerminator(value.body)
     }
   }
 
@@ -578,7 +578,7 @@ case class Parser(
     val exprList = parseBlockExpressionList()
     val closeBrace = acceptKind(SyntaxKind.CloseBraceToken)
 
-    new Expression.BlockExpression(openBrace, exprList, closeBrace)
+    new Expression.Block(openBrace, exprList, closeBrace)
   }
 
   def parseGroupOrUnitExpression(): Expression = {
@@ -586,11 +586,11 @@ case class Parser(
     val open = accept()
     if (currentKind() == SyntaxKind.CloseParenToken) {
       val close = accept()
-      new Expression.UnitExpression(open, close)
+      new Expression.Unit(open, close)
     } else {
       val expr = parseExpression(OperatorPrecedence.Lowest)
       val close2 = acceptKind(SyntaxKind.CloseParenToken)
-      new Expression.GroupExpression(open, expr, close2)
+      new Expression.Group(open, expr, close2)
     }
   }
 
@@ -598,7 +598,7 @@ case class Parser(
     debugPrint("parseLiteralExpression")
     val token = accept()
 
-    new Expression.LiteralExpression(token, token.value)
+    new Expression.Literal(token, token.value)
   }
 
   def parseIfExpression(): Expression = {
@@ -660,7 +660,7 @@ case class Parser(
         None
       }
 
-      new Expression.ArrayCreationExpression(
+      new Expression.ArrayCreation(
         keyword,
         typ,
         openBracket,
@@ -674,7 +674,7 @@ case class Parser(
       val arguments = parseExpressionList(SyntaxKind.CloseParenToken)
       val close = acceptKind(SyntaxKind.CloseParenToken)
 
-      new Expression.NewExpression(keyword, typ, open, arguments, close)
+      new Expression.New(keyword, typ, open, arguments, close)
     }
   }
 
@@ -689,7 +689,7 @@ case class Parser(
     val closeParen = acceptKind(SyntaxKind.CloseParenToken)
     val expr = parseExpression(OperatorPrecedence.Lowest)
 
-    new Expression.ForExpression(
+    new Expression.For(
       keyword,
       openParen,
       variable,
@@ -709,7 +709,7 @@ case class Parser(
     val closeParenToken = acceptKind(SyntaxKind.CloseParenToken)
     val body = parseExpression(OperatorPrecedence.Lowest)
 
-    new Expression.WhileExpression(
+    new Expression.While(
       keyword,
       openParenToken,
       condition,
@@ -722,14 +722,14 @@ case class Parser(
     val value =
       SyntaxTokenValue.Boolean(currentKind() == SyntaxKind.TrueKeyword)
 
-    new Expression.LiteralExpression(accept(), value)
+    new Expression.Literal(accept(), value)
   }
 
   def parseUnaryExpression(): Expression = {
     val unaryOp = accept()
     val expr = parseExpression(OperatorPrecedence.Prefix)
 
-    new Expression.UnaryExpression(unaryOp, expr)
+    new Expression.Unary(unaryOp, expr)
   }
 
   def parsePrefixExpression(): Expression = {
@@ -834,7 +834,7 @@ case class Parser(
     val arguments = parseExpressionList(SyntaxKind.CloseParenToken)
     val close = acceptKind(SyntaxKind.CloseParenToken)
 
-    new Expression.CallExpression(name, Option.None, open, arguments, close)
+    new Expression.Call(name, Option.None, open, arguments, close)
   }
 
   def parseBinaryExpression(left: Expression): Expression = {
@@ -843,21 +843,21 @@ case class Parser(
     val operator = accept()
     val right = parseExpression(precedence)
 
-    new Expression.BinaryExpression(left, operator, right)
+    new Expression.Binary(left, operator, right)
   }
 
   def parseMemberAccessExpression(left: Expression): Expression = {
     val dot = accept()
     val right = parseSimpleName(false)
 
-    new Expression.MemberAccessExpression(left, dot, right)
+    new Expression.MemberAccess(left, dot, right)
   }
 
   def parseAssignmentExpression(left: Expression): Expression = {
     val equals = accept()
     val right = parseExpression(OperatorPrecedence.Lowest)
 
-    new Expression.AssignmentExpression(left, equals, right)
+    new Expression.Assignment(left, equals, right)
   }
 
   def parseInfixExpression(
@@ -914,21 +914,21 @@ case class Parser(
     val cases = parseMatchCases(caseHead, List.Nil)
     val close = acceptKind(SyntaxKind.CloseBraceToken)
 
-    new MatchExpression(left, keyword, open, cases, close)
+    new Match(left, keyword, open, cases, close)
   }
 
   def parseCastExpression(left: Expression): Expression = {
     val keyword = accept()
     val typ = parseName(false)
 
-    new CastExpression(left, keyword, typ)
+    new Cast(left, keyword, typ)
   }
 
   def parseIsExpression(left: Expression): Expression = {
     val keyword = accept()
     val typ = parseName(false)
 
-    new IsExpression(left, keyword, typ)
+    new Is(left, keyword, typ)
   }
 
   def parseMatchCases(

@@ -347,46 +347,46 @@ class Transpiler(
       context: TranspilerContext
   ): unit = {
     expression match {
-      case value: Expression.ArrayCreationExpression =>
+      case value: Expression.ArrayCreation =>
         transpileArrayCreationExpression(value, context)
-      case value: Expression.ArrayCreationExpression =>
+      case value: Expression.ArrayCreation =>
         transpileArrayCreationExpression(value, context)
-      case value: Expression.AssignmentExpression =>
+      case value: Expression.Assignment =>
         transpileAssignmentExpression(value, context)
-      case value: Expression.BinaryExpression =>
+      case value: Expression.Binary =>
         transpileBinaryExpression(value, context)
-      case value: Expression.BlockExpression =>
+      case value: Expression.Block =>
         transpileBlockExpression(value, context)
-      case value: Expression.CallExpression =>
+      case value: Expression.Call =>
         transpileCallExpression(value, context)
-      case value: Expression.CastExpression =>
+      case value: Expression.Cast =>
         transpileCastExpression(value, context)
-      case value: Expression.ForExpression =>
+      case value: Expression.For =>
         transpileForExpression(value, context)
-      case value: Expression.GroupExpression =>
+      case value: Expression.Group =>
         transpileGroupExpression(value, context)
       case Expression.IdentifierName(value) =>
         transpileSimpleName(value, context)
       case value: Expression.If => transpileIfExpression(value, context)
-      case value: Expression.IsExpression =>
+      case value: Expression.Is =>
         transpileIsExpression(value, context)
-      case value: Expression.LiteralExpression =>
+      case value: Expression.Literal =>
         transpileLiteralExpression(value, context)
-      case value: Expression.MatchExpression =>
+      case value: Expression.Match =>
         transpileMatchExpression(value, context)
-      case value: Expression.MemberAccessExpression =>
+      case value: Expression.MemberAccess =>
         transpileMemberAccessExpression(value, context)
-      case value: Expression.NewExpression =>
+      case value: Expression.New =>
         transpileNewExpression(value, context)
-      case value: Expression.UnaryExpression =>
+      case value: Expression.Unary =>
         transpileUnaryExpression(value, context)
-      case value: Expression.UnitExpression =>
+      case value: Expression.Unit =>
         transpileUnitExpression(value, context)
     }
   }
 
   def transpileMatchExpression(
-      expr: Expression.MatchExpression,
+      expr: Expression.Match,
       context: TranspilerContext
   ): unit = {
     transpileExpression(expr.expression, context)
@@ -422,16 +422,16 @@ class Transpiler(
       context: TranspilerContext
   ): unit = {
     pattern match {
-      case Identifier(identifier, typeAnnotation) =>
+      case PatternSyntax.Identifier(identifier, typeAnnotation) =>
         transpileToken(identifier, context)
         transpileTypeAnnotation(typeAnnotation, context)
-      case Identifier(identifier, typeAnnotation) =>
+      case PatternSyntax.Identifier(identifier, typeAnnotation) =>
         transpileToken(identifier, context)
         transpileTypeAnnotation(typeAnnotation, context)
-      case Type(value) =>
+      case PatternSyntax.Type(value) =>
         transpileName(value, context)
-      case Literal(value) => transpileToken(value, context)
-      case Discard(value) => transpileToken(value, context)
+      case PatternSyntax.Literal(value) => transpileToken(value, context)
+      case PatternSyntax.Discard(value) => transpileToken(value, context)
     }
   }
 
@@ -456,12 +456,12 @@ class Transpiler(
     transpileToken(name.identifier, context)
 
   def transpileArrayCreationExpression(
-      expr: Expression.ArrayCreationExpression,
+      expr: Expression.ArrayCreation,
       context: TranspilerContext
   ): unit = panic("todo")
 
   def transpileBinaryExpression(
-      expr: Expression.BinaryExpression,
+      expr: Expression.Binary,
       context: TranspilerContext
   ): unit = {
     transpileExpression(expr.left, context)
@@ -470,7 +470,7 @@ class Transpiler(
   }
 
   def transpileBlockExpression(
-      expr: Expression.BlockExpression,
+      expr: Expression.Block,
       context: TranspilerContext
   ): unit = {
     transpileToken(expr.openBrace, context)
@@ -497,7 +497,7 @@ class Transpiler(
   }
 
   def transpileCallExpression(
-      expr: Expression.CallExpression,
+      expr: Expression.Call,
       context: TranspilerContext
   ): unit = {
     //    checker.get_type_of_expression(expr.name, ???)
@@ -508,7 +508,7 @@ class Transpiler(
   }
 
   def transpileCastExpression(
-      expr: Expression.CastExpression,
+      expr: Expression.Cast,
       context: TranspilerContext
   ): unit = {
     transpileExpression(expr.expression, context)
@@ -517,7 +517,7 @@ class Transpiler(
   }
 
   def transpileIsExpression(
-      expr: Expression.IsExpression,
+      expr: Expression.Is,
       context: TranspilerContext
   ): unit = {
     transpileExpression(expr.expression, context)
@@ -543,7 +543,7 @@ class Transpiler(
   }
 
   def transpileForExpression(
-      expr: Expression.ForExpression,
+      expr: Expression.For,
       context: TranspilerContext
   ): unit = {
     transpileToken(expr.forKeyword, context)
@@ -558,7 +558,7 @@ class Transpiler(
   }
 
   def transpileGroupExpression(
-      expr: Expression.GroupExpression,
+      expr: Expression.Group,
       context: TranspilerContext
   ): unit = {
     transpileToken(expr.openParen, context)
@@ -590,13 +590,13 @@ class Transpiler(
   }
 
   def transpileLiteralExpression(
-      expr: Expression.LiteralExpression,
+      expr: Expression.Literal,
       context: TranspilerContext
   ): unit =
     transpileToken(expr.token, context)
 
   def transpileMemberAccessExpression(
-      expr: Expression.MemberAccessExpression,
+      expr: Expression.MemberAccess,
       context: TranspilerContext
   ): unit = {
     transpileExpression(expr.left, context)
@@ -605,7 +605,7 @@ class Transpiler(
   }
 
   def transpileNewExpression(
-      expr: Expression.NewExpression,
+      expr: Expression.New,
       context: TranspilerContext
   ): unit = {
     transpileToken(expr.newKeyword, context)
@@ -616,7 +616,7 @@ class Transpiler(
   }
 
   def transpileUnaryExpression(
-      expr: Expression.UnaryExpression,
+      expr: Expression.Unary,
       context: TranspilerContext
   ): unit = {
     transpileToken(expr.operator, context)
@@ -624,7 +624,7 @@ class Transpiler(
   }
 
   def transpileUnitExpression(
-      expr: Expression.UnitExpression,
+      expr: Expression.Unit,
       context: TranspilerContext
   ): unit = {
     transpileToken(expr.openParen, context)
@@ -632,7 +632,7 @@ class Transpiler(
   }
 
   def transpileWhileExpression(
-      expr: Expression.WhileExpression,
+      expr: Expression.While,
       context: TranspilerContext
   ): unit = {
     transpileToken(expr.whileKeyword, context)
@@ -643,7 +643,7 @@ class Transpiler(
   }
 
   def transpileAssignmentExpression(
-      expr: Expression.AssignmentExpression,
+      expr: Expression.Assignment,
       context: TranspilerContext
   ): unit = {
     transpileExpression(expr.left, context)

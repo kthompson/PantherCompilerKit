@@ -135,45 +135,45 @@ class ExprBinder(
 
   def bind(expr: Expression, scope: Scope): BoundExpression = {
     expr match {
-      case node: Expression.ArrayCreationExpression =>
+      case node: Expression.ArrayCreation =>
         bindArrayCreationExpression(node, scope)
-      case node: Expression.ArrayCreationExpression =>
+      case node: Expression.ArrayCreation =>
         bindArrayCreationExpression(node, scope)
-      case node: Expression.AssignmentExpression =>
+      case node: Expression.Assignment =>
         bindAssignmentExpression(node, scope)
-      case node: Expression.BinaryExpression =>
+      case node: Expression.Binary =>
         bindBinaryExpression(node, scope)
-      case node: Expression.BlockExpression => bindBlockExpression(node, scope)
-      case node: Expression.CallExpression =>
+      case node: Expression.Block => bindBlockExpression(node, scope)
+      case node: Expression.Call =>
         bindCallExpression(node, scope) match {
           case Result.Error(value)   => value
           case Result.Error(value)   => value
         }
-      case node: Expression.CastExpression  => bindCast(node, scope)
-      case node: Expression.ForExpression   => bindForExpression(node, scope)
-      case node: Expression.GroupExpression => bindGroupExpression(node, scope)
+      case node: Expression.Cast  => bindCast(node, scope)
+      case node: Expression.For   => bindForExpression(node, scope)
+      case node: Expression.Group => bindGroupExpression(node, scope)
       case node: Expression.IdentifierName =>
         bindIdentifierName(node, scope) match {
           case Result.Error(value)   => value
           case Result.Error(value)   => value
         }
-      case node: Expression.If           => bindIf(node, scope)
-      case node: Expression.IsExpression => bindIsExpression(node, scope)
-      case node: Expression.LiteralExpression =>
+      case node: Expression.If => bindIf(node, scope)
+      case node: Expression.Is => bindIsExpression(node, scope)
+      case node: Expression.Literal =>
         bindLiteralExpression(node, scope)
-      case node: Expression.MemberAccessExpression =>
+      case node: Expression.MemberAccess =>
         bindMemberAccessExpression(node, scope) match {
           case Result.Error(value)   => value
           case Result.Error(value)   => value
         }
-      case node: Expression.MatchExpression => bindMatchExpression(node, scope)
-      case node: Expression.NewExpression =>
+      case node: Expression.Match => bindMatchExpression(node, scope)
+      case node: Expression.New =>
         bindNewExpression(node, scope) match {
           case Result.Error(value)   => value
           case Result.Error(value)   => value
         }
-      case node: Expression.UnaryExpression => bindUnaryExpression(node, scope)
-      case node: Expression.UnitExpression  => bindUnitExpression(node, scope)
+      case node: Expression.Unary => bindUnaryExpression(node, scope)
+      case node: Expression.Unit  => bindUnitExpression(node, scope)
     }
   }
 
@@ -192,17 +192,17 @@ class ExprBinder(
           case Result.Error(value) => Result.Error(value)
           case Result.Error(value) => Result.Error(value)
         }
-      case node: Expression.MemberAccessExpression =>
+      case node: Expression.MemberAccess =>
         bindMemberAccessExpression(node, scope) match {
           case Result.Error(value) => Result.Error(value)
           case Result.Error(value) => Result.Error(value)
         }
-      case node: Expression.CallExpression =>
+      case node: Expression.Call =>
         bindCallExpression(node, scope) match {
           case Result.Error(value)   => Result.Error(value)
           case Result.Error(value)   => Result.Error(value)
         }
-      case node: Expression.NewExpression =>
+      case node: Expression.New =>
         bindNewExpression(node, scope) match {
           case Result.Error(value)   => Result.Error(value)
           case Result.Error(value)   => Result.Error(value)
@@ -245,7 +245,7 @@ class ExprBinder(
   }
 
   def bindArrayCreationExpression(
-      node: Expression.ArrayCreationExpression,
+      node: Expression.ArrayCreation,
       scope: Scope
   ): BoundExpression = {
     // Extract the array element type from the name (e.g., Array[int])
@@ -288,7 +288,7 @@ class ExprBinder(
   }
 
   def bindAssignmentExpression(
-      node: Expression.AssignmentExpression,
+      node: Expression.Assignment,
       scope: Scope
   ): BoundExpression = {
     val lhs = bindLHS(node.left, scope)
@@ -310,7 +310,7 @@ class ExprBinder(
   }
 
   def bindBinaryExpression(
-      node: Expression.BinaryExpression,
+      node: Expression.Binary,
       scope: Scope
   ): BoundExpression = {
     val left = bind(node.left, scope)
@@ -327,16 +327,16 @@ class ExprBinder(
   }
 
   def bindBlockExpression(
-      node: Expression.BlockExpression,
+      node: Expression.Block,
       scope: Scope
   ): BoundExpression = {
     val block = scope.newBlock()
     val statements = bindStatements(node.block.statements, block)
     val expr = node.block.expression match {
       case Option.None =>
-        BoundExpression.UnitExpression(TextLocationFactory.empty())
+        BoundExpression.Unit(TextLocationFactory.empty())
       case Option.None =>
-        BoundExpression.UnitExpression(TextLocationFactory.empty())
+        BoundExpression.Unit(TextLocationFactory.empty())
     }
 
     if (expr == BoundExpression.Error) {
@@ -369,7 +369,7 @@ class ExprBinder(
   }
 
   def bindCallExpression(
-      node: Expression.CallExpression,
+      node: Expression.Call,
       scope: Scope
   ): Result[
     BoundExpression.Error,
@@ -446,7 +446,7 @@ class ExprBinder(
                   case BoundLeftHandSide.MemberAccess(memberAccess) =>
                     memberAccess
                 }
-                val indexExpr = new BoundExpression.IndexExpression(
+                val indexExpr = new BoundExpression.Index(
                   location,
                   arrayExpr,
                   boundIndex,
@@ -475,7 +475,7 @@ class ExprBinder(
                   case BoundLeftHandSide.MemberAccess(memberAccess) =>
                     memberAccess
                 }
-                val indexExpr = new BoundExpression.IndexExpression(
+                val indexExpr = new BoundExpression.Index(
                   location,
                   arrayExpr,
                   boundIndex,
@@ -511,7 +511,7 @@ class ExprBinder(
       functionType: Type.Function,
       args: List[BoundExpression],
       scope: Scope
-  ): Result[BoundExpression.Error, BoundExpression.CallExpression] = {
+  ): Result[BoundExpression.Error, BoundExpression.Call] = {
     val location = AstUtils.locationOfBoundLeftHandSide(function)
     if (functionType.parameters.length != args.length) {
       diagnosticBag.reportArgumentCountMismatch(
@@ -538,7 +538,7 @@ class ExprBinder(
             Option.Some(access.receiver)
           }
           Result.Success(
-            BoundExpression.CallExpression(
+            BoundExpression.Call(
               location,
               receiver,
               access.member,
@@ -549,7 +549,7 @@ class ExprBinder(
           )
         case BoundLeftHandSide.Variable(location, symbol) =>
           Result.Success(
-            BoundExpression.CallExpression(
+            BoundExpression.Call(
               location,
               Option.None,
               symbol,
@@ -590,7 +590,7 @@ class ExprBinder(
       }
       Result.Success(
         BoundLeftHandSide.New(
-          BoundExpression.NewExpression(
+          BoundExpression.New(
             location,
             ctor,
             genericArguments,
@@ -606,7 +606,7 @@ class ExprBinder(
     symbol.lookupMember(".ctor")
 
   def bindCast(
-      cast: Expression.CastExpression,
+      cast: Expression.Cast,
       scope: Scope
   ): BoundExpression = {
     val expr = bind(cast.expression, scope)
@@ -619,14 +619,14 @@ class ExprBinder(
   }
 
   def bindIsExpression(
-      isExpr: Expression.IsExpression,
+      isExpr: Expression.Is,
       scope: Scope
   ): BoundExpression = {
     val expr = bind(isExpr.expression, scope)
     val typ = binder.bindTypeName(isExpr.typ, scope)
     val location = AstUtils.locationOfExpression(isExpr)
 
-    new BoundExpression.IsExpression(location, expr, typ)
+    new BoundExpression.Is(location, expr, typ)
   }
 
   def getParameterTypes(parameters: List[BoundParameter]): List[Type] = {
@@ -673,7 +673,7 @@ class ExprBinder(
     }
 
   def bindForExpression(
-      node: Expression.ForExpression,
+      node: Expression.For,
       scope: Scope
   ): BoundExpression = {
 
@@ -691,7 +691,7 @@ class ExprBinder(
   }
 
   def bindGroupExpression(
-      node: Expression.GroupExpression,
+      node: Expression.Group,
       scope: Scope
   ): BoundExpression =
     bind(node.expression, scope)
@@ -747,7 +747,7 @@ class ExprBinder(
   }
 
   def bindLiteralExpression(
-      node: Expression.LiteralExpression,
+      node: Expression.Literal,
       scope: Scope
   ): BoundExpression = {
     node.value match {
@@ -800,7 +800,7 @@ class ExprBinder(
   }
 
   def bindMemberAccessExpression(
-      node: Expression.MemberAccessExpression,
+      node: Expression.MemberAccess,
       scope: Scope
   ): Result[BoundExpression.Error, BoundExpression.MemberAccess] = {
     // For member access, the left side doesn't need to be a left-hand side
@@ -1024,7 +1024,7 @@ class ExprBinder(
   }
 
   def bindMatchExpression(
-      node: Expression.MatchExpression,
+      node: Expression.Match,
       scope: Scope
   ): BoundExpression = {
     // Bind the expression being matched against
@@ -1037,7 +1037,7 @@ class ExprBinder(
   }
 
   def bindNewExpression(
-      node: Expression.NewExpression,
+      node: Expression.New,
       scope: Scope
   ): Result[BoundExpression.Error, BoundLeftHandSide] = {
     val instantiationType = binder.bindTypeName(node.name, scope)
@@ -1107,7 +1107,7 @@ class ExprBinder(
   }
 
   def bindUnaryExpression(
-      node: Expression.UnaryExpression,
+      node: Expression.Unary,
       scope: Scope
   ): BoundExpression = {
     val op = bindUnaryOperator(node.operator)
@@ -1119,20 +1119,20 @@ class ExprBinder(
   }
 
   def bindUnitExpression(
-      node: Expression.UnitExpression,
+      node: Expression.Unit,
       scope: Scope
   ): BoundExpression =
-    BoundExpression.UnitExpression(
+    BoundExpression.Unit(
       node.openParen.location.merge(node.closeParen.location)
     )
 
   def bindWhileExpression(
-      node: Expression.WhileExpression,
+      node: Expression.While,
       scope: Scope
   ): BoundExpression = {
     val cond = bind(node.condition, scope)
     val body = bind(node.body, scope)
-    new BoundExpression.WhileExpression(node.whileKeyword.location, cond, body)
+    new BoundExpression.While(node.whileKeyword.location, cond, body)
   }
 
   def bindStatement(

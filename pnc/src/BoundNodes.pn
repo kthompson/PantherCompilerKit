@@ -37,10 +37,10 @@ enum BoundStatement {
 
 enum BoundLeftHandSide {
   case ArrayCreation(expression: BoundExpression.ArrayCreation)
-  case Call(expression: BoundExpression.CallExpression)
-  case Index(expression: BoundExpression.IndexExpression)
+  case Call(expression: BoundExpression.Call)
+  case Index(expression: BoundExpression.Index)
   case MemberAccess(expression: BoundExpression.MemberAccess)
-  case New(expression: BoundExpression.NewExpression)
+  case New(expression: BoundExpression.New)
   case Variable(location: TextLocation, symbol: Symbol)
 }
 
@@ -76,7 +76,7 @@ enum BoundExpression {
       receiver: BoundLeftHandSide,
       expression: BoundExpression
   )
-  case BinaryExpression(
+  case Binary(
       location: TextLocation,
       left: BoundExpression,
       operator: BinaryOperatorKind,
@@ -85,7 +85,7 @@ enum BoundExpression {
   )
   case Block(statements: List[BoundStatement], expression: BoundExpression)
   case Boolean(location: TextLocation, value: bool)
-  case CallExpression(
+  case Call(
       location: TextLocation,
       receiver: Option[BoundLeftHandSide],
       method: Symbol,
@@ -93,37 +93,43 @@ enum BoundExpression {
       arguments: List[BoundExpression],
       resultType: Type
   )
-  case CastExpression(
+  case Cast(
       location: TextLocation,
       expression: BoundExpression,
       targetType: Type
   )
   case Character(location: TextLocation, value: char)
-  case ForExpression(
+  case For(
       location: TextLocation,
       variable: Symbol,
       lowerBound: BoundExpression,
       upperBound: BoundExpression,
       body: BoundExpression
   )
-  case IfExpression(
+  case If(
       location: TextLocation,
       cond: BoundExpression,
       thenExpr: BoundExpression,
       elseExpr: Option[BoundExpression],
       resultType: Type
   )
-  case IndexExpression(
+  case Index(
       location: TextLocation,
       array: BoundExpression,
       index: BoundExpression,
       resultType: Type
   )
   case Int(location: TextLocation, value: int)
-  case IsExpression(
+  case Is(
       location: TextLocation,
       expression: BoundExpression,
       targetType: Type
+  )
+  case Match(
+      location: TextLocation,
+      resultType: Type,
+      expression: BoundExpression,
+      cases: NonEmptyList[BoundMatchCase]
   )
   case MemberAccess(
       location: TextLocation,
@@ -132,7 +138,7 @@ enum BoundExpression {
       genericArguments: List[Type],
       resultType: Type
   )
-  case NewExpression(
+  case New(
       location: TextLocation,
       constructor: Symbol,
       genericArguments: List[Type],
@@ -140,27 +146,21 @@ enum BoundExpression {
       resultType: Type
   )
   case String(location: TextLocation, value: string)
-  case UnaryExpression(
+  case Unary(
       location: TextLocation,
       operator: UnaryOperatorKind,
       operand: BoundExpression,
       resultType: Type
   )
-  case UnitExpression(location: TextLocation)
+  case Unit(location: TextLocation)
   case Variable(
       location: TextLocation,
       symbol: Symbol,
       resultType: Option[Type]
   )
-  case WhileExpression(
+  case While(
       location: TextLocation,
       condition: BoundExpression,
       body: BoundExpression
-  )
-  case MatchExpression(
-      location: TextLocation,
-      resultType: Type,
-      expression: BoundExpression,
-      cases: NonEmptyList[BoundMatchCase]
   )
 }
