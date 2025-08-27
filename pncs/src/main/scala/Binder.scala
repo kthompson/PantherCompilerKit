@@ -239,6 +239,18 @@ case class Binder(
     )
   )
 
+  // string(value: any): string - type conversion function
+  conversionMethod(stringSymbol, stringType)
+
+  // int(value: any): int - type conversion function
+  conversionMethod(intSymbol, intType)
+
+  // bool(value: any): bool - type conversion function
+  conversionMethod(boolSymbol, boolType)
+
+  // tochar(value: any): char - type conversion function
+  conversionMethod(charSymbol, charType)
+
   /** These are the methods and fields that need to be bound/symbolized
     */
   var membersToBind: Dictionary[Symbol, List[BindingMember]] =
@@ -270,6 +282,21 @@ case class Binder(
   val classifier = new ConversionClassifier(this)
   val exprBinder: ExprBinder =
     new ExprBinder(rootSymbol, this, classifier, diagnosticBag)
+
+  def conversionMethod(symbol: Symbol, returnType: Type): unit = {
+    val apply = method(symbol, "apply")
+    setSymbolType(
+      apply,
+      Type.Function(
+        noLoc,
+        List.Cons(
+          BoundParameter(param(apply, "value", anyType), anyType),
+          List.Nil
+        ),
+        returnType
+      )
+    )
+  }
 
   def classType(name: string, symbol: Symbol): Type =
     new Type.Class(noLoc, List.Nil, name, List.Nil, symbol)

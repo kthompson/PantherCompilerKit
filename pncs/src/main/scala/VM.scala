@@ -593,14 +593,64 @@ case class VM(
           case Value.Int(0) =>
             pushBool(false)
             InterpretResult.Continue
-          case Value.Int(1) =>
+          case Value.Int(_) =>
             pushBool(true)
             InterpretResult.Continue
           case Value.Bool(b) =>
             pushBool(b)
             InterpretResult.Continue
           case _ =>
-            runtimeError("Cannot convert value to bool")
+            runtimeError("Cannot convert value to bool: " + a)
+        }
+
+      case Opcode.ConvI4 =>
+        val a = pop()
+        a match {
+          case Value.Int(i) =>
+            push(Value.Int(i))
+            InterpretResult.Continue
+          case Value.Bool(true) =>
+            push(Value.Int(1))
+            InterpretResult.Continue
+          case Value.Bool(false) =>
+            push(Value.Int(0))
+            InterpretResult.Continue
+          case Value.String(s) =>
+            if (s.length() == 0) {
+              runtimeError("Cannot convert empty string to int")
+            } else if (s(0) == '-') {
+              atoi(s, 1, 0) match {
+                case Option.None => runtimeError("Cannot convert string to int")
+                case Option.Some(value) => push(Value.Int(-value))
+              }
+            } else {
+              atoi(s, 0, 0) match {
+                case Option.None => runtimeError("Cannot convert string to int")
+                case Option.Some(value) => push(Value.Int(value))
+              }
+            }
+
+          case _ =>
+            runtimeError("Cannot convert value to int")
+        }
+
+      case Opcode.ConvChar =>
+        val a = pop()
+        a match {
+          case Value.Int(i) =>
+            push(Value.Int(i))
+            InterpretResult.Continue
+          case Value.String(s) =>
+            if (s.length() == 1) {
+              push(Value.Int(s(0)))
+              InterpretResult.Continue
+            } else {
+              runtimeError(
+                "Cannot convert string of length " + s.length() + " to char"
+              )
+            }
+          case _ =>
+            runtimeError("Cannot convert value to char")
         }
 
       // type checking ops
@@ -761,6 +811,21 @@ case class VM(
         val opcode = Opcode.nameOf(instruction)
         panic("Unsupported opcode " + opcode)
         InterpretResult.CompileError
+    }
+  }
+
+  def atoi(s: string, index: int, value: int): Option[int] = {
+    if (index >= s.length()) {
+      Option.Some(value)
+    } else {
+      val c = s(index)
+      if (c < '0' || c > '9') {
+        Option.None
+      } else {
+        val digit = c - '0'
+        val newValue = value * 10 + digit
+        atoi(s, index + 1, newValue)
+      }
     }
   }
 

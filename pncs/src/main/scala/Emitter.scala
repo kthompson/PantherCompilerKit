@@ -509,12 +509,34 @@ case class Emitter(
     emitExpressions(expr.arguments, context)
 
     val startLine = expr.location.startLine
-    methodTokens.get(expr.method) match {
-      case Option.None =>
-        panic("emitCallExpression: no method token for " + expr.method.name)
-      case Option.Some(token) =>
-        chunk.emitOpcode(Opcode.Call, startLine)
-        chunk.emitI4(token.token, startLine)
+
+    // Check for built-in conversion functions and emit appropriate conversion opcodes
+    if (expr.method.extern) {
+      if (expr.method.name == "apply") {
+        expr.method.parent.get().name match {
+          case "string" =>
+            chunk.emitOpcode(Opcode.ConvStr, startLine)
+          case "bool" =>
+            chunk.emitOpcode(Opcode.ConvBool, startLine)
+          case "int" =>
+            chunk.emitOpcode(Opcode.ConvI4, startLine)
+          case "char" =>
+            chunk.emitOpcode(Opcode.ConvChar, startLine)
+          case _ =>
+            panic("emitCallExpression: unknown extern " + expr.method.name)
+        }
+      } else {
+        panic("emitCallExpression: unknown extern " + expr.method.name)
+      }
+    } else {
+      // Regular method call
+      methodTokens.get(expr.method) match {
+        case Option.None =>
+          panic("emitCallExpression: no method token for " + expr.method.name)
+        case Option.Some(token) =>
+          chunk.emitOpcode(Opcode.Call, startLine)
+          chunk.emitI4(token.token, startLine)
+      }
     }
   }
 

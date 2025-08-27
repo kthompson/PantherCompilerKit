@@ -549,12 +549,7 @@ case class ExprBinder(
             // Handle regular class constructors
             findConstructor(symbol) match {
               case Option.None =>
-                diagnosticBag.reportNotCallable(location)
-                Result.Error(
-                  BoundExpression.Error(
-                    "Cannot find constructor for class: " + name
-                  )
-                )
+                bindApply(args, scope, functionType, symbol, location)
               case Option.Some(ctor) =>
                 binder.tryGetSymbolType(ctor) match {
                   case Option.Some(Type.Function(loc, params, _)) =>
@@ -591,6 +586,51 @@ case class ExprBinder(
           )
       }
   }
+
+  def bindApply(
+      args: List[BoundExpression],
+      scope: Scope,
+      functionType: Type,
+      symbol: Symbol,
+      location: TextLocation
+  ): Result[BoundExpression.Error, BoundLeftHandSide] = {
+    findApply(symbol) match {
+      case Option.None =>
+        diagnosticBag.reportNotCallable(location)
+        Result.Error(
+          BoundExpression.Error(
+            "Cannot find constructor for class: " + symbol.name
+          )
+        )
+      case Option.Some(applySymbol) =>
+        binder.tryGetSymbolType(applySymbol) match {
+          case Option.Some(Type.Function(loc, params, _)) =>
+            bindFunctionCall(
+              BoundLeftHandSide.Variable(
+                location,
+                applySymbol
+              ),
+              Type.Function(loc, params, functionType),
+              args,
+              scope
+            ) match {
+              case Result.Error(value) => Result.Error(value)
+              case Result.Success(value) =>
+                Result.Success(BoundLeftHandSide.Call(value))
+            }
+          case _ =>
+            diagnosticBag.reportNotCallable(location)
+            Result.Error(
+              BoundExpression.Error(
+                "Apply symbol does not have a function type: " + symbol.name
+              )
+            )
+        }
+    }
+  }
+
+  def findApply(symbol: Symbol): Option[Symbol] =
+    symbol.lookupMember("apply")
 
   def bindFunctionCall(
       function: BoundLeftHandSide,

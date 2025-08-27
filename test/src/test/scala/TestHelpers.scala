@@ -402,10 +402,14 @@ object TestHelpers {
 
     assertSymbol(enumerator, SymbolKind.Class, "any")
     assertSymbol(enumerator, SymbolKind.Class, "int")
+    assertConversionMethod(enumerator)
     assertSymbol(enumerator, SymbolKind.Class, "string")
     assertSymbol(enumerator, SymbolKind.Field, "length")
+    assertConversionMethod(enumerator)
     assertSymbol(enumerator, SymbolKind.Class, "bool")
+    assertConversionMethod(enumerator)
     assertSymbol(enumerator, SymbolKind.Class, "char")
+    assertConversionMethod(enumerator)
     assertSymbol(enumerator, SymbolKind.Class, "unit")
     assertSymbol(enumerator, SymbolKind.Class, "Array")
     assertSymbol(enumerator, SymbolKind.TypeParameter(Variance.Invariant), "T")
@@ -421,6 +425,11 @@ object TestHelpers {
     assertSymbol(enumerator, SymbolKind.Parameter, "message")
 
     enumerator
+  }
+
+  def assertConversionMethod(enumerator: ChainEnumerator[Symbol]) = {
+    assertSymbol(enumerator, SymbolKind.Method, "apply")
+    assertSymbol(enumerator, SymbolKind.Parameter, "value")
   }
 
   def assertSymbol(
