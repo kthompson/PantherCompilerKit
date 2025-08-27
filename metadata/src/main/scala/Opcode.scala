@@ -85,6 +85,7 @@ object Opcode {
   val ConvI4 = 110
   val ConvStr = 111
   val ConvBool = 112
+  val ConvChar = 113
 
   // type checking
   val IsInst = 120
@@ -201,6 +202,8 @@ object Opcode {
       "conv.str"
     } else if (opcode == ConvBool) {
       "conv.bool"
+    } else if (opcode == ConvChar) {
+      "conv.char"
     } else if (opcode == IsInst) {
       "isinst"
     } else if (opcode == Cast) {

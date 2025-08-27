@@ -69,17 +69,23 @@ object panther {
   type any = scala.Any
   type never = scala.Nothing
 
-  def string(any: Any): string = any.toString
-  def char(any: Any): char = any match {
+  def string(any: any): string = any.toString
+  def char(any: any): char = any match {
     case c: char => c
     case i: int  => i.toChar
-    case _       => throw new Exception("not a char")
+    case _       => panic("not a char")
   }
-  def int(any: Any): int = any match {
+  def int(any: any): int = any match {
     case i: int    => i
     case c: char   => c.toInt
     case s: string => s.toInt
-    case _         => throw new Exception("not an int")
+    case _         => panic("not an int")
+  }
+  def bool(any: any): bool = any match {
+    case b: bool   => b
+    case i: int    => i != 0
+    case s: string => s.toLowerCase == "true"
+    case _         => panic("not a bool")
   }
 
   def panic(message: string): never = throw new Exception(message)

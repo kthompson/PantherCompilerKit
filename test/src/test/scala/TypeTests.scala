@@ -465,5 +465,133 @@ object TypeTests extends TestSuite {
         assertExprTypeWithSetup(setup, "(x as bool) == true", "bool")
       }
     }
+
+    test("string conversions") {
+      test("basic string conversions") {
+        // Convert literals to string
+        assertExprTypeTest("string(42)", "string")
+        assertExprTypeTest("string(0)", "string")
+        assertExprTypeTest("string(-123)", "string")
+        assertExprTypeTest("string(true)", "string")
+        assertExprTypeTest("string(false)", "string")
+        assertExprTypeTest("string('a')", "string")
+        assertExprTypeTest("string('z')", "string")
+        assertExprTypeTest("string(())", "string")
+      }
+
+      test("string conversions with variables") {
+        val intSetup = "val num = 123"
+        assertExprTypeWithSetup(intSetup, "string(num)", "string")
+
+        val boolSetup = "val flag = true"
+        assertExprTypeWithSetup(boolSetup, "string(flag)", "string")
+
+        val charSetup = "val ch = 'A'"
+        assertExprTypeWithSetup(charSetup, "string(ch)", "string")
+
+        val unitSetup = "val nothing = ()"
+        assertExprTypeWithSetup(unitSetup, "string(nothing)", "string")
+      }
+
+      test("string conversions with expressions") {
+        // Arithmetic expressions
+        assertExprTypeTest("string(1 + 2)", "string")
+        assertExprTypeTest("string(10 - 5)", "string")
+        assertExprTypeTest("string(3 * 4)", "string")
+        assertExprTypeTest("string(15 / 3)", "string")
+        assertExprTypeTest("string(17 % 5)", "string")
+
+        // Boolean expressions
+        assertExprTypeTest("string(true && false)", "string")
+        assertExprTypeTest("string(true || false)", "string")
+        assertExprTypeTest("string(!true)", "string")
+        assertExprTypeTest("string(5 > 3)", "string")
+        assertExprTypeTest("string(5 == 5)", "string")
+        assertExprTypeTest("string(5 != 3)", "string")
+
+        // Unary expressions
+        assertExprTypeTest("string(-42)", "string")
+        assertExprTypeTest("string(+42)", "string")
+      }
+
+      test("string conversions in complex expressions") {
+        val setup = "val x = 42\nval y = true"
+
+        // String conversions in comparisons
+        assertExprTypeWithSetup(setup, "string(x) == \"42\"", "bool")
+        assertExprTypeWithSetup(setup, "string(y) == \"true\"", "bool")
+        assertExprTypeWithSetup(setup, "string(x) != \"0\"", "bool")
+
+        // String conversions in arithmetic context
+        assertExprTypeWithSetup(setup, "string(x + 10)", "string")
+        assertExprTypeWithSetup(setup, "string(x * 2)", "string")
+      }
+
+      test("string conversions with method calls") {
+        // Convert results of method calls to string
+        assertExprTypeTest("string(println(\"test\"))", "string")
+        assertExprTypeTest("string(print(42))", "string")
+      }
+
+      test("string conversions with control flow") {
+        // String conversions with if expressions
+        assertExprTypeTest("string(if (true) 1 else 2)", "string")
+        assertExprTypeTest("string(if (false) true else false)", "string")
+
+        // String conversions with block expressions
+        assertExprTypeTest("string({ 42 })", "string")
+        assertExprTypeTest("string({ true })", "string")
+      }
+
+      test("nested string conversions") {
+        val setup = "val x = 42"
+
+        // String conversion of string (should still work)
+        assertExprTypeTest("string(\"hello\")", "string")
+        assertExprTypeWithSetup(setup, "string(string(x))", "string")
+
+        // String conversions in nested expressions
+        assertExprTypeWithSetup(setup, "string(string(x) == \"42\")", "string")
+      }
+    }
+
+    test("other type conversions") {
+      test("int conversions") {
+        // Convert various types to int
+        assertExprTypeTest("int(42)", "int")
+        assertExprTypeTest("int(true)", "int")
+        assertExprTypeTest("int(false)", "int")
+        assertExprTypeTest("int('a')", "int")
+
+        // Int conversions with variables and expressions
+        val setup = "val flag = true\nval ch = 'A'"
+        assertExprTypeWithSetup(setup, "int(flag)", "int")
+        assertExprTypeWithSetup(setup, "int(ch)", "int")
+        assertExprTypeTest("int(1 + 2)", "int")
+      }
+
+      test("bool conversions") {
+        // Convert various types to bool
+        assertExprTypeTest("bool(true)", "bool")
+        assertExprTypeTest("bool(false)", "bool")
+        assertExprTypeTest("bool(42)", "bool")
+        assertExprTypeTest("bool(0)", "bool")
+
+        // Bool conversions with variables and expressions
+        val setup = "val num = 123"
+        assertExprTypeWithSetup(setup, "bool(num)", "bool")
+        assertExprTypeTest("bool(5 > 3)", "bool")
+      }
+
+      test("char conversions") {
+        // Convert various types to char
+        assertExprTypeTest("char('a')", "char")
+        assertExprTypeTest("char(65)", "char")
+
+        // Char conversions with variables
+        val setup = "val ascii = 97"
+        assertExprTypeWithSetup(setup, "char(ascii)", "char")
+      }
+    }
   }
 }

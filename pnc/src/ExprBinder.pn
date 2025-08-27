@@ -487,24 +487,42 @@ class ExprBinder(
             // Handle regular class constructors
             findConstructor(symbol) match {
               case Option.None =>
-                diagnosticBag.reportNotCallable(location)
-                Result.Error(
-                  BoundExpression.Error(
-                    "Cannot find constructor for class: " + name
-                  )
-                )
+                bindApply(args, scope, functionType, symbol, location)
               case Option.None =>
-                diagnosticBag.reportNotCallable(location)
-                Result.Error(
-                  BoundExpression.Error(
-                    "Cannot find constructor for class: " + name
-                  )
-                )
+                bindApply(args, scope, functionType, symbol, location)
             }
           }
 
       }
   }
+
+  def bindApply(
+      args: List[BoundExpression],
+      scope: Scope,
+      functionType: Type,
+      symbol: Symbol,
+      location: TextLocation
+  ): Result[BoundExpression.Error, BoundLeftHandSide] = {
+    findApply(symbol) match {
+      case Option.None =>
+        diagnosticBag.reportNotCallable(location)
+        Result.Error(
+          BoundExpression.Error(
+            "Cannot find constructor for class: " + symbol.name
+          )
+        )
+      case Option.None =>
+        diagnosticBag.reportNotCallable(location)
+        Result.Error(
+          BoundExpression.Error(
+            "Cannot find constructor for class: " + symbol.name
+          )
+        )
+    }
+  }
+
+  def findApply(symbol: Symbol): Option[Symbol] =
+    symbol.lookupMember("apply")
 
   def bindFunctionCall(
       function: BoundLeftHandSide,

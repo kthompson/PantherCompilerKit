@@ -484,5 +484,197 @@ object VmTests extends TestSuite {
       assertExecValueStringWithSetup(stringSetup, "stringArray(0)", "hello")
       assertExecValueStringWithSetup(stringSetup, "stringArray(1)", "world")
     }
+
+    test("string conversions - basic literals") {
+      // Test string conversion of basic literals
+      assertExecValueString("string(42)", "42")
+      assertExecValueString("string(0)", "0")
+      assertExecValueString("string(-123)", "-123")
+      assertExecValueString("string(true)", "true")
+      assertExecValueString("string(false)", "false")
+
+      // String conversion of string (identity)
+      assertExecValueString("string(\"hello\")", "hello")
+      assertExecValueString("string(\"\")", "")
+    }
+
+    test("string conversions - with variables") {
+      // Test string conversion of variables
+      assertExecValueStringWithSetup("val num = 123", "string(num)", "123")
+      assertExecValueStringWithSetup("val flag = true", "string(flag)", "true")
+      assertExecValueStringWithSetup(
+        "val flag2 = false",
+        "string(flag2)",
+        "false"
+      )
+      assertExecValueStringWithSetup(
+        "val text = \"world\"",
+        "string(text)",
+        "world"
+      )
+
+      // Negative numbers
+      assertExecValueStringWithSetup("val neg = -42", "string(neg)", "-42")
+    }
+
+    test("string conversions - with expressions") {
+      // Test string conversion of arithmetic expressions
+      assertExecValueString("string(1 + 2)", "3")
+      assertExecValueString("string(10 - 5)", "5")
+      assertExecValueString("string(3 * 4)", "12")
+      assertExecValueString("string(15 / 3)", "5")
+      assertExecValueString("string(17 % 5)", "2")
+
+      // Test string conversion of boolean expressions
+      assertExecValueString("string(true && false)", "false")
+      assertExecValueString("string(true || false)", "true")
+      assertExecValueString("string(!true)", "false")
+      assertExecValueString("string(!false)", "true")
+      assertExecValueString("string(5 > 3)", "true")
+      assertExecValueString("string(5 == 5)", "true")
+      assertExecValueString("string(5 != 3)", "true")
+      assertExecValueString("string(5 < 3)", "false")
+
+      // Test string conversion of unary expressions
+      assertExecValueString("string(-42)", "-42")
+      assertExecValueString("string(+42)", "42")
+    }
+
+    test("string conversions - complex expressions") {
+      val setup = "val x = 42\nval y = true"
+
+      // String conversions in comparisons
+      assertExecValueBoolWithSetup(setup, "string(x) == \"42\"", true)
+      assertExecValueBoolWithSetup(setup, "string(y) == \"true\"", true)
+      assertExecValueBoolWithSetup(setup, "string(x) != \"0\"", true)
+      assertExecValueBoolWithSetup(setup, "string(y) != \"false\"", true)
+
+      // String conversions of computed values
+      assertExecValueStringWithSetup(setup, "string(x + 10)", "52")
+      assertExecValueStringWithSetup(setup, "string(x * 2)", "84")
+      assertExecValueStringWithSetup(setup, "string(x - 10)", "32")
+    }
+
+    test("string conversions - with control flow") {
+      // String conversions with if expressions
+      assertExecValueString("string(if (true) 1 else 2)", "1")
+      assertExecValueString("string(if (false) 1 else 2)", "2")
+      assertExecValueString("string(if (5 > 3) 100 else 200)", "100")
+      assertExecValueString("string(if (3 > 5) true else false)", "false")
+
+      // String conversions with block expressions
+      assertExecValueString("string({ 42 })", "42")
+      assertExecValueString("string({ true })", "true")
+      assertExecValueString(
+        "string({ val temp = 10\n temp * 2 })",
+        "20"
+      )
+    }
+
+    test("string conversions - nested and chained") {
+      val setup = "val x = 42"
+
+      // Nested string conversions
+      assertExecValueStringWithSetup(setup, "string(string(x))", "42")
+      assertExecValueString("string(string(\"hello\"))", "hello")
+
+      // String conversions in nested expressions
+      assertExecValueStringWithSetup(
+        setup,
+        "string(string(x) == \"42\")",
+        "true"
+      )
+      assertExecValueStringWithSetup(
+        setup,
+        "string(string(x + 8) == \"50\")",
+        "true"
+      )
+    }
+
+    test("string conversions - edge cases") {
+      // Large numbers
+      assertExecValueString("string(999999)", "999999")
+      assertExecValueString("string(-999999)", "-999999")
+
+      // Complex arithmetic
+      assertExecValueString("string((10 + 5) * (20 / 4))", "75")
+      assertExecValueString("string(100 - 50 + 25)", "75")
+
+      // Complex boolean logic
+      assertExecValueString("string((5 > 3) && (10 < 20))", "true")
+      assertExecValueString("string((5 < 3) || (10 > 20))", "false")
+    }
+
+    test("int conversions - basic functionality") {
+      // Test int conversion of basic literals
+      assertExecValueInt("int(42)", 42)
+      assertExecValueInt("int(0)", 0)
+      assertExecValueInt("int(-123)", -123)
+      assertExecValueInt("int(true)", 1)
+      assertExecValueInt("int(false)", 0)
+
+      // Int conversion with variables
+      assertExecValueIntWithSetup("val flag = true", "int(flag)", 1)
+      assertExecValueIntWithSetup("val flag2 = false", "int(flag2)", 0)
+      assertExecValueIntWithSetup("val num = 123", "int(num)", 123)
+    }
+
+    test("int conversions - string cases") {
+      assertExecValueInt("int(\"42\")", 42)
+      assertExecValueInt("int(\"0\")", 0)
+      assertExecValueInt("int(\"-123\")", -123)
+      assertExecValueIntWithSetup("val str = \"56\"", "int(str)", 56)
+      assertExecValueIntWithSetup("val str = \"-78\"", "int(str)", -78)
+      // Edge cases
+      assertExecValueInt("int(\"00123\")", 123)
+      assertExecValueInt("int(\"-00123\")", -123)
+      assertExecValueInt("int(\"2147483647\")", 2147483647) // Max int
+      assertExecValueInt("int(\"-2147483648\")", -2147483648) // Min int
+    }
+
+    test("bool conversions - basic functionality") {
+      // Test bool conversion of basic literals
+      assertExecValueBool("bool(true)", true)
+      assertExecValueBool("bool(false)", false)
+      assertExecValueBool("bool(42)", true)
+      assertExecValueBool("bool(0)", false)
+      assertExecValueBool("bool(-5)", true)
+
+      // Bool conversion with variables
+      assertExecValueBoolWithSetup("val num = 123", "bool(num)", true)
+      assertExecValueBoolWithSetup("val zero = 0", "bool(zero)", false)
+      assertExecValueBoolWithSetup("val flag = true", "bool(flag)", true)
+    }
+
+    test("conversion edge cases") {
+      // Test conversion of expressions
+      assertExecValueString("string(1 + 2 * 3)", "7")
+      assertExecValueInt("int(5 > 3)", 1)
+      assertExecValueInt("int(3 > 5)", 0)
+      assertExecValueBool("bool(10 - 10)", false)
+      assertExecValueBool("bool(10 - 9)", true)
+
+      // Test nested conversions
+      assertExecValueString("string(int(true))", "1")
+      assertExecValueString("string(int(false))", "0")
+      assertExecValueInt("int(bool(42))", 1)
+      assertExecValueInt("int(bool(0))", 0)
+    }
+
+    test("conversions with complex expressions") {
+      val setup = "val x = 42\nval y = true"
+
+      // Complex conversions
+      assertExecValueStringWithSetup(setup, "string(int(y) + x)", "43")
+      assertExecValueIntWithSetup(setup, "int(string(x) == \"42\")", 1)
+      assertExecValueBoolWithSetup(setup, "bool(int(y) * x)", true)
+
+      // Conversions in control flow
+      assertExecValueStringWithSetup(
+        setup,
+        "string(if (bool(x)) int(y) else 0)",
+        "1"
+      )
+    }
   }
 }
