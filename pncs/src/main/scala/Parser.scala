@@ -911,7 +911,7 @@ case class Parser(
     val keyword = accept()
     val open = acceptKind(SyntaxKind.OpenBraceToken)
     val caseHead = parseMatchCase()
-    val cases = parseMatchCases(caseHead, List.Nil)
+    val cases = NonEmptyList(caseHead, parseMatchCases(List.Nil))
     val close = acceptKind(SyntaxKind.CloseBraceToken)
 
     new Match(left, keyword, open, cases, close)
@@ -932,17 +932,16 @@ case class Parser(
   }
 
   def parseMatchCases(
-      head: MatchCaseSyntax,
       tail: List[MatchCaseSyntax]
-  ): NonEmptyList[MatchCaseSyntax] = {
+  ): List[MatchCaseSyntax] = {
     debugPrint("parseMatchCases")
-    var size = 0
 
     if (currentKind() == SyntaxKind.CaseKeyword) {
       val matchCase = parseMatchCase()
-      parseMatchCases(matchCase, List.Cons(head, tail))
+
+      parseMatchCases(List.Cons(matchCase, tail))
     } else {
-      NonEmptyList(head, tail).reverse()
+      tail.reverse()
     }
   }
 

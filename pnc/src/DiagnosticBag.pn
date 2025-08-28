@@ -20,7 +20,12 @@ enum Diagnostics {
   def _count(items: List[Diagnostics], count: int): int =
     items match {
       case List.Nil => count
-      case List.Nil => count
+      case List.Cons(head, tail) =>
+        head match {
+          case Diagnostics.Empty => _count(tail, count)
+          case Diagnostics.Node(left, _, right) =>
+            _count(List.Cons(left, List.Cons(right, tail)), count + 1)
+        }
     }
 
   def printDiagnostics(maxToPrint: int): int = _printDiagnostics(maxToPrint, 0)
@@ -28,7 +33,15 @@ enum Diagnostics {
   def _printDiagnostics(maxToPrint: int, count: int): int =
     this match {
       case Diagnostics.Empty => count
-      case Diagnostics.Empty => count
+      case Diagnostics.Node(left, head, right) =>
+        val leftCount = left._printDiagnostics(maxToPrint, count)
+        if (leftCount <= maxToPrint) {
+          printDiagnostic(head)
+        } else if (leftCount == maxToPrint + 1) {
+          // exceeded limit, print notice
+          print("... skipping remaining diagnostics ... ")
+        }
+        right._printDiagnostics(maxToPrint, leftCount + 1)
     }
 
   def printDiagnostic(diagnostic: Diagnostic): unit = {
@@ -244,14 +257,24 @@ class DiagnosticBag(settings: CompilerSettings) {
     node match {
       case Diagnostics.Empty =>
         Diagnostics.Node(Diagnostics.Empty, diagnostic, Diagnostics.Empty)
-      case Diagnostics.Empty =>
-        Diagnostics.Node(Diagnostics.Empty, diagnostic, Diagnostics.Empty)
+      case Diagnostics.Node(left, head, tail) =>
+        val cmp = diagnostic.compareTo(head)
+        if (cmp == 0) {
+          node
+        } else if (diagnostic.compareTo(head) < 0) {
+          Diagnostics.Node(_insert(left, diagnostic), head, tail)
+        } else {
+          Diagnostics.Node(left, head, _insert(tail, diagnostic))
+        }
     }
   }
 
   def addDiagnostics(more: Diagnostics): unit = more match {
     case Diagnostics.Empty => ()
-    case Diagnostics.Empty => ()
+    case Diagnostics.Node(left, head, right) =>
+      add(head)
+      addDiagnostics(left)
+      addDiagnostics(right)
   }
 
   def printDiagnostics(): int = {

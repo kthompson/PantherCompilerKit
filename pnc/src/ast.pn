@@ -324,22 +324,18 @@ object AstUtils {
         member.objectKeyword.location.merge(
           member.template.closeBrace.location
         )
-      case member: MemberSyntax.ObjectDeclarationSyntax =>
-        member.objectKeyword.location.merge(
-          member.template.closeBrace.location
-        )
       case member: MemberSyntax.ClassDeclarationSyntax =>
         member.classKeyword.location.merge(
           member.template match {
             case Option.Some(value) => value.closeBrace.location
-            case Option.Some(value) => value.closeBrace.location
+            case Option.None        => member.closeParenToken.location
           }
         )
       case member: MemberSyntax.FunctionDeclarationSyntax =>
         member.defKeyword.location.merge(
           member.body match {
             case Option.Some(value) => locationOfExpression(value.expression)
-            case Option.Some(value) => locationOfExpression(value.expression)
+            case Option.None        => member.closeParenToken.location
           }
         )
       case member: MemberSyntax.EnumDeclarationSyntax =>
@@ -350,6 +346,8 @@ object AstUtils {
         member.valOrVarKeyword.location.merge(
           locationOfExpression(member.expression)
         )
+      case member: MemberSyntax.GlobalStatementSyntax =>
+        locationOfStatement(member.statement)
     }
   }
 
@@ -357,12 +355,14 @@ object AstUtils {
     statement match {
       case statement: StatementSyntax.BreakStatement =>
         statement.breakKeyword.location
-      case statement: StatementSyntax.BreakStatement =>
-        statement.breakKeyword.location
       case statement: StatementSyntax.ContinueStatement =>
         statement.continueKeyword.location
       case statement: StatementSyntax.ExpressionStatement =>
         locationOfExpression(statement.expression)
+      case statement: StatementSyntax.VariableDeclarationStatement =>
+        statement.valOrVarKeyword.location.merge(
+          locationOfExpression(statement.expression)
+        )
     }
   }
 
@@ -370,12 +370,12 @@ object AstUtils {
     value match {
       case SimpleNameSyntax.GenericNameSyntax(identifier, typeArgumentlist) =>
         identifier.location.merge(typeArgumentlist.greaterThanToken.location)
-      case SimpleNameSyntax.GenericNameSyntax(identifier, typeArgumentlist) =>
-        identifier.location.merge(typeArgumentlist.greaterThanToken.location)
       case SimpleNameSyntax.IdentifierNameSyntax(value) =>
         value.location
       case SimpleNameSyntax.ScalaAliasSyntax(open, name, arrow, alias, close) =>
         open.location.merge(close.location)
+      case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) =>
+        name.location.merge(alias.location)
     }
   }
 
@@ -383,8 +383,28 @@ object AstUtils {
     value match {
       case NameSyntax.QualifiedName(left, dotToken, right) =>
         locationOfName(left).merge(locationOfSimpleName(right))
-      case NameSyntax.QualifiedName(left, dotToken, right) =>
-        locationOfName(left).merge(locationOfSimpleName(right))
+      case NameSyntax.SimpleName(name) =>
+        name match {
+          case SimpleNameSyntax.GenericNameSyntax(
+                identifier,
+                typeArgumentlist
+              ) =>
+            identifier.location.merge(
+              typeArgumentlist.greaterThanToken.location
+            )
+          case SimpleNameSyntax.IdentifierNameSyntax(value) =>
+            value.location
+          case SimpleNameSyntax.ScalaAliasSyntax(
+                open,
+                name,
+                arrow,
+                alias,
+                close
+              ) =>
+            open.location.merge(close.location)
+          case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) =>
+            name.location.merge(alias.location)
+        }
     }
   }
 
@@ -400,20 +420,7 @@ object AstUtils {
           ) =>
         val end = initializer match {
           case Option.Some(value) => value.closeBrace.location
-          case Option.Some(value) => value.closeBrace.location
-        }
-        newKeyword.location.merge(end)
-      case Expression.ArrayCreation(
-            newKeyword,
-            _,
-            _,
-            _,
-            closeBracket,
-            initializer
-          ) =>
-        val end = initializer match {
-          case Option.Some(value) => value.closeBrace.location
-          case Option.Some(value) => value.closeBrace.location
+          case Option.None        => closeBracket.location
         }
         newKeyword.location.merge(end)
       case Expression.Assignment(left, equals, right) =>
@@ -435,7 +442,7 @@ object AstUtils {
       case Expression.If(ifKeyword, _, _, _, expression, elseExpr) =>
         ifKeyword.location.merge(locationOfExpression(elseExpr match {
           case Option.Some(value) => value.expression
-          case Option.Some(value) => value.expression
+          case Option.None        => expression
         }))
       case Expression.Is(expression, isKeyword, typ) =>
         locationOfExpression(expression).merge(locationOfName(typ))
@@ -451,6 +458,8 @@ object AstUtils {
         operator.location.merge(locationOfExpression(expression))
       case Expression.Unit(openParen, closeParen) =>
         openParen.location.merge(closeParen.location)
+      case Expression.While(whileKeyword, _, _, _, body) =>
+        whileKeyword.location.merge(locationOfExpression(body))
     }
   }
   def locationOfBoundLeftHandSide(
@@ -458,17 +467,16 @@ object AstUtils {
   ): TextLocation = {
     value match {
       case BoundLeftHandSide.ArrayCreation(expr)   => expr.location
-      case BoundLeftHandSide.ArrayCreation(expr)   => expr.location
       case BoundLeftHandSide.Call(expr)            => expr.location
       case BoundLeftHandSide.Index(expr)           => expr.location
       case BoundLeftHandSide.MemberAccess(expr)    => expr.location
       case BoundLeftHandSide.New(expr)             => expr.location
+      case BoundLeftHandSide.Variable(location, _) => location
     }
   }
 
   def locationOfBoundExpression(value: BoundExpression): TextLocation = {
     value match {
-      case BoundExpression.ArrayCreation(location, _, _, _) => location
       case BoundExpression.ArrayCreation(location, _, _, _) => location
       case BoundExpression.Assignment(location, _, expression) =>
         location.merge(locationOfBoundExpression(expression))
@@ -491,7 +499,7 @@ object AstUtils {
         locationOfBoundExpression(thenExpr).merge(
           elseExpr match {
             case Option.Some(value) => locationOfBoundExpression(value)
-            case Option.Some(value) => locationOfBoundExpression(value)
+            case Option.None        => locationOfBoundExpression(thenExpr)
           }
         )
       case BoundExpression.Index(location, _, _, _)           => location
@@ -507,6 +515,7 @@ object AstUtils {
       case BoundExpression.Variable(location, _, _) => location
       case BoundExpression.While(location, _, _)    => location
 
+      case BoundExpression.Error(_) => TextLocationFactory.empty()
     }
   }
 }

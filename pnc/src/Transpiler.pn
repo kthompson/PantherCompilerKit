@@ -24,7 +24,9 @@ class Transpiler(
   def _transpile(trees: List[SyntaxTree]): unit = {
     trees match {
       case List.Nil => ()
-      case List.Nil => ()
+      case List.Cons(tree, tail) =>
+        transpileTree(tree)
+        _transpile(tail)
     }
   }
 
@@ -121,7 +123,9 @@ class Transpiler(
   ): unit = {
     members match {
       case List.Nil => ()
-      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        transpileMember(head, context)
+        transpileMembers(tail, context)
     }
   }
 
@@ -132,8 +136,6 @@ class Transpiler(
     member match {
       case value: ObjectDeclarationSyntax =>
         transpileObjectDeclaration(value, context)
-      case value: ObjectDeclarationSyntax =>
-        transpileObjectDeclaration(value, context)
       case value: ClassDeclarationSyntax =>
         transpileClassDeclaration(value, context)
       case value: FunctionDeclarationSyntax =>
@@ -142,6 +144,8 @@ class Transpiler(
         transpileEnumDeclaration(value, context)
       case value: VariableDeclaration =>
         transpileVariableDeclaration(value, context)
+      case value: GlobalStatementSyntax =>
+        transpileGlobalStatement(value, context)
     }
   }
 
@@ -171,14 +175,7 @@ class Transpiler(
           context
         )
         transpileToken(value.greaterThanToken, context)
-      case Option.Some(value) =>
-        transpileToken(value.lessThanToken, context)
-        transpileGenericParameterArray(
-          value.parameters.items,
-          value.parameters.separators,
-          context
-        )
-        transpileToken(value.greaterThanToken, context)
+      case Option.None =>
     }
   }
 
@@ -189,7 +186,18 @@ class Transpiler(
   ): unit = {
     items match {
       case List.Nil => ()
-      case List.Nil => ()
+      case List.Cons(parameter, remainingParameters) =>
+        transpileGenericParameter(parameter, context)
+        separators match {
+          case List.Nil => ()
+          case List.Cons(comma, remainingCommas) =>
+            transpileToken(comma, context)
+            transpileGenericParameterArray(
+              remainingParameters,
+              remainingCommas,
+              context
+            )
+        }
     }
   }
 
@@ -201,9 +209,7 @@ class Transpiler(
       case Option.Some(value) =>
         val text = if (value.kind == SyntaxKind.PlusToken) "in " else "out "
         transpileTokenWithText(value, text, context)
-      case Option.Some(value) =>
-        val text = if (value.kind == SyntaxKind.PlusToken) "in " else "out "
-        transpileTokenWithText(value, text, context)
+      case _ =>
     }
     transpileToken(parameter.identifier, context)
   }
@@ -226,7 +232,7 @@ class Transpiler(
     transpileToken(enumCase.identifier, context)
     enumCase.parameters match {
       case Option.Some(value) => transpileEnumCaseParameters(value, context)
-      case Option.Some(value) => transpileEnumCaseParameters(value, context)
+      case Option.None        => ()
     }
   }
 
@@ -254,7 +260,8 @@ class Transpiler(
   ): unit =
     template match {
       case Option.None =>
-      case Option.None =>
+      case Option.Some(value) =>
+        transpileTemplate(value, context)
     }
 
   def transpileTemplate(
@@ -272,7 +279,7 @@ class Transpiler(
   ): unit = {
     decl.caseKeyword match {
       case Option.Some(value) => transpileTrivia(value.leading, context)
-      case Option.Some(value) => transpileTrivia(value.leading, context)
+      case _                  =>
     }
     transpileToken(decl.classKeyword, context)
     transpileToken(decl.identifier, context)
@@ -296,12 +303,12 @@ class Transpiler(
     statement match {
       case value: StatementSyntax.VariableDeclarationStatement =>
         transpileVariableDeclarationStatement(value, context)
-      case value: StatementSyntax.VariableDeclarationStatement =>
-        transpileVariableDeclarationStatement(value, context)
       case value: StatementSyntax.BreakStatement =>
         transpileBreakStatement(value, context)
       case value: StatementSyntax.ContinueStatement =>
         transpileContinueStatement(value, context)
+      case value: StatementSyntax.ExpressionStatement =>
+        transpileExpressionStatement(value, context)
     }
   }
 
@@ -339,7 +346,7 @@ class Transpiler(
   ): unit =
     expression match {
       case Option.None        =>
-      case Option.None        =>
+      case Option.Some(value) => transpileExpression(value, context)
     }
 
   def transpileExpression(
@@ -347,8 +354,6 @@ class Transpiler(
       context: TranspilerContext
   ): unit = {
     expression match {
-      case value: Expression.ArrayCreation =>
-        transpileArrayCreationExpression(value, context)
       case value: Expression.ArrayCreation =>
         transpileArrayCreationExpression(value, context)
       case value: Expression.Assignment =>
@@ -382,6 +387,8 @@ class Transpiler(
         transpileUnaryExpression(value, context)
       case value: Expression.Unit =>
         transpileUnitExpression(value, context)
+      case value: Expression.While =>
+        transpileWhileExpression(value, context)
     }
   }
 
@@ -403,7 +410,9 @@ class Transpiler(
   ): unit = {
     cases match {
       case List.Nil =>
-      case List.Nil =>
+      case List.Cons(head, tail) =>
+        transpileMatchCase(head, context)
+        transpileMatchCases(tail, context)
     }
   }
 
@@ -425,13 +434,15 @@ class Transpiler(
       case PatternSyntax.Identifier(identifier, typeAnnotation) =>
         transpileToken(identifier, context)
         transpileTypeAnnotation(typeAnnotation, context)
-      case PatternSyntax.Identifier(identifier, typeAnnotation) =>
-        transpileToken(identifier, context)
-        transpileTypeAnnotation(typeAnnotation, context)
       case PatternSyntax.Type(value) =>
         transpileName(value, context)
       case PatternSyntax.Literal(value) => transpileToken(value, context)
       case PatternSyntax.Discard(value) => transpileToken(value, context)
+      case PatternSyntax.Extract(name, open, patterns, close) =>
+        transpileName(name, context)
+        transpileToken(open, context)
+        transpilePatterns(patterns, context)
+        transpileToken(close, context)
     }
   }
 
@@ -444,7 +455,7 @@ class Transpiler(
       transpilePattern(pattern.pattern, context)
       pattern.separatorToken match {
         case Option.Some(value) => transpileToken(value, context)
-        case Option.Some(value) => transpileToken(value, context)
+        case Option.None        => ()
       }
     }
   }
@@ -492,7 +503,9 @@ class Transpiler(
   ): unit = {
     statements match {
       case List.Nil => ()
-      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        transpileStatement(head, context)
+        transpileStatements(tail, context)
     }
   }
 
@@ -531,7 +544,11 @@ class Transpiler(
   ): unit = {
     arguments match {
       case List.Nil => ()
-      case List.Nil => ()
+      case List.Cons(head, tail) => {
+        transpileExpression(head.expression, context)
+        transpileOptionalToken(head.separatorToken, context)
+        transpileExpressionItems(tail, context)
+      }
     }
   }
 
@@ -577,7 +594,7 @@ class Transpiler(
     transpileExpression(expr.thenExpr, context)
     expr.elseExpr match {
       case Option.None        => ()
-      case Option.None        => ()
+      case Option.Some(value) => transpileElseExpression(value, context)
     }
   }
 
@@ -681,7 +698,7 @@ class Transpiler(
   ): unit =
     body match {
       case Option.None        => ()
-      case Option.None        => ()
+      case Option.Some(value) => transpileFunctionBody(value, context)
     }
 
   def transpileFunctionBody(
@@ -707,8 +724,7 @@ class Transpiler(
     typeAnnotation match {
       case Option.Some(value) =>
         transpileTypeAnnotation(value, context)
-      case Option.Some(value) =>
-        transpileTypeAnnotation(value, context)
+      case Option.None =>
     }
 
   def transpileParameters(
@@ -717,7 +733,9 @@ class Transpiler(
   ): unit = {
     parameters match {
       case List.Nil =>
-      case List.Nil =>
+      case List.Cons(head, tail) =>
+        transpileParameter(head, context)
+        transpileParameters(tail, context)
     }
   }
 
@@ -738,7 +756,7 @@ class Transpiler(
   ): unit =
     modifier match {
       case Option.None        => ()
-      case Option.None        => ()
+      case Option.Some(value) => transpileToken(value, context)
     }
 
   def transpileNamespace(
@@ -749,9 +767,7 @@ class Transpiler(
       case Option.Some(value) =>
         transpileToken(value.namespaceKeyword, context)
         transpileName(value.name, context)
-      case Option.Some(value) =>
-        transpileToken(value.namespaceKeyword, context)
-        transpileName(value.name, context)
+      case Option.None =>
     }
   }
 
@@ -759,8 +775,8 @@ class Transpiler(
     name match {
       case value: NameSyntax.QualifiedName =>
         transpileQualifiedName(value, context)
-      case value: NameSyntax.QualifiedName =>
-        transpileQualifiedName(value, context)
+      case NameSyntax.SimpleName(value) =>
+        transpileSimpleName(value, context)
     }
   }
 
@@ -771,11 +787,11 @@ class Transpiler(
     name match {
       case value: SimpleNameSyntax.GenericNameSyntax =>
         transpileGenericName(value, context)
-      case value: SimpleNameSyntax.GenericNameSyntax =>
-        transpileGenericName(value, context)
       case value: SimpleNameSyntax.IdentifierNameSyntax =>
         transpileIdentifierName(value, context)
       case value: SimpleNameSyntax.AliasSyntax =>
+        ??? // todo
+      case value: SimpleNameSyntax.ScalaAliasSyntax =>
         ??? // todo
     }
   }
@@ -812,9 +828,6 @@ class Transpiler(
       case _: SimpleNameSyntax.GenericNameSyntax =>
         transpileToken(name.dotToken, context)
         transpileSimpleName(name.right, context)
-      case _: SimpleNameSyntax.GenericNameSyntax =>
-        transpileToken(name.dotToken, context)
-        transpileSimpleName(name.right, context)
       case SimpleNameSyntax.IdentifierNameSyntax(identifier) =>
         if (isWildcardImport(identifier)) {
           // skip . and _ in `import bleh._`
@@ -826,6 +839,13 @@ class Transpiler(
         }
       case alias: SimpleNameSyntax.AliasSyntax =>
         ???
+      case alias: SimpleNameSyntax.ScalaAliasSyntax =>
+        transpileToken(name.dotToken, context)
+        transpileTokenWithText(alias.open, "", context)
+        transpileToken(alias.name, context)
+        transpileTokenWithText(alias.arrow, "as", context)
+        transpileToken(alias.alias, context)
+        transpileTokenWithText(alias.close, "", context)
     }
   }
 
