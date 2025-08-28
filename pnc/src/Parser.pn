@@ -178,15 +178,8 @@ class Parser(
         value.initializer match {
           case Option.None =>
             value.closeBracket.isStatementTerminator()
-          case Option.None =>
-            value.closeBracket.isStatementTerminator()
-        }
-      case value: ArrayCreation =>
-        value.initializer match {
-          case Option.None =>
-            value.closeBracket.isStatementTerminator()
-          case Option.None =>
-            value.closeBracket.isStatementTerminator()
+          case Option.Some(value) =>
+            value.closeBrace.isStatementTerminator()
         }
       case value: Assignment => hasStatementTerminator(value.right)
       case value: Binary     => hasStatementTerminator(value.right)
@@ -200,7 +193,7 @@ class Parser(
       case value: If =>
         hasStatementTerminator(value.elseExpr match {
           case Option.Some(value) => value.expression
-          case Option.Some(value) => value.expression
+          case Option.None        => value.thenExpr
         })
       case value: Is      => nameHasStatementTerminator(value.typ)
       case value: Literal => value.token.isStatementTerminator()
@@ -211,13 +204,15 @@ class Parser(
       case value: New   => value.closeParen.isStatementTerminator()
       case value: Unary => hasStatementTerminator(value.expression)
       case value: Unit  => value.closeParen.isStatementTerminator()
+      case value: While => hasStatementTerminator(value.body)
     }
   }
 
   def nameHasStatementTerminator(name: NameSyntax): bool = {
     name match {
       case NameSyntax.SimpleName(name) => simpleNameHasStatementTerminator(name)
-      case NameSyntax.SimpleName(name) => simpleNameHasStatementTerminator(name)
+      case NameSyntax.QualifiedName(left, dotToken, right) =>
+        simpleNameHasStatementTerminator(right)
     }
   }
 
@@ -225,12 +220,12 @@ class Parser(
     name match {
       case SimpleNameSyntax.GenericNameSyntax(identifier, typeArgumentlist) =>
         typeArgumentlist.greaterThanToken.isStatementTerminator()
-      case SimpleNameSyntax.GenericNameSyntax(identifier, typeArgumentlist) =>
-        typeArgumentlist.greaterThanToken.isStatementTerminator()
       case SimpleNameSyntax.IdentifierNameSyntax(identifier) =>
         identifier.isStatementTerminator()
       case SimpleNameSyntax.ScalaAliasSyntax(open, name, arrow, alias, close) =>
         close.isStatementTerminator()
+      case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) =>
+        alias.isStatementTerminator()
     }
   }
 
@@ -561,8 +556,19 @@ class Parser(
     NonEmptyListModule.fromList(statements) match {
       case Option.None =>
         new BlockExpressionListSyntax(statements, None)
-      case Option.None =>
-        new BlockExpressionListSyntax(statements, None)
+      case Option.Some(nel) =>
+        val lastStatement = nel.last()
+        lastStatement match {
+          case StatementSyntax.ExpressionStatement(value) =>
+            new BlockExpressionListSyntax(
+              dropStatement(statements),
+              Some(value)
+            )
+
+          case _ =>
+            new BlockExpressionListSyntax(statements, None)
+        }
+
     }
   }
 
@@ -905,7 +911,7 @@ class Parser(
     val keyword = accept()
     val open = acceptKind(SyntaxKind.OpenBraceToken)
     val caseHead = parseMatchCase()
-    val cases = parseMatchCases(caseHead, List.Nil)
+    val cases = NonEmptyList(caseHead, parseMatchCases(List.Nil))
     val close = acceptKind(SyntaxKind.CloseBraceToken)
 
     new Match(left, keyword, open, cases, close)
@@ -926,17 +932,16 @@ class Parser(
   }
 
   def parseMatchCases(
-      head: MatchCaseSyntax,
       tail: List[MatchCaseSyntax]
-  ): NonEmptyList[MatchCaseSyntax] = {
+  ): List[MatchCaseSyntax] = {
     debugPrint("parseMatchCases")
-    var size = 0
 
     if (currentKind() == SyntaxKind.CaseKeyword) {
       val matchCase = parseMatchCase()
-      parseMatchCases(matchCase, List.Cons(head, tail))
+
+      parseMatchCases(List.Cons(matchCase, tail))
     } else {
-      NonEmptyList(head, tail).reverse()
+      tail.reverse()
     }
   }
 
@@ -985,8 +990,13 @@ class Parser(
         identFromName(name) match {
           case Option.Some(identifier) =>
             PatternSyntax.Identifier(identifier, typeAnnotation)
-          case Option.Some(identifier) =>
-            PatternSyntax.Identifier(identifier, typeAnnotation)
+          case Option.None =>
+            diagnostics.reportUnexpectedToken(
+              current().location,
+              currentKind(),
+              SyntaxKind.IdentifierToken
+            )
+            PatternSyntax.Type(typeAnnotation.typ)
         }
 
       } else if (currentKind() == SyntaxKind.OpenParenToken) {
@@ -1001,7 +1011,17 @@ class Parser(
   def identFromName(name: NameSyntax): Option[SyntaxToken] = {
     name match {
       case _: QualifiedName => None
-      case _: QualifiedName => None
+      case NameSyntax.SimpleName(simpleName) =>
+        simpleName match {
+          case value: SimpleNameSyntax.GenericNameSyntax =>
+            None
+          case SimpleNameSyntax.ScalaAliasSyntax(_, identifier, _, _, _) =>
+            Some(identifier)
+          case SimpleNameSyntax.AliasSyntax(identifier, _, _) =>
+            Some(identifier)
+          case SimpleNameSyntax.IdentifierNameSyntax(identifier) =>
+            Some(identifier)
+        }
     }
   }
 

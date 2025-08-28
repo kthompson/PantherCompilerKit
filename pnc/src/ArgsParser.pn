@@ -244,7 +244,9 @@ object ArgsParser {
     while (current != List.Nil) {
       current match {
         case List.Nil => ()
-        case List.Nil => ()
+        case List.Cons(head, tail) =>
+          result = List.Cons(head, result)
+          current = tail
       }
     }
 

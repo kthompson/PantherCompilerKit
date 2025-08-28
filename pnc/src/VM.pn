@@ -89,10 +89,10 @@ class VM(
     val typeName = metadata.getString(typeDef.name)
     typeName match {
       case "int"    => Value.Int(0)
-      case "int"    => Value.Int(0)
       case "bool"   => Value.Bool(false)
       case "string" => Value.String("")
       case "char"   => Value.Int(0) // char represented as int
+      case _ => Value.Uninitialized // For reference types and unknown types
     }
   }
 
@@ -138,18 +138,14 @@ class VM(
       case Value.Int(a) =>
         b match {
           case Value.Int(b) => push(Value.Int(a + b))
-          case Value.Int(b) => push(Value.Int(a + b))
-        }
-      case Value.Int(a) =>
-        b match {
-          case Value.Int(b) => push(Value.Int(a + b))
-          case Value.Int(b) => push(Value.Int(a + b))
+          case _            => runtimeError("Expected int on stack")
         }
       case Value.String(a) =>
         b match {
           case Value.String(b) => push(Value.String(a + b))
-          case Value.String(b) => push(Value.String(a + b))
+          case _               => runtimeError("Expected bool on stack")
         }
+      case _ => runtimeError("Expected int or bool on stack")
     }
   }
 
@@ -171,9 +167,9 @@ class VM(
   def toInt(value: Value): int = {
     value match {
       case Value.Int(i)      => i
-      case Value.Int(i)      => i
       case Value.Bool(true)  => 1
       case Value.Bool(false) => 0
+      case _ => panic("Cannot convert " + value + " to int for comparison")
     }
   }
 
@@ -189,25 +185,28 @@ class VM(
       case Tuple2(Value.String(aStr), Value.String(bStr)) =>
         val result = op match {
           case Opcode.Ceq => Option.Some(aStr == bStr)
-          case Opcode.Ceq => Option.Some(aStr == bStr)
           case Opcode.Cgt =>
             Option.Some(aStr > bStr) // lexicographic comparison
           case Opcode.Clt =>
             Option.Some(aStr < bStr) // lexicographic comparison
+          case _ => Option.None
         }
         pushBoolOrInvalidOp(result, opName)
 
-      case Tuple2(Value.String(aStr), Value.String(bStr)) =>
+      // Handle numeric and boolean comparisons (original logic)
+      case _ =>
+        // Convert to int for comparison (HACK: this shouldnt be converting bools to ints but its easier for now)
+        val bInt = toInt(b)
+        val aInt = toInt(a)
+
         val result = op match {
-          case Opcode.Ceq => Option.Some(aStr == bStr)
-          case Opcode.Ceq => Option.Some(aStr == bStr)
-          case Opcode.Cgt =>
-            Option.Some(aStr > bStr) // lexicographic comparison
-          case Opcode.Clt =>
-            Option.Some(aStr < bStr) // lexicographic comparison
+          case Opcode.Ceq => Option.Some(aInt == bInt)
+          case Opcode.Cgt => Option.Some(aInt > bInt)
+          case Opcode.Clt => Option.Some(aInt < bInt)
+          case _          => Option.None
         }
-        pushBoolOrInvalidOp(result, opName)
 
+        pushBoolOrInvalidOp(result, opName)
     }
   }
 
@@ -215,8 +214,6 @@ class VM(
     val b = popInt()
     val a = popInt()
     val result = op match {
-      case Opcode.Sub =>
-        Option.Some(a - b)
       case Opcode.Sub =>
         Option.Some(a - b)
       case Opcode.Mul =>
@@ -235,6 +232,8 @@ class VM(
         Option.Some(a << b)
       case Opcode.Shr =>
         Option.Some(a >> b)
+      case _ =>
+        Option.None
     }
 
     pushIntOrInvalidOp(result, opName)
@@ -245,8 +244,8 @@ class VM(
 
     val result = op match {
       case Opcode.Not => Option.Some(~a)
-      case Opcode.Not => Option.Some(~a)
       case Opcode.Neg => Option.Some(-a)
+      case _          => Option.None
     }
 
     pushIntOrInvalidOp(result, opName)
@@ -256,8 +255,9 @@ class VM(
     result match {
       case Option.None =>
         runtimeError("Invalid operation: " + opName)
-      case Option.None =>
-        runtimeError("Invalid operation: " + opName)
+      case Option.Some(value) =>
+        push(Value.Int(value))
+        InterpretResult.Continue
     }
   }
 
@@ -265,8 +265,9 @@ class VM(
     result match {
       case Option.None =>
         runtimeError("Invalid operation: " + opName)
-      case Option.None =>
-        runtimeError("Invalid operation: " + opName)
+      case Option.Some(value) =>
+        pushBool(value)
+        InterpretResult.Continue
     }
   }
 
@@ -278,27 +279,21 @@ class VM(
       case Tuple2(Value.Int(a), Value.Int(b)) =>
         val result = op match {
           case Opcode.And => Option.Some(a & b)
-          case Opcode.And => Option.Some(a & b)
           case Opcode.Or  => Option.Some(a | b)
-        }
-        pushIntOrInvalidOp(result, opName)
-
-      case Tuple2(Value.Int(a), Value.Int(b)) =>
-        val result = op match {
-          case Opcode.And => Option.Some(a & b)
-          case Opcode.And => Option.Some(a & b)
-          case Opcode.Or  => Option.Some(a | b)
+          case _          => Option.None
         }
         pushIntOrInvalidOp(result, opName)
 
       case Tuple2(Value.Bool(a), Value.Bool(b)) =>
         val result = op match {
           case Opcode.And => Option.Some(a && b)
-          case Opcode.And => Option.Some(a && b)
           case Opcode.Or  => Option.Some(a || b)
+          case _          => Option.None
         }
         pushBoolOrInvalidOp(result, opName)
 
+      case _ =>
+        runtimeError("Expected int or bool on stack")
     }
   }
 
@@ -306,7 +301,7 @@ class VM(
     val value = pop()
     value match {
       case Value.Bool(b) => b
-      case Value.Bool(b) => b
+      case _             => panic("Expected bool on stack, found " + value)
     }
   }
 
@@ -314,14 +309,14 @@ class VM(
     val value = pop()
     value match {
       case Value.Int(i) => i
-      case Value.Int(i) => i
+      case _            => panic("Expected int on stack, found " + value)
     }
   }
 
   def stackAsInt(pos: int): int = {
     stack(pos) match {
       case Value.Int(value) => value
-      case Value.Int(value) => value
+      case _                => panic("Expected int on stack at position " + pos)
     }
   }
 
@@ -332,8 +327,6 @@ class VM(
     value match {
       case Value.Int(_) =>
         expectedTypeName == "int"
-      case Value.Int(_) =>
-        expectedTypeName == "int"
       case Value.String(_) =>
         expectedTypeName == "string"
       case Value.Bool(_) =>
@@ -341,6 +334,8 @@ class VM(
       case Value.Ref(actualTypeToken, _) =>
         // Compare type tokens directly for object references
         actualTypeToken.token == expectedTypeToken.token
+      case Value.Uninitialized =>
+        false
     }
   }
 
@@ -352,47 +347,60 @@ class VM(
       case Value.Int(i) =>
         targetTypeName match {
           case "int" => value // identity cast
-          case "int" => value // identity cast
           case "char" =>
             Value.Int(i) // int to char (keeping as int for simplicity)
           case "string" => Value.String(i.toString())
           case "bool"   => Value.Bool(i != 0)
           case "any"    => value // cast to any preserves the value
-        }
-
-      case Value.Int(i) =>
-        targetTypeName match {
-          case "int" => value // identity cast
-          case "int" => value // identity cast
-          case "char" =>
-            Value.Int(i) // int to char (keeping as int for simplicity)
-          case "string" => Value.String(i.toString())
-          case "bool"   => Value.Bool(i != 0)
-          case "any"    => value // cast to any preserves the value
+          case _ =>
+            runtimeError("Cannot cast int to " + targetTypeName)
+            Value.Uninitialized
         }
 
       case Value.Bool(b) =>
         targetTypeName match {
           case "bool"   => value // identity cast
-          case "bool"   => value // identity cast
           case "int"    => Value.Int(if (b) 1 else 0)
           case "string" => Value.String(b.toString())
           case "any"    => value // cast to any preserves the value
+          case _ =>
+            runtimeError("Cannot cast bool to " + targetTypeName)
+            Value.Uninitialized
         }
 
       case Value.String(s) =>
         targetTypeName match {
           case "string" => value // identity cast
-          case "string" => value // identity cast
           case "any"    => value // cast to any preserves the value
+          case _ =>
+            runtimeError("Cannot cast string to " + targetTypeName)
+            Value.Uninitialized
         }
 
       case Value.Ref(actualTypeToken, addr) =>
         targetTypeName match {
           case "any" => value // cast to any preserves the value
-          case "any" => value // cast to any preserves the value
+          case _ =>
+            if (actualTypeToken.token == targetTypeToken.token) {
+              value // identity cast for same type
+            } else {
+              runtimeError(
+                "Cannot cast " + metadata.getTypeName(
+                  actualTypeToken
+                ) + " to " + targetTypeName
+              )
+              Value.Uninitialized
+            }
         }
 
+      case Value.Uninitialized =>
+        targetTypeName match {
+          case "unit" => value
+          case "any"  => value
+          case _ =>
+            runtimeError("Cannot cast uninitialized value to " + targetTypeName)
+            Value.Uninitialized
+        }
     }
   }
 
@@ -401,7 +409,12 @@ class VM(
 
     var result = entry match {
       case Option.None => InterpretResult.Continue
-      case Option.None => InterpretResult.Continue
+      case Option.Some(value) =>
+        if (settings.enableTracing) {
+          val name = metadata.getMethodName(value)
+          println("Running program with entry point: " + name)
+        }
+        methodCall(value, -1)
     }
 
     while (result == InterpretResult.Continue) {
@@ -417,9 +430,6 @@ class VM(
     }
     val instruction = readI4()
     instruction match {
-      case Opcode.Nop =>
-        InterpretResult.Continue
-
       case Opcode.Nop =>
         InterpretResult.Continue
 
@@ -561,9 +571,6 @@ class VM(
           case Value.Bool(b) =>
             push(Value.String(b.toString()))
             InterpretResult.Continue
-          case Value.Bool(b) =>
-            push(Value.String(b.toString()))
-            InterpretResult.Continue
           case Value.Int(i) =>
             // TODO: may need native function here
             push(Value.String(i.toString()))
@@ -574,14 +581,15 @@ class VM(
           case Value.Uninitialized =>
             push(Value.String("unit"))
             InterpretResult.Continue
+          case ref: Value.Ref =>
+            val fullName = metadata.getTypeName(ref.token)
+            push(Value.String(fullName))
+            InterpretResult.Continue
         }
 
       case Opcode.ConvBool =>
         val a = pop()
         a match {
-          case Value.Int(0) =>
-            pushBool(false)
-            InterpretResult.Continue
           case Value.Int(0) =>
             pushBool(false)
             InterpretResult.Continue
@@ -591,14 +599,13 @@ class VM(
           case Value.Bool(b) =>
             pushBool(b)
             InterpretResult.Continue
+          case _ =>
+            runtimeError("Cannot convert value to bool: " + a)
         }
 
       case Opcode.ConvI4 =>
         val a = pop()
         a match {
-          case Value.Int(i) =>
-            push(Value.Int(i))
-            InterpretResult.Continue
           case Value.Int(i) =>
             push(Value.Int(i))
             InterpretResult.Continue
@@ -614,23 +621,22 @@ class VM(
             } else if (s(0) == '-') {
               atoi(s, 1, 0) match {
                 case Option.None => runtimeError("Cannot convert string to int")
-                case Option.None => runtimeError("Cannot convert string to int")
+                case Option.Some(value) => push(Value.Int(-value))
               }
             } else {
               atoi(s, 0, 0) match {
                 case Option.None => runtimeError("Cannot convert string to int")
-                case Option.None => runtimeError("Cannot convert string to int")
+                case Option.Some(value) => push(Value.Int(value))
               }
             }
 
+          case _ =>
+            runtimeError("Cannot convert value to int")
         }
 
       case Opcode.ConvChar =>
         val a = pop()
         a match {
-          case Value.Int(i) =>
-            push(Value.Int(i))
-            InterpretResult.Continue
           case Value.Int(i) =>
             push(Value.Int(i))
             InterpretResult.Continue
@@ -643,6 +649,8 @@ class VM(
                 "Cannot convert string of length " + s.length() + " to char"
               )
             }
+          case _ =>
+            runtimeError("Cannot convert value to char")
         }
 
       // type checking ops
@@ -689,11 +697,8 @@ class VM(
             val value = heap(addr + field.index)
             push(value)
             InterpretResult.Continue
-          case Value.Ref(typeToken, addr) =>
-            // load the instance field value
-            val value = heap(addr + field.index)
-            push(value)
-            InterpretResult.Continue
+          case _ =>
+            runtimeError("Expected object reference for field access")
         }
 
       case Opcode.Stfld =>
@@ -710,10 +715,8 @@ class VM(
             // store the value in the instance field
             heap(addr + field.index) = value
             InterpretResult.Continue
-          case Value.Ref(typeToken, addr) =>
-            // store the value in the instance field
-            heap(addr + field.index) = value
-            InterpretResult.Continue
+          case _ =>
+            runtimeError("Expected object reference for field assignment")
         }
 
       case Opcode.Newobj =>
@@ -760,21 +763,8 @@ class VM(
             // but for now we'll use the element type token
             push(Value.Ref(elementTypeToken, arrayAddr))
             InterpretResult.Continue
-          case Value.Int(size) =>
-            // Allocate space for the array
-            val arrayAddr = alloc(size)
-
-            // Initialize all elements with appropriate default values based on type
-            val defaultValue = getDefaultValueForType(elementTypeToken)
-            for (i <- 0 to (size - 1)) {
-              heap(arrayAddr + i) = defaultValue
-            }
-
-            // Use the element type token for the array reference
-            // Note: In a complete implementation, we might need a separate array type token
-            // but for now we'll use the element type token
-            push(Value.Ref(elementTypeToken, arrayAddr))
-            InterpretResult.Continue
+          case _ =>
+            runtimeError("Expected integer size for array creation")
         }
 
       case Opcode.Ldelem =>
@@ -790,25 +780,11 @@ class VM(
                 val elementValue = heap(addr + indexValue)
                 push(elementValue)
                 InterpretResult.Continue
-              case Value.Ref(typeToken, addr) =>
-                // Load the element from the array
-                val elementValue = heap(addr + indexValue)
-                push(elementValue)
-                InterpretResult.Continue
+              case _ =>
+                runtimeError("Expected array reference for element access")
             }
-          case Value.Int(indexValue) =>
-            arrayRef match {
-              case Value.Ref(typeToken, addr) =>
-                // Load the element from the array
-                val elementValue = heap(addr + indexValue)
-                push(elementValue)
-                InterpretResult.Continue
-              case Value.Ref(typeToken, addr) =>
-                // Load the element from the array
-                val elementValue = heap(addr + indexValue)
-                push(elementValue)
-                InterpretResult.Continue
-            }
+          case _ =>
+            runtimeError("Expected integer index for array access")
         }
 
       case Opcode.Stelem =>
@@ -824,24 +800,17 @@ class VM(
                 // Store the value in the array
                 heap(addr + indexValue) = value
                 InterpretResult.Continue
-              case Value.Ref(typeToken, addr) =>
-                // Store the value in the array
-                heap(addr + indexValue) = value
-                InterpretResult.Continue
+              case _ =>
+                runtimeError("Expected array reference for element assignment")
             }
-          case Value.Int(indexValue) =>
-            arrayRef match {
-              case Value.Ref(typeToken, addr) =>
-                // Store the value in the array
-                heap(addr + indexValue) = value
-                InterpretResult.Continue
-              case Value.Ref(typeToken, addr) =>
-                // Store the value in the array
-                heap(addr + indexValue) = value
-                InterpretResult.Continue
-            }
+          case _ =>
+            runtimeError("Expected integer index for array assignment")
         }
 
+      case _ =>
+        val opcode = Opcode.nameOf(instruction)
+        panic("Unsupported opcode " + opcode)
+        InterpretResult.CompileError
     }
   }
 

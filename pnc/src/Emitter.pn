@@ -32,10 +32,7 @@ params: Dictionary[Symbol, int]
         // label not found, create a patch
         patches = List.Cons(Patch(chunk.size, label), patches)
         0 // return a filler value since target is not known yet
-      case Option.None =>
-        // label not found, create a patch
-        patches = List.Cons(Patch(chunk.size, label), patches)
-        0 // return a filler value since target is not known yet
+      case Option.Some(value) => value
     }
   }
 
@@ -50,21 +47,34 @@ params: Dictionary[Symbol, int]
   def applyPatches(): unit = {
     patches match {
       case List.Nil =>
-      case List.Nil =>
+      case List.Cons(patch, tail) =>
+        patches = tail
+        labels.get(patch.target.name) match {
+          case Option.None =>
+            panic(
+              "failed to patch label " + patch.target.name + " at " + patch.instructionIndex
+            )
+          case Option.Some(value) =>
+            // patch the instruction at the given index with the target address
+            chunk.patch(patch.instructionIndex, value)
+        }
+
+        applyPatches() // recursively apply remaining patches
     }
   }
 
   def getParamIndex(symbol: Symbol): int = {
     params.get(symbol) match {
       case Option.Some(value) => value
-      case Option.Some(value) => value
+      case Option.None =>
+        panic("getParamIndex: no parameter index for " + symbol.name)
     }
   }
 
   def getLocalIndex(symbol: Symbol): int = {
     locals.get(symbol) match {
       case Option.None        => _addLocal(symbol)
-      case Option.None        => _addLocal(symbol)
+      case Option.Some(value) => value
     }
   }
 
@@ -157,7 +167,13 @@ class Emitter(
 
     val entryMethod = assembly.entryPoint match {
       case Option.None => Option.None
-      case Option.None => Option.None
+      case Option.Some(entry) =>
+        methodTokens.get(entry) match {
+          case Option.None =>
+            println(entry.toString())
+            ???
+          case Option.Some(value) => Option.Some(value)
+        }
     }
 
     EmitResult(chunk, metadata, entryMethod)
@@ -166,7 +182,21 @@ class Emitter(
   def emitMethodBodies(value: Dictionary[Symbol, MethodToken]): unit = {
     value.list match {
       case List.Nil => ()
-      case List.Nil => ()
+      case List.Cons(KeyValue(key, value), tail) =>
+        val context = EmitContext(
+          chunk,
+          metadata.methods.methods(value.token),
+          DictionaryModule.empty[Symbol, int](),
+          getMethodParameterMap(
+            0,
+            key.members(),
+            DictionaryModule.empty[Symbol, int]()
+          )
+        )
+        emitMethod(key, context)
+        context.applyPatches()
+
+        emitMethodBodies(Dictionary(tail))
     }
   }
 
@@ -177,7 +207,13 @@ class Emitter(
   ): Dictionary[Symbol, int] = {
     symbols match {
       case List.Nil => map
-      case List.Nil => map
+      case List.Cons(head, tail) =>
+        if (head.kind == SymbolKind.Parameter) {
+          val newMap = map.put(head, index)
+          getMethodParameterMap(index + 1, tail, newMap)
+        } else {
+          getMethodParameterMap(index, tail, map)
+        }
     }
   }
 
@@ -188,7 +224,8 @@ class Emitter(
     if (symbol.kind == SymbolKind.Field) {
       fieldTokens.get(symbol) match {
         case Option.None => ???
-        case Option.None => ???
+        case Option.Some(value) =>
+          metadata.fields.fields(value.token).fieldSig = sigId
       }
     } else if (
       symbol.kind == SymbolKind.Method || symbol.kind == SymbolKind.Constructor
@@ -197,14 +234,14 @@ class Emitter(
         case Option.None =>
           println("buildSignature: no method token for " + symbol)
           ???
-        case Option.None =>
-          println("buildSignature: no method token for " + symbol)
-          ???
+        case Option.Some(value) =>
+          metadata.methods.methods(value.token).methodSig = sigId
       }
     } else if (symbol.kind == SymbolKind.Parameter) {
       paramTokens.get(symbol) match {
         case Option.None => ???
-        case Option.None => ???
+        case Option.Some(value) =>
+          metadata.params.params(value.token).paramSig = sigId
       }
     } else {
       ???
@@ -214,7 +251,9 @@ class Emitter(
   def buildSignatures(symbols: List[Symbol]): unit = {
     symbols match {
       case List.Nil =>
-      case List.Nil =>
+      case List.Cons(head, tail) =>
+        buildSignature(head)
+        buildSignatures(tail)
     }
   }
 
@@ -235,7 +274,12 @@ class Emitter(
   def emitMethod(symbol: Symbol, context: EmitContext): bool = {
     assembly.functionBodies.get(symbol) match {
       case Option.None => false
-      case Option.None => false
+      case Option.Some(value) =>
+        emitBlock(value, context)
+        chunk.emitOpcode(Opcode.Ret, symbol.location.endLine)
+
+        context.method.address = context.startAddress
+        true
     }
   }
 
@@ -246,7 +290,6 @@ class Emitter(
 
   def emitExpression(expr: LoweredExpression, context: EmitContext): unit = {
     expr match {
-      case LoweredExpression.Error => panic("emitExpression: Error")
       case LoweredExpression.Error => panic("emitExpression: Error")
       case value: LoweredExpression.ArrayAccess =>
         emitArrayAccess(value, context)
@@ -278,6 +321,8 @@ class Emitter(
         emitVariable(value, context)
       case value: LoweredExpression.TypeCheck =>
         emitTypeCheckExpression(value, context)
+      case LoweredExpression.Unit =>
+        emitUnitExpression(context)
     }
   }
 
@@ -293,10 +338,8 @@ class Emitter(
         assert(!expr.field.isStatic(), "expected non-static field")
         chunk.emitOpcode(Opcode.Stfld, expr.location.startLine)
         chunk.emitI4(value.token, expr.location.startLine)
-      case Option.Some(value) =>
-        assert(!expr.field.isStatic(), "expected non-static field")
-        chunk.emitOpcode(Opcode.Stfld, expr.location.startLine)
-        chunk.emitI4(value.token, expr.location.startLine)
+      case Option.None =>
+        panic("emitAssignmentStatement: no field token for " + expr.field)
     }
   }
 
@@ -312,10 +355,8 @@ class Emitter(
         emitExpression(expr.expression, context)
         chunk.emitOpcode(Opcode.Stsfld, expr.location.startLine)
         chunk.emitI4(value.token, expr.location.startLine)
-      case Option.Some(value) =>
-        emitExpression(expr.expression, context)
-        chunk.emitOpcode(Opcode.Stsfld, expr.location.startLine)
-        chunk.emitI4(value.token, expr.location.startLine)
+      case Option.None =>
+        panic("emitAssignStaticField: no field token for " + expr.field)
     }
   }
 
@@ -368,10 +409,9 @@ class Emitter(
         panic(
           "emitArrayCreation: no TypeDefToken for array element type " + expr.elementType.toString
         )
-      case Option.None =>
-        panic(
-          "emitArrayCreation: no TypeDefToken for array element type " + expr.elementType.toString
-        )
+      case Option.Some(elementTypeToken) =>
+        chunk.emitOpcode(Opcode.Newarr, expr.location.startLine)
+        chunk.emitI4(elementTypeToken.token, expr.location.startLine)
     }
   }
 
@@ -382,9 +422,6 @@ class Emitter(
     emitExpression(expr.left, context)
     emitExpression(expr.right, context)
     expr.operator match {
-      case BinaryOperatorKind.Plus =>
-        chunk.emitOpcode(Opcode.Add, expr.location.startLine)
-
       case BinaryOperatorKind.Plus =>
         chunk.emitOpcode(Opcode.Add, expr.location.startLine)
 
@@ -448,6 +485,7 @@ class Emitter(
       case BinaryOperatorKind.ShiftRight =>
         chunk.emitOpcode(Opcode.Shr, expr.location.startLine)
 
+      case BinaryOperatorKind.Error => ???
     }
   }
 
@@ -463,7 +501,8 @@ class Emitter(
   ): unit = {
     expr.receiver match {
       case Option.None => // no receiver, static call
-      case Option.None => // no receiver, static call
+      case Option.Some(receiver) =>
+        emitLHS(receiver, context)
     }
 
     emitExpressions(expr.arguments, context)
@@ -476,14 +515,14 @@ class Emitter(
         expr.method.parent.get().name match {
           case "string" =>
             chunk.emitOpcode(Opcode.ConvStr, startLine)
-          case "string" =>
-            chunk.emitOpcode(Opcode.ConvStr, startLine)
           case "bool" =>
             chunk.emitOpcode(Opcode.ConvBool, startLine)
           case "int" =>
             chunk.emitOpcode(Opcode.ConvI4, startLine)
           case "char" =>
             chunk.emitOpcode(Opcode.ConvChar, startLine)
+          case _ =>
+            panic("emitCallExpression: unknown extern " + expr.method.name)
         }
       } else {
         panic("emitCallExpression: unknown extern " + expr.method.name)
@@ -493,8 +532,9 @@ class Emitter(
       methodTokens.get(expr.method) match {
         case Option.None =>
           panic("emitCallExpression: no method token for " + expr.method.name)
-        case Option.None =>
-          panic("emitCallExpression: no method token for " + expr.method.name)
+        case Option.Some(token) =>
+          chunk.emitOpcode(Opcode.Call, startLine)
+          chunk.emitI4(token.token, startLine)
       }
     }
   }
@@ -505,7 +545,9 @@ class Emitter(
   ): unit = {
     value.uncons() match {
       case Option.None => ()
-      case Option.None => ()
+      case Option.Some(Tuple2(expr, rest)) =>
+        emitExpression(expr, context)
+        emitExpressions(rest, context)
     }
   }
 
@@ -517,11 +559,24 @@ class Emitter(
       case LoweredLeftHandSide.MemberAccess(_, left, symbol) =>
         // Emit the receiver for instance member access
         emitLHS(left, context)
-      case LoweredLeftHandSide.MemberAccess(_, left, symbol) =>
-        // Emit the receiver for instance member access
-        emitLHS(left, context)
       case LoweredLeftHandSide.Variable(location, variable) =>
         emitVariable(LoweredExpression.Variable(location, variable), context)
+      case LoweredLeftHandSide.New(
+            location,
+            constructor,
+            genericArguments,
+            arguments
+          ) =>
+        // Emit the new expression
+        emitNewExpression(
+          LoweredExpression.New(
+            location,
+            constructor,
+            genericArguments,
+            arguments
+          ),
+          context
+        )
     }
   }
 
@@ -537,9 +592,18 @@ class Emitter(
       case Type.Any =>
         // No cast opcode needed - Any is the top type and everything is already Any at runtime
         ()
-      case Type.Any =>
-        // No cast opcode needed - Any is the top type and everything is already Any at runtime
-        ()
+      case _ =>
+        // Get the TypeDefToken for the target type
+        getTypeDefToken(expr.resultType) match {
+          case Option.None =>
+            panic(
+              "emitCastExpression: no TypeDefToken for type " + expr.resultType.toString
+            )
+          case Option.Some(typeToken) =>
+            // Emit Cast opcode with the type token
+            chunk.emitOpcode(Opcode.Cast, expr.location.startLine)
+            chunk.emitI4(typeToken.token, expr.location.startLine)
+        }
     }
   }
 
@@ -569,13 +633,8 @@ class Emitter(
           }
           chunk.emitOpcode(Opcode.Call, expr.location.startLine)
           chunk.emitI4(token.token, expr.location.startLine)
-        case Option.Some(token) =>
-          if (!expr.symbol.isStatic()) {
-            // Emit the receiver for instance methods
-            emitLHS(expr.left, context)
-          }
-          chunk.emitOpcode(Opcode.Call, expr.location.startLine)
-          chunk.emitI4(token.token, expr.location.startLine)
+        case Option.None =>
+          panic("emitMemberAccess: no method token for " + expr.symbol)
       }
     } else if (expr.symbol.kind == SymbolKind.Field) {
       fieldTokens.get(expr.symbol) match {
@@ -589,16 +648,11 @@ class Emitter(
             chunk.emitOpcode(Opcode.Ldfld, expr.location.startLine)
           }
           chunk.emitI4(value.token, expr.location.startLine)
-        case Option.Some(value) =>
-          if (expr.symbol.isStatic()) {
-            // Static field access
-            chunk.emitOpcode(Opcode.Ldsfld, expr.location.startLine)
-          } else {
-            // Instance field access - emit the receiver first
-            emitLHS(expr.left, context)
-            chunk.emitOpcode(Opcode.Ldfld, expr.location.startLine)
-          }
-          chunk.emitI4(value.token, expr.location.startLine)
+        case Option.None =>
+          panic(
+            "emitMemberAccess: no field token for " + expr.symbol
+              .qualifiedName()
+          )
       }
     } else {
       panic("emitMemberAccess: unsupported symbol kind " + expr.symbol.kind)
@@ -617,10 +671,9 @@ class Emitter(
         panic(
           "emitNewExpression: no method token for " + expr.constructor.kind + " '" + expr.constructor.name + "'"
         )
-      case Option.None =>
-        panic(
-          "emitNewExpression: no method token for " + expr.constructor.kind + " '" + expr.constructor.name + "'"
-        )
+      case Option.Some(token) =>
+        chunk.emitOpcode(Opcode.Newobj, expr.location.startLine)
+        chunk.emitI4(token.token, expr.location.startLine)
     }
   }
 
@@ -640,7 +693,6 @@ class Emitter(
     emitExpression(expr.operand, context)
     expr.operator match {
       case UnaryOperatorKind.Identity => // do nothing
-      case UnaryOperatorKind.Identity => // do nothing
       case UnaryOperatorKind.Negation => // -x
         chunk.emitOpcode(Opcode.Neg, expr.location.startLine)
 
@@ -651,6 +703,7 @@ class Emitter(
       case UnaryOperatorKind.BitwiseNegation => // ~x
         chunk.emitOpcode(Opcode.Not, expr.location.startLine)
 
+      case UnaryOperatorKind.Error => ???
     }
   }
 
@@ -690,8 +743,10 @@ class Emitter(
     fieldTokens.get(expr.symbol) match {
       case Option.None =>
         panic("emitField: no field token for " + expr.symbol.name)
-      case Option.None =>
-        panic("emitField: no field token for " + expr.symbol.name)
+      case Option.Some(token) =>
+        val op = if (expr.symbol.isStatic()) Opcode.Ldsfld else Opcode.Ldfld
+        chunk.emitOpcode(op, expr.location.startLine)
+        chunk.emitI4(token.token, expr.location.startLine)
     }
   }
 
@@ -737,14 +792,14 @@ class Emitter(
   ): unit = {
     statements.uncons() match {
       case Option.None =>
-      case Option.None =>
+      case Option.Some(Tuple2(statement, rest)) =>
+        emitStatement(statement, context)
+        emitStatements(rest, context)
     }
   }
 
   def emitStatement(statement: LoweredStatement, context: EmitContext): unit = {
     statement match {
-      case LoweredStatement.Error => panic("emitStatement: Error")
-
       case LoweredStatement.Error => panic("emitStatement: Error")
 
       case value: LoweredStatement.ExpressionStatement =>
@@ -765,6 +820,8 @@ class Emitter(
         emitGotoStatement(statement, context)
       case statement: LoweredStatement.LabelDeclaration =>
         emitLabelDeclarationStatement(statement, context)
+      case statement: LoweredStatement.Return =>
+        emitReturnStatement(statement, context)
     }
   }
 
@@ -820,13 +877,14 @@ class Emitter(
   def emitSymbolsMetadata(symbols: List[Symbol], isStatic: bool): unit = {
     symbols match {
       case List.Nil =>
-      case List.Nil =>
+      case List.Cons(symbol, rest) =>
+        emitSymbolMetadata(symbol, isStatic)
+        emitSymbolsMetadata(rest, isStatic)
     }
   }
 
   def emitSymbolMetadata(symbol: Symbol, parentStatic: bool): unit = {
     symbol.kind match {
-      case SymbolKind.Namespace   => emitSymbolsMetadata(symbol.members(), true)
       case SymbolKind.Namespace   => emitSymbolsMetadata(symbol.members(), true)
       case SymbolKind.Object      => emitClassMetadata(symbol)
       case SymbolKind.Class       => emitClassMetadata(symbol)
@@ -838,6 +896,7 @@ class Emitter(
 
       case _: SymbolKind.TypeParameter => // TODO: emit type parameter metadata??
       case SymbolKind.Local => // TODO: emit local metadata?
+      case SymbolKind.Block =>
     }
   }
 
@@ -846,7 +905,9 @@ class Emitter(
   def _ns(names: List[string], right: string): string = {
     names match {
       case List.Nil => right
-      case List.Nil => right
+      case List.Cons(name, rest) =>
+        if (right == "") _ns(rest, name)
+        else _ns(rest, name + "." + right)
     }
   }
 
@@ -893,8 +954,10 @@ class Emitter(
     binder.tryGetSymbolType(symbol) match {
       case Option.None =>
         panic("getSymbolSignature: no type for symbol " + symbol.fullName())
-      case Option.None =>
-        panic("getSymbolSignature: no type for symbol " + symbol.fullName())
+      case Option.Some(typ) =>
+        val sig = new SignatureBuilder()
+        emitTypeSignature(typ, sig)
+        sig.toSignature()
     }
   }
 
@@ -925,7 +988,6 @@ class Emitter(
   def emitTypeSignature(typ: Type, sig: SignatureBuilder): unit = {
     typ match {
       case t: Type.Class           => emitClassTypeSignature(t, sig)
-      case t: Type.Class           => emitClassTypeSignature(t, sig)
       case t: Type.Alias           => emitAliasTypeSignature(t, sig)
       case t: Type.Union           => emitUnionTypeSignature(t, sig)
       case t: Type.GenericClass    => emitGenericClassTypeSignature(t, sig)
@@ -934,6 +996,7 @@ class Emitter(
       case t: Type.Variable        => emitVariableTypeSignature(t, sig)
       case Type.Any                => emitAnyTypeSignature(sig)
       case Type.Never              => emitNeverTypeSignature(sig)
+      case Type.Error(_)           => emitErrorTypeSignature(sig)
     }
   }
 
@@ -941,12 +1004,12 @@ class Emitter(
     typ match {
       case Type.Class(_, _, _, _, symbol) =>
         typeTokens.get(symbol)
-      case Type.Class(_, _, _, _, symbol) =>
-        typeTokens.get(symbol)
       case Type.GenericClass(_, _, _, _, symbol) =>
         typeTokens.get(symbol)
       case Type.Alias(_, _, _, _, _, symbol) =>
         typeTokens.get(symbol)
+      case _ =>
+        Option.None
     }
   }
 
@@ -963,10 +1026,10 @@ class Emitter(
         panic(
           "emitTypeCheckExpression: no TypeDefToken for type " + expr.expectedType.toString
         )
-      case Option.None =>
-        panic(
-          "emitTypeCheckExpression: no TypeDefToken for type " + expr.expectedType.toString
-        )
+      case Option.Some(typeToken) =>
+        // Emit IsInstance opcode with the type token
+        chunk.emitOpcode(Opcode.IsInst, expr.location.startLine)
+        chunk.emitI4(typeToken.token, expr.location.startLine)
     }
   }
 

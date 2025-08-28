@@ -13,7 +13,8 @@ object SymbolChain {
   def fromList(symbols: List[Symbol]): Chain[Symbol] = {
     symbols match {
       case List.Nil => Chain.Empty()
-      case List.Nil => Chain.Empty()
+      case List.Cons(head, tail) =>
+        fromOne(head).concat(fromList(tail))
     }
   }
 }

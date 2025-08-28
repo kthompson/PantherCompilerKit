@@ -16,7 +16,13 @@ class BoundAssemblyPrinter(
     ast.indent()
     assembly.entryPoint match {
       case Option.None =>
-      case Option.None =>
+      case Option.Some(value) =>
+        ast.writeWithColor(ColorPalette.Brackets(1), "Entry Point")
+        ast.appendLine("")
+        ast.indent()
+        symbolPrinter.printSimpleSymbol(value)
+        ast.appendLine("")
+        ast.unindent()
     }
 
     if (!assembly.functionBodies.list.isEmpty) {
@@ -37,7 +43,9 @@ class BoundAssemblyPrinter(
   ): unit = {
     functionBodies match {
       case List.Nil => ()
-      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        printFunctionBody(head.key, head.value)
+        printFunctionBodies(tail)
     }
   }
 
@@ -55,7 +63,6 @@ class BoundAssemblyPrinter(
       expression: BoundExpression
   ): unit = {
     expression match {
-      case expr: BoundExpression.Error         => printError(expr)
       case expr: BoundExpression.Error         => printError(expr)
       case expr: BoundExpression.ArrayCreation => printArrayCreation(expr)
       case expr: BoundExpression.Assignment    => printAssignment(expr)
@@ -77,6 +84,7 @@ class BoundAssemblyPrinter(
       case expr: BoundExpression.Unit          => printUnitExpression(expr)
       case expr: BoundExpression.Variable      => printVariable(expr)
       case expr: BoundExpression.While         => printWhileExpression(expr)
+      case expr: BoundExpression.Match         => printMatchExpression(expr)
     }
   }
 
@@ -111,8 +119,6 @@ class BoundAssemblyPrinter(
     lhs match {
       case BoundLeftHandSide.ArrayCreation(expression) =>
         printArrayCreation(expression)
-      case BoundLeftHandSide.ArrayCreation(expression) =>
-        printArrayCreation(expression)
       case BoundLeftHandSide.Index(expression) =>
         printIndexExpression(expression)
       case BoundLeftHandSide.MemberAccess(memberAccess) =>
@@ -125,6 +131,8 @@ class BoundAssemblyPrinter(
         }
       case BoundLeftHandSide.Call(expression) =>
         printCallExpression(expression)
+      case BoundLeftHandSide.New(expression) =>
+        printNewExpression(expression)
     }
   }
 
@@ -150,9 +158,10 @@ class BoundAssemblyPrinter(
       case Option.None =>
         writeWithColor(ColorPalette.Identifier, expr.method.name)
 
-      case Option.None =>
+      case Option.Some(receiver) =>
+        printLeftHandSide(receiver)
+        writeWithColor(ColorPalette.Punctuation, ".")
         writeWithColor(ColorPalette.Identifier, expr.method.name)
-
     }
 
     if (!expr.genericArguments.isEmpty) {
@@ -192,7 +201,9 @@ class BoundAssemblyPrinter(
 
     expr.elseExpr match {
       case Option.None => ()
-      case Option.None => ()
+      case Option.Some(elseExpr) =>
+        writeWithColor(ColorPalette.Keyword, " else ")
+        printExpression(elseExpr)
     }
   }
   def printIndexExpression(expr: BoundExpression.Index): unit = ???
@@ -216,7 +227,14 @@ class BoundAssemblyPrinter(
   def printExpressions(expressions: List[BoundExpression]): unit = {
     expressions match {
       case List.Nil =>
-      case List.Nil =>
+      case List.Cons(head, tail) =>
+        printExpression(head)
+        tail match {
+          case List.Nil =>
+          case _ =>
+            writeWithColor(ColorPalette.Punctuation, ", ")
+            printExpressions(tail)
+        }
     }
   }
 
@@ -251,16 +269,19 @@ class BoundAssemblyPrinter(
   def printStatements(value: List[BoundStatement]): unit = {
     value match {
       case List.Nil => ()
-      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        printBoundStatement(head)
+        printStatements(tail)
     }
   }
 
   def printBoundStatement(statement: BoundStatement): unit = {
     statement match {
       case BoundStatement.Error => printErrorStatement()
-      case BoundStatement.Error => printErrorStatement()
       case stmt: BoundStatement.ExpressionStatement =>
         printExpressionStatement(stmt)
+      case stmt: BoundStatement.VariableDeclaration =>
+        printVariableDeclaration(stmt)
     }
   }
 
@@ -303,7 +324,9 @@ class BoundAssemblyPrinter(
   def printMatchCases(value: List[BoundMatchCase]): unit = {
     value match {
       case List.Nil => ()
-      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        printMatchCase(head)
+        printMatchCases(tail)
     }
   }
 
@@ -317,19 +340,19 @@ class BoundAssemblyPrinter(
 
   def printPattern(pattern: BoundPattern): unit = pattern match {
     case BoundPattern.Literal(lit) => printBoundLiteral(lit)
-    case BoundPattern.Literal(lit) => printBoundLiteral(lit)
     case BoundPattern.Variable(symbol) =>
       writeWithColor(ColorPalette.Identifier, symbol.name)
+    case BoundPattern.Discard => writeWithColor(ColorPalette.Punctuation, "_")
   }
 
   def printBoundLiteral(lit: BoundLiteral): unit = lit match {
-    case BoundLiteral.Int(location, value) =>
-      writeWithColor(ColorPalette.Number, value.toString())
     case BoundLiteral.Int(location, value) =>
       writeWithColor(ColorPalette.Number, value.toString())
     case BoundLiteral.String(location, value) =>
       writeWithColor(ColorPalette.String, "\"" + value + "\"")
     case BoundLiteral.Bool(location, value) =>
       writeWithColor(ColorPalette.Keyword, value.toString())
+    case BoundLiteral.Char(location, value) =>
+      writeWithColor(ColorPalette.String, "'" + value.toString() + "'")
   }
 }

@@ -16,7 +16,13 @@ class LoweredAssemblyPrinter(
     ast.indent()
     assembly.entryPoint match {
       case Option.None =>
-      case Option.None =>
+      case Option.Some(value) =>
+        ast.writeWithColor(ColorPalette.Brackets(1), "Entry Point")
+        ast.appendLine("")
+        ast.indent()
+        symbolPrinter.printSimpleSymbol(value)
+        ast.appendLine("")
+        ast.unindent()
     }
 
     if (!assembly.functionBodies.list.isEmpty) {
@@ -37,7 +43,9 @@ class LoweredAssemblyPrinter(
   ): unit = {
     functionBodies match {
       case List.Nil => ()
-      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        printFunctionBody(head.key, head.value)
+        printFunctionBodies(tail)
     }
   }
 
@@ -75,13 +83,14 @@ class LoweredAssemblyPrinter(
   def printStatements(value: Chain[LoweredStatement]): unit = {
     value.uncons() match {
       case Option.None => ()
-      case Option.None => ()
+      case Option.Some(Tuple2(head, tail)) =>
+        printStatement(head)
+        printStatements(tail)
     }
   }
 
   def printStatement(statement: LoweredStatement): unit = {
     statement match {
-      case LoweredStatement.Error             => printErrorStatement()
       case LoweredStatement.Error             => printErrorStatement()
       case stmt: LoweredStatement.AssignField => printAssignField(stmt)
       case stmt: LoweredStatement.AssignStaticField =>
@@ -96,6 +105,8 @@ class LoweredAssemblyPrinter(
       case stmt: LoweredStatement.LabelDeclaration =>
         printLabelDeclaration(stmt)
 
+      case stmt: LoweredStatement.Return =>
+        ???
     }
   }
 
@@ -175,10 +186,10 @@ class LoweredAssemblyPrinter(
     leftHandSide match {
       case LoweredLeftHandSide.Variable(_, symbol) =>
         ast.writeWithColor(ColorPalette.Identifier, symbol.name)
-      case LoweredLeftHandSide.Variable(_, symbol) =>
-        ast.writeWithColor(ColorPalette.Identifier, symbol.name)
       case left: LoweredLeftHandSide.MemberAccess =>
         printMemberAccess(left)
+      case left: LoweredLeftHandSide.New =>
+        printNew(left)
     }
   }
 
@@ -198,8 +209,6 @@ class LoweredAssemblyPrinter(
 
   def printExpression(expression: LoweredExpression): unit = {
     expression match {
-      case LoweredExpression.Error =>
-        printError()
       case LoweredExpression.Error =>
         printError()
       case expr: LoweredExpression.BinaryExpression =>
@@ -232,6 +241,8 @@ class LoweredAssemblyPrinter(
         printTypeCheck(expr)
       case expr: LoweredExpression.ArrayAccess =>
         printArrayAccess(expr)
+      case expr: LoweredExpression.ArrayCreation =>
+        printArrayCreation(expr)
     }
   }
 
@@ -303,7 +314,13 @@ class LoweredAssemblyPrinter(
   ): unit = {
     value match {
       case Option.None => ()
-      case Option.None => ()
+      case Option.Some(Tuple2(value, tail)) =>
+        printExpression(value)
+        val chain = tail.uncons()
+        if (!chain.isEmpty()) {
+          ast.writeWithColor(ColorPalette.Punctuation, ", ")
+          printExpressions(chain)
+        }
     }
   }
 
