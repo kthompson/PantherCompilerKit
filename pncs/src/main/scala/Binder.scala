@@ -1416,18 +1416,20 @@ case class Binder(
     }
   }
 
-  def genericTypeParamAsType(head: GenericTypeParameter, symbol: Symbol): Type =
-    Type.Class(
-      head.location,
-      List.Nil,
-      head.name,
-      List.Nil,
-      symbol
-    )
+  def genericTypeParamAsType(head: GenericTypeParameter, index: int): Type =
+    Type.Variable(head.location, index)
 
   def bindGenericTypeParameters(
       value: List[GenericParameterSyntax],
       scope: Scope
+  ): List[GenericTypeParameter] = {
+    bindGenericTypeParametersWithIndex(value, scope, 0)
+  }
+
+  def bindGenericTypeParametersWithIndex(
+      value: List[GenericParameterSyntax],
+      scope: Scope,
+      index: int
   ): List[GenericTypeParameter] = {
     value match {
       case List.Nil => List.Nil
@@ -1460,12 +1462,15 @@ case class Binder(
               value,
               identifier.location
             )
-            bindGenericTypeParameters(tail, scope)
+            bindGenericTypeParametersWithIndex(tail, scope, index + 1)
           case Either.Right(value) =>
             val generic =
               GenericTypeParameter(identifier.location, name, variance, None)
-            setSymbolType(value, genericTypeParamAsType(generic, value))
-            List.Cons(generic, bindGenericTypeParameters(tail, scope))
+            setSymbolType(value, genericTypeParamAsType(generic, index))
+            List.Cons(
+              generic,
+              bindGenericTypeParametersWithIndex(tail, scope, index + 1)
+            )
         }
     }
   }
