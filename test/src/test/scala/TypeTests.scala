@@ -306,15 +306,51 @@ object TypeTests extends TestSuite {
         assertAssignableToWithSetup(setup, "Foo.Bar(12)", "Foo")
         assertAssignableToWithSetup(setup, "Foo.Baz(\"taco\")", "Foo")
       }
-// FIXME:
-//      test("with generic type") {
-//        val setup = "enum Option<T> {\n" +
-//          "  case Some(value: T)\n" +
-//          "  case None\n" +
-//          "}"
-//        assertExprTypeWithSetup(setup, "new Option.Some(12)", "Option<int>")
-//        assertExprTypeWithSetup(setup, "Option.None", "Option<never>")
-//      }
+
+      test("with generic type") {
+        val setup = "enum Option[T] {\n" +
+          "  case Some(value: T)\n" +
+          "  case None\n" +
+          "}"
+        assertAssignableToWithSetup(setup, "new Option.Some(12)", "Option[int]")
+        assertAssignableToWithSetup(
+          setup,
+          "new Option.Some(12)",
+          "Option.Some[int]"
+        )
+        assertAssignableToWithSetup(setup, "Option.Some(12)", "Option[int]")
+        assertAssignableToWithSetup(setup, "Option.None", "Option[int]")
+        assertAssignableToWithSetup(setup, "Option.None", "Option[never]")
+      }
+
+      test("list examples") {
+        val setup = "enum List[T] {\n" +
+          "  case Cons(head: T, tail: List[T])\n" +
+          "  case Nil\n" +
+          "}"
+        assertAssignableToWithSetup(
+          setup,
+          "new List.Cons(1, List.Nil)",
+          "List[int]"
+        )
+        assertAssignableToWithSetup(
+          setup,
+          "List.Cons(1, List.Nil)",
+          "List[int]"
+        )
+        assertAssignableToWithSetup(
+          setup,
+          "new List.Cons(\"hello\", List.Nil)",
+          "List[string]"
+        )
+        assertAssignableToWithSetup(
+          setup,
+          "List.Cons(\"hello\", List.Nil)",
+          "List[string]"
+        )
+        assertAssignableToWithSetup(setup, "List.Nil", "List[int]")
+        assertAssignableToWithSetup(setup, "List.Nil", "List[string]")
+      }
     }
 
     test("classes") {
