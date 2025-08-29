@@ -14,7 +14,7 @@ enum Conversion {
 
 class ConversionClassifier(binder: Binder) {
   def classify(from: Type, toType: Type): Conversion = {
-    if (from == toType) {
+    if (from == toType || semanticTypeEquals(from, toType)) {
       Conversion.Identity
     } else if (toType == binder.anyType || toType == binder.unitType) {
       Conversion.Implicit
@@ -35,11 +35,10 @@ class ConversionClassifier(binder: Binder) {
             case List.Nil =>
               classify(from, value)
             case _ =>
-              binder.diagnosticBag.reportInternalError(
-                location,
-                "generic type alias in conversion"
-              )
-              Conversion.None
+              // For generic type aliases check if from type is compatible with
+              // one of the union cases when instantiated with the type
+              // arguments
+              classifyWithGenericAlias(from, generics, value)
           }
         case Type.Union(location, cases) =>
           cases match {
@@ -54,6 +53,177 @@ class ConversionClassifier(binder: Binder) {
         case _ =>
           Conversion.None
       }
+    }
+  }
+
+  def classifyWithGenericAlias(
+      from: Type,
+      typeArgs: List[Type],
+      aliasValue: Type
+  ): Conversion = {
+    aliasValue match {
+      case Type.Union(location, cases) =>
+        classifyWithGenericUnion(from, typeArgs, cases)
+      case _ =>
+        // For non-union alias values, try direct substitution
+        val substitutedType = substituteTypeArgs(aliasValue, typeArgs)
+        classify(from, substitutedType)
+    }
+  }
+
+  def classifyWithGenericUnion(
+      from: Type,
+      typeArgs: List[Type],
+      cases: List[Type]
+  ): Conversion = {
+    cases match {
+      case List.Nil                  => Conversion.None
+      case List.Cons(caseType, tail) =>
+        // Substitute type arguments in this union case and check for conversion
+        val instantiatedCase = substituteTypeArgs(caseType, typeArgs)
+        classify(from, instantiatedCase) match {
+          case Conversion.None =>
+            classifyWithGenericUnion(from, typeArgs, tail)
+          case conversion => conversion
+        }
+    }
+  }
+
+  def substituteTypeArgs(typ: Type, typeArgs: List[Type]): Type = {
+    typ match {
+      case Type.Variable(loc, id) =>
+        getTypeArg(typeArgs, id) match {
+          case Option.Some(substituted) => substituted
+          case Option.None => typ // Return original if id out of bounds
+        }
+      case Type.Class(loc, ns, name, args, symbol) =>
+        // Substitute type arguments in the class type arguments
+        Type.Class(
+          loc,
+          ns,
+          name,
+          substituteTypeArgsList(args, typeArgs),
+          symbol
+        )
+      case Type.GenericClass(loc, ns, name, genParams, symbol) =>
+        // For generic classes, convert to regular class with substituted type arguments
+        Type.Class(loc, ns, name, typeArgs, symbol)
+      case _ => typ // For other types, return as-is
+    }
+  }
+
+  def substituteTypeArgsList(
+      args: List[Type],
+      typeArgs: List[Type]
+  ): List[Type] = {
+    args match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        List.Cons(
+          substituteTypeArgs(head, typeArgs),
+          substituteTypeArgsList(tail, typeArgs)
+        )
+    }
+  }
+
+  def getTypeArg(args: List[Type], index: int): Option[Type] = {
+    args match {
+      case List.Nil => Option.None
+      case List.Cons(head, tail) =>
+        if (index == 0) {
+          Option.Some(head)
+        } else {
+          getTypeArg(tail, index - 1)
+        }
+    }
+  }
+
+  def semanticTypeEquals(type1: Type, type2: Type): bool = {
+    Tuple2(type1, type2) match {
+      case Tuple2(
+            Type.Class(_, ns1, name1, args1, sym1),
+            Type.Class(_, ns2, name2, args2, sym2)
+          ) =>
+        sym1 == sym2 && name1 == name2 && ns1 == ns2 && semanticTypeListEquals(
+          args1,
+          args2
+        )
+      case Tuple2(Type.Union(_, cases1), Type.Union(_, cases2)) =>
+        semanticTypeListEquals(cases1, cases2)
+      case Tuple2(
+            Type.Alias(_, ns1, name1, args1, value1, sym1),
+            Type.Alias(_, ns2, name2, args2, value2, sym2)
+          ) =>
+        sym1 == sym2 && name1 == name2 && ns1 == ns2 && semanticTypeListEquals(
+          args1,
+          args2
+        ) && semanticTypeEquals(value1, value2)
+      case Tuple2(
+            Type.Function(_, params1, ret1),
+            Type.Function(_, params2, ret2)
+          ) =>
+        semanticTypeEquals(ret1, ret2) && semanticBoundParameterListEquals(
+          params1,
+          params2
+        )
+      case Tuple2(
+            Type.GenericClass(_, ns1, name1, args1, sym1),
+            Type.GenericClass(_, ns2, name2, args2, sym2)
+          ) =>
+        sym1 == sym2 && name1 == name2 && ns1 == ns2 && semanticGenericParameterListEquals(
+          args1,
+          args2
+        )
+      case Tuple2(Type.Variable(_, id1), Type.Variable(_, id2)) =>
+        id1 == id2
+      case Tuple2(Type.Any, Type.Any)                 => true
+      case Tuple2(Type.Never, Type.Never)             => true
+      case Tuple2(Type.Error(msg1), Type.Error(msg2)) => msg1 == msg2
+      case _                                          => false
+    }
+  }
+
+  def semanticTypeListEquals(list1: List[Type], list2: List[Type]): bool = {
+    Tuple2(list1, list2) match {
+      case Tuple2(List.Nil, List.Nil) => true
+      case Tuple2(List.Cons(head1, tail1), List.Cons(head2, tail2)) =>
+        semanticTypeEquals(head1, head2) && semanticTypeListEquals(tail1, tail2)
+      case _ => false
+    }
+  }
+
+  def semanticBoundParameterListEquals(
+      params1: List[BoundParameter],
+      params2: List[BoundParameter]
+  ): bool = {
+    Tuple2(params1, params2) match {
+      case Tuple2(List.Nil, List.Nil) => true
+      case Tuple2(List.Cons(param1, tail1), List.Cons(param2, tail2)) =>
+        semanticTypeEquals(
+          param1.typ,
+          param2.typ
+        ) && semanticBoundParameterListEquals(tail1, tail2)
+      case _ => false
+    }
+  }
+
+  def semanticGenericParameterListEquals(
+      params1: List[GenericTypeParameter],
+      params2: List[GenericTypeParameter]
+  ): bool = {
+    Tuple2(params1, params2) match {
+      case Tuple2(List.Nil, List.Nil) => true
+      case Tuple2(List.Cons(param1, tail1), List.Cons(param2, tail2)) =>
+        val upperBoundsEqual =
+          Tuple2(param1.upperBound, param2.upperBound) match {
+            case Tuple2(Option.Some(bound1), Option.Some(bound2)) =>
+              semanticTypeEquals(bound1, bound2)
+            case Tuple2(Option.None, Option.None) => true
+            case _                                => false
+          }
+        param1.name == param2.name && param1.variance == param2.variance &&
+        semanticGenericParameterListEquals(tail1, tail2) && upperBoundsEqual
+      case _ => false
     }
   }
 }
