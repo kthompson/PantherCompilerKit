@@ -68,7 +68,7 @@ class Binder(
   def tryGetSymbolType(symbol: Symbol): Option[Type] =
     symbolTypes.get(symbol._id) match {
       case Option.None        => Option.None
-      case Option.Some(value) => Some(value.typ)
+      case Option.Some(value) => Option.Some(value.typ)
     }
 
   def getTypeSymbol(typ: Type): Option[Symbol] = {
@@ -136,7 +136,7 @@ class Binder(
     arraySymbol.defineTypeParameter("T", noLoc, Variance.Invariant)
 
   val T: GenericTypeParameter =
-    GenericTypeParameter(noLoc, "T", Variance.Invariant, None)
+    GenericTypeParameter(noLoc, "T", Variance.Invariant, Option.None)
 
   val arrayCtorSymbol = arraySymbol.defineMethod(".ctor", noLoc)
   arrayCtorSymbol.extern = true
