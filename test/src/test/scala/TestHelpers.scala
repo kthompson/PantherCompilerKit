@@ -505,7 +505,7 @@ object TestHelpers {
     //    assertNoSymbols(symbols)
   }
 
-  def assertSymbolType(comp: Compilation, symbol: Symbol, typ: string): Unit = {
+  def assertSymbolType(comp: Compilation, symbol: Symbol, typ: string): unit = {
     val symbolType = comp.binder.tryGetSymbolType(symbol)
     symbolType match {
       case Option.Some(value) =>
@@ -519,7 +519,7 @@ object TestHelpers {
     }
   }
 
-  def assertAssignableTo(expression: string, assignableTo: string): Unit =
+  def assertAssignableTo(expression: string, assignableTo: string): unit =
     mkCompilation("val typeTestSymbol: " + assignableTo + " = " + expression)
 
   def execValue(program: string): Value = {
