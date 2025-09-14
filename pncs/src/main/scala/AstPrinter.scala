@@ -6,7 +6,7 @@ import SimpleNameSyntax._
 import NameSyntax._
 
 class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
-  override def toString(): String = buffer.toString()
+  override def toString(): string = buffer.toString()
 
   def indent(): unit = {
     buffer.indent()
