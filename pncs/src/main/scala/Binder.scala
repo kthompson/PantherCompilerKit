@@ -1449,7 +1449,14 @@ case class Binder(
         }
 
         head.value.template match {
-          case Option.None => ()
+          case Option.None =>
+            // Even classes with no template need their constructor parameters converted to accessible fields
+            addMembersToBind(
+              symbol,
+              List.Nil,
+              List.Nil,
+              head.value.parameters
+            )
           case Option.Some(template) =>
             val members = splitMembers(List.Nil, template.members)
             bindClassesObjectAndEnums(

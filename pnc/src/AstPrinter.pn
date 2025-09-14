@@ -6,7 +6,7 @@ using SimpleNameSyntax
 using NameSyntax
 
 class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
-  def toString(): String = buffer.toString()
+  def toString(): string = buffer.toString()
 
   def indent(): unit = {
     buffer.indent()
