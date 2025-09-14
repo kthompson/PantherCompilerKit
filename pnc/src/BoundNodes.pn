@@ -54,6 +54,10 @@ enum BoundLiteral {
 enum BoundPattern {
   case Literal(literal: BoundLiteral)
   case Variable(symbol: Symbol)
+  case Extract(
+      constructor: Symbol,
+      patterns: Array[BoundPattern]
+  )
   case Discard
 }
 

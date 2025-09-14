@@ -1139,6 +1139,12 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
         // TODO: not sure how to handle this yet
         // For now, we just return the result of the match case
         matchCase.result
+      case BoundPattern.Extract(constructor, patterns) =>
+        // TODO: Implement proper constructor pattern matching
+        // This would involve checking if the value is an instance of the constructor
+        // and extracting the fields for nested pattern matching
+        // For now, we treat it as a wildcard match
+        matchCase.result
       case BoundPattern.Discard =>
         matchCase.result
     }
