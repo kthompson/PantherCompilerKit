@@ -1262,61 +1262,21 @@ case class ExprBinder(
   ): Result[BoundExpression.Error, BoundPattern] = {
     pattern match {
       case PatternSyntax.Literal(token) =>
-        token.value match {
-          case SyntaxTokenValue.Number(value) =>
+        bindLiteralFromSyntaxToken(token) match {
+          case Result.Error(value) => Result.Error(value)
+          case Result.Success(literal) =>
             Result.Success(
               BoundPattern.Literal(
-                BoundLiteral.Int(token.location, value)
-              )
-            )
-          case SyntaxTokenValue.String(value) =>
-            Result.Success(
-              BoundPattern.Literal(
-                BoundLiteral.String(token.location, value)
-              )
-            )
-          case SyntaxTokenValue.Boolean(value) =>
-            Result.Success(
-              BoundPattern.Literal(
-                BoundLiteral.Bool(token.location, value)
-              )
-            )
-          case SyntaxTokenValue.Character(value) =>
-            Result.Success(
-              BoundPattern.Literal(
-                BoundLiteral.Char(token.location, value)
-              )
-            )
-          case _ =>
-            diagnosticBag.reportInvalidPattern(token.location)
-            Result.Error(
-              BoundExpression.Error(
-                "Invalid literal pattern: " + token.text
+                literal
               )
             )
         }
       case PatternSyntax.Discard(_) =>
         Result.Success(BoundPattern.Discard)
       case PatternSyntax.Identifier(identifier) =>
-        // Create a new local variable for the pattern binding
-        scope.defineLocal(identifier.text, identifier.location) match {
-          case Either.Left(originalLocation) =>
-            diagnosticBag.reportDuplicateDefinition(
-              identifier.text,
-              originalLocation,
-              identifier.location
-            )
-            Result.Error(
-              BoundExpression.Error(
-                "Duplicate pattern variable: " + identifier.text
-              )
-            )
-          case Either.Right(symbol) =>
-            // For now, set a generic type - proper type inference would be complex
-            // TODO: Implement proper pattern variable type inference
-            binder.setSymbolType(symbol, binder.stringType)
-            Result.Success(BoundPattern.Variable(symbol))
-        }
+        val expectedType = binder.stringType
+
+        bindIdentifierPattern(scope, identifier, expectedType)
       case PatternSyntax.TypeAssertion(innerPattern, typeAnnotation) =>
         // Bind the inner pattern first, then apply type checking
         bindPattern(innerPattern, scope) match {
@@ -1324,7 +1284,27 @@ case class ExprBinder(
           case Result.Success(boundPattern) =>
             // TODO: Implement proper type checking for type assertions
             // For now, just return the inner pattern
-            Result.Success(boundPattern)
+
+            boundPattern match {
+              case pattern: BoundPattern.Variable =>
+                // TODO: this should actually be a type assertion rather than
+                // just setting the type directly
+                // Proper type checking would be more complex
+                val typ = binder.bindTypeName(typeAnnotation.typ, scope)
+                typ match {
+                  case Type.Error(message) =>
+                    Result.Error(BoundExpression.Error(message))
+                  case _ =>
+                    binder.setSymbolType(pattern.symbol, typ)
+                    Result.Success(pattern)
+                }
+
+              case BoundPattern.Discard =>
+                // TODO: need to add type check for discard patterns
+                Result.Success(BoundPattern.Discard)
+              case _ =>
+                Result.Success(boundPattern)
+            }
         }
       case PatternSyntax.Type(typ) =>
         // For type patterns, we create a wildcard pattern
@@ -1335,29 +1315,84 @@ case class ExprBinder(
         resolveConstructorSymbol(constructorName, scope) match {
           case Result.Error(error)         => Result.Error(error)
           case Result.Success(constructor) =>
+
+            // TODO: Verify that the constructor is valid
+            //    get its parameter types and set up each pattern with a TypeAssertion
+            //    and set the types for all the pattern variables
+
             // Bind each pattern parameter
             val boundPatterns = new Array[BoundPattern](patterns.length)
             var i = 0
             var hasError = false
-            var errorResult: BoundExpression.Error = null
+            var errorResult: Option[BoundExpression.Error] = Option.None
 
             while (i < patterns.length && !hasError) {
               bindPattern(patterns(i).pattern, scope) match {
                 case Result.Error(error) =>
                   hasError = true
-                  errorResult = error
+                  errorResult = Option.Some(error)
                 case Result.Success(pattern) =>
                   boundPatterns(i) = pattern
                   i = i + 1
               }
             }
 
-            if (hasError) {
-              Result.Error(errorResult)
-            } else {
-              Result.Success(BoundPattern.Extract(constructor, boundPatterns))
+            errorResult match {
+              case Option.None =>
+                Result.Success(BoundPattern.Extract(constructor, boundPatterns))
+              case Option.Some(value) =>
+                Result.Error(value)
             }
         }
+    }
+  }
+
+  def bindIdentifierPattern(
+      scope: Scope,
+      identifier: SyntaxToken,
+      expectedType: Type
+  ): Result[BoundExpression.Error, BoundPattern] = {
+    // Create a new local variable for the pattern binding
+    scope.defineLocal(identifier.text, identifier.location) match {
+      case Either.Left(originalLocation) =>
+        diagnosticBag.reportDuplicateDefinition(
+          identifier.text,
+          originalLocation,
+          identifier.location
+        )
+        Result.Error(
+          BoundExpression.Error(
+            "Duplicate pattern variable: " + identifier.text
+          )
+        )
+      case Either.Right(symbol) =>
+        // For now, set a generic type - proper type inference would be complex
+        // TODO: Implement proper pattern variable type inference
+
+        binder.setSymbolType(symbol, expectedType)
+        Result.Success(BoundPattern.Variable(symbol))
+    }
+  }
+
+  def bindLiteralFromSyntaxToken(
+      token: SyntaxToken
+  ): Result[BoundExpression.Error, BoundLiteral] = {
+    token.value match {
+      case SyntaxTokenValue.Number(value) =>
+        Result.Success(BoundLiteral.Int(token.location, value))
+      case SyntaxTokenValue.String(value) =>
+        Result.Success(BoundLiteral.String(token.location, value))
+      case SyntaxTokenValue.Boolean(value) =>
+        Result.Success(BoundLiteral.Bool(token.location, value))
+      case SyntaxTokenValue.Character(value) =>
+        Result.Success(BoundLiteral.Char(token.location, value))
+      case _ =>
+        diagnosticBag.reportInvalidPattern(token.location)
+        Result.Error(
+          BoundExpression.Error(
+            "Invalid literal pattern: " + token.text
+          )
+        )
     }
   }
 
