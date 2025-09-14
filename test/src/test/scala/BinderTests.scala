@@ -147,5 +147,123 @@ object BinderTests extends TestSuite {
         assertNoSymbols(symbols)
       }
     }
+
+    test("pattern matching binding") {
+      test("extract patterns with variables create locals") {
+        val comp = mkCompilation(
+          "enum Option[T] {\n" +
+            "  case Some(value: T)\n" +
+            "  case None\n" +
+            "}\n" +
+            "val opt = Option.Some(42)\n" +
+            "val result = opt match {\n" +
+            "  case Option.Some(value) => value\n" +
+            "  case Option.None => 0\n" +
+            "}"
+        )
+        val symbols = enumNonBuiltinSymbols(comp)
+        assertSymbol(symbols, SymbolKind.Alias, "Option")
+        assertSymbol(symbols, SymbolKind.TypeParameter(Variance.Invariant), "T")
+        assertSymbol(symbols, SymbolKind.Class, "Some")
+        assertSymbol(symbols, SymbolKind.Field, "value")
+        assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
+        assertSymbol(symbols, SymbolKind.Parameter, "value")
+
+        assertSymbol(symbols, SymbolKind.Class, "None")
+
+        assertProgramSymbol(symbols)
+        assertSymbol(symbols, SymbolKind.Field, "result")
+        assertSymbol(symbols, SymbolKind.Field, "opt")
+        assertMainSymbol(symbols)
+
+        // Look for pattern variables among remaining symbols
+        var foundPatternVariable = false
+        while (symbols.moveNext()) {
+          val symbol = symbols.current()
+          if (symbol.kind == SymbolKind.Local && symbol.name == "value") {
+            foundPatternVariable = true
+          }
+        }
+        assert(foundPatternVariable)
+      }
+
+      test("discard patterns don't create named locals") {
+        val comp = mkCompilation(
+          "enum Option[T] {\n" +
+            "  case Some(value: T)\n" +
+            "  case None\n" +
+            "}\n" +
+            "val opt = Option.Some(42)\n" +
+            "val result = opt match {\n" +
+            "  case Option.Some(_) => 1\n" +
+            "  case Option.None => 0\n" +
+            "}"
+        )
+        val symbols = enumNonBuiltinSymbols(comp)
+        assertSymbol(symbols, SymbolKind.Alias, "Option")
+        assertSymbol(symbols, SymbolKind.TypeParameter(Variance.Invariant), "T")
+        assertSymbol(symbols, SymbolKind.Class, "Some")
+        assertSymbol(symbols, SymbolKind.Field, "value")
+        assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
+        assertSymbol(symbols, SymbolKind.Parameter, "value")
+
+        assertSymbol(symbols, SymbolKind.Class, "None")
+
+        assertProgramSymbol(symbols)
+        assertSymbol(symbols, SymbolKind.Field, "result")
+        assertSymbol(symbols, SymbolKind.Field, "opt")
+        assertMainSymbol(symbols)
+
+        // Ensure no local symbol named "_" was created (generated temporaries like $1, $2 are ok)
+        while (symbols.moveNext()) {
+          val symbol = symbols.current()
+          if (symbol.kind == SymbolKind.Local && symbol.name == "_") {
+            assert(symbol.name != "_")
+          }
+        }
+      }
+
+      test("mixed extract and discard patterns") {
+        val comp = mkCompilation(
+          "enum Option[T] {\n" +
+            "  case Some(value: T)\n" +
+            "  case None\n" +
+            "}\n" +
+            "val opt = Option.Some(42)\n" +
+            "val result = opt match {\n" +
+            "  case Option.Some(x) => x\n" +
+            "  case Option.None => 0\n" +
+            "  case _ => -1\n" +
+            "}"
+        )
+        val symbols = enumNonBuiltinSymbols(comp)
+        assertSymbol(symbols, SymbolKind.Alias, "Option")
+        assertSymbol(symbols, SymbolKind.TypeParameter(Variance.Invariant), "T")
+        assertSymbol(symbols, SymbolKind.Class, "Some")
+        assertSymbol(symbols, SymbolKind.Field, "value")
+        assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
+        assertSymbol(symbols, SymbolKind.Parameter, "value")
+
+        assertSymbol(symbols, SymbolKind.Class, "None")
+
+        assertProgramSymbol(symbols)
+        assertSymbol(symbols, SymbolKind.Field, "result")
+        assertSymbol(symbols, SymbolKind.Field, "opt")
+        assertMainSymbol(symbols)
+
+        // Look for the pattern variable 'x' but not for any '_' locals
+        var foundPatternVariable = false
+        while (symbols.moveNext()) {
+          val symbol = symbols.current()
+          if (symbol.kind == SymbolKind.Local && symbol.name == "x") {
+            foundPatternVariable = true
+          }
+          if (symbol.kind == SymbolKind.Local && symbol.name == "_") {
+            assert(symbol.name != "_")
+          }
+        }
+        assert(foundPatternVariable)
+      }
+    }
   }
 }

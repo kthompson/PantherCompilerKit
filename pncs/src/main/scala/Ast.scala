@@ -176,8 +176,9 @@ enum PatternSyntax {
   )
   case Type(typ: NameSyntax)
 
-  case Identifier(
-      value: SyntaxToken,
+  case Identifier(value: SyntaxToken)
+  case TypeAssertion(
+      value: PatternSyntax,
       typeAnnotation: TypeAnnotationSyntax
   )
   case Literal(value: SyntaxToken)

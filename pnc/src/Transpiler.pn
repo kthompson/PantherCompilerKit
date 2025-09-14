@@ -431,8 +431,10 @@ class Transpiler(
       context: TranspilerContext
   ): unit = {
     pattern match {
-      case PatternSyntax.Identifier(identifier, typeAnnotation) =>
+      case PatternSyntax.Identifier(identifier) =>
         transpileToken(identifier, context)
+      case PatternSyntax.TypeAssertion(innerPattern, typeAnnotation) =>
+        transpilePattern(innerPattern, context)
         transpileTypeAnnotation(typeAnnotation, context)
       case PatternSyntax.Type(value) =>
         transpileName(value, context)

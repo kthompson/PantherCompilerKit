@@ -964,12 +964,15 @@ case class Parser(
       * list of patterns in parens.
       *
       * There are a few different forms of patterns:
-      *   - case x: int => ...
-      *   - case Type.Any => ...
-      *   - case Type.Some(x) => ...
-      *   - case Any => ...
-      *   - case Some(x) => ...
-      *   - case "taco" =>
+      *   - case x: int => ... TypeAssertion(Identifier(x), int)
+      *   - case x => ... Identifier(x)
+      *   - case Type.Any => ... Type(Type.Any)
+      *   - case Any => ... Type(Any)
+      *   - case Type.Some(x) => ... Extract(Identifier(x))
+      *   - case Some(x) => ... Extract(Identifier(x))
+      *   - case Some(x : int) => ... Extract(TypeAssertion(Identifier(x), int))
+      *   - case "taco" => ... Literal("taco")
+      *   - case 7 => ... Literal(7)
       */
     // Patterns have a few main forms:
     // 1. Type pattern: an identifier with an optional type annotation
@@ -989,7 +992,9 @@ case class Parser(
         val typeAnnotation = parseTypeAnnotation()
         identFromName(name) match {
           case Option.Some(identifier) =>
-            PatternSyntax.Identifier(identifier, typeAnnotation)
+            val inner = patternFromIdentifier(identifier)
+            PatternSyntax.TypeAssertion(inner, typeAnnotation)
+
           case Option.None =>
             diagnostics.reportUnexpectedToken(
               current().location,
@@ -1003,8 +1008,23 @@ case class Parser(
         // must be extract pattern
         parseExtractPattern(name)
       } else {
-        PatternSyntax.Type(name)
+        // Check if this is a simple identifier that should be a variable pattern
+        identFromName(name) match {
+          case Option.Some(identifier) =>
+            patternFromIdentifier(identifier)
+          case Option.None =>
+            // Complex name (e.g., qualified name) - treat as type pattern
+            PatternSyntax.Type(name)
+        }
       }
+    }
+  }
+
+  def patternFromIdentifier(identifier: SyntaxToken): PatternSyntax = {
+    if (identifier.text == "_") {
+      PatternSyntax.Discard(identifier)
+    } else {
+      PatternSyntax.Identifier(identifier)
     }
   }
 

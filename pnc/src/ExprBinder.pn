@@ -1297,7 +1297,7 @@ class ExprBinder(
         }
       case PatternSyntax.Discard(_) =>
         Result.Success(BoundPattern.Discard)
-      case PatternSyntax.Identifier(identifier, typeAnnotation) =>
+      case PatternSyntax.Identifier(identifier) =>
         // Create a new local variable for the pattern binding
         scope.defineLocal(identifier.text, identifier.location) match {
           case Either.Left(originalLocation) =>
@@ -1312,9 +1312,19 @@ class ExprBinder(
               )
             )
           case Either.Right(symbol) =>
-            // For now, we'll let type inference handle the type
-            // The pattern variable type will be inferred from the match context
+            // For now, set a generic type - proper type inference would be complex
+            // TODO: Implement proper pattern variable type inference
+            binder.setSymbolType(symbol, binder.stringType)
             Result.Success(BoundPattern.Variable(symbol))
+        }
+      case PatternSyntax.TypeAssertion(innerPattern, typeAnnotation) =>
+        // Bind the inner pattern first, then apply type checking
+        bindPattern(innerPattern, scope) match {
+          case Result.Error(error)          => Result.Error(error)
+          case Result.Success(boundPattern) =>
+            // TODO: Implement proper type checking for type assertions
+            // For now, just return the inner pattern
+            Result.Success(boundPattern)
         }
       case PatternSyntax.Type(typ) =>
         // For type patterns, we create a wildcard pattern
