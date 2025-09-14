@@ -16,8 +16,8 @@ object ArgsParser {
         settings,
         "",
         List.Nil,
-        showHelp = true,
-        error = Option.None
+        true,
+        Option.None
       )
     } else {
       var kindRecoveryAttempts = settings.kindRecoveryAttempts
@@ -223,18 +223,14 @@ object ArgsParser {
   }
 
   def startsWith(str: string, prefix: string): bool = {
-    if (prefix.length > str.length) {
-      false
-    } else {
-      var i = 0
-      while (i < prefix.length) {
-        if (str(i) != prefix(i)) {
-          return false
-        }
-        i = i + 1
-      }
-      true
-    }
+    if (prefix.length > str.length) false
+    else _startsWith(str, prefix, 0)
+  }
+
+  def _startsWith(str: string, prefix: string, pos: int): bool = {
+    if (pos >= prefix.length) true
+    else if (str(pos) != prefix(pos)) false
+    else _startsWith(str, prefix, pos + 1)
   }
 
   def reverseList(list: List[string]): List[string] = {
