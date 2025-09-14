@@ -7,7 +7,7 @@
     </option>
     <option name="tasks" value="pncs/bootstrap" />
     <option name="useSbtShell" value="false" />
-    <option name="vmparams" value="-Xms512M -Xmx1024M -Xss1M" />
+    <option name="vmparams" value="-Xms512M -Xmx1024M -Xss24m" />
     <option name="workingDir" value="$PROJECT_DIR$" />
     <option name="envFilePaths" />
     <method v="2">

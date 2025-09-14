@@ -29,29 +29,47 @@ class ConversionClassifier(binder: Binder) {
     } else if (from == binder.charType && toType == binder.intType) {
       Conversion.Implicit
     } else {
-      toType match {
-        case Type.Alias(location, _, _, generics, value, _) =>
-          generics match {
-            case List.Nil =>
-              classify(from, value)
-            case _ =>
-              // For generic type aliases check if from type is compatible with
-              // one of the union cases when instantiated with the type
-              // arguments
-              classifyWithGenericAlias(from, generics, value)
-          }
-        case Type.Union(location, cases) =>
-          cases match {
-            case List.Nil => Conversion.None
-            case List.Cons(head, tail) =>
-              classify(from, head) match {
-                case Conversion.None =>
-                  classify(from, Type.Union(location, tail))
-                case conversion => conversion
+      Tuple2(from, toType) match {
+        // Handle conversion from union to alias (e.g., Enum.Case1 | Enum.Case2 -> Enum)
+        case Tuple2(
+              Type.Union(_, fromCases),
+              Type.Alias(_, _, _, List.Nil, aliasValue, _)
+            ) =>
+          aliasValue match {
+            case Type.Union(_, aliasCases) =>
+              if (unionSubsetOf(fromCases, aliasCases)) {
+                Conversion.Identity
+              } else {
+                Conversion.None
               }
+            case _ =>
+              Conversion.None
           }
         case _ =>
-          Conversion.None
+          toType match {
+            case Type.Alias(location, _, _, generics, value, _) =>
+              generics match {
+                case List.Nil =>
+                  classify(from, value)
+                case _ =>
+                  // For generic type aliases check if from type is compatible with
+                  // one of the union cases when instantiated with the type
+                  // arguments
+                  classifyWithGenericAlias(from, generics, value)
+              }
+            case Type.Union(location, cases) =>
+              cases match {
+                case List.Nil => Conversion.None
+                case List.Cons(head, tail) =>
+                  classify(from, head) match {
+                    case Conversion.None =>
+                      classify(from, Type.Union(location, tail))
+                    case conversion => conversion
+                  }
+              }
+            case _ =>
+              Conversion.None
+          }
       }
     }
   }
@@ -224,6 +242,26 @@ class ConversionClassifier(binder: Binder) {
         param1.name == param2.name && param1.variance == param2.variance &&
         semanticGenericParameterListEquals(tail1, tail2) && upperBoundsEqual
       case _ => false
+    }
+  }
+
+  def unionSubsetOf(subset: List[Type], superset: List[Type]): bool = {
+    subset match {
+      case List.Nil => true
+      case List.Cons(head, tail) =>
+        typeInList(head, superset) && unionSubsetOf(tail, superset)
+    }
+  }
+
+  def typeInList(typ: Type, list: List[Type]): bool = {
+    list match {
+      case List.Nil => false
+      case List.Cons(head, tail) =>
+        if (semanticTypeEquals(typ, head)) {
+          true
+        } else {
+          typeInList(typ, tail)
+        }
     }
   }
 }
