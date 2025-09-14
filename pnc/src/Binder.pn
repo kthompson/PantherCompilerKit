@@ -251,6 +251,59 @@ class Binder(
   // tochar(value: any): char - type conversion function
   conversionMethod(charSymbol, charType)
 
+  // panic(message: string): never
+  val panicSymbol = method(predef, "panic")
+  val panicMessageSymbol = param(panicSymbol, "message", stringType)
+  setSymbolType(
+    panicSymbol,
+    Type.Function(
+      noLoc,
+      List.Cons(
+        BoundParameter(panicMessageSymbol, stringType),
+        List.Nil
+      ),
+      neverType
+    )
+  )
+
+  // assert(condition: bool, message: string): unit
+  val assertSymbol = method(predef, "assert")
+  val assertConditionSymbol = param(assertSymbol, "condition", boolType)
+  val assertMessageSymbol = param(assertSymbol, "message", stringType)
+  setSymbolType(
+    assertSymbol,
+    Type.Function(
+      noLoc,
+      List.Cons(
+        BoundParameter(assertConditionSymbol, boolType),
+        List.Cons(
+          BoundParameter(assertMessageSymbol, stringType),
+          List.Nil
+        )
+      ),
+      unitType
+    )
+  )
+
+  // mod(a: int, b: int): int
+  val modSymbol = method(predef, "mod")
+  val modASymbol = param(modSymbol, "a", intType)
+  val modBSymbol = param(modSymbol, "b", intType)
+  setSymbolType(
+    modSymbol,
+    Type.Function(
+      noLoc,
+      List.Cons(
+        BoundParameter(modASymbol, intType),
+        List.Cons(
+          BoundParameter(modBSymbol, intType),
+          List.Nil
+        )
+      ),
+      intType
+    )
+  )
+
   /** These are the methods and fields that need to be bound/symbolized
     */
   var membersToBind: Dictionary[Symbol, List[BindingMember]] =
