@@ -754,7 +754,6 @@ class Binder(
         membersToType.get(symbol) match {
           case Option.None =>
             // no type has been detected yet so lets bind the entry and then try again
-            println("Unknown type for symbol " + symbol.kind)
             diagnosticBag.reportBugUnknownType(symbol.location, symbol.name)
             Type.Error("Unknown type for symbol " + symbol.kind)
           case Option.Some(value) =>

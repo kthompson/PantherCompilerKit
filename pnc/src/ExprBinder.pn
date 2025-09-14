@@ -1200,6 +1200,62 @@ class ExprBinder(
     }
   }
 
+  def resolveConstructorSymbol(
+      name: NameSyntax,
+      scope: Scope
+  ): Result[BoundExpression.Error, Symbol] = {
+    name match {
+      case NameSyntax.SimpleName(
+            SimpleNameSyntax.IdentifierNameSyntax(identifier)
+          ) =>
+        scope.lookup(identifier.text) match {
+          case Option.None =>
+            diagnosticBag.reportSymbolNotFound(
+              identifier.location,
+              identifier.text
+            )
+            Result.Error(
+              BoundExpression.Error(
+                "Constructor not found: " + identifier.text
+              )
+            )
+          case Option.Some(symbol) =>
+            Result.Success(symbol)
+        }
+      case NameSyntax.QualifiedName(
+            left,
+            _,
+            SimpleNameSyntax.IdentifierNameSyntax(identifier)
+          ) =>
+        // Resolve the left part to get the type/namespace
+        val leftScope = binder.bindNameToScope(left, scope)
+        leftScope.lookup(identifier.text) match {
+          case Option.None =>
+            diagnosticBag.reportSymbolNotFound(
+              identifier.location,
+              identifier.text
+            )
+            Result.Error(
+              BoundExpression.Error(
+                "Constructor not found: " + identifier.text
+              )
+            )
+          case Option.Some(symbol) =>
+            Result.Success(symbol)
+        }
+      case _ =>
+        diagnosticBag.reportInternalError(
+          AstUtils.locationOfName(name),
+          "resolveConstructorSymbol - unsupported name syntax"
+        )
+        Result.Error(
+          BoundExpression.Error(
+            "Unsupported constructor name syntax"
+          )
+        )
+    }
+  }
+
   def bindPattern(
       pattern: PatternSyntax,
       scope: Scope
@@ -1256,26 +1312,42 @@ class ExprBinder(
               )
             )
           case Either.Right(symbol) =>
-            diagnosticBag.reportInternalError(symbol.location, "bindPattern")
-
-            Result.Error(
-              BoundExpression.Error(
-                "this isnt quite right, this should be a type check, not setting the type here"
-              )
-            )
-//            // Set the symbol type from the type annotation
-//            val boundType = binder.bindTypeName(typeAnnotation.typ, scope)
-//            binder.setSymbolType(symbol, boundType)
-//            Result.Success(BoundPattern.Variable(symbol))
+            // For now, we'll let type inference handle the type
+            // The pattern variable type will be inferred from the match context
+            Result.Success(BoundPattern.Variable(symbol))
         }
       case PatternSyntax.Type(typ) =>
         // For type patterns, we create a wildcard pattern
         // Type checking will be handled elsewhere
         Result.Success(BoundPattern.Discard)
-      case PatternSyntax.Extract(_, _, patterns, _) =>
-        // For now, treat extract patterns as wildcards
-        // Full ADT support would require more complex pattern matching
-        Result.Success(BoundPattern.Discard)
+      case PatternSyntax.Extract(constructorName, _, patterns, _) =>
+        // Resolve the constructor symbol
+        resolveConstructorSymbol(constructorName, scope) match {
+          case Result.Error(error)         => Result.Error(error)
+          case Result.Success(constructor) =>
+            // Bind each pattern parameter
+            val boundPatterns = new Array[BoundPattern](patterns.length)
+            var i = 0
+            var hasError = false
+            var errorResult: BoundExpression.Error = null
+
+            while (i < patterns.length && !hasError) {
+              bindPattern(patterns(i).pattern, scope) match {
+                case Result.Error(error) =>
+                  hasError = true
+                  errorResult = error
+                case Result.Success(pattern) =>
+                  boundPatterns(i) = pattern
+                  i = i + 1
+              }
+            }
+
+            if (hasError) {
+              Result.Error(errorResult)
+            } else {
+              Result.Success(BoundPattern.Extract(constructor, boundPatterns))
+            }
+        }
     }
   }
 

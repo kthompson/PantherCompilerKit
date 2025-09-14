@@ -1,3 +1,7 @@
+---
+applyTo: "**"
+---
+
 # Panther Compiler Kit
 
 **Always reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.**
