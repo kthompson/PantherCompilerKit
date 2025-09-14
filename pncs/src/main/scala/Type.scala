@@ -209,6 +209,9 @@ object Types {
     if (t1 == t2) t1
     else {
       Tuple2(t1, t2) match {
+        // Never is the identity element for union: Never ∪ T = T
+        case Tuple2(Type.Never, _) => t2
+        case Tuple2(_, Type.Never) => t1
         case Tuple2(Type.Union(location, cases1), Type.Union(_, cases2)) =>
           Type.Union(location, ListModule.concat(cases1, cases2))
         case Tuple2(Type.Union(location, cases), _) =>
