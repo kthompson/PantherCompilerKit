@@ -234,18 +234,13 @@ object ArgsParser {
   }
 
   def reverseList(list: List[string]): List[string] = {
-    var result: List[string] = List.Nil
-    var current = list
-
-    while (current != List.Nil) {
-      current match {
-        case List.Nil => ()
-        case List.Cons(head, tail) =>
-          result = List.Cons(head, result)
-          current = tail
-      }
-    }
-
-    result
+    _reverseList(List.Nil, list)
   }
+
+  def _reverseList(acc: List[string], list: List[string]): List[string] =
+    list match {
+      case List.Nil => acc
+      case List.Cons(head, tail) =>
+        _reverseList(List.Cons(head, acc), tail)
+    }
 }

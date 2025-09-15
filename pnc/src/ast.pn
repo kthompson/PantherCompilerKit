@@ -167,6 +167,11 @@ class MatchCaseSyntax(
     block: BlockExpressionListSyntax
 )
 
+enum SymbolPatternSyntax {
+  case Discard(value: SyntaxToken)
+  case Identifier(value: SyntaxToken)
+}
+
 enum PatternSyntax {
   case Extract(
       value: NameSyntax,
@@ -174,15 +179,13 @@ enum PatternSyntax {
       patterns: Array[PatternItemSyntax],
       closeParenToken: SyntaxToken
   )
-  case Type(typ: NameSyntax)
-
-  case Identifier(value: SyntaxToken)
+  case Variable(value: SymbolPatternSyntax)
+  case Object(typ: NameSyntax)
   case TypeAssertion(
-      value: PatternSyntax,
+      value: SymbolPatternSyntax,
       typeAnnotation: TypeAnnotationSyntax
   )
   case Literal(value: SyntaxToken)
-  case Discard(value: SyntaxToken)
 }
 
 class PatternItemSyntax(

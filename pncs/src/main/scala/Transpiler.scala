@@ -431,20 +431,30 @@ case class Transpiler(
       context: TranspilerContext
   ): unit = {
     pattern match {
-      case PatternSyntax.Identifier(identifier) =>
-        transpileToken(identifier, context)
+      case PatternSyntax.Variable(symbolPattern) =>
+        transpileSymbolPattern(symbolPattern, context)
       case PatternSyntax.TypeAssertion(innerPattern, typeAnnotation) =>
-        transpilePattern(innerPattern, context)
+        transpileSymbolPattern(innerPattern, context)
         transpileTypeAnnotation(typeAnnotation, context)
-      case PatternSyntax.Type(value) =>
+      case PatternSyntax.Object(value) =>
         transpileName(value, context)
       case PatternSyntax.Literal(value) => transpileToken(value, context)
-      case PatternSyntax.Discard(value) => transpileToken(value, context)
       case PatternSyntax.Extract(name, open, patterns, close) =>
         transpileName(name, context)
         transpileToken(open, context)
         transpilePatterns(patterns, context)
         transpileToken(close, context)
+    }
+  }
+
+  def transpileSymbolPattern(
+      pattern: SymbolPatternSyntax,
+      context: TranspilerContext
+  ): unit = {
+    pattern match {
+      case SymbolPatternSyntax.Discard(value) => transpileToken(value, context)
+      case SymbolPatternSyntax.Identifier(value) =>
+        transpileToken(value, context)
     }
   }
 

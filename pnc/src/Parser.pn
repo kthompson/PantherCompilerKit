@@ -992,7 +992,11 @@ class Parser(
         val typeAnnotation = parseTypeAnnotation()
         identFromName(name) match {
           case Option.Some(identifier) =>
-            val inner = patternFromIdentifier(identifier)
+            val inner = if (identifier.text == "_") {
+              SymbolPatternSyntax.Discard(identifier)
+            } else {
+              SymbolPatternSyntax.Identifier(identifier)
+            }
             PatternSyntax.TypeAssertion(inner, typeAnnotation)
 
           case Option.None =>
@@ -1001,7 +1005,7 @@ class Parser(
               currentKind(),
               SyntaxKind.IdentifierToken
             )
-            PatternSyntax.Type(typeAnnotation.typ)
+            PatternSyntax.Object(typeAnnotation.typ)
         }
 
       } else if (currentKind() == SyntaxKind.OpenParenToken) {
@@ -1014,7 +1018,7 @@ class Parser(
             patternFromIdentifier(identifier)
           case Option.None =>
             // Complex name (e.g., qualified name) - treat as type pattern
-            PatternSyntax.Type(name)
+            PatternSyntax.Object(name)
         }
       }
     }
@@ -1022,9 +1026,9 @@ class Parser(
 
   def patternFromIdentifier(identifier: SyntaxToken): PatternSyntax = {
     if (identifier.text == "_") {
-      PatternSyntax.Discard(identifier)
+      PatternSyntax.Variable(SymbolPatternSyntax.Discard(identifier))
     } else {
-      PatternSyntax.Identifier(identifier)
+      PatternSyntax.Variable(SymbolPatternSyntax.Identifier(identifier))
     }
   }
 

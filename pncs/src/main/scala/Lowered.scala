@@ -1135,17 +1135,30 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
           },
           node.resultType
         )
-      case BoundPattern.Variable(symbol) =>
-        // TODO: not sure how to handle this yet
-        // For now, we just return the result of the match case
-        matchCase.result
+      case BoundPattern.Variable(symbolPattern) =>
+        symbolPattern match {
+          case BoundSymbolPattern.Variable(symbol) =>
+            // TODO: not sure how to handle this yet
+            // For now, we just return the result of the match case
+            matchCase.result
+          case BoundSymbolPattern.Discard =>
+            matchCase.result
+        }
       case BoundPattern.Extract(constructor, patterns) =>
         // TODO: Implement proper constructor pattern matching
         // This would involve checking if the value is an instance of the constructor
         // and extracting the fields for nested pattern matching
         // For now, we treat it as a wildcard match
         matchCase.result
-      case BoundPattern.Discard =>
+      case BoundPattern.Object(targetType) =>
+        // TODO: Implement type pattern matching
+        // This would involve checking if the value is of the target type
+        // For now, we treat it as a wildcard match
+        matchCase.result
+      case BoundPattern.TypeAssertion(pattern, targetType) =>
+        // TODO: Implement type assertion pattern matching
+        // This would involve checking type and binding the pattern
+        // For now, we treat it as a wildcard match
         matchCase.result
     }
   }

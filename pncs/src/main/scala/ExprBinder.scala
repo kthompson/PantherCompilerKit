@@ -63,6 +63,13 @@ import panther.*
 
 // will be connected to a Declaration or an Expression
 
+// Pattern binding modes to distinguish between the different binding strategies
+enum PatternBindingMode {
+  case Basic
+  case WithType
+  case WithExpectedType
+}
+
 case class TypePair(t1: Type, t2: Type)
 
 case class ExprBinder(
@@ -276,11 +283,6 @@ case class ExprBinder(
             }
         }
     }
-  }
-
-  def boundErrorExpression(text: string): BoundExpression = {
-    println("\nbinding error: " + text + "\n")
-    BoundExpression.Error("binding error: " + text)
   }
 
   def boundErrorStatement(text: string): BoundStatement = {
@@ -1296,36 +1298,252 @@ case class ExprBinder(
     }
   }
 
+  def bindPatternCore(
+      pattern: PatternSyntax,
+      scope: Scope,
+      expectedType: Option[Type],
+      mode: PatternBindingMode
+  ): Result[BoundExpression.Error, BoundPattern] = {
+    pattern match {
+      case PatternSyntax.Literal(token) =>
+        bindLiteralPattern(token)
+
+      case PatternSyntax.Variable(symbolPattern) =>
+        bindSymbolPatternCore(symbolPattern, scope, expectedType) match {
+          case Result.Error(error) => Result.Error(error)
+          case Result.Success(boundSymbolPattern) =>
+            Result.Success(BoundPattern.Variable(boundSymbolPattern))
+        }
+
+      case PatternSyntax.Object(name) =>
+        // For type patterns, we create a wildcard pattern
+        val typ = binder.bindTypeName(name, scope)
+        if (typ == Type.Error) {
+          Result.Error(BoundExpression.Error("Invalid type in pattern"))
+        } else {
+          Result.Success(BoundPattern.Object(typ))
+        }
+
+      case PatternSyntax.TypeAssertion(innerPattern, typeAnnotation) =>
+        bindTypeAssertionPattern(
+          innerPattern,
+          typeAnnotation,
+          scope,
+          expectedType,
+          mode
+        )
+
+      case PatternSyntax.Extract(constructorName, _, patterns, _) =>
+        bindExtractPattern(constructorName, patterns, scope, expectedType)
+    }
+  }
+
+  // Handle type assertion patterns with mode-specific logic
+  def bindTypeAssertionPattern(
+      innerPattern: SymbolPatternSyntax,
+      typeAnnotation: TypeAnnotationSyntax,
+      scope: Scope,
+      expectedType: Option[Type],
+      mode: PatternBindingMode
+  ): Result[BoundExpression.Error, BoundPattern] = {
+    val annotatedType = binder.bindTypeName(typeAnnotation.typ, scope)
+    annotatedType match {
+      case Type.Error(message) =>
+        Result.Error(BoundExpression.Error(message))
+      case _ =>
+        mode match {
+          case PatternBindingMode.Basic =>
+            // Basic mode: bind inner pattern first, then apply type checking
+            bindSymbolPatternCore(innerPattern, scope, Option.None) match {
+              case Result.Error(error) => Result.Error(error)
+              case Result.Success(boundSymbolPattern) =>
+                val result =
+                  BoundPattern.TypeAssertion(boundSymbolPattern, annotatedType)
+                boundSymbolPattern match {
+                  case BoundSymbolPattern.Variable(symbol) =>
+                    binder.setSymbolType(symbol, annotatedType)
+                  case BoundSymbolPattern.Discard =>
+                  // No action needed for discard
+                }
+                Result.Success(result)
+            }
+
+          case PatternBindingMode.WithType =>
+            // WithType mode: bind inner pattern with the annotated type
+            bindSymbolPatternCore(
+              innerPattern,
+              scope,
+              Option.Some(annotatedType)
+            ) match {
+              case Result.Error(error) => Result.Error(error)
+              case Result.Success(boundSymbolPattern) =>
+                Result.Success(
+                  BoundPattern.TypeAssertion(boundSymbolPattern, annotatedType)
+                )
+            }
+
+          case PatternBindingMode.WithExpectedType =>
+            // WithExpectedType mode: bind inner pattern with annotated type, then apply additional checking
+            bindSymbolPatternCore(
+              innerPattern,
+              scope,
+              Option.Some(annotatedType)
+            ) match {
+              case Result.Error(error) => Result.Error(error)
+              case Result.Success(boundSymbolPattern) =>
+                boundSymbolPattern match {
+                  case BoundSymbolPattern.Variable(symbol) =>
+                    binder.setSymbolType(symbol, annotatedType)
+                  case BoundSymbolPattern.Discard =>
+                  // No action needed for discard
+                }
+                Result.Success(
+                  BoundPattern.TypeAssertion(boundSymbolPattern, annotatedType)
+                )
+            }
+        }
+    }
+  }
+
+  def bindSymbolPatternCore(
+      pattern: SymbolPatternSyntax,
+      scope: Scope,
+      expectedType: Option[Type]
+  ): Result[BoundExpression.Error, BoundSymbolPattern] = {
+    pattern match {
+      case SymbolPatternSyntax.Discard(_) =>
+        Result.Success(BoundSymbolPattern.Discard)
+      case SymbolPatternSyntax.Identifier(identifier) =>
+        bindVariablePattern(identifier, scope, expectedType) match {
+          case Result.Error(error) => Result.Error(error)
+          case Result.Success(symbol) =>
+            Result.Success(BoundSymbolPattern.Variable(symbol))
+        }
+    }
+  }
+
+  // Handle extract patterns with mode-specific logic
+  def bindExtractPattern(
+      constructorName: NameSyntax,
+      patterns: Array[PatternItemSyntax],
+      scope: Scope,
+      expectedType: Option[Type]
+  ): Result[BoundExpression.Error, BoundPattern] = {
+    resolveConstructorSymbol(constructorName, scope) match {
+      case Result.Error(error)         => Result.Error(error)
+      case Result.Success(constructor) =>
+
+        // Get parameter types based on mode
+        val parameterTypesResult = expectedType match {
+          case Option.Some(expectedType) =>
+            getFunctionParameterTypesWithContext(constructor, expectedType)
+          case Option.None =>
+            getFunctionParameterTypes(constructor)
+        }
+
+        parameterTypesResult match {
+          case Either.Left(error) =>
+            diagnosticBag.reportNotCallable(
+              AstUtils.locationOfName(constructorName)
+            )
+            Result.Error(
+              BoundExpression.Error(
+                "Constructor is not callable: " + constructor.name
+              )
+            )
+
+          case Either.Right(parameterTypes) =>
+            // Verify parameter count matches
+            if (patterns.length != parameterTypes.length) {
+              diagnosticBag.reportInternalError(
+                AstUtils.locationOfName(constructorName),
+                "Pattern parameter count mismatch"
+              )
+              Result.Error(BoundExpression.Error("Parameter count mismatch"))
+            } else {
+              // Bind each pattern parameter
+              bindPatternParameters(
+                patterns,
+                parameterTypes,
+                scope
+              ) match {
+                case Result.Error(error) => Result.Error(error)
+                case Result.Success(boundPatterns) =>
+                  val extractPattern =
+                    BoundPattern.Extract(constructor, boundPatterns)
+                  Result.Success(extractPattern)
+              }
+            }
+        }
+    }
+  }
+
+  // Helper to bind pattern parameters with error accumulation
+  def bindPatternParameters(
+      patterns: Array[PatternItemSyntax],
+      parameterTypes: Array[Type],
+      scope: Scope
+  ): Result[BoundExpression.Error, Array[BoundPattern]] = {
+    val boundPatterns = new Array[BoundPattern](patterns.length)
+    var i = 0
+    var hasError = false
+    var errorResult: Option[BoundExpression.Error] = Option.None
+
+    while (i < patterns.length && !hasError) {
+      val bindingResult = bindPatternCore(
+        patterns(i).pattern,
+        scope,
+        Option.Some(parameterTypes(i)),
+        PatternBindingMode.WithType
+      )
+
+      bindingResult match {
+        case Result.Error(error) =>
+          hasError = true
+          errorResult = Option.Some(error)
+        case Result.Success(pattern) =>
+          boundPatterns(i) = pattern
+          i = i + 1
+      }
+    }
+
+    errorResult match {
+      case Option.None        => Result.Success(boundPatterns)
+      case Option.Some(error) => Result.Error(error)
+    }
+  }
+
   def bindPatternWithType(
       pattern: PatternSyntax,
       scope: Scope,
       expectedType: Type
   ): Result[BoundExpression.Error, BoundPattern] = {
-    pattern match {
-      case PatternSyntax.Literal(token) =>
-        bindLiteralFromSyntaxToken(token) match {
-          case Result.Error(value) => Result.Error(value)
-          case Result.Success(literal) =>
-            Result.Success(
-              BoundPattern.Literal(
-                literal
-              )
-            )
-        }
-      case PatternSyntax.Discard(_) =>
-        Result.Success(BoundPattern.Discard)
-      case PatternSyntax.Identifier(identifier) =>
-        bindIdentifierPattern(scope, identifier, expectedType)
-      case PatternSyntax.Type(_) =>
-        // For type patterns, we create a wildcard pattern
-        Result.Success(BoundPattern.Discard)
-      case PatternSyntax.TypeAssertion(innerPattern, typeAnnotation) =>
-        // Bind the inner pattern with the annotated type
-        val annotatedType = binder.bindTypeName(typeAnnotation.typ, scope)
-        bindPatternWithType(innerPattern, scope, annotatedType)
-      case PatternSyntax.Extract(constructorName, _, patterns, _) =>
-        // For nested extract patterns, use the regular bindPattern
-        bindPattern(pattern, scope)
+    bindPatternCore(
+      pattern,
+      scope,
+      Option.Some(expectedType),
+      PatternBindingMode.WithType
+    )
+  }
+
+  def bindPatternWithExpectedType(
+      pattern: PatternSyntax,
+      scope: Scope,
+      expectedType: Type
+  ): Result[BoundExpression.Error, BoundPattern] = {
+    bindPatternCore(
+      pattern,
+      scope,
+      Option.Some(expectedType),
+      PatternBindingMode.WithExpectedType
+    )
+  }
+
+  def bindLiteralPattern(token: SyntaxToken) = {
+    bindLiteralFromSyntaxToken(token) match {
+      case Result.Error(value) => Result.Error(value)
+      case Result.Success(literal) =>
+        Result.Success(BoundPattern.Literal(literal))
     }
   }
 
@@ -1333,120 +1551,126 @@ case class ExprBinder(
       pattern: PatternSyntax,
       scope: Scope
   ): Result[BoundExpression.Error, BoundPattern] = {
-    pattern match {
-      case PatternSyntax.Literal(token) =>
-        bindLiteralFromSyntaxToken(token) match {
-          case Result.Error(value) => Result.Error(value)
-          case Result.Success(literal) =>
-            Result.Success(
-              BoundPattern.Literal(
-                literal
-              )
-            )
+    bindPatternCore(pattern, scope, Option.None, PatternBindingMode.Basic)
+  }
+
+  def getFunctionParameterTypesWithContext(
+      symbol: Symbol,
+      expectedType: Type
+  ): Either[Type.Error, Array[Type]] = {
+    binder.getSymbolType(symbol) match {
+      case Type.Error(message) => Either.Left(Type.Error(message))
+      case f: Type.Function =>
+        val paramTypes = getParameterTypes(f.parameters)
+        val result = new Array[Type](paramTypes.length)
+        fillParameterTypes(result, 0, paramTypes)
+        Either.Right(result)
+      case gf: Type.GenericFunction =>
+        // For generic functions, we need to instantiate with the expected type
+        val instantiatedParams =
+          instantiateGenericFunctionParameters(gf, expectedType)
+        instantiatedParams match {
+          case Either.Left(error) => Either.Left(error)
+          case Either.Right(params) =>
+            val result = new Array[Type](params.length)
+            fillParameterTypes(result, 0, params)
+            Either.Right(result)
         }
-      case PatternSyntax.Discard(_) =>
-        Result.Success(BoundPattern.Discard)
-      case PatternSyntax.Identifier(identifier) =>
-        // TODO: For identifier patterns, we currently do not have type information
-        // A more advanced implementation would involve type inference based on context
+      case x =>
+        diagnosticBag.reportNotCallable(symbol.location)
+        Either.Left(Type.Error("Symbol is not a function: " + symbol.name))
+    }
+  }
 
-        bindIdentifierPattern(scope, identifier, Type.Error("unknown"))
-      case PatternSyntax.TypeAssertion(innerPattern, typeAnnotation) =>
-        // Bind the inner pattern first, then apply type checking
-        bindPattern(innerPattern, scope) match {
-          case Result.Error(error)          => Result.Error(error)
-          case Result.Success(boundPattern) =>
-            // TODO: Implement proper type checking for type assertions
-            // For now, just return the inner pattern
+  def instantiateGenericFunctionParameters(
+      gf: Type.GenericFunction,
+      expectedType: Type
+  ): Either[Type.Error, List[Type]] = {
+    // Simple type instantiation - in a full implementation this would involve
+    // proper type unification, but for now we'll handle the common case of
+    // matching against a concrete type
 
-            boundPattern match {
-              case pattern: BoundPattern.Variable =>
-                // TODO: this should actually be a type assertion rather than
-                // just setting the type directly
-                // Proper type checking would be more complex
-                val typ = binder.bindTypeName(typeAnnotation.typ, scope)
-                typ match {
-                  case Type.Error(message) =>
-                    Result.Error(BoundExpression.Error(message))
-                  case _ =>
-                    binder.setSymbolType(pattern.symbol, typ)
-                    Result.Success(pattern)
-                }
+    expectedType match {
+      case Type.Class(_, _, _, typeArgs, _) =>
+        // If we have a concrete class type with type arguments,
+        // substitute them into the generic function parameters
+        val substitutedParams = substituteGenericParameters(
+          getParameterTypes(gf.parameters),
+          gf.generics,
+          typeArgs
+        )
+        Either.Right(substitutedParams)
+      case _ =>
+        // Fallback: return the raw parameter types
+        Either.Right(getParameterTypes(gf.parameters))
+    }
+  }
 
-              case BoundPattern.Discard =>
-                // TODO: need to add type check for discard patterns
-                Result.Success(BoundPattern.Discard)
-              case _ =>
-                Result.Success(boundPattern)
-            }
+  def substituteGenericParameters(
+      paramTypes: List[Type],
+      genericParams: List[GenericTypeParameter],
+      typeArgs: List[Type]
+  ): List[Type] = {
+    // Create a substitution map from generic parameter names to concrete types
+    val substitutions = createSubstitutionMap(genericParams, typeArgs)
+    substituteTypesInList(paramTypes, substitutions)
+  }
+
+  def createSubstitutionMap(
+      genericParams: List[GenericTypeParameter],
+      typeArgs: List[Type]
+  ): Dictionary[string, Type] = {
+    var result = DictionaryModule.empty[string, Type]()
+    var genParams = genericParams
+    var args = typeArgs
+
+    while (genParams != List.Nil && args != List.Nil) {
+      genParams match {
+        case List.Cons(genParam, genTail) =>
+          args match {
+            case List.Cons(argType, argTail) =>
+              result = result.put(genParam.name, argType)
+              genParams = genTail
+              args = argTail
+            case List.Nil => ()
+          }
+        case List.Nil => ()
+      }
+    }
+
+    result
+  }
+
+  def substituteTypesInList(
+      types: List[Type],
+      substitutions: Dictionary[string, Type]
+  ): List[Type] = {
+    types match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        val substitutedHead = substituteTypeVariables(head, substitutions)
+        List.Cons(substitutedHead, substituteTypesInList(tail, substitutions))
+    }
+  }
+
+  def substituteTypeVariables(
+      typ: Type,
+      substitutions: Dictionary[string, Type]
+  ): Type = {
+    typ match {
+      case Type.Class(loc, ns, name, args, symbol) =>
+        // Check if this is a type variable that needs substitution
+        if (ns.isEmpty && substitutions.contains(name)) {
+          substitutions.get(name) match {
+            case Option.Some(substitutedType) => substitutedType
+            case Option.None                  => typ
+          }
+        } else {
+          // Recursively substitute in type arguments
+          val substitutedArgs = substituteTypesInList(args, substitutions)
+          Type.Class(loc, ns, name, substitutedArgs, symbol)
         }
-      case PatternSyntax.Type(typ) =>
-        // For type patterns, we create a wildcard pattern
-        // Type checking will be handled elsewhere
-        Result.Success(BoundPattern.Discard)
-      case PatternSyntax.Extract(constructorName, _, patterns, _) =>
-        // Resolve the constructor symbol
-        resolveConstructorSymbol(constructorName, scope) match {
-          case Result.Error(error)         => Result.Error(error)
-          case Result.Success(constructor) =>
-
-            // Get constructor parameter types for type assertions
-            getFunctionParameterTypes(constructor) match {
-              case Either.Left(error) =>
-                diagnosticBag.reportNotCallable(
-                  AstUtils.locationOfName(constructorName)
-                )
-                Result.Error(
-                  BoundExpression.Error(
-                    "Constructor is not callable: " + constructor.name
-                  )
-                )
-              case Either.Right(parameterTypes) =>
-
-                // Verify parameter count matches
-                if (patterns.length != parameterTypes.length) {
-                  diagnosticBag.reportInternalError(
-                    AstUtils.locationOfName(constructorName),
-                    "Pattern parameter count mismatch"
-                  )
-                  Result.Error(
-                    BoundExpression.Error("Parameter count mismatch")
-                  )
-                } else {
-                  // Bind each pattern parameter with its expected type
-                  val boundPatterns = new Array[BoundPattern](patterns.length)
-
-                  var i = 0
-                  var hasError = false
-                  var errorResult: Option[BoundExpression.Error] = Option.None
-
-                  while (i < patterns.length && !hasError) {
-                    bindPatternWithType(
-                      patterns(i).pattern,
-                      scope,
-                      parameterTypes(i)
-                    ) match {
-                      case Result.Error(error) =>
-                        hasError = true
-                        errorResult = Option.Some(error)
-                      case Result.Success(pattern) =>
-                        boundPatterns(i) = pattern
-                        i = i + 1
-                    }
-                  }
-
-                  errorResult match {
-                    case Option.None =>
-                      Result.Success(
-                        BoundPattern.Extract(constructor, boundPatterns)
-                      )
-                    case Option.Some(value) =>
-                      Result.Error(value)
-                  }
-                }
-            }
-
-        }
+      case _ => typ // For now, only handle simple type variable substitution
     }
   }
 
@@ -1484,6 +1708,34 @@ case class ExprBinder(
     }
   }
 
+  def bindVariablePattern(
+      identifier: SyntaxToken,
+      scope: Scope,
+      expectedType: Option[Type]
+  ): Result[BoundExpression.Error, Symbol] = {
+    // Create a new local variable for the pattern binding
+    scope.defineLocal(identifier.text, identifier.location) match {
+      case Either.Left(originalLocation) =>
+        diagnosticBag.reportDuplicateDefinition(
+          identifier.text,
+          originalLocation,
+          identifier.location
+        )
+        Result.Error(
+          BoundExpression.Error(
+            "Duplicate pattern variable: " + identifier.text
+          )
+        )
+      case Either.Right(symbol) =>
+        // Set the type if provided
+        expectedType match {
+          case Option.Some(typ) => binder.setSymbolType(symbol, typ)
+          case Option.None      => // No action needed
+        }
+        Result.Success(symbol)
+    }
+  }
+
   def bindIdentifierPattern(
       scope: Scope,
       identifier: SyntaxToken,
@@ -1507,7 +1759,9 @@ case class ExprBinder(
         // TODO: Implement proper pattern variable type inference
 
         binder.setSymbolType(symbol, expectedType)
-        Result.Success(BoundPattern.Variable(symbol))
+        Result.Success(
+          BoundPattern.Variable(BoundSymbolPattern.Variable(symbol))
+        )
     }
   }
 
@@ -1530,6 +1784,48 @@ case class ExprBinder(
             "Invalid literal pattern: " + token.text
           )
         )
+    }
+  }
+
+  def bindMatchCaseWithType(
+      matchCase: MatchCaseSyntax,
+      scope: Scope,
+      matchedType: Type
+  ): Result[BoundExpression.Error, BoundMatchCase] = {
+    // Create a new scope for this case to allow pattern variables
+    val caseScope = scope.newBlock()
+
+    bindPatternWithExpectedType(
+      matchCase.pattern,
+      caseScope,
+      matchedType
+    ) match {
+      case Result.Error(error)          => Result.Error(error)
+      case Result.Success(boundPattern) =>
+        // Bind the statements and expression within the case scope
+        val statements = bindStatements(matchCase.block.statements, caseScope)
+        val resultExpr = matchCase.block.expression match {
+          case Option.None =>
+            BoundExpression.Unit(TextLocationFactory.empty())
+          case Option.Some(expr) => bind(expr, caseScope)
+        }
+
+        resultExpr match {
+          case error: BoundExpression.Error => Result.Error(error)
+          case _ =>
+            val caseResult = if (statements.isEmpty) {
+              resultExpr
+            } else {
+              BoundExpression.Block(statements, resultExpr)
+            }
+            Result.Success(
+              BoundMatchCase(
+                matchCase.caseKeyword.location,
+                boundPattern,
+                caseResult
+              )
+            )
+        }
     }
   }
 
@@ -1566,6 +1862,29 @@ case class ExprBinder(
                 caseResult
               )
             )
+        }
+    }
+  }
+
+  def bindMatchCasesWithType(
+      head: MatchCaseSyntax,
+      tail: List[MatchCaseSyntax],
+      scope: Scope,
+      matchedType: Type
+  ): Result[BoundExpression.Error, NonEmptyList[BoundMatchCase]] = {
+    bindMatchCaseWithType(head, scope, matchedType) match {
+      case Result.Error(expr) =>
+        Result.Error(expr)
+      case Result.Success(boundCase) =>
+        tail match {
+          case List.Nil =>
+            Result.Success(NonEmptyList(boundCase, List.Nil))
+          case List.Cons(head, tail) =>
+            bindMatchCasesWithType(head, tail, scope, matchedType) match {
+              case Result.Error(expr) => Result.Error(expr)
+              case Result.Success(tailCases) =>
+                Result.Success(NonEmptyList(boundCase, tailCases.toList()))
+            }
         }
     }
   }
@@ -1615,8 +1934,16 @@ case class ExprBinder(
     matchedExpr match {
       case error: BoundExpression.Error => error
       case _                            =>
-        // Bind all the match cases
-        bindMatchCases(node.cases.head, node.cases.tail, scope) match {
+        // Get the type of the matched expression for pattern type inference
+        val matchedType = binder.getType(matchedExpr)
+
+        // Bind all the match cases with the matched type context
+        bindMatchCasesWithType(
+          node.cases.head,
+          node.cases.tail,
+          scope,
+          matchedType
+        ) match {
           case Result.Error(value)        => value
           case Result.Success(boundCases) =>
             // Calculate the result type from all cases
@@ -1831,7 +2158,6 @@ case class ExprBinder(
             }
         }
     }
-
   }
 
   def bindUnitExpression(
@@ -2009,18 +2335,21 @@ case class ExprBinder(
         }
     }
   }
+
   def bindBreakStatement(
       statement: StatementSyntax.BreakStatement,
       scope: Scope
   ): BoundStatement = {
     boundErrorStatement("bindBreakStatement")
   }
+
   def bindContinueStatement(
       statement: StatementSyntax.ContinueStatement,
       scope: Scope
   ): BoundStatement = {
     boundErrorStatement("bindContinueStatement")
   }
+
   def bindExpressionStatement(
       statement: StatementSyntax.ExpressionStatement,
       scope: Scope

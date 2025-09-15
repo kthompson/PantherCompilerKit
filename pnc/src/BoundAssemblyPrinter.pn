@@ -340,8 +340,13 @@ class BoundAssemblyPrinter(
 
   def printPattern(pattern: BoundPattern): unit = pattern match {
     case BoundPattern.Literal(lit) => printBoundLiteral(lit)
-    case BoundPattern.Variable(symbol) =>
-      writeWithColor(ColorPalette.Identifier, symbol.name)
+    case BoundPattern.Variable(symbolPattern) =>
+      symbolPattern match {
+        case BoundSymbolPattern.Variable(symbol) =>
+          writeWithColor(ColorPalette.Identifier, symbol.name)
+        case BoundSymbolPattern.Discard =>
+          writeWithColor(ColorPalette.Punctuation, "_")
+      }
     case BoundPattern.Extract(constructor, patterns) =>
       writeWithColor(ColorPalette.Identifier, constructor.name)
       writeWithColor(ColorPalette.Punctuation, "(")
@@ -352,7 +357,17 @@ class BoundAssemblyPrinter(
         i = i + 1
       }
       writeWithColor(ColorPalette.Punctuation, ")")
-    case BoundPattern.Discard => writeWithColor(ColorPalette.Punctuation, "_")
+    case BoundPattern.Object(targetType) =>
+      writeWithColor(ColorPalette.TypeParameter, targetType.toString())
+    case BoundPattern.TypeAssertion(pattern, targetType) =>
+      pattern match {
+        case BoundSymbolPattern.Variable(symbol) =>
+          writeWithColor(ColorPalette.Identifier, symbol.name)
+        case BoundSymbolPattern.Discard =>
+          writeWithColor(ColorPalette.Punctuation, "_")
+      }
+      writeWithColor(ColorPalette.Punctuation, ": ")
+      writeWithColor(ColorPalette.TypeParameter, targetType.toString())
   }
 
   def printBoundLiteral(lit: BoundLiteral): unit = lit match {

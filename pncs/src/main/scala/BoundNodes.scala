@@ -51,14 +51,21 @@ enum BoundLiteral {
   case Char(location: TextLocation, value: char)
 }
 
+enum BoundSymbolPattern {
+  case Variable(symbol: Symbol)
+  case Discard
+}
+
 enum BoundPattern {
   case Literal(literal: BoundLiteral)
-  case Variable(symbol: Symbol)
+  case Variable(symbol: BoundSymbolPattern)
   case Extract(
       constructor: Symbol,
       patterns: Array[BoundPattern]
   )
-  case Discard
+  // used for matching things like Option.None
+  case Object(targetType: Type)
+  case TypeAssertion(pattern: BoundSymbolPattern, targetType: Type)
 }
 
 case class BoundMatchCase(
