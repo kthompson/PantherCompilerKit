@@ -1347,9 +1347,10 @@ class ExprBinder(
       case PatternSyntax.Discard(_) =>
         Result.Success(BoundPattern.Discard)
       case PatternSyntax.Identifier(identifier) =>
-        val expectedType = binder.stringType
+        // TODO: For identifier patterns, we currently do not have type information
+        // A more advanced implementation would involve type inference based on context
 
-        bindIdentifierPattern(scope, identifier, expectedType)
+        bindIdentifierPattern(scope, identifier, Type.Error("unknown"))
       case PatternSyntax.TypeAssertion(innerPattern, typeAnnotation) =>
         // Bind the inner pattern first, then apply type checking
         bindPattern(innerPattern, scope) match {
