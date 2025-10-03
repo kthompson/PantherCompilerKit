@@ -277,6 +277,105 @@ object TypeTests extends TestSuite {
 //      }
     }
 
+    test("generic methods") {
+      test("simple identity method (testing basic inference)") {
+        val setup = "def identity[T](x: T): T = x"
+
+        assertExprTypeWithSetup(setup, "identity(42)", "int")
+
+        assertExprTypeWithSetup(setup, "identity(true)", "bool")
+
+        assertExprTypeWithSetup(setup, "identity(\"hello\")", "string")
+
+        assertExprTypeWithSetup(setup, "identity('a')", "char")
+      }
+
+      test("method returning concrete type") {
+        val setup = "def getValue[T](x: T): int = 42"
+
+        // These should work because the return type is concrete
+        assertExprTypeWithSetup(setup, "getValue(42)", "int")
+        assertExprTypeWithSetup(setup, "getValue(\"hello\")", "int")
+        assertExprTypeWithSetup(setup, "getValue(true)", "int")
+      }
+
+      test("generic parameter with concrete return") {
+        // Test methods that accept generic parameters but return concrete types
+        val setup = "def stringify[T](x: T): string = string(x)"
+
+        assertExprTypeWithSetup(setup, "stringify(42)", "string")
+        assertExprTypeWithSetup(setup, "stringify(true)", "string")
+        assertExprTypeWithSetup(setup, "stringify('a')", "string")
+      }
+
+//      test("array element access") {
+//        val setup = "def first[T](arr: Array[T]): T = arr[0]"
+//
+//        assertExprTypeWithSetup(setup, "first(new Array[int](5))", "int")
+//        assertExprTypeWithSetup(setup, "first(new Array[bool](3))", "bool")
+//        assertExprTypeWithSetup(setup, "first(new Array[string](2))", "string")
+//        assertExprTypeWithSetup(setup, "first(new Array[char](1))", "char")
+//      }
+//
+//      test("generic container creation (commented until generics work)") {
+//        val containerSetup = "class Container[T](value: T)\n" +
+//          "def wrap[T](x: T): Container[T] = new Container(x)"
+//
+//        assertExprTypeWithSetup(containerSetup, "wrap(42)", "Container[int]")
+//        assertExprTypeWithSetup(containerSetup, "wrap(true)", "Container[bool]")
+//        assertExprTypeWithSetup(containerSetup, "wrap(\"test\")", "Container[string]")
+//      }
+//
+//      test("option-like generic methods (commented until generics work)") {
+//        val optionSetup = "enum Option[T] {\n" +
+//          "  case Some(value: T)\n" +
+//          "  case None\n" +
+//          "}\n" +
+//          "def maybe[T](condition: bool, value: T): Option[T] = {\n" +
+//          "  if (condition) Option.Some(value) else Option.None\n" +
+//          "}"
+//
+//        assertExprTypeWithSetup(optionSetup, "maybe(true, 42)", "Option[int]")
+//        assertExprTypeWithSetup(optionSetup, "maybe(false, \"hello\")", "Option[string]")
+//        assertExprTypeWithSetup(optionSetup, "maybe(true, 'x')", "Option[char]")
+//      }
+
+//      test("multiple type parameters (commented until generics work)") {
+//        val pairSetup = "class Pair[A, B](first: A, second: B)\n" +
+//          "def makePair[A, B](a: A, b: B): Pair[A, B] = new Pair(a, b)"
+//
+//        assertExprTypeWithSetup(pairSetup, "makePair(42, \"hello\")", "Pair[int, string]")
+//        assertExprTypeWithSetup(pairSetup, "makePair(true, 'x')", "Pair[bool, char]")
+//        assertExprTypeWithSetup(pairSetup, "makePair(1, 2)", "Pair[int, int]")
+//      }
+//
+//      test("list operations (commented until generics work)") {
+//        val listSetup = "enum List[T] {\n" +
+//          "  case Cons(head: T, tail: List[T])\n" +
+//          "  case Nil\n" +
+//          "}\n" +
+//          "def singleton[T](value: T): List[T] = List.Cons(value, List.Nil)\n" +
+//          "def prepend[T](value: T, list: List[T]): List[T] = List.Cons(value, list)"
+//
+//        assertExprTypeWithSetup(listSetup, "singleton(42)", "List[int]")
+//        assertExprTypeWithSetup(listSetup, "singleton(\"test\")", "List[string]")
+//        assertExprTypeWithSetup(listSetup, "prepend(1, singleton(2))", "List[int]")
+//        assertExprTypeWithSetup(listSetup, "prepend(true, List.Nil)", "List[bool]")
+//      }
+//
+//      test("chaining generic calls (commented until generics work)") {
+//        val setupChain = "def identity[T](x: T): T = x\n" +
+//          "class Box[T](value: T)\n" +
+//          "def box[T](x: T): Box[T] = new Box(x)\n" +
+//          "def unbox[T](b: Box[T]): T = b.value"
+//
+//        assertExprTypeWithSetup(setupChain, "identity(identity(42))", "int")
+//        assertExprTypeWithSetup(setupChain, "unbox(box(42))", "int")
+//        assertExprTypeWithSetup(setupChain, "identity(unbox(box(\"hello\")))", "string")
+//        assertExprTypeWithSetup(setupChain, "box(identity(true))", "Box[bool]")
+//      }
+    }
+
     test("enums") {
       test("without args") {
         val setup = "enum Foo {\n" +

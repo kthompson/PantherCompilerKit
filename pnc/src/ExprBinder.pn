@@ -503,6 +503,14 @@ class ExprBinder(
             case Result.Success(value) =>
               Result.Success(BoundLeftHandSide.Call(value))
           }
+
+        case gf: Type.GenericFunction =>
+          bindGenericFunctionCall(function, gf, args, scope) match {
+            case Result.Error(value) => Result.Error(value)
+            case Result.Success(value) =>
+              Result.Success(BoundLeftHandSide.Call(value))
+          }
+
         case Type.Class(_, ns, name, typeArgs, symbol) =>
           val location = AstUtils.locationOfBoundLeftHandSide(function)
           // Handle array indexing
@@ -744,6 +752,295 @@ class ExprBinder(
           )
         case _ => ???
       }
+    }
+  }
+
+  def bindGenericFunctionCall(
+      function: BoundLeftHandSide,
+      genericFunctionType: Type.GenericFunction,
+      args: List[BoundExpression],
+      scope: Scope
+  ): Result[BoundExpression.Error, BoundExpression.Call] = {
+    val location = AstUtils.locationOfBoundLeftHandSide(function)
+
+    // First, infer type arguments from the call arguments
+    val argTypes = binder.getTypes(args)
+    val parameterTypes = getParameterTypes(genericFunctionType.parameters)
+    val inferredTypeArgs = inferTypeArgumentsFromCall(
+      genericFunctionType.generics,
+      parameterTypes,
+      argTypes
+    )
+
+    // Instantiate the generic function with inferred type arguments
+    val instantiatedParameterTypes = substituteGenericTypesInParameters(
+      parameterTypes,
+      genericFunctionType.generics,
+      inferredTypeArgs
+    )
+
+    val instantiatedReturnType = substituteGenericTypesInType(
+      genericFunctionType.returnType,
+      genericFunctionType.generics,
+      inferredTypeArgs
+    )
+
+    // Check argument count matches
+    if (instantiatedParameterTypes.length != args.length) {
+      diagnosticBag.reportArgumentCountMismatch(
+        location,
+        instantiatedParameterTypes.length,
+        args.length
+      )
+      Result.Error(
+        BoundExpression.Error(
+          "Argument count mismatch: expected " + instantiatedParameterTypes.length +
+            " but got " + args.length
+        )
+      )
+    } else {
+      // Bind arguments with instantiated parameter types
+      val boundArgs =
+        bindArgumentsToTypes(instantiatedParameterTypes, args, scope)
+
+      function match {
+        case BoundLeftHandSide.Index(expression) => ???
+        case BoundLeftHandSide.MemberAccess(access) =>
+          val receiver = if (access.member.isStatic()) {
+            Option.None
+          } else {
+            Option.Some(access.receiver)
+          }
+          Result.Success(
+            BoundExpression.Call(
+              location,
+              receiver,
+              access.member,
+              inferredTypeArgs, // Pass the inferred type arguments
+              boundArgs,
+              instantiatedReturnType
+            )
+          )
+        case BoundLeftHandSide.Variable(location, symbol) =>
+          Result.Success(
+            BoundExpression.Call(
+              location,
+              Option.None,
+              symbol,
+              inferredTypeArgs, // Pass the inferred type arguments
+              boundArgs,
+              instantiatedReturnType
+            )
+          )
+        case _ => ???
+      }
+    }
+  }
+
+  def inferTypeArgumentsFromCall(
+      genericParams: List[GenericTypeParameter],
+      parameterTypes: List[Type],
+      argumentTypes: List[Type]
+  ): List[Type] = {
+    // Simple type inference: try to match parameter types with argument types
+    // This is a basic implementation - a full implementation would be more sophisticated
+    val typeMap = new scala.collection.mutable.HashMap[String, Type]()
+
+    // Try to infer from parameter/argument pairs
+    inferFromParameterArgumentPairs(parameterTypes, argumentTypes, typeMap)
+
+    // Convert to list of types in the order of generic parameters
+    mapGenericParamsToTypes(genericParams, typeMap)
+  }
+
+  def mapGenericParamsToTypes(
+      genericParams: List[GenericTypeParameter],
+      typeMap: scala.collection.mutable.HashMap[String, Type]
+  ): List[Type] = {
+    mapGenericParamsToTypesWithIndex(genericParams, typeMap, 0)
+  }
+
+  def mapGenericParamsToTypesWithIndex(
+      genericParams: List[GenericTypeParameter],
+      typeMap: scala.collection.mutable.HashMap[String, Type],
+      index: int
+  ): List[Type] = {
+    genericParams match {
+      case List.Nil => List.Nil
+      case List.Cons(param, tail) =>
+        val key = "var_" + string(index)
+        val inferredType = typeMap.getOrElse(key, binder.anyType)
+        List.Cons(
+          inferredType,
+          mapGenericParamsToTypesWithIndex(tail, typeMap, index + 1)
+        )
+    }
+  }
+
+  def inferFromParameterArgumentPairs(
+      paramTypes: List[Type],
+      argTypes: List[Type],
+      typeMap: scala.collection.mutable.HashMap[String, Type]
+  ): Unit = {
+    Tuple2(paramTypes, argTypes) match {
+      case Tuple2(
+            List.Cons(paramType, paramTail),
+            List.Cons(argType, argTail)
+          ) =>
+        inferTypeFromPair(paramType, argType, typeMap)
+        inferFromParameterArgumentPairs(paramTail, argTail, typeMap)
+      case _ => // Different lengths or empty lists
+    }
+  }
+
+  def inferTypeFromPair(
+      paramType: Type,
+      argType: Type,
+      typeMap: scala.collection.mutable.HashMap[String, Type]
+  ): unit = {
+    paramType match {
+      case Type.Variable(_, id) =>
+        // This handles both inference variables and generic type parameters
+        // For generic type parameters, we want to store the inferred type
+        val key = "var_" + string(id)
+        if (!typeMap.contains(key)) {
+          typeMap.put(key, argType)
+        }
+      case Type.Class(_, _, _, paramTypeArgs, _) =>
+        argType match {
+          case Type.Class(_, _, _, argTypeArgs, _) =>
+            inferFromParameterArgumentPairs(paramTypeArgs, argTypeArgs, typeMap)
+          case _ =>
+        }
+      case _ => // Other cases don't provide inference information for this simple implementation
+    }
+  }
+
+  def substituteGenericTypesInParameters(
+      parameters: List[Type],
+      genericParams: List[GenericTypeParameter],
+      typeArgs: List[Type]
+  ): List[Type] = {
+    mapParameterTypes(parameters, genericParams, typeArgs)
+  }
+
+  def mapParameterTypes(
+      parameters: List[Type],
+      genericParams: List[GenericTypeParameter],
+      typeArgs: List[Type]
+  ): List[Type] = {
+    parameters match {
+      case List.Nil => List.Nil
+      case List.Cons(param, tail) =>
+        val substituted =
+          substituteGenericTypesInType(param, genericParams, typeArgs)
+        List.Cons(substituted, mapParameterTypes(tail, genericParams, typeArgs))
+    }
+  }
+
+  def substituteGenericTypesInType(
+      typ: Type,
+      genericParams: List[GenericTypeParameter],
+      typeArgs: List[Type]
+  ): Type = {
+    typ match {
+      case Type.Variable(loc, id) =>
+        // Look up the type argument at this index
+        getTypeArgAtIndex(typeArgs, id) match {
+          case Option.Some(typeArg) => typeArg
+          case Option.None          => typ
+        }
+      case Type.Class(loc, ns, name, classTypeArgs, symbol) =>
+        val substitutedTypeArgs =
+          mapClassTypeArgs(classTypeArgs, genericParams, typeArgs)
+        Type.Class(loc, ns, name, substitutedTypeArgs, symbol)
+      case _ =>
+        typ // Other types don't need substitution for this simple implementation
+    }
+  }
+
+  def getTypeArgAtIndex(typeArgs: List[Type], index: int): Option[Type] = {
+    if (index < 0) {
+      Option.None
+    } else {
+      getTypeArgAtIndexHelper(typeArgs, index)
+    }
+  }
+
+  def getTypeArgAtIndexHelper(
+      typeArgs: List[Type],
+      index: int
+  ): Option[Type] = {
+    typeArgs match {
+      case List.Nil => Option.None
+      case List.Cons(head, tail) =>
+        if (index == 0) Option.Some(head)
+        else getTypeArgAtIndexHelper(tail, index - 1)
+    }
+  }
+
+  def mapClassTypeArgs(
+      typeArgs: List[Type],
+      genericParams: List[GenericTypeParameter],
+      substitutionArgs: List[Type]
+  ): List[Type] = {
+    typeArgs match {
+      case List.Nil => List.Nil
+      case List.Cons(arg, tail) =>
+        val substituted =
+          substituteGenericTypesInType(arg, genericParams, substitutionArgs)
+        List.Cons(
+          substituted,
+          mapClassTypeArgs(tail, genericParams, substitutionArgs)
+        )
+    }
+  }
+
+  def findTypeArgument(
+      name: String,
+      genericParams: List[GenericTypeParameter],
+      typeArgs: List[Type]
+  ): Option[Type] = {
+    Tuple2(genericParams, typeArgs) match {
+      case Tuple2(List.Cons(param, paramTail), List.Cons(typeArg, argTail)) =>
+        if (param.name == name) Option.Some(typeArg)
+        else findTypeArgument(name, paramTail, argTail)
+      case _ => Option.None
+    }
+  }
+
+  def createSubstitutionMap(
+      genericParams: List[GenericTypeParameter],
+      typeArgs: List[Type]
+  ): scala.collection.mutable.HashMap[String, Type] = {
+    val map = new scala.collection.mutable.HashMap[String, Type]()
+    fillSubstitutionMap(genericParams, typeArgs, map)
+    map
+  }
+
+  def fillSubstitutionMap(
+      genericParams: List[GenericTypeParameter],
+      typeArgs: List[Type],
+      map: scala.collection.mutable.HashMap[String, Type]
+  ): Unit = {
+    Tuple2(genericParams, typeArgs) match {
+      case Tuple2(List.Cons(param, paramTail), List.Cons(typeArg, argTail)) =>
+        map.put(param.name, typeArg)
+        fillSubstitutionMap(paramTail, argTail, map)
+      case _ => // Lists are different lengths or empty
+    }
+  }
+
+  def bindArgumentsToTypes(
+      parameterTypes: List[Type],
+      args: List[BoundExpression],
+      scope: Scope
+  ): List[BoundExpression] = {
+    Tuple2(parameterTypes, args) match {
+      case Tuple2(List.Cons(paramType, paramTail), List.Cons(arg, argTail)) =>
+        val boundArg = bindConversion(arg, paramType, false)
+        List.Cons(boundArg, bindArgumentsToTypes(paramTail, argTail, scope))
+      case _ => List.Nil
     }
   }
 
