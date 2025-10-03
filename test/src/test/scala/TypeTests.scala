@@ -317,14 +317,18 @@ object TypeTests extends TestSuite {
 //        assertExprTypeWithSetup(setup, "first(new Array[char](1))", "char")
 //      }
 //
-//      test("generic container creation (commented until generics work)") {
-//        val containerSetup = "class Container[T](value: T)\n" +
-//          "def wrap[T](x: T): Container[T] = new Container(x)"
-//
-//        assertExprTypeWithSetup(containerSetup, "wrap(42)", "Container[int]")
-//        assertExprTypeWithSetup(containerSetup, "wrap(true)", "Container[bool]")
-//        assertExprTypeWithSetup(containerSetup, "wrap(\"test\")", "Container[string]")
-//      }
+      test("generic container creation (commented until generics work)") {
+        val containerSetup = "class Container[T](value: T)\n" +
+          "def wrap[T](x: T): Container[T] = new Container(x)"
+
+        assertExprTypeWithSetup(containerSetup, "wrap(42)", "Container<int>")
+        assertExprTypeWithSetup(containerSetup, "wrap(true)", "Container<bool>")
+        assertExprTypeWithSetup(
+          containerSetup,
+          "wrap(\"test\")",
+          "Container<string>"
+        )
+      }
 //
 //      test("option-like generic methods (commented until generics work)") {
 //        val optionSetup = "enum Option[T] {\n" +
