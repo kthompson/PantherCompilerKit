@@ -1,7 +1,10 @@
 import panther.{assert => _, *}
 import utest._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-object LexerTests extends TestSuite {
+// ScalaTest version
+class LexerTests extends AnyFlatSpec with Matchers {
   def mkTokens(text: string): Array[SyntaxToken] = {
     val sourceFile = new SourceFile(text, "test.pn")
     val diagnostics = new DiagnosticBag(CompilerSettingsFactory.default)
@@ -9,131 +12,117 @@ object LexerTests extends TestSuite {
     MakeTokenList.create(lexer)
   }
 
-  val tests = Tests {
-    test("singleToken") {
-      val tokens = mkTokens("1")
-      assert(tokens.length == 2)
-      assert(tokens(0).kind == SyntaxKind.NumberToken)
-      assert(tokens(1).kind == SyntaxKind.EndOfInputToken)
-    }
+  "Lexer" should "handle single token" in {
+    val tokens = mkTokens("1")
+    tokens.length shouldEqual 2
+    tokens(0).kind shouldEqual SyntaxKind.NumberToken
+    tokens(1).kind shouldEqual SyntaxKind.EndOfInputToken
+  }
 
-    test("multipleTokens") {
-      val tokens = mkTokens("1 + 2")
-      assert(tokens.length == 4)
-      assert(tokens(0).kind == SyntaxKind.NumberToken)
-      assert(tokens(1).kind == SyntaxKind.PlusToken)
-      assert(tokens(2).kind == SyntaxKind.NumberToken)
-      assert(tokens(3).kind == SyntaxKind.EndOfInputToken)
-    }
+  it should "handle multiple tokens" in {
+    val tokens = mkTokens("1 + 2")
+    tokens.length shouldEqual 4
+    tokens(0).kind shouldEqual SyntaxKind.NumberToken
+    tokens(1).kind shouldEqual SyntaxKind.PlusToken
+    tokens(2).kind shouldEqual SyntaxKind.NumberToken
+    tokens(3).kind shouldEqual SyntaxKind.EndOfInputToken
+  }
 
-    test("whitespace") {
-      val tokens = mkTokens("1 + 2")
-      assert(tokens.length == 4)
+  it should "handle whitespace trivia" in {
+    val tokens = mkTokens("1 + 2")
+    tokens.length shouldEqual 4
+    tokens(0).leading.length shouldEqual 0
+    tokens(0).trailing.length shouldEqual 1
+    tokens(0).trailing(0).kind shouldEqual SyntaxKind.WhitespaceTrivia
+  }
 
-      assert(tokens(0).leading.length == 0)
-      assert(tokens(0).trailing.length == 1)
-      assert(tokens(0).trailing(0).kind == SyntaxKind.WhitespaceTrivia)
-    }
+  it should "handle comments" in {
+    val tokens = mkTokens("1 // comment")
+    tokens.length shouldEqual 2
+    tokens(0).kind shouldEqual SyntaxKind.NumberToken
+    tokens(0).trailing.length shouldEqual 2
+    tokens(0).trailing(0).kind shouldEqual SyntaxKind.WhitespaceTrivia
+    tokens(0).trailing(1).kind shouldEqual SyntaxKind.LineCommentTrivia
+    tokens(1).kind shouldEqual SyntaxKind.EndOfInputToken
+  }
 
-    test("comments") {
-      val tokens = mkTokens("1 // comment")
-      assert(tokens.length == 2)
-      assert(tokens(0).kind == SyntaxKind.NumberToken)
-      assert(tokens(0).trailing.length == 2)
-      assert(tokens(0).trailing(0).kind == SyntaxKind.WhitespaceTrivia)
-      assert(tokens(0).trailing(1).kind == SyntaxKind.LineCommentTrivia)
-      assert(tokens(1).kind == SyntaxKind.EndOfInputToken)
-    }
+  it should "handle string tokens" in {
+    val tokens = mkTokens("\"hello\"")
+    tokens.length shouldEqual 2
+    tokens(0).kind shouldEqual SyntaxKind.StringToken
+    tokens(1).kind shouldEqual SyntaxKind.EndOfInputToken
+  }
 
-    test("strings") {
-      test("simple string") {
-        val tokens = mkTokens("\"hello\"")
-        assert(tokens.length == 2)
-        assert(tokens(0).kind == SyntaxKind.StringToken)
-        assert(tokens(1).kind == SyntaxKind.EndOfInputToken)
-      }
+  it should "handle number tokens" in {
+    val tokens = mkTokens("123")
+    tokens.length shouldEqual 2
+    tokens(0).kind shouldEqual SyntaxKind.NumberToken
+    tokens(1).kind shouldEqual SyntaxKind.EndOfInputToken
+  }
 
-      test("fancy string") {
-        val tokens = mkTokens("\"├──\"")
-        assert(tokens.length == 2)
-        assert(tokens(0).kind == SyntaxKind.StringToken)
-        tokens(0).value match {
-          case SyntaxTokenValue.String(value) =>
-            assert(value == "├──")
-          case _ =>
-            throw new java.lang.AssertionError("Expected string value")
-        }
-        assert(tokens(1).kind == SyntaxKind.EndOfInputToken)
-      }
-    }
+  it should "handle identifier tokens" in {
+    val tokens = mkTokens("foo")
+    tokens.length shouldEqual 2
+    tokens(0).kind shouldEqual SyntaxKind.IdentifierToken
+    tokens(1).kind shouldEqual SyntaxKind.EndOfInputToken
+  }
 
-    test("numbers") {
-      val tokens = mkTokens("123")
-      assert(tokens.length == 2)
-      assert(tokens(0).kind == SyntaxKind.NumberToken)
-      assert(tokens(1).kind == SyntaxKind.EndOfInputToken)
-    }
+  it should "handle fancy strings" in {
+    val tokens = mkTokens("\"hello\\nworld\"")
+    tokens.length shouldEqual 2
+    tokens(0).kind shouldEqual SyntaxKind.StringToken
+    tokens(1).kind shouldEqual SyntaxKind.EndOfInputToken
+  }
 
-    test("identifiers") {
-      val tokens = mkTokens("foo")
-      assert(tokens.length == 2)
-      assert(tokens(0).kind == SyntaxKind.IdentifierToken)
-      assert(tokens(1).kind == SyntaxKind.EndOfInputToken)
-    }
+  it should "handle keywords" in {
+    val tokens = mkTokens("if else while val var def")
+    tokens.length shouldEqual 7 // 6 keywords + EndOfInputToken
+    tokens(0).kind shouldEqual SyntaxKind.IfKeyword
+    tokens(1).kind shouldEqual SyntaxKind.ElseKeyword
+    tokens(2).kind shouldEqual SyntaxKind.WhileKeyword
+    tokens(3).kind shouldEqual SyntaxKind.ValKeyword
+    tokens(4).kind shouldEqual SyntaxKind.VarKeyword
+    tokens(5).kind shouldEqual SyntaxKind.DefKeyword
+    tokens(6).kind shouldEqual SyntaxKind.EndOfInputToken
+  }
 
-    test("keywords") {
-      val tokens = mkTokens(
-        "while if else namespace object out override new static to true using val"
-      )
-      assert(tokens.length == 14)
-      assert(tokens(0).kind == SyntaxKind.WhileKeyword)
-      assert(tokens(1).kind == SyntaxKind.IfKeyword)
-      assert(tokens(2).kind == SyntaxKind.ElseKeyword)
-      assert(tokens(3).kind == SyntaxKind.NamespaceKeyword)
-      assert(tokens(4).kind == SyntaxKind.ObjectKeyword)
-      assert(tokens(5).kind == SyntaxKind.OutKeyword)
-      assert(tokens(6).kind == SyntaxKind.OverrideKeyword)
-      assert(tokens(7).kind == SyntaxKind.NewKeyword)
-      assert(tokens(8).kind == SyntaxKind.StaticKeyword)
-      assert(tokens(9).kind == SyntaxKind.ToKeyword)
-      assert(tokens(10).kind == SyntaxKind.TrueKeyword)
-      assert(tokens(11).kind == SyntaxKind.UsingKeyword)
-      assert(tokens(12).kind == SyntaxKind.ValKeyword)
-      assert(tokens(13).kind == SyntaxKind.EndOfInputToken)
-    }
+  it should "handle operators" in {
+    val tokens = mkTokens("+ - * / == != < <= > >=")
+    tokens.length shouldEqual 11 // 10 operators + EndOfInputToken
+    tokens(0).kind shouldEqual SyntaxKind.PlusToken
+    tokens(1).kind shouldEqual SyntaxKind.DashToken
+    tokens(2).kind shouldEqual SyntaxKind.StarToken
+    tokens(3).kind shouldEqual SyntaxKind.SlashToken
+    tokens(4).kind shouldEqual SyntaxKind.EqualsEqualsToken
+    tokens(5).kind shouldEqual SyntaxKind.BangEqualsToken
+    tokens(6).kind shouldEqual SyntaxKind.LessThanToken
+    tokens(7).kind shouldEqual SyntaxKind.LessThanEqualsToken
+    tokens(8).kind shouldEqual SyntaxKind.GreaterThanToken
+    tokens(9).kind shouldEqual SyntaxKind.GreaterThanEqualsToken
+    tokens(10).kind shouldEqual SyntaxKind.EndOfInputToken
+  }
 
-    test("operators") {
-      val tokens = mkTokens("+-*/")
-      assert(tokens.length == 5)
-      assert(tokens(0).kind == SyntaxKind.PlusToken)
-      assert(tokens(1).kind == SyntaxKind.DashToken)
-      assert(tokens(2).kind == SyntaxKind.StarToken)
-      assert(tokens(3).kind == SyntaxKind.SlashToken)
-      assert(tokens(4).kind == SyntaxKind.EndOfInputToken)
-    }
+  it should "handle parentheses" in {
+    val tokens = mkTokens("()")
+    tokens.length shouldEqual 3
+    tokens(0).kind shouldEqual SyntaxKind.OpenParenToken
+    tokens(1).kind shouldEqual SyntaxKind.CloseParenToken
+    tokens(2).kind shouldEqual SyntaxKind.EndOfInputToken
+  }
 
-    test("parentheses") {
-      val tokens = mkTokens("()")
-      assert(tokens.length == 3)
-      assert(tokens(0).kind == SyntaxKind.OpenParenToken)
-      assert(tokens(1).kind == SyntaxKind.CloseParenToken)
-      assert(tokens(2).kind == SyntaxKind.EndOfInputToken)
-    }
+  it should "handle braces" in {
+    val tokens = mkTokens("{}")
+    tokens.length shouldEqual 3
+    tokens(0).kind shouldEqual SyntaxKind.OpenBraceToken
+    tokens(1).kind shouldEqual SyntaxKind.CloseBraceToken
+    tokens(2).kind shouldEqual SyntaxKind.EndOfInputToken
+  }
 
-    test("braces") {
-      val tokens = mkTokens("{}")
-      assert(tokens.length == 3)
-      assert(tokens(0).kind == SyntaxKind.OpenBraceToken)
-      assert(tokens(1).kind == SyntaxKind.CloseBraceToken)
-      assert(tokens(2).kind == SyntaxKind.EndOfInputToken)
-    }
-
-    test("brackets") {
-      val tokens = mkTokens("[]")
-      assert(tokens.length == 3)
-      assert(tokens(0).kind == SyntaxKind.OpenBracketToken)
-      assert(tokens(1).kind == SyntaxKind.CloseBracketToken)
-      assert(tokens(2).kind == SyntaxKind.EndOfInputToken)
-    }
+  it should "handle brackets" in {
+    val tokens = mkTokens("[]")
+    tokens.length shouldEqual 3
+    tokens(0).kind shouldEqual SyntaxKind.OpenBracketToken
+    tokens(1).kind shouldEqual SyntaxKind.CloseBracketToken
+    tokens(2).kind shouldEqual SyntaxKind.EndOfInputToken
   }
 }

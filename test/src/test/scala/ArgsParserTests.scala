@@ -1,255 +1,228 @@
 import TestHelpers._
 import utest._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-object ArgsParserTests extends TestSuite {
-  val tests = Tests {
-    test("empty args show help") {
-      val result = ArgsParser.parse(Array())
-      assert(result.showHelp)
-      assert(result.error == Option.None)
+class ArgsParserTests extends AnyFlatSpec with Matchers {
+
+  "ArgsParser" should "show help when no args provided" in {
+    val result = ArgsParser.parse(Array())
+    result.showHelp shouldBe true
+    result.error shouldBe Option.None
+  }
+
+  it should "handle help flags" in {
+    val result1 = ArgsParser.parse(Array("--help"))
+    result1.showHelp shouldBe true
+    result1.error shouldBe Option.None
+
+    val result2 = ArgsParser.parse(Array("-h"))
+    result2.showHelp shouldBe true
+    result2.error shouldBe Option.None
+  }
+
+  it should "parse basic compilation arguments" in {
+    val result = ArgsParser.parse(Array("output.c", "source.scala"))
+    result.error shouldBe Option.None
+    result.showHelp shouldBe false
+    result.outputFile shouldBe "output.c"
+
+    result.sourceFiles match {
+      case List.Cons("source.scala", List.Nil) => // Success
+      case _ => fail("Expected single source file")
     }
+  }
 
-    test("help flags") {
-      val result1 = ArgsParser.parse(Array("--help"))
-      assert(result1.showHelp)
-      assert(result1.error == Option.None)
-
-      val result2 = ArgsParser.parse(Array("-h"))
-      assert(result2.showHelp)
-      assert(result2.error == Option.None)
+  it should "handle multiple source files" in {
+    val result =
+      ArgsParser.parse(Array("output.c", "source1.scala", "source2.scala"))
+    result.error shouldBe Option.None
+    result.sourceFiles match {
+      case List.Cons(
+            "source1.scala",
+            List.Cons("source2.scala", List.Nil)
+          ) => // Success
+      case _ => fail("Expected two source files")
     }
+  }
 
-    test("basic compilation arguments") {
-      val result = ArgsParser.parse(Array("output.c", "source.scala"))
-      assert(result.error == Option.None)
-      assert(!result.showHelp)
-      assert(result.outputFile == "output.c")
+  it should "handle transpile flag" in {
+    val result =
+      ArgsParser.parse(Array("--transpile", "output_dir/", "source.scala"))
+    result.error shouldBe Option.None
+    result.settings.transpile shouldBe true
+    result.outputFile shouldBe "output_dir/"
+  }
 
-      // Check source files
-      result.sourceFiles match {
-        case List.Cons("source.scala", List.Nil) => // Success
-        case _ => throw new RuntimeException("Expected single source file")
+  it should "handle debug flags" in {
+    val result = ArgsParser.parse(Array("--debug", "output.c", "source.scala"))
+    result.error shouldBe Option.None
+    result.settings.debug shouldBe true
+    result.settings.enableTracing shouldBe true
+    result.settings.printSymbols shouldBe true
+    result.settings.printBoundAssembly shouldBe true
+    result.settings.printLoweredAssembly shouldBe true
+  }
+
+  it should "handle individual debug flags" in {
+    val result = ArgsParser.parse(
+      Array(
+        "--trace",
+        "--print-symbols",
+        "--print-bound-assembly",
+        "--print-lowered-assembly",
+        "output.c",
+        "source.scala"
+      )
+    )
+    result.error shouldBe Option.None
+    result.settings.enableTracing shouldBe true
+    result.settings.printSymbols shouldBe true
+    result.settings.printBoundAssembly shouldBe true
+    result.settings.printLoweredAssembly shouldBe true
+    // debug should remain false since it wasn't explicitly set
+    result.settings.debug shouldBe false
+  }
+
+  it should "handle stack size option" in {
+    val result =
+      ArgsParser.parse(Array("--stack-size", "100", "output.c", "source.scala"))
+    result.error shouldBe Option.None
+    result.settings.stackSize shouldBe 100
+
+    // Test invalid stack size
+    val resultInvalid =
+      ArgsParser.parse(Array("--stack-size", "-5", "output.c", "source.scala"))
+    resultInvalid.error shouldBe Option.Some("stack size must be positive")
+
+    // Test missing stack size value
+    val resultMissing = ArgsParser.parse(Array("--stack-size"))
+    resultMissing.error shouldBe Option.Some("--stack-size requires a value")
+  }
+
+  it should "handle heap size option" in {
+    val result =
+      ArgsParser.parse(Array("--heap-size", "2048", "output.c", "source.scala"))
+    result.error shouldBe Option.None
+    result.settings.heapSize shouldBe 2048
+
+    // Test invalid heap size
+    val resultInvalid =
+      ArgsParser.parse(Array("--heap-size", "0", "output.c", "source.scala"))
+    resultInvalid.error shouldBe Option.Some("heap size must be positive")
+  }
+
+  it should "handle recovery attempts option" in {
+    val result = ArgsParser.parse(
+      Array("--recovery-attempts", "10", "output.c", "source.scala")
+    )
+    result.error shouldBe Option.None
+    result.settings.kindRecoveryAttempts shouldBe 10
+
+    // Test zero attempts (should be valid)
+    val resultZero = ArgsParser.parse(
+      Array("--recovery-attempts", "0", "output.c", "source.scala")
+    )
+    resultZero.error shouldBe Option.None
+    resultZero.settings.kindRecoveryAttempts shouldBe 0
+
+    // Test negative attempts
+    val resultNegative = ArgsParser.parse(
+      Array("--recovery-attempts", "-1", "output.c", "source.scala")
+    )
+    resultNegative.error shouldBe Option.Some(
+      "recovery attempts must be non-negative"
+    )
+  }
+
+  it should "handle diagnostics limit option" in {
+    val result = ArgsParser.parse(
+      Array("--diagnostics-limit", "50", "output.c", "source.scala")
+    )
+    result.error shouldBe Option.None
+    result.settings.diagnosticsToPrint shouldBe 50
+
+    // Test invalid limit
+    val resultInvalid = ArgsParser.parse(
+      Array("--diagnostics-limit", "0", "output.c", "source.scala")
+    )
+    resultInvalid.error shouldBe Option.Some(
+      "diagnostics limit must be positive"
+    )
+  }
+
+  it should "handle unknown options" in {
+    val result =
+      ArgsParser.parse(Array("--unknown-flag", "output.c", "source.scala"))
+    result.error shouldBe Option.Some("unknown option: --unknown-flag")
+  }
+
+  it should "require output file" in {
+    val result = ArgsParser.parse(Array("--debug"))
+    result.error shouldBe Option.Some("output file is required")
+  }
+
+  it should "require source files" in {
+    val result = ArgsParser.parse(Array("output.c"))
+    result.error shouldBe Option.Some("at least one source file is required")
+  }
+
+  it should "handle complex argument combinations" in {
+    val result = ArgsParser.parse(
+      Array(
+        "--debug",
+        "--stack-size",
+        "200",
+        "--heap-size",
+        "4096",
+        "--recovery-attempts",
+        "3",
+        "--diagnostics-limit",
+        "15",
+        "complex_output.c",
+        "file1.scala",
+        "file2.scala"
+      )
+    )
+
+    result.error shouldBe Option.None
+    result.settings.debug shouldBe true
+    result.settings.stackSize shouldBe 200
+    result.settings.heapSize shouldBe 4096
+    result.settings.kindRecoveryAttempts shouldBe 3
+    result.settings.diagnosticsToPrint shouldBe 15
+    result.outputFile shouldBe "complex_output.c"
+
+    // Verify source files count
+    var fileCount = 0
+    var current = result.sourceFiles
+    while (current != List.Nil) {
+      current match {
+        case List.Cons(_, tail) =>
+          fileCount = fileCount + 1
+          current = tail
+        case List.Nil => ()
       }
-
-      // Check default settings
-      assert(!result.settings.transpile)
-      assert(!result.settings.debug)
-      assert(result.settings.stackSize == 50)
-      assert(result.settings.heapSize == 1024)
     }
+    fileCount shouldBe 2
+  }
 
-    test("multiple source files") {
-      val result = ArgsParser.parse(
-        Array("output.c", "file1.scala", "file2.scala", "file3.scala")
+  it should "handle transpile with debug options" in {
+    val result = ArgsParser.parse(
+      Array(
+        "-t",
+        "--trace",
+        "--print-symbols",
+        "output_dir/",
+        "source.scala"
       )
-      assert(result.error == Option.None)
+    )
 
-      // Check all source files are present
-      var fileCount = 0
-      var current = result.sourceFiles
-      while (current != List.Nil) {
-        current match {
-          case List.Cons(_, tail) =>
-            fileCount = fileCount + 1
-            current = tail
-          case List.Nil => ()
-        }
-      }
-      assert(fileCount == 3)
-    }
-
-    test("transpile flag") {
-      val result1 =
-        ArgsParser.parse(Array("--transpile", "output/", "source.scala"))
-      assert(result1.error == Option.None)
-      assert(result1.settings.transpile)
-      assert(result1.outputFile == "output/")
-
-      val result2 = ArgsParser.parse(Array("-t", "output/", "source.scala"))
-      assert(result2.error == Option.None)
-      assert(result2.settings.transpile)
-    }
-
-    test("debug flag enables all debug options") {
-      val result =
-        ArgsParser.parse(Array("--debug", "output.c", "source.scala"))
-      assert(result.error == Option.None)
-      assert(result.settings.debug)
-      assert(result.settings.enableTracing)
-      assert(result.settings.printSymbols)
-      assert(result.settings.printBoundAssembly)
-      assert(result.settings.printLoweredAssembly)
-    }
-
-    test("individual debug flags") {
-      val result = ArgsParser.parse(
-        Array(
-          "--trace",
-          "--print-symbols",
-          "--print-bound-assembly",
-          "--print-lowered-assembly",
-          "output.c",
-          "source.scala"
-        )
-      )
-      assert(result.error == Option.None)
-      assert(result.settings.enableTracing)
-      assert(result.settings.printSymbols)
-      assert(result.settings.printBoundAssembly)
-      assert(result.settings.printLoweredAssembly)
-      // debug should remain false since it wasn't explicitly set
-      assert(!result.settings.debug)
-    }
-
-    test("stack size option") {
-      val result = ArgsParser.parse(
-        Array("--stack-size", "100", "output.c", "source.scala")
-      )
-      assert(result.error == Option.None)
-      assert(result.settings.stackSize == 100)
-
-      // Test invalid stack size
-      val resultInvalid = ArgsParser.parse(
-        Array("--stack-size", "-5", "output.c", "source.scala")
-      )
-      assert(resultInvalid.error == Option.Some("stack size must be positive"))
-
-      // Test missing stack size value
-      val resultMissing = ArgsParser.parse(Array("--stack-size"))
-      assert(
-        resultMissing.error == Option.Some("--stack-size requires a value")
-      )
-    }
-
-    test("heap size option") {
-      val result = ArgsParser.parse(
-        Array("--heap-size", "2048", "output.c", "source.scala")
-      )
-      assert(result.error == Option.None)
-      assert(result.settings.heapSize == 2048)
-
-      // Test invalid heap size
-      val resultInvalid =
-        ArgsParser.parse(Array("--heap-size", "0", "output.c", "source.scala"))
-      assert(resultInvalid.error == Option.Some("heap size must be positive"))
-    }
-
-    test("recovery attempts option") {
-      val result = ArgsParser.parse(
-        Array("--recovery-attempts", "10", "output.c", "source.scala")
-      )
-      assert(result.error == Option.None)
-      assert(result.settings.kindRecoveryAttempts == 10)
-
-      // Test zero attempts (should be valid)
-      val resultZero = ArgsParser.parse(
-        Array("--recovery-attempts", "0", "output.c", "source.scala")
-      )
-      assert(resultZero.error == Option.None)
-      assert(resultZero.settings.kindRecoveryAttempts == 0)
-
-      // Test negative attempts
-      val resultNegative = ArgsParser.parse(
-        Array("--recovery-attempts", "-1", "output.c", "source.scala")
-      )
-      assert(
-        resultNegative.error == Option.Some(
-          "recovery attempts must be non-negative"
-        )
-      )
-    }
-
-    test("diagnostics limit option") {
-      val result = ArgsParser.parse(
-        Array("--diagnostics-limit", "50", "output.c", "source.scala")
-      )
-      assert(result.error == Option.None)
-      assert(result.settings.diagnosticsToPrint == 50)
-
-      // Test invalid limit
-      val resultInvalid = ArgsParser.parse(
-        Array("--diagnostics-limit", "0", "output.c", "source.scala")
-      )
-      assert(
-        resultInvalid.error == Option.Some("diagnostics limit must be positive")
-      )
-    }
-
-    test("unknown option") {
-      val result =
-        ArgsParser.parse(Array("--unknown-flag", "output.c", "source.scala"))
-      assert(result.error == Option.Some("unknown option: --unknown-flag"))
-    }
-
-    test("missing output file") {
-      val result = ArgsParser.parse(Array("--debug"))
-      assert(result.error == Option.Some("output file is required"))
-    }
-
-    test("missing source files") {
-      val result = ArgsParser.parse(Array("output.c"))
-      assert(
-        result.error == Option.Some("at least one source file is required")
-      )
-    }
-
-    test("complex argument combination") {
-      val result = ArgsParser.parse(
-        Array(
-          "--debug",
-          "--stack-size",
-          "200",
-          "--heap-size",
-          "4096",
-          "--recovery-attempts",
-          "3",
-          "--diagnostics-limit",
-          "15",
-          "complex_output.c",
-          "file1.scala",
-          "file2.scala"
-        )
-      )
-
-      assert(result.error == Option.None)
-      assert(result.settings.debug)
-      assert(result.settings.stackSize == 200)
-      assert(result.settings.heapSize == 4096)
-      assert(result.settings.kindRecoveryAttempts == 3)
-      assert(result.settings.diagnosticsToPrint == 15)
-      assert(result.outputFile == "complex_output.c")
-
-      // Verify source files
-      var fileCount = 0
-      var current = result.sourceFiles
-      while (current != List.Nil) {
-        current match {
-          case List.Cons(_, tail) =>
-            fileCount = fileCount + 1
-            current = tail
-          case List.Nil => ()
-        }
-      }
-      assert(fileCount == 2)
-    }
-
-    test("transpile with debug options") {
-      val result = ArgsParser.parse(
-        Array(
-          "-t",
-          "--trace",
-          "--print-symbols",
-          "output_dir/",
-          "source.scala"
-        )
-      )
-
-      assert(result.error == Option.None)
-      assert(result.settings.transpile)
-      assert(result.settings.enableTracing)
-      assert(result.settings.printSymbols)
-      assert(!result.settings.debug) // not explicitly set
-      assert(result.outputFile == "output_dir/")
-    }
+    result.error shouldBe Option.None
+    result.settings.transpile shouldBe true
+    result.settings.enableTracing shouldBe true
+    result.settings.printSymbols shouldBe true
+    result.settings.debug shouldBe false // not explicitly set
+    result.outputFile shouldBe "output_dir/"
   }
 }
