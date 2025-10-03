@@ -1,0 +1,350 @@
+import panther.*
+
+case class TypeInference(binder: Binder) {
+
+  /** Infers type arguments for a generic function call based on parameter and
+    * argument types
+    */
+  def inferTypeArgumentsFromCall(
+      genericParams: List[GenericTypeParameter],
+      parameterTypes: List[Type],
+      argumentTypes: List[Type]
+  ): List[Type] = {
+    // Simple type inference: try to match parameter types with argument types
+    // This is a basic implementation - a full implementation would be more sophisticated
+    val typeMap = new scala.collection.mutable.HashMap[String, Type]()
+
+    // Try to infer from parameter/argument pairs
+    inferFromParameterArgumentPairs(parameterTypes, argumentTypes, typeMap)
+
+    // Convert to list of types in the order of generic parameters
+    mapGenericParamsToTypes(genericParams, typeMap)
+  }
+
+  def mapGenericParamsToTypes(
+      genericParams: List[GenericTypeParameter],
+      typeMap: scala.collection.mutable.HashMap[String, Type]
+  ): List[Type] = {
+    mapGenericParamsToTypesWithIndex(genericParams, typeMap, 0)
+  }
+
+  def mapGenericParamsToTypesWithIndex(
+      genericParams: List[GenericTypeParameter],
+      typeMap: scala.collection.mutable.HashMap[String, Type],
+      index: int
+  ): List[Type] = {
+    genericParams match {
+      case List.Nil => List.Nil
+      case List.Cons(param, tail) =>
+        val key = "var_" + string(index)
+        val inferredType = typeMap.getOrElse(key, binder.anyType)
+        List.Cons(
+          inferredType,
+          mapGenericParamsToTypesWithIndex(tail, typeMap, index + 1)
+        )
+    }
+  }
+
+  def inferFromParameterArgumentPairs(
+      paramTypes: List[Type],
+      argTypes: List[Type],
+      typeMap: scala.collection.mutable.HashMap[String, Type]
+  ): Unit = {
+    Tuple2(paramTypes, argTypes) match {
+      case Tuple2(
+            List.Cons(paramType, paramTail),
+            List.Cons(argType, argTail)
+          ) =>
+        inferTypeFromPair(paramType, argType, typeMap)
+        inferFromParameterArgumentPairs(paramTail, argTail, typeMap)
+      case _ => // Different lengths or empty lists
+    }
+  }
+
+  def inferTypeFromPair(
+      paramType: Type,
+      argType: Type,
+      typeMap: scala.collection.mutable.HashMap[String, Type]
+  ): unit = {
+    paramType match {
+      case Type.Variable(_, id) =>
+        // This handles both inference variables and generic type parameters
+        // For generic type parameters, we want to store the inferred type
+        val key = "var_" + string(id)
+        if (!typeMap.contains(key)) {
+          typeMap.put(key, argType)
+        }
+      case Type.Class(_, _, _, paramTypeArgs, _) =>
+        argType match {
+          case Type.Class(_, _, _, argTypeArgs, _) =>
+            inferFromParameterArgumentPairs(paramTypeArgs, argTypeArgs, typeMap)
+          case _ =>
+        }
+      case _ => // Other cases don't provide inference information for this simple implementation
+    }
+  }
+
+  /** Substitutes generic type parameters with concrete types in a list of
+    * parameter types
+    */
+  def substituteGenericTypesInParameters(
+      parameters: List[Type],
+      genericParams: List[GenericTypeParameter],
+      typeArgs: List[Type]
+  ): List[Type] = {
+    mapParameterTypes(parameters, genericParams, typeArgs)
+  }
+
+  def mapParameterTypes(
+      parameters: List[Type],
+      genericParams: List[GenericTypeParameter],
+      typeArgs: List[Type]
+  ): List[Type] = {
+    parameters match {
+      case List.Nil => List.Nil
+      case List.Cons(param, tail) =>
+        val substituted =
+          substituteGenericTypesInType(param, genericParams, typeArgs)
+        List.Cons(substituted, mapParameterTypes(tail, genericParams, typeArgs))
+    }
+  }
+
+  def substituteGenericTypesInType(
+      typ: Type,
+      genericParams: List[GenericTypeParameter],
+      typeArgs: List[Type]
+  ): Type = {
+    typ match {
+      case Type.Variable(loc, id) =>
+        // Look up the type argument at this index
+        getTypeArgAtIndex(typeArgs, id) match {
+          case Option.Some(typeArg) => typeArg
+          case Option.None          => typ
+        }
+      case Type.Class(loc, ns, name, classTypeArgs, symbol) =>
+        val substitutedTypeArgs =
+          mapClassTypeArgs(classTypeArgs, genericParams, typeArgs)
+        Type.Class(loc, ns, name, substitutedTypeArgs, symbol)
+      case _ =>
+        typ // Other types don't need substitution for this simple implementation
+    }
+  }
+
+  def getTypeArgAtIndex(typeArgs: List[Type], index: int): Option[Type] = {
+    if (index < 0) {
+      Option.None
+    } else {
+      getTypeArgAtIndexHelper(typeArgs, index)
+    }
+  }
+
+  def getTypeArgAtIndexHelper(
+      typeArgs: List[Type],
+      index: int
+  ): Option[Type] = {
+    typeArgs match {
+      case List.Nil => Option.None
+      case List.Cons(head, tail) =>
+        if (index == 0) Option.Some(head)
+        else getTypeArgAtIndexHelper(tail, index - 1)
+    }
+  }
+
+  def mapClassTypeArgs(
+      typeArgs: List[Type],
+      genericParams: List[GenericTypeParameter],
+      substitutionArgs: List[Type]
+  ): List[Type] = {
+    typeArgs match {
+      case List.Nil => List.Nil
+      case List.Cons(arg, tail) =>
+        val substituted =
+          substituteGenericTypesInType(arg, genericParams, substitutionArgs)
+        List.Cons(
+          substituted,
+          mapClassTypeArgs(tail, genericParams, substitutionArgs)
+        )
+    }
+  }
+
+  def findTypeArgument(
+      name: String,
+      genericParams: List[GenericTypeParameter],
+      typeArgs: List[Type]
+  ): Option[Type] = {
+    Tuple2(genericParams, typeArgs) match {
+      case Tuple2(List.Cons(param, paramTail), List.Cons(typeArg, argTail)) =>
+        if (param.name == name) Option.Some(typeArg)
+        else findTypeArgument(name, paramTail, argTail)
+      case _ => Option.None
+    }
+  }
+
+  def createSubstitutionMap(
+      genericParams: List[GenericTypeParameter],
+      typeArgs: List[Type]
+  ): scala.collection.mutable.HashMap[String, Type] = {
+    val map = new scala.collection.mutable.HashMap[String, Type]()
+    fillSubstitutionMap(genericParams, typeArgs, map)
+    map
+  }
+
+  def fillSubstitutionMap(
+      genericParams: List[GenericTypeParameter],
+      typeArgs: List[Type],
+      map: scala.collection.mutable.HashMap[String, Type]
+  ): Unit = {
+    Tuple2(genericParams, typeArgs) match {
+      case Tuple2(List.Cons(param, paramTail), List.Cons(typeArg, argTail)) =>
+        map.put(param.name, typeArg)
+        fillSubstitutionMap(paramTail, argTail, map)
+      case _ => // Lists are different lengths or empty
+    }
+  }
+
+  def substituteParameterTypes(
+      params: List[BoundParameter],
+      typeArgs: List[Type]
+  ): List[BoundParameter] = {
+    params match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        val substitutedParam = BoundParameter(
+          head.symbol,
+          substituteTypeVariable(head.typ, typeArgs)
+        )
+        List.Cons(substitutedParam, substituteParameterTypes(tail, typeArgs))
+    }
+  }
+
+  def substituteTypeVariable(typ: Type, typeArgs: List[Type]): Type = {
+    typ match {
+      case Type.Variable(loc, id) =>
+        getListElement(typeArgs, id) match {
+          case Option.Some(substituted) => substituted
+          case Option.None => typ // Return original if id out of bounds
+        }
+      case Type.Function(loc, params, returnType) =>
+        Type.Function(
+          loc,
+          substituteParameterTypes(params, typeArgs),
+          substituteTypeVariable(returnType, typeArgs)
+        )
+      case _ => typ // For other types, return as-is
+    }
+  }
+
+  // Helper method from ExprBinder that's needed here
+  def getListElement(list: List[Type], index: int): Option[Type] = {
+    list match {
+      case List.Nil => Option.None
+      case List.Cons(head, tail) =>
+        if (index == 0) {
+          Option.Some(head)
+        } else {
+          getListElement(tail, index - 1)
+        }
+    }
+  }
+
+  /** Constructor-specific type inference methods
+    */
+  def inferTypeArgumentsFromConstructor(
+      genericParams: List[GenericTypeParameter],
+      constructor: Symbol,
+      args: List[BoundExpression]
+  ): List[Type] = {
+    binder.tryGetSymbolType(constructor) match {
+      case Option.Some(Type.GenericFunction(_, _, _, params, _)) =>
+        inferFromGenericParameters(genericParams, params, args)
+      case Option.Some(Type.Function(_, params, _)) =>
+        basicInference(genericParams, args)
+      case _ =>
+        mapGenericParamsToAny(genericParams)
+    }
+  }
+
+  def inferFromGenericParameters(
+      genericParams: List[GenericTypeParameter],
+      constructorParams: List[BoundParameter],
+      args: List[BoundExpression]
+  ): List[Type] = {
+    genericParams match {
+      case List.Cons(param, List.Nil) =>
+        // Single type parameter - find first constructor argument that can determine its type
+        val inferredType = inferSingleTypeParameter(0, constructorParams, args)
+        List.Cons(inferredType, List.Nil)
+      case _ =>
+        // Multiple type parameters - more complex, fall back to Any for now
+        mapGenericParamsToAny(genericParams)
+    }
+  }
+
+  def inferSingleTypeParameter(
+      parameterIndex: int,
+      constructorParams: List[BoundParameter],
+      args: List[BoundExpression]
+  ): Type = {
+    // Look through constructor parameters and arguments to find a concrete type
+    Tuple2(constructorParams, args) match {
+      case Tuple2(List.Cons(param, paramTail), List.Cons(arg, argTail)) =>
+        param.typ match {
+          case Type.Variable(_, 0) =>
+            // This parameter has type T (type variable 0) - use the argument type
+            val argType = binder.getType(arg)
+            if (isConcreteType(argType)) {
+              argType
+            } else {
+              // Argument type is polymorphic, try next parameter
+              inferSingleTypeParameter(parameterIndex + 1, paramTail, argTail)
+            }
+          case _ =>
+            // This parameter doesn't use our type variable, try next parameter
+            inferSingleTypeParameter(parameterIndex + 1, paramTail, argTail)
+        }
+      case _ =>
+        // No more parameters or arguments - fall back to Any
+        binder.anyType
+    }
+  }
+
+  def isConcreteType(typ: Type): bool = {
+    typ match {
+      case Type.Variable(_, _)              => false
+      case Type.GenericClass(_, _, _, _, _) => false
+      case Type.Any                         => false
+      case Type.Never                       => false
+      case Type.Error(_)                    => false
+      case _                                => true
+    }
+  }
+
+  def basicInference(
+      genericParams: List[GenericTypeParameter],
+      args: List[BoundExpression]
+  ): List[Type] = {
+    // Fallback to original simple logic for non-generic constructors
+    genericParams match {
+      case List.Cons(param, List.Nil) =>
+        args match {
+          case List.Cons(arg, List.Nil) =>
+            // Single type parameter, single argument - infer from argument
+            List.Cons(binder.getType(arg), List.Nil)
+          case _ =>
+            // Multiple or no arguments - for now, use Any as fallback
+            List.Cons(binder.anyType, List.Nil)
+        }
+      case _ =>
+        // Multiple type parameters - for now, use Any for all
+        mapGenericParamsToAny(genericParams)
+    }
+  }
+
+  def mapGenericParamsToAny(params: List[GenericTypeParameter]): List[Type] = {
+    params match {
+      case List.Nil => List.Nil
+      case List.Cons(_, tail) =>
+        List.Cons(binder.anyType, mapGenericParamsToAny(tail))
+    }
+  }
+}
