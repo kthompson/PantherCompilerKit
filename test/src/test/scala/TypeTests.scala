@@ -193,29 +193,29 @@ object TypeTests extends TestSuite {
         )
       }
 
-//      test("multiple cases with different types") {
-//        // When cases have different types, result should be 'any' (least upper bound)
-//        assertExprTypeTest(
-//          "1 match { case 1 => 42\n case 2 => \"hello\" }",
-//          "any"
-//        )
-//        assertExprTypeTest(
-//          "1 match { case 1 => true\n case 2 => 123 }",
-//          "any"
-//        )
-//      }
+      test("multiple cases with different types") {
+        // When cases have different types, result should be 'any' (least upper bound)
+        assertExprTypeTest(
+          "1 match { case 1 => 42\n case 2 => \"hello\" }",
+          "int | string"
+        )
+        assertExprTypeTest(
+          "1 match { case 1 => true\n case 2 => 123 }",
+          "bool | int"
+        )
+      }
 
       test("unit result cases") {
-//        assertExprTypeTest("1 match { case x: int => () }", "unit")
+        assertExprTypeTest("1 match { case x: int => () }", "unit")
         assertExprTypeTest("1 match { case 1 => println(\"test\") }", "unit")
       }
 
-//      test("nested matches") {
-//        assertExprTypeTest(
-//          "1 match { case x: int => x match { case y: int => y * 2 } }",
-//          "int"
-//        )
-//      }
+      test("nested matches") {
+        assertExprTypeTest(
+          "1 match { case x: int => x match { case y: int => y * 2 } }",
+          "int"
+        )
+      }
 
 //      test("match in expressions") {
 //        assertExprTypeTest(
@@ -228,16 +228,16 @@ object TypeTests extends TestSuite {
 //        )
 //      }
 
-//      test("match with blocks") {
-//        assertExprTypeTest(
-//          "1 match { case x: int => { val y = x + 1\n y * 2 } }",
-//          "int"
-//        )
-//        assertExprTypeTest(
-//          "true match { case b: bool => { println(\"test\")\n b } }",
-//          "bool"
-//        )
-//      }
+      test("match with blocks") {
+        assertExprTypeTest(
+          "1 match { case x: int => { val y = x + 1\n y * 2 } }",
+          "int"
+        )
+        assertExprTypeTest(
+          "true match { case b: bool => { println(\"test\")\n b } }",
+          "bool"
+        )
+      }
     }
 
     test("methods") {
