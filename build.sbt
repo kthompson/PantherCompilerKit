@@ -156,8 +156,7 @@ lazy val test = project
   .dependsOn(runtime, pncs)
   .settings(
     libraryDependencies ++= Seq(
-      "com.lihaoyi" %% "utest" % "0.8.4" % Test,
       "org.scalatest" %% "scalatest" % "3.2.19" % Test
-    ),
-    testFrameworks += new TestFramework("utest.runner.Framework")
+    )
   )
+

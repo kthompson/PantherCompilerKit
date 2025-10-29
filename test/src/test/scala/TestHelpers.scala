@@ -1,5 +1,4 @@
 import panther.{assert => panthAssert, *}
-import utest._
 
 object TestHelpers {
 
@@ -19,7 +18,7 @@ object TestHelpers {
     )
     if (comp.diagnostics.count() > 0) {
       comp.diagnostics.printDiagnostics(20)
-      throw new AssertionError("Compilation failed", Seq())
+      throw new AssertionError("Compilation failed")
     }
     comp
   }
@@ -85,21 +84,21 @@ object TestHelpers {
   def mkSyntaxTreeExpr(text: string): Expression = {
     mkSyntaxTreeStatement(text) match {
       case StatementSyntax.ExpressionStatement(expr) => expr
-      case _ => throw new AssertionError("Expected expression", Seq())
+      case _ => throw new AssertionError("Expected expression")
     }
   }
 
   def mkSyntaxTreeStatement(text: string): StatementSyntax = {
     mkMember(text) match {
       case MemberSyntax.GlobalStatementSyntax(statement) => statement
-      case _ => throw new AssertionError("Expected statement", Seq())
+      case _ => throw new AssertionError("Expected statement")
     }
   }
 
   def mkFunctionMember(text: string): MemberSyntax.FunctionDeclarationSyntax = {
     mkMember(text) match {
       case member: MemberSyntax.FunctionDeclarationSyntax => member
-      case _ => throw new AssertionError("Expected function declaration", Seq())
+      case _ => throw new AssertionError("Expected function declaration")
     }
   }
 
@@ -111,38 +110,36 @@ object TestHelpers {
   def assertSingle[T](items: List[T]): T = {
     items match {
       case List.Nil =>
-        throw new AssertionError("expected one item, found zero", Seq())
+        throw new AssertionError("expected one item, found zero")
       case List.Cons(head, tail) =>
         if (tail.isEmpty) head
         else
           throw new AssertionError(
-            "expected one item, found " + items.length,
-            Seq()
+            "expected one item, found " + items.length
           )
     }
   }
 
   def assertSingle[T](items: Array[T]): T = {
     if (items.length == 0)
-      throw new AssertionError("expected one item, found zero", Seq())
+      throw new AssertionError("expected one item, found zero")
     else if (items.length > 1)
       throw new AssertionError(
-        "expected one item, found " + items.length,
-        Seq()
+        "expected one item, found " + items.length
       )
     else items(0)
   }
 
   def assertIndex[T](i: int, list: List[T]): T = {
     if (i < 0 || i >= list.length)
-      throw new AssertionError("index out of bounds: " + i, Seq())
+      throw new AssertionError("index out of bounds: " + i)
     list.getUnsafe(i)
   }
 
   def assertBinaryExpr(expression: Expression): Expression.Binary = {
     expression match {
       case expr: Expression.Binary => expr
-      case _ => throw new AssertionError("expected binary expression", Seq())
+      case _ => throw new AssertionError("expected binary expression")
     }
   }
 
@@ -152,7 +149,7 @@ object TestHelpers {
     expression match {
       case expr: Expression.MemberAccess => expr
       case _ =>
-        throw new AssertionError("expected member access expression", Seq())
+        throw new AssertionError("expected member access expression")
     }
   }
 
@@ -161,7 +158,7 @@ object TestHelpers {
   ): Expression.Match = {
     expression match {
       case expr: Expression.Match => expr
-      case _ => throw new AssertionError("expected match expression", Seq())
+      case _ => throw new AssertionError("expected match expression")
     }
   }
 
@@ -170,7 +167,7 @@ object TestHelpers {
   ): PatternSyntax.Literal = {
     expression match {
       case expr: PatternSyntax.Literal => expr
-      case _ => throw new AssertionError("expected literal pattern", Seq())
+      case _ => throw new AssertionError("expected literal pattern")
     }
   }
 
@@ -180,7 +177,7 @@ object TestHelpers {
     expression match {
       case expr: Expression.Assignment => expr
       case _ =>
-        throw new AssertionError("expected assignment expression", Seq())
+        throw new AssertionError("expected assignment expression")
     }
   }
 
@@ -189,7 +186,7 @@ object TestHelpers {
   ): Expression.If = {
     expression match {
       case expr: Expression.If => expr
-      case _ => throw new AssertionError("expected if expression", Seq())
+      case _ => throw new AssertionError("expected if expression")
     }
   }
 
@@ -198,7 +195,7 @@ object TestHelpers {
   ): Expression.Call = {
     expression match {
       case expr: Expression.Call => expr
-      case _ => throw new AssertionError("expected call expression", Seq())
+      case _ => throw new AssertionError("expected call expression")
     }
   }
 
@@ -207,35 +204,35 @@ object TestHelpers {
   ): Expression.While = {
     expression match {
       case expr: Expression.While => expr
-      case _ => throw new AssertionError("expected while expression", Seq())
+      case _ => throw new AssertionError("expected while expression")
     }
   }
 
   def assertGroupExpr(expr: Expression): Expression.Group = {
     expr match {
       case expr: Expression.Group => expr
-      case _ => throw new AssertionError("expected group expression", Seq())
+      case _ => throw new AssertionError("expected group expression")
     }
   }
 
   def assertBlockExpr(expr: Expression): Expression.Block = {
     expr match {
       case expr: Expression.Block => expr
-      case _ => throw new AssertionError("expected block expression", Seq())
+      case _ => throw new AssertionError("expected block expression")
     }
   }
 
   def assertUnaryExpr(expr: Expression): Expression.Unary = {
     expr match {
       case expr: Expression.Unary => expr
-      case _ => throw new AssertionError("expected unary expression", Seq())
+      case _ => throw new AssertionError("expected unary expression")
     }
   }
 
   def assertIsExpr(expr: Expression): Expression.Is = {
     expr match {
       case expr: Expression.Is => expr
-      case _ => throw new AssertionError("expected is expression", Seq())
+      case _ => throw new AssertionError("expected is expression")
     }
   }
 
@@ -244,7 +241,7 @@ object TestHelpers {
   ): StatementSyntax.VariableDeclarationStatement = {
     statement match {
       case stmt: StatementSyntax.VariableDeclarationStatement => stmt
-      case _ => throw new AssertionError("Expected variable declaration", Seq())
+      case _ => throw new AssertionError("Expected variable declaration")
     }
   }
 
@@ -257,10 +254,7 @@ object TestHelpers {
       case SyntaxTokenValue.Number(value) =>
         assert(value == expected)
       case _ =>
-        throw new AssertionError(
-          "Expected number token, got: " + token.value,
-          Seq()
-        )
+        throw new AssertionError("Expected number token, got: " + token.value)
     }
   }
 
@@ -268,7 +262,7 @@ object TestHelpers {
     expression match {
       case Expression.Literal(_, SyntaxTokenValue.Number(n)) =>
         assert(n == expected)
-      case _ => throw new AssertionError("Expected number expression", Seq())
+      case _ => throw new AssertionError("Expected number expression")
     }
   }
 
@@ -276,21 +270,21 @@ object TestHelpers {
     expression match {
       case Expression.Literal(_, SyntaxTokenValue.Boolean(b)) =>
         assert(b == expected)
-      case _ => throw new AssertionError("Expected boolean expression", Seq())
+      case _ => throw new AssertionError("Expected boolean expression")
     }
   }
 
   def assertTrueExpr(expression: Expression): Unit = {
     expression match {
       case Expression.Literal(_, SyntaxTokenValue.Boolean(true)) =>
-      case _ => throw new AssertionError("Expected true expression", Seq())
+      case _ => throw new AssertionError("Expected true expression")
     }
   }
 
   def assertFalseExpr(expression: Expression): Unit = {
     expression match {
       case Expression.Literal(_, SyntaxTokenValue.Boolean(false)) =>
-      case _ => throw new AssertionError("Expected false expression", Seq())
+      case _ => throw new AssertionError("Expected false expression")
     }
   }
 
@@ -301,7 +295,7 @@ object TestHelpers {
           ) =>
         assert(token.text == expected)
       case _ =>
-        throw new AssertionError("Expected identifier expression", Seq())
+        throw new AssertionError("Expected identifier expression")
     }
   }
 
@@ -313,7 +307,7 @@ object TestHelpers {
       case SimpleNameSyntax.IdentifierNameSyntax(token) =>
         assert(token.text == expected)
       case _ =>
-        throw new AssertionError("Expected identifier expression", Seq())
+        throw new AssertionError("Expected identifier expression")
     }
   }
 
@@ -326,10 +320,7 @@ object TestHelpers {
           ) =>
         a
       case _ =>
-        throw new AssertionError(
-          "Expected generic identifier expression",
-          Seq()
-        )
+        throw new AssertionError("Expected generic identifier expression")
     }
   }
 
@@ -337,8 +328,7 @@ object TestHelpers {
     if (expected != token.kind)
       throw new AssertionError(
         "expected " + SyntaxFacts.getKindName(expected) + ", got " + SyntaxFacts
-          .getKindName(token.kind),
-        Seq()
+          .getKindName(token.kind)
       )
 
   def assertTokenText(expected: string, token: SyntaxToken): Unit =
@@ -354,19 +344,18 @@ object TestHelpers {
   def assertSome[T](option: Option[T]): T = option match {
     case Option.Some(value) => value
     case Option.None =>
-      throw new AssertionError("expected Some, found None", Seq())
+      throw new AssertionError("expected Some, found None")
   }
 
   def assertNone[T](option: Option[T]): Unit = {
     if (option.isDefined())
-      throw new AssertionError("expected None, found Some", Seq())
+      throw new AssertionError("expected None, found Some")
   }
 
   def assertEmpty[T](list: List[T]): Unit = {
     if (!list.isEmpty)
       throw new AssertionError(
-        "expected empty list, found " + list.length + " items",
-        Seq()
+        "expected empty list, found " + list.length + " items"
       )
   }
 
@@ -461,8 +450,7 @@ object TestHelpers {
     if (enumerator.moveNext()) {
       val symbol = enumerator.current()
       throw new AssertionError(
-        "Unexpected symbol: " + symbol.kind + " " + symbol.name,
-        Seq()
+        "Unexpected symbol: " + symbol.kind + " " + symbol.name
       )
     }
   }
@@ -513,8 +501,7 @@ object TestHelpers {
       case Option.None =>
         throw new AssertionError(
           "Expected symbol " + symbol.name + " to have a type " + typ
-            + " but got none",
-          Seq()
+            + " but got none"
         )
     }
   }
@@ -528,7 +515,7 @@ object TestHelpers {
       case InterpretResult.OkValue(value) =>
         value
       case result =>
-        throw new AssertionError("Expected exec result, got: " + result, Seq())
+        throw new AssertionError("Expected exec result, got: " + result)
     }
   }
 
@@ -538,8 +525,7 @@ object TestHelpers {
         assert(v == expected)
       case _ =>
         throw new AssertionError(
-          "Expected " + string(expected) + ", got: " + value,
-          Seq()
+          "Expected " + string(expected) + ", got: " + value
         )
     }
   }
@@ -550,8 +536,7 @@ object TestHelpers {
         assert(v == expected)
       case _ =>
         throw new AssertionError(
-          "Expected " + string(expected) + ", got: " + value,
-          Seq()
+          "Expected " + string(expected) + ", got: " + value
         )
     }
   }
@@ -561,7 +546,7 @@ object TestHelpers {
       case Value.String(v) =>
         assert(v == expected)
       case _ =>
-        throw new AssertionError("Expected string value, got: " + value, Seq())
+        throw new AssertionError("Expected string value, got: " + value)
     }
   }
 
