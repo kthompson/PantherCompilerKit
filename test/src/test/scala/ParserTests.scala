@@ -1,279 +1,269 @@
-import panther.{assert => _, *}
-import TestHelpers._
-import utest._
+import panther.*
+import TestHelpers.*
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-object ParserTests extends TestSuite {
-  val tests = Tests {
-    test("expressions") {
-      test("binary") {
-        val expr = mkBinaryExpr("1 + 2")
-        assertNumberExpr(1, expr.left)
-        assertNumberExpr(2, expr.right)
-        assertTokenKind(SyntaxKind.PlusToken, expr.operator)
-      }
+class ParserTests extends AnyFlatSpec with Matchers {
 
-      test("unary") {
-        val expr = mkUnaryExpr("-1")
-        assertTokenKind(SyntaxKind.DashToken, expr.operator)
-        assertNumberExpr(1, expr.expression)
-      }
+  "Parser" should "parse binary expressions" in {
+    val expr = mkBinaryExpr("1 + 2")
+    assertNumberExpr(1, expr.left)
+    assertNumberExpr(2, expr.right)
+    assertTokenKind(SyntaxKind.PlusToken, expr.operator)
+  }
 
-      test("groups") {
-        val expr = mkGroupExpr("(12)")
-        assertTokenKind(SyntaxKind.OpenParenToken, expr.openParen)
-        assertNumberExpr(12, expr.expression)
-        assertTokenKind(SyntaxKind.CloseParenToken, expr.closeParen)
-      }
+  it should "parse unary expressions" in {
+    val expr = mkUnaryExpr("-1")
+    assertTokenKind(SyntaxKind.DashToken, expr.operator)
+    assertNumberExpr(1, expr.expression)
+  }
 
-      test("precedence") {
-        val expr = mkBinaryExpr("1 + 2 * 3")
-        assertNumberExpr(1, expr.left)
-        assertTokenKind(SyntaxKind.PlusToken, expr.operator)
-        val right = assertBinaryExpr(expr.right)
-        assertNumberExpr(2, right.left)
-        assertTokenKind(SyntaxKind.StarToken, right.operator)
-        assertNumberExpr(3, right.right)
-      }
+  it should "parse grouped expressions" in {
+    val expr = mkGroupExpr("(12)")
+    assertTokenKind(SyntaxKind.OpenParenToken, expr.openParen)
+    assertNumberExpr(12, expr.expression)
+    assertTokenKind(SyntaxKind.CloseParenToken, expr.closeParen)
+  }
 
-      test("associativity") {
-        val expr = mkBinaryExpr("1 - 2 - 3")
-        val left = assertBinaryExpr(expr.left)
-        assertNumberExpr(1, left.left)
-        assertTokenKind(SyntaxKind.DashToken, left.operator)
-        assertNumberExpr(2, left.right)
-        assertTokenKind(SyntaxKind.DashToken, expr.operator)
-        assertNumberExpr(3, expr.right)
-      }
+  it should "handle operator precedence" in {
+    val expr = mkBinaryExpr("1 + 2 * 3")
+    assertNumberExpr(1, expr.left)
+    assertTokenKind(SyntaxKind.PlusToken, expr.operator)
+    val right = assertBinaryExpr(expr.right)
+    assertNumberExpr(2, right.left)
+    assertTokenKind(SyntaxKind.StarToken, right.operator)
+    assertNumberExpr(3, right.right)
+  }
 
-      test("assignment") {
-        val expr = mkAssignmentExpr("a = 1")
-        assertTokenKind(SyntaxKind.EqualsToken, expr.equals)
-        assertNumberExpr(1, expr.right)
-        assertIdentifierExpr("a", expr.left)
-      }
+  it should "handle operator associativity" in {
+    val expr = mkBinaryExpr("1 - 2 - 3")
+    val left = assertBinaryExpr(expr.left)
+    assertNumberExpr(1, left.left)
+    assertTokenKind(SyntaxKind.DashToken, left.operator)
+    assertNumberExpr(2, left.right)
+    assertTokenKind(SyntaxKind.DashToken, expr.operator)
+    assertNumberExpr(3, expr.right)
+  }
 
-      test("calls") {
-        test("with no arguments") {
-          val expr = mkCallExpr("f()")
-          assertIdentifierExpr("f", expr.name)
-          assertNone(expr.genericArguments)
-          assertTokenKind(SyntaxKind.OpenParenToken, expr.openParen)
-          assertEmpty(expr.arguments.expressions)
-          assertTokenKind(SyntaxKind.CloseParenToken, expr.closeParen)
-        }
+  it should "parse assignment expressions" in {
+    val expr = mkAssignmentExpr("a = 1")
+    assertTokenKind(SyntaxKind.EqualsToken, expr.equals)
+    assertNumberExpr(1, expr.right)
+    assertIdentifierExpr("a", expr.left)
+  }
 
-        test("with one argument") {
-          val expr = mkCallExpr("f(1)")
-          assertIdentifierExpr("f", expr.name)
-          assertNone(expr.genericArguments)
-          assertTokenKind(SyntaxKind.OpenParenToken, expr.openParen)
-          val arg = assertSingle(expr.arguments.expressions)
-          assertNumberExpr(1, arg.expression)
-          assertTokenKind(SyntaxKind.CloseParenToken, expr.closeParen)
-        }
+  it should "parse call expressions with no arguments" in {
+    val expr = mkCallExpr("f()")
+    assertIdentifierExpr("f", expr.name)
+    assertNone(expr.genericArguments)
+    assertTokenKind(SyntaxKind.OpenParenToken, expr.openParen)
+    assertEmpty(expr.arguments.expressions)
+    assertTokenKind(SyntaxKind.CloseParenToken, expr.closeParen)
+  }
 
-        test("with multiple arguments") {
-          val expr = mkCallExpr("f(1, 2)")
-          assertIdentifierExpr("f", expr.name)
-          val args = expr.arguments
-          assertNumberExpr(1, assertIndex(0, args.expressions).expression)
-          assertNumberExpr(2, assertIndex(1, args.expressions).expression)
-        }
+  it should "parse call expressions with one argument" in {
+    val expr = mkCallExpr("f(1)")
+    assertIdentifierExpr("f", expr.name)
+    assertNone(expr.genericArguments)
+    assertTokenKind(SyntaxKind.OpenParenToken, expr.openParen)
+    val arg = assertSingle(expr.arguments.expressions)
+    assertNumberExpr(1, arg.expression)
+    assertTokenKind(SyntaxKind.CloseParenToken, expr.closeParen)
+  }
 
-        test("with generic arguments") {
-          val expr = mkCallExpr("f[int](1)")
-          val ident = assertGenericIdentifierExpr(expr.name)
-          assertTokenText("f", ident.identifier)
-          assertTokenKind(
-            SyntaxKind.OpenBracketToken,
-            ident.typeArgumentlist.lessThanToken
-          )
-          assert(ident.typeArgumentlist.arguments.length == 1)
-          val genArg = ident.typeArgumentlist.arguments(0)
-          assertName("int", genArg.name)
-          assertNone(genArg.separator)
-          assertTokenKind(
-            SyntaxKind.CloseBracketToken,
-            ident.typeArgumentlist.greaterThanToken
-          )
+  it should "parse call expressions with multiple arguments" in {
+    val expr = mkCallExpr("f(1, 2)")
+    assertIdentifierExpr("f", expr.name)
+    val args = expr.arguments
+    assertNumberExpr(1, assertIndex(0, args.expressions).expression)
+    assertNumberExpr(2, assertIndex(1, args.expressions).expression)
+  }
 
-          val args = expr.arguments
-          assertNumberExpr(1, assertSingle(args.expressions).expression)
-        }
-      }
+  it should "parse call expressions with generic arguments" in {
+    val expr = mkCallExpr("f[int](1)")
+    val ident = assertGenericIdentifierExpr(expr.name)
+    assertTokenText("f", ident.identifier)
+    assertTokenKind(
+      SyntaxKind.OpenBracketToken,
+      ident.typeArgumentlist.lessThanToken
+    )
+    ident.typeArgumentlist.arguments.length shouldBe 1
+    val genArg = ident.typeArgumentlist.arguments(0)
+    assertName("int", genArg.name)
+    assertNone(genArg.separator)
+    assertTokenKind(
+      SyntaxKind.CloseBracketToken,
+      ident.typeArgumentlist.greaterThanToken
+    )
 
-      test("ifs") {
-        val expr = mkIfExpr("if (true) 1 else 2")
-        assertTokenKind(SyntaxKind.IfKeyword, expr.ifKeyword)
-        assertTrueExpr(expr.condition)
-        assertNumberExpr(1, expr.thenExpr)
+    val args = expr.arguments
+    assertNumberExpr(1, assertSingle(args.expressions).expression)
+  }
 
-        val elseExpr = assertSome(expr.elseExpr)
-        assertTokenKind(SyntaxKind.ElseKeyword, elseExpr.elseKeyword)
-        assertNumberExpr(2, elseExpr.expression)
-      }
+  it should "parse if expressions" in {
+    val expr = mkIfExpr("if (true) 1 else 2")
+    assertTokenKind(SyntaxKind.IfKeyword, expr.ifKeyword)
+    assertTrueExpr(expr.condition)
+    assertNumberExpr(1, expr.thenExpr)
 
-      test("whiles") {
-        val expr = mkWhileExpr("while (true) 1")
-        assertTokenKind(SyntaxKind.WhileKeyword, expr.whileKeyword)
-        assertTokenKind(SyntaxKind.OpenParenToken, expr.openParen)
-        assertTrueExpr(expr.condition)
-        assertTokenKind(SyntaxKind.CloseParenToken, expr.closeParen)
-        assertNumberExpr(1, expr.body)
-      }
+    val elseExpr = assertSome(expr.elseExpr)
+    assertTokenKind(SyntaxKind.ElseKeyword, elseExpr.elseKeyword)
+    assertNumberExpr(2, elseExpr.expression)
+  }
 
-      test("blocks") {
-        test("with expression") {
-          val expr = mkBlockExpr("{ 1 }")
-          assertTokenKind(SyntaxKind.OpenBraceToken, expr.openBrace)
-          assertEmpty(expr.block.statements)
-          val blockExpr = assertSome(expr.block.expression)
-          assertNumberExpr(1, blockExpr)
-          assertTokenKind(SyntaxKind.CloseBraceToken, expr.closeBrace)
-        }
+  it should "parse while expressions" in {
+    val expr = mkWhileExpr("while (true) 1")
+    assertTokenKind(SyntaxKind.WhileKeyword, expr.whileKeyword)
+    assertTokenKind(SyntaxKind.OpenParenToken, expr.openParen)
+    assertTrueExpr(expr.condition)
+    assertTokenKind(SyntaxKind.CloseParenToken, expr.closeParen)
+    assertNumberExpr(1, expr.body)
+  }
 
-        test("with statement") {
-          val expr = mkBlockExpr(
-            "{\n" +
-              "  val a = 1\n" +
-              "  a\n" +
-              "}"
-          )
-          // {
-          assertTokenKind(SyntaxKind.OpenBraceToken, expr.openBrace)
+  it should "parse block expressions with expression" in {
+    val expr = mkBlockExpr("{ 1 }")
+    assertTokenKind(SyntaxKind.OpenBraceToken, expr.openBrace)
+    assertEmpty(expr.block.statements)
+    val blockExpr = assertSome(expr.block.expression)
+    assertNumberExpr(1, blockExpr)
+    assertTokenKind(SyntaxKind.CloseBraceToken, expr.closeBrace)
+  }
 
-          // val a = 1
-          val statements = expr.block.statements
-          val statement = assertSingle(statements)
-          val declaration = assertVariableDeclaration(statement)
-          assertTokenKind(SyntaxKind.ValKeyword, declaration.valOrVarKeyword)
-          assertTokenText("a", declaration.identifier)
-          assertTokenKind(SyntaxKind.EqualsToken, declaration.equalToken)
-          assertNumberExpr(1, declaration.expression)
+  it should "parse block expressions with statement" in {
+    val expr = mkBlockExpr(
+      "{\n" +
+        "  val a = 1\n" +
+        "  a\n" +
+        "}"
+    )
+    // {
+    assertTokenKind(SyntaxKind.OpenBraceToken, expr.openBrace)
 
-          // a
-          val blockExpr = assertSome(expr.block.expression)
-          assertIdentifierExpr("a", blockExpr)
+    // val a = 1
+    val statements = expr.block.statements
+    val statement = assertSingle(statements)
+    val declaration = assertVariableDeclaration(statement)
+    assertTokenKind(SyntaxKind.ValKeyword, declaration.valOrVarKeyword)
+    assertTokenText("a", declaration.identifier)
+    assertTokenKind(SyntaxKind.EqualsToken, declaration.equalToken)
+    assertNumberExpr(1, declaration.expression)
 
-          // }
-          assertTokenKind(SyntaxKind.CloseBraceToken, expr.closeBrace)
-        }
-      }
+    // a
+    val blockExpr = assertSome(expr.block.expression)
+    assertIdentifierExpr("a", blockExpr)
 
-      test("dot on new line") {
-        val expr = mkMemberAccessExpr("a\n.b")
-        assertIdentifierExpr("a", expr.left)
-        assertTokenKind(SyntaxKind.DotToken, expr.dotToken)
-        assertSimpleNameIdentifierExpr("b", expr.right)
-      }
+    // }
+    assertTokenKind(SyntaxKind.CloseBraceToken, expr.closeBrace)
+  }
 
-      test("matches") {
-        test("simple match") {
-          val expr = mkMatchExpr("1 match { case 1 => 2 }")
-          assertTokenKind(SyntaxKind.MatchKeyword, expr.matchKeyword)
-          assertNumberExpr(1, expr.expression)
+  it should "parse dot on new line" in {
+    val expr = mkMemberAccessExpr("a\n.b")
+    assertIdentifierExpr("a", expr.left)
+    assertTokenKind(SyntaxKind.DotToken, expr.dotToken)
+    assertSimpleNameIdentifierExpr("b", expr.right)
+  }
 
-          val kase = expr.cases.head
-          assertTokenKind(SyntaxKind.CaseKeyword, kase.caseKeyword)
-          val pattern = assertLiteralPattern(kase.pattern)
+  it should "parse simple match expressions" in {
+    val expr = mkMatchExpr("1 match { case 1 => 2 }")
+    assertTokenKind(SyntaxKind.MatchKeyword, expr.matchKeyword)
+    assertNumberExpr(1, expr.expression)
 
-          assertNumberToken(1, pattern.value)
-          assertTokenKind(SyntaxKind.EqualsGreaterThanToken, kase.arrow)
-          assertNumberExpr(2, assertSome(kase.block.expression))
-        }
+    val kase = expr.cases.head
+    assertTokenKind(SyntaxKind.CaseKeyword, kase.caseKeyword)
+    val pattern = assertLiteralPattern(kase.pattern)
 
-        test("empty match case") {
-          val expr = mkSyntaxTree(
-            "enum Test {\n" +
-              "  case Empty()\n" +
-              "  case One(one: int)\n" +
-              "}\n" +
-              "\n" +
-              "x match {\n" +
-              "  case Test.Empty() => 2\n" +
-              "  case Test.One(1) => 3\n" +
-              "}"
-          )
-          assert(expr.diagnostics.count() == 0)
-        }
-      }
+    assertNumberToken(1, pattern.value)
+    assertTokenKind(SyntaxKind.EqualsGreaterThanToken, kase.arrow)
+    assertNumberExpr(2, assertSome(kase.block.expression))
+  }
 
-      test("is expressions") {
-        val expr = mkIsExpr("x is int")
-        assertIdentifierExpr("x", expr.expression)
-        assertTokenKind(SyntaxKind.IsKeyword, expr.isKeyword)
-        // TODO: add assertion for the type name
-      }
-    }
+  it should "parse empty match case" in {
+    val expr = mkSyntaxTree(
+      "enum Test {\n" +
+        "  case Empty()\n" +
+        "  case One(one: int)\n" +
+        "}\n" +
+        "\n" +
+        "x match {\n" +
+        "  case Test.Empty() => 2\n" +
+        "  case Test.One(1) => 3\n" +
+        "}"
+    )
+    expr.diagnostics.count() shouldBe 0
+  }
 
-    test("functions") {
-      test("with no parameters") {
-        val fn = mkFunctionMember("def f() = { 1 }")
-        assertTokenKind(SyntaxKind.DefKeyword, fn.defKeyword)
-        assertTokenText("f", fn.identifier)
-        assertNone(fn.genericParameters)
-        assertTokenKind(SyntaxKind.OpenParenToken, fn.openParenToken)
-        assertEmpty(fn.parameters)
-        assertTokenKind(SyntaxKind.CloseParenToken, fn.closeParenToken)
-        assertNone(fn.typeAnnotation)
+  it should "parse is expressions" in {
+    val expr = mkIsExpr("x is int")
+    assertIdentifierExpr("x", expr.expression)
+    assertTokenKind(SyntaxKind.IsKeyword, expr.isKeyword)
+    // TODO: add assertion for the type name
+  }
 
-        val body = assertSome(fn.body)
-        assertTokenKind(SyntaxKind.EqualsToken, body.equalToken)
-        val block = assertBlockExpr(body.expression)
-        val expr = assertSome(block.block.expression)
-        assertNumberExpr(1, expr)
-      }
+  it should "parse functions with no parameters" in {
+    val fn = mkFunctionMember("def f() = { 1 }")
+    assertTokenKind(SyntaxKind.DefKeyword, fn.defKeyword)
+    assertTokenText("f", fn.identifier)
+    assertNone(fn.genericParameters)
+    assertTokenKind(SyntaxKind.OpenParenToken, fn.openParenToken)
+    assertEmpty(fn.parameters)
+    assertTokenKind(SyntaxKind.CloseParenToken, fn.closeParenToken)
+    assertNone(fn.typeAnnotation)
 
-      test("with parameters") {
-        val fn = mkFunctionMember("def f(a: int, b: int) = { a + b }")
-        assertTokenKind(SyntaxKind.DefKeyword, fn.defKeyword)
-        assertTokenText("f", fn.identifier)
-        assertNone(fn.genericParameters)
-        assertTokenKind(SyntaxKind.OpenParenToken, fn.openParenToken)
+    val body = assertSome(fn.body)
+    assertTokenKind(SyntaxKind.EqualsToken, body.equalToken)
+    val block = assertBlockExpr(body.expression)
+    val expr = assertSome(block.block.expression)
+    assertNumberExpr(1, expr)
+  }
 
-        val parameters = fn.parameters
-        val a = assertIndex(0, parameters)
-        assertTokenText("a", a.identifier)
-        assertTokenKind(SyntaxKind.ColonToken, a.typeAnnotation.colonToken)
-        assertName("int", a.typeAnnotation.typ)
+  it should "parse functions with parameters" in {
+    val fn = mkFunctionMember("def f(a: int, b: int) = { a + b }")
+    assertTokenKind(SyntaxKind.DefKeyword, fn.defKeyword)
+    assertTokenText("f", fn.identifier)
+    assertNone(fn.genericParameters)
+    assertTokenKind(SyntaxKind.OpenParenToken, fn.openParenToken)
 
-        val b = assertIndex(1, parameters)
-        assertTokenText("b", b.identifier)
-        assertTokenKind(SyntaxKind.ColonToken, b.typeAnnotation.colonToken)
-        assertName("int", b.typeAnnotation.typ)
+    val parameters = fn.parameters
+    val a = assertIndex(0, parameters)
+    assertTokenText("a", a.identifier)
+    assertTokenKind(SyntaxKind.ColonToken, a.typeAnnotation.colonToken)
+    assertName("int", a.typeAnnotation.typ)
 
-        assertTokenKind(SyntaxKind.CloseParenToken, fn.closeParenToken)
-        assertNone(fn.typeAnnotation)
+    val b = assertIndex(1, parameters)
+    assertTokenText("b", b.identifier)
+    assertTokenKind(SyntaxKind.ColonToken, b.typeAnnotation.colonToken)
+    assertName("int", b.typeAnnotation.typ)
 
-        val body = assertSome(fn.body)
-        assertTokenKind(SyntaxKind.EqualsToken, body.equalToken)
-        val block = assertBlockExpr(body.expression)
-        val expr = assertSome(block.block.expression)
-        val binary = assertBinaryExpr(expr)
-        assertIdentifierExpr("a", binary.left)
-        assertTokenKind(SyntaxKind.PlusToken, binary.operator)
-        assertIdentifierExpr("b", binary.right)
-      }
+    assertTokenKind(SyntaxKind.CloseParenToken, fn.closeParenToken)
+    assertNone(fn.typeAnnotation)
 
-      test("with return type") {
-        val fn = mkFunctionMember("def f(): int = { 1 }")
-        assertTokenKind(SyntaxKind.DefKeyword, fn.defKeyword)
-        assertTokenText("f", fn.identifier)
-        assertNone(fn.genericParameters)
-        assertTokenKind(SyntaxKind.OpenParenToken, fn.openParenToken)
-        assertEmpty(fn.parameters)
-        assertTokenKind(SyntaxKind.CloseParenToken, fn.closeParenToken)
+    val body = assertSome(fn.body)
+    assertTokenKind(SyntaxKind.EqualsToken, body.equalToken)
+    val block = assertBlockExpr(body.expression)
+    val expr = assertSome(block.block.expression)
+    val binary = assertBinaryExpr(expr)
+    assertIdentifierExpr("a", binary.left)
+    assertTokenKind(SyntaxKind.PlusToken, binary.operator)
+    assertIdentifierExpr("b", binary.right)
+  }
 
-        val typeAnnotation = assertSome(fn.typeAnnotation)
-        assertTokenKind(SyntaxKind.ColonToken, typeAnnotation.colonToken)
-        assertName("int", typeAnnotation.typ)
+  it should "parse functions with return type" in {
+    val fn = mkFunctionMember("def f(): int = { 1 }")
+    assertTokenKind(SyntaxKind.DefKeyword, fn.defKeyword)
+    assertTokenText("f", fn.identifier)
+    assertNone(fn.genericParameters)
+    assertTokenKind(SyntaxKind.OpenParenToken, fn.openParenToken)
+    assertEmpty(fn.parameters)
+    assertTokenKind(SyntaxKind.CloseParenToken, fn.closeParenToken)
 
-        val body = assertSome(fn.body)
-        assertTokenKind(SyntaxKind.EqualsToken, body.equalToken)
-        val block = assertBlockExpr(body.expression)
-        val expr = assertSome(block.block.expression)
-        assertNumberExpr(1, expr)
-      }
-    }
+    val typeAnnotation = assertSome(fn.typeAnnotation)
+    assertTokenKind(SyntaxKind.ColonToken, typeAnnotation.colonToken)
+    assertName("int", typeAnnotation.typ)
+
+    val body = assertSome(fn.body)
+    assertTokenKind(SyntaxKind.EqualsToken, body.equalToken)
+    val block = assertBlockExpr(body.expression)
+    val expr = assertSome(block.block.expression)
+    assertNumberExpr(1, expr)
   }
 }

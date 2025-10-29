@@ -1,7 +1,8 @@
-import panther.{assert => _, *}
-import utest._
+import panther.*
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-object MetadataTests extends TestSuite {
+class MetadataTests extends AnyFlatSpec with Matchers {
 
   val metadata: Metadata = Metadata()
   val point: TypeDefToken = metadata.addTypeDef("Point", "", MetadataFlags.None)
@@ -53,52 +54,29 @@ object MetadataTests extends TestSuite {
   val circleRadius: FieldToken =
     metadata.addField("radius", MetadataFlags.None, 1, 0)
 
-  val tests = Tests {
-    test("findTypeDefForMethod") {
-      assert(point.token == metadata.findTypeDefForMethod(pointCtor).token)
-      assert(point.token == metadata.findTypeDefForMethod(pointGetX).token)
-      assert(point.token == metadata.findTypeDefForMethod(pointGetY).token)
-      assert(
-        point3.token ==
-          metadata.findTypeDefForMethod(point3Ctor).token
-      )
-      assert(
-        point3.token ==
-          metadata.findTypeDefForMethod(point3GetX).token
-      )
-      assert(
-        point3.token ==
-          metadata.findTypeDefForMethod(point3GetY).token
-      )
-      assert(
-        point3.token ==
-          metadata.findTypeDefForMethod(point3GetZ).token
-      )
-      assert(
-        circle.token ==
-          metadata.findTypeDefForMethod(circleCtor).token
-      )
-      assert(
-        circle.token ==
-          metadata.findTypeDefForMethod(circleGetCenter).token
-      )
-      assert(
-        circle.token ==
-          metadata.findTypeDefForMethod(circleGetRadius).token
-      )
-    }
+  "Metadata" should "find type def for methods" in {
+    point.token shouldBe metadata.findTypeDefForMethod(pointCtor).token
+    point.token shouldBe metadata.findTypeDefForMethod(pointGetX).token
+    point.token shouldBe metadata.findTypeDefForMethod(pointGetY).token
+    point3.token shouldBe metadata.findTypeDefForMethod(point3Ctor).token
+    point3.token shouldBe metadata.findTypeDefForMethod(point3GetX).token
+    point3.token shouldBe metadata.findTypeDefForMethod(point3GetY).token
+    point3.token shouldBe metadata.findTypeDefForMethod(point3GetZ).token
+    circle.token shouldBe metadata.findTypeDefForMethod(circleCtor).token
+    circle.token shouldBe metadata.findTypeDefForMethod(circleGetCenter).token
+    circle.token shouldBe metadata.findTypeDefForMethod(circleGetRadius).token
+  }
 
-    test("getMethodParameterCount") {
-      assert(metadata.getMethodParameterCount(pointCtor) == 2)
-      assert(metadata.getMethodParameterCount(pointGetX) == 0)
-      assert(metadata.getMethodParameterCount(pointGetY) == 0)
-      assert(metadata.getMethodParameterCount(point3Ctor) == 3)
-      assert(metadata.getMethodParameterCount(point3GetX) == 0)
-      assert(metadata.getMethodParameterCount(point3GetY) == 0)
-      assert(metadata.getMethodParameterCount(point3GetZ) == 0)
-      assert(metadata.getMethodParameterCount(circleCtor) == 2)
-      assert(metadata.getMethodParameterCount(circleGetCenter) == 0)
-      assert(metadata.getMethodParameterCount(circleGetRadius) == 0)
-    }
+  it should "get method parameter count" in {
+    metadata.getMethodParameterCount(pointCtor) shouldBe 2
+    metadata.getMethodParameterCount(pointGetX) shouldBe 0
+    metadata.getMethodParameterCount(pointGetY) shouldBe 0
+    metadata.getMethodParameterCount(point3Ctor) shouldBe 3
+    metadata.getMethodParameterCount(point3GetX) shouldBe 0
+    metadata.getMethodParameterCount(point3GetY) shouldBe 0
+    metadata.getMethodParameterCount(point3GetZ) shouldBe 0
+    metadata.getMethodParameterCount(circleCtor) shouldBe 2
+    metadata.getMethodParameterCount(circleGetCenter) shouldBe 0
+    metadata.getMethodParameterCount(circleGetRadius) shouldBe 0
   }
 }

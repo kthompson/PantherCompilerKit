@@ -1,9 +1,7 @@
 import panther.{assert => _, *}
-import utest._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-// ScalaTest version
 class LexerTests extends AnyFlatSpec with Matchers {
   def mkTokens(text: string): Array[SyntaxToken] = {
     val sourceFile = new SourceFile(text, "test.pn")
