@@ -1,4 +1,5 @@
-import panther._
+import Type.InstantiatedGenericAlias
+import panther.*
 
 case class Members(
     objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
@@ -22,7 +23,7 @@ enum BindingMember {
 
 enum TypingMember {
   case Method(
-      genericParameters: List[GenericTypeParameter],
+      genericParameters: List[Type.GenericTypeParameter],
       parameters: List[BoundParameter],
       returnType: Option[Type],
       expression: Option[Expression],
@@ -38,7 +39,7 @@ enum FieldOptions {
 }
 
 case class ConstructorParams(
-    genericTypeParameters: List[GenericTypeParameter],
+    genericTypeParameters: List[Type.GenericTypeParameter],
     parameters: List[ParameterSyntax]
 )
 
@@ -73,17 +74,23 @@ case class Binder(
 
   def getTypeSymbol(typ: Type): Option[Symbol] = {
     typ match {
-      case Type.Class(_, _, _, _, symbol)        => Option.Some(symbol)
-      case Type.GenericClass(_, _, _, _, symbol) => Option.Some(symbol)
-      case Type.Alias(_, _, _, _, _, symbol)     => Option.Some(symbol)
+      case Type.Class(_, _, _, symbol)                 => Option.Some(symbol)
+      case Type.GenericClass(_, _, _, _, symbol)       => Option.Some(symbol)
+      case Type.InstantiatedGenericClass(_, _, symbol) => Option.Some(symbol)
 
-      case Type.GenericFunction(_, _, _, _, symbol) => Option.None
-      case Type.Function(_, _, symbol)              => Option.None
-      case Type.Union(_, _)                         => Option.None
-      case Type.Variable(_, _)                      => Option.None
-      case Type.Any                                 => Option.None
-      case Type.Never                               => Option.None
-      case Type.Error(_)                            => Option.None
+      case Type.Alias(_, _, _, _, symbol)                 => Option.Some(symbol)
+      case Type.GenericAlias(_, _, _, _, _, symbol)       => Option.Some(symbol)
+      case Type.InstantiatedGenericAlias(_, _, _, symbol) => Option.Some(symbol)
+
+      case Type.Function(_, _, symbol)                  => Option.None
+      case Type.GenericFunction(_, _, _, _, symbol)     => Option.None
+      case Type.InstantiatedGenericFunction(_, _, _, _) => Option.None
+
+      case Type.GenericTypeParameter(_, _, _, _) => Option.None
+      case Type.Union(_, _)                      => Option.None
+      case Type.Any                              => Option.None
+      case Type.Never                            => Option.None
+      case Type.Error(_)                         => Option.None
     }
   }
 
@@ -132,11 +139,12 @@ case class Binder(
     "Array",
     noLoc
   )
+
   val arrayTSymbol =
     arraySymbol.defineTypeParameter("T", noLoc, Variance.Invariant)
-
-  val T: GenericTypeParameter =
-    GenericTypeParameter(noLoc, "T", Variance.Invariant, Option.None)
+  val T: Type.GenericTypeParameter =
+    Type.GenericTypeParameter(noLoc, "T", Variance.Invariant, Option.None)
+  setSymbolType(arrayTSymbol, T)
 
   val arrayCtorSymbol = arraySymbol.defineMethod(".ctor", noLoc)
   arrayCtorSymbol.extern = true
@@ -181,13 +189,15 @@ case class Binder(
   setSymbolType(arrayApplyIndex, intType)
   setSymbolType(
     arrayApply,
-    Type.Function(
+    Type.GenericFunction(
       noLoc,
+      List.Cons(T, List.Nil),
+      List.Nil,
       List.Cons(
         BoundParameter(arrayApplyIndex, intType),
         List.Nil
       ),
-      Type.Variable(noLoc, 0)
+      T
     )
   )
 
@@ -352,7 +362,7 @@ case class Binder(
   }
 
   def classType(name: string, symbol: Symbol): Type =
-    new Type.Class(noLoc, List.Nil, name, List.Nil, symbol)
+    new Type.Class(noLoc, List.Nil, name, symbol)
 
   def method(parent: Symbol, name: string): Symbol = {
     val symbol = parent.defineMethod(name, noLoc)
@@ -644,7 +654,7 @@ case class Binder(
 
   def bindMethodBody(
       symbol: Symbol,
-      args: List[GenericTypeParameter],
+      args: List[Type.GenericTypeParameter],
       parameters: List[BoundParameter],
       returnType: Option[Type],
       expression: Option[Expression],
@@ -1095,27 +1105,10 @@ case class Binder(
                 // funky happened and that shouldn't be possible panic for
                 // now
                 ???
-              case Option.Some(
-                    Type.Class(location, ns, name, _, symbol)
-                  ) =>
-                new Type.Class(
-                  location,
-                  ns,
-                  name,
-                  typeArguments,
-                  symbol
-                )
-              case Option.Some(
-                    Type.Alias(location, ns, name, _, value, symbol)
-                  ) =>
-                new Type.Alias(
-                  location,
-                  ns,
-                  name,
-                  typeArguments,
-                  value,
-                  symbol
-                )
+              case Option.Some(Type.Class(location, ns, name, symbol)) =>
+                new Type.Class(location, ns, name, symbol)
+              case Option.Some(Type.Alias(location, ns, name, value, symbol)) =>
+                new Type.Alias(location, ns, name, value, symbol)
               case Option.Some(
                     Type.GenericClass(location, ns, name, _, symbol)
                   ) =>
@@ -1123,7 +1116,6 @@ case class Binder(
                   location,
                   ns,
                   name,
-                  typeArguments,
                   symbol
                 )
               case Option.Some(value) =>
@@ -1285,7 +1277,6 @@ case class Binder(
             symbol.location,
             symbol.ns(),
             symbol.name,
-            List.Nil,
             Type.Union(
               symbol.location,
               caseTypes
@@ -1310,7 +1301,7 @@ case class Binder(
   def bindEnumCases(
       cases: List[EnumCaseSyntax],
       types: List[Type],
-      genericTypeParameters: List[GenericTypeParameter],
+      genericTypeParameters: List[Type.GenericTypeParameter],
       scope: Scope
   ): List[Type] = {
     cases match {
@@ -1333,7 +1324,6 @@ case class Binder(
                   caseSymbol.location,
                   caseSymbol.ns(),
                   caseSymbol.name,
-                  List.Nil,
                   caseSymbol
                 )
               } else {
@@ -1409,7 +1399,6 @@ case class Binder(
                 symbol.location,
                 symbol.ns(),
                 symbol.name,
-                List.Nil,
                 symbol
               )
             )
@@ -1428,7 +1417,6 @@ case class Binder(
                 symbol.location,
                 symbol.ns(),
                 symbol.name,
-                List.Nil,
                 symbol
               )
             } else {
@@ -1475,13 +1463,10 @@ case class Binder(
     }
   }
 
-  def genericTypeParamAsType(head: GenericTypeParameter, index: int): Type =
-    Type.Variable(head.location, index)
-
   def bindGenericTypeParameters(
       value: List[GenericParameterSyntax],
       scope: Scope
-  ): List[GenericTypeParameter] = {
+  ): List[Type.GenericTypeParameter] = {
     bindGenericTypeParametersWithIndex(value, scope, 0)
   }
 
@@ -1489,7 +1474,7 @@ case class Binder(
       value: List[GenericParameterSyntax],
       scope: Scope,
       index: int
-  ): List[GenericTypeParameter] = {
+  ): List[Type.GenericTypeParameter] = {
     value match {
       case List.Nil => List.Nil
       case List.Cons(
@@ -1523,9 +1508,13 @@ case class Binder(
             )
             bindGenericTypeParametersWithIndex(tail, scope, index + 1)
           case Either.Right(value) =>
-            val generic =
-              GenericTypeParameter(identifier.location, name, variance, None)
-            setSymbolType(value, genericTypeParamAsType(generic, index))
+            val generic = new Type.GenericTypeParameter(
+              identifier.location,
+              name,
+              variance,
+              None
+            )
+            setSymbolType(value, generic)
             List.Cons(
               generic,
               bindGenericTypeParametersWithIndex(tail, scope, index + 1)
@@ -1573,13 +1562,7 @@ case class Binder(
         )
         setSymbolType(
           symbol,
-          new Type.Class(
-            symbol.location,
-            symbol.ns(),
-            symbol.name,
-            List.Nil,
-            symbol
-          )
+          new Type.Class(symbol.location, symbol.ns(), symbol.name, symbol)
         )
 
         // Convert field declarations with initializers into assignment statements

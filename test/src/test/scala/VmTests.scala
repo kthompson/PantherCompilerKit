@@ -1,8 +1,7 @@
-import TestHelpers._
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 
-class VmTests extends AnyFunSpec with Matchers {
+class VmTests extends AnyFunSpec with TestHelpers {
 
   describe("VM") {
     it("should execute constants") {

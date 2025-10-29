@@ -114,18 +114,17 @@ class ConversionClassifier(binder: Binder) {
           case Option.Some(substituted) => substituted
           case Option.None => typ // Return original if id out of bounds
         }
-      case Type.Class(loc, ns, name, args, symbol) =>
+      case Type.Class(loc, ns, name, symbol) =>
         // Substitute type arguments in the class type arguments
         Type.Class(
           loc,
           ns,
           name,
-          substituteTypeArgsList(args, typeArgs),
           symbol
         )
       case Type.GenericClass(loc, ns, name, genParams, symbol) =>
         // For generic classes, convert to regular class with substituted type arguments
-        Type.Class(loc, ns, name, typeArgs, symbol)
+        Type.Class(loc, ns, name, symbol)
       case _ => typ // For other types, return as-is
     }
   }
@@ -159,13 +158,10 @@ class ConversionClassifier(binder: Binder) {
   def semanticTypeEquals(type1: Type, type2: Type): bool = {
     Tuple2(type1, type2) match {
       case Tuple2(
-            Type.Class(_, ns1, name1, args1, sym1),
-            Type.Class(_, ns2, name2, args2, sym2)
+            Type.Class(_, ns1, name1, sym1),
+            Type.Class(_, ns2, name2, sym2)
           ) =>
-        sym1 == sym2 && name1 == name2 && ns1 == ns2 && semanticTypeListEquals(
-          args1,
-          args2
-        )
+        sym1 == sym2 && name1 == name2 && ns1 == ns2
       case Tuple2(Type.Union(_, cases1), Type.Union(_, cases2)) =>
         semanticTypeListEquals(cases1, cases2)
       case Tuple2(

@@ -73,17 +73,23 @@ class Binder(
 
   def getTypeSymbol(typ: Type): Option[Symbol] = {
     typ match {
-      case Type.Class(_, _, _, _, symbol)        => Option.Some(symbol)
-      case Type.GenericClass(_, _, _, _, symbol) => Option.Some(symbol)
-      case Type.Alias(_, _, _, _, _, symbol)     => Option.Some(symbol)
+      case Type.Class(_, _, _, symbol)                 => Option.Some(symbol)
+      case Type.GenericClass(_, _, _, _, symbol)       => Option.Some(symbol)
+      case Type.InstantiatedGenericClass(_, _, symbol) => Option.Some(symbol)
 
-      case Type.GenericFunction(_, _, _, _, symbol) => Option.None
-      case Type.Function(_, _, symbol)              => Option.None
-      case Type.Union(_, _)                         => Option.None
-      case Type.Variable(_, _)                      => Option.None
-      case Type.Any                                 => Option.None
-      case Type.Never                               => Option.None
-      case Type.Error(_)                            => Option.None
+      case Type.Alias(_, _, _, _, _, symbol) =>
+        // TODO: instantiate symbol type
+        ???
+
+      case Type.Function(_, _, symbol)                  => Option.None
+      case Type.GenericFunction(_, _, _, _, symbol)     => Option.None
+      case Type.InstantiatedGenericFunction(_, _, _, _) => Option.None
+
+      case Type.Union(_, _)    => Option.None
+      case Type.Variable(_, _) => Option.None
+      case Type.Any            => Option.None
+      case Type.Never          => Option.None
+      case Type.Error(_)       => Option.None
     }
   }
 
@@ -352,7 +358,7 @@ class Binder(
   }
 
   def classType(name: string, symbol: Symbol): Type =
-    new Type.Class(noLoc, List.Nil, name, List.Nil, symbol)
+    new Type.Class(noLoc, List.Nil, name, symbol)
 
   def method(parent: Symbol, name: string): Symbol = {
     val symbol = parent.defineMethod(name, noLoc)
@@ -1095,16 +1101,8 @@ class Binder(
                 // funky happened and that shouldn't be possible panic for
                 // now
                 ???
-              case Option.Some(
-                    Type.Class(location, ns, name, _, symbol)
-                  ) =>
-                new Type.Class(
-                  location,
-                  ns,
-                  name,
-                  typeArguments,
-                  symbol
-                )
+              case Option.Some(Type.Class(location, ns, name, symbol)) =>
+                new Type.Class(location, ns, name, symbol)
               case Option.Some(
                     Type.Alias(location, ns, name, _, value, symbol)
                   ) =>
@@ -1123,7 +1121,6 @@ class Binder(
                   location,
                   ns,
                   name,
-                  typeArguments,
                   symbol
                 )
               case Option.Some(value) =>
@@ -1333,7 +1330,6 @@ class Binder(
                   caseSymbol.location,
                   caseSymbol.ns(),
                   caseSymbol.name,
-                  List.Nil,
                   caseSymbol
                 )
               } else {
@@ -1409,7 +1405,6 @@ class Binder(
                 symbol.location,
                 symbol.ns(),
                 symbol.name,
-                List.Nil,
                 symbol
               )
             )
@@ -1428,7 +1423,6 @@ class Binder(
                 symbol.location,
                 symbol.ns(),
                 symbol.name,
-                List.Nil,
                 symbol
               )
             } else {
@@ -1573,13 +1567,7 @@ class Binder(
         )
         setSymbolType(
           symbol,
-          new Type.Class(
-            symbol.location,
-            symbol.ns(),
-            symbol.name,
-            List.Nil,
-            symbol
-          )
+          new Type.Class(symbol.location, symbol.ns(), symbol.name, symbol)
         )
 
         // Convert field declarations with initializers into assignment statements

@@ -619,7 +619,24 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
         append(") -> ")
         _printType(returnType, false)
 
-      case Type.Class(_, ns, name, args, _) =>
+      case Type.InstantiatedGenericFunction(
+            genericFunction,
+            typeArgs,
+            parameters,
+            returnType
+          ) =>
+        writeColor(ColorPalette.Punctuation)
+        append("<")
+        _printTypes(typeArgs, ", ", true)
+        writeColor(ColorPalette.Punctuation)
+        append(">")
+        append("(")
+        _printTypedParameters(parameters, false)
+        writeColor(ColorPalette.Punctuation)
+        append(") -> ")
+        _printType(returnType, false)
+
+      case Type.Class(_, ns, name, _) =>
         val color =
           if (ns.isEmpty && SyntaxFacts.isBuiltinType(name))
             ColorPalette.Keyword
@@ -628,13 +645,35 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
         writeColor(color)
         append(typ._name(ns, name))
 
-        args match {
-          case List.Nil =>
-          case List.Cons(typ, tail) =>
-            append("<")
-            _printTypes(args, ", ", true)
-            append(">")
-        }
+      case Type.GenericClass(_, ns, name, args, _) =>
+        val color =
+          if (ns.isEmpty && SyntaxFacts.isBuiltinType(name))
+            ColorPalette.Keyword
+          else ColorPalette.Identifier
+
+        writeColor(color)
+        append(typ._name(ns, name))
+
+        append("<")
+        _printGenTypes(args, true)
+        append(">")
+
+      case Type.InstantiatedGenericClass(genericClass, typeArgs, symbol) =>
+        val color =
+          if (
+            genericClass.ns.isEmpty && SyntaxFacts.isBuiltinType(
+              genericClass.name
+            )
+          )
+            ColorPalette.Keyword
+          else ColorPalette.Identifier
+
+        writeColor(color)
+        append(typ._name(genericClass.ns, genericClass.name))
+
+        append("<")
+        _printTypes(typeArgs, ", ", true)
+        append(">")
 
       case Type.Union(_, types) =>
         writeColor(ColorPalette.Punctuation)
@@ -657,23 +696,6 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
           case List.Cons(typ, tail) =>
             append("<")
             _printTypes(args, ", ", true)
-            append(">")
-        }
-
-      case Type.GenericClass(_, ns, name, args, _) =>
-        val color =
-          if (ns.isEmpty && SyntaxFacts.isBuiltinType(name))
-            ColorPalette.Keyword
-          else ColorPalette.Identifier
-
-        writeColor(color)
-        append(typ._name(ns, name))
-
-        args match {
-          case List.Nil =>
-          case List.Cons(typ, tail) =>
-            append("<")
-            _printGenTypes(args, true)
             append(">")
         }
       case Type.Variable(_, i) =>

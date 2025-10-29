@@ -600,6 +600,9 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
 
   def _printType(typ: Type, clear: bool): unit = {
     typ match {
+      case Type.GenericTypeParameter(_, name, _, _) =>
+        writeColor(ColorPalette.TypeParameter)
+        append(name)
       case Type.Function(_, parameters, returnType) =>
         writeColor(ColorPalette.Punctuation)
         append("(")
@@ -619,31 +622,24 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
         append(") -> ")
         _printType(returnType, false)
 
-      case Type.Class(_, ns, name, args, _) =>
-        val color =
-          if (ns.isEmpty && SyntaxFacts.isBuiltinType(name))
-            ColorPalette.Keyword
-          else ColorPalette.Identifier
-
-        writeColor(color)
-        append(typ._name(ns, name))
-
-        args match {
-          case List.Nil =>
-          case List.Cons(typ, tail) =>
-            append("<")
-            _printTypes(args, ", ", true)
-            append(">")
-        }
-
-      case Type.Union(_, types) =>
+      case Type.InstantiatedGenericFunction(
+            genericFunction,
+            typeArgs,
+            parameters,
+            returnType
+          ) =>
         writeColor(ColorPalette.Punctuation)
+        append("<")
+        _printTypes(typeArgs, ", ", true)
+        writeColor(ColorPalette.Punctuation)
+        append(">")
         append("(")
-        _printTypes(types, " | ", true)
+        _printTypedParameters(parameters, false)
         writeColor(ColorPalette.Punctuation)
-        append(")")
+        append(") -> ")
+        _printType(returnType, false)
 
-      case Type.Alias(_, ns, name, args, value, _) =>
+      case Type.Class(_, ns, name, _) =>
         val color =
           if (ns.isEmpty && SyntaxFacts.isBuiltinType(name))
             ColorPalette.Keyword
@@ -651,14 +647,6 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
 
         writeColor(color)
         append(typ._name(ns, name))
-
-        args match {
-          case List.Nil =>
-          case List.Cons(typ, tail) =>
-            append("<")
-            _printTypes(args, ", ", true)
-            append(">")
-        }
 
       case Type.GenericClass(_, ns, name, args, _) =>
         val color =
@@ -669,16 +657,78 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
         writeColor(color)
         append(typ._name(ns, name))
 
-        args match {
-          case List.Nil =>
-          case List.Cons(typ, tail) =>
-            append("<")
-            _printGenTypes(args, true)
-            append(">")
-        }
-      case Type.Variable(_, i) =>
-        writeColor(ColorPalette.Keyword)
-        append("$" + i)
+        append("<")
+        _printGenTypes(args, true)
+        append(">")
+
+      case Type.InstantiatedGenericClass(genericClass, typeArgs, symbol) =>
+        val color =
+          if (
+            genericClass.ns.isEmpty && SyntaxFacts.isBuiltinType(
+              genericClass.name
+            )
+          )
+            ColorPalette.Keyword
+          else ColorPalette.Identifier
+
+        writeColor(color)
+        append(typ._name(genericClass.ns, genericClass.name))
+
+        append("<")
+        _printTypes(typeArgs, ", ", true)
+        append(">")
+
+      case Type.Union(_, types) =>
+        writeColor(ColorPalette.Punctuation)
+        append("(")
+        _printTypes(types, " | ", true)
+        writeColor(ColorPalette.Punctuation)
+        append(")")
+
+      case Type.Alias(_, ns, name, _, _) =>
+        val color =
+          if (ns.isEmpty && SyntaxFacts.isBuiltinType(name))
+            ColorPalette.Keyword
+          else ColorPalette.Identifier
+
+        writeColor(color)
+        append(typ._name(ns, name))
+
+      case Type.GenericAlias(_, ns, name, generics, _, _) =>
+        val color =
+          if (ns.isEmpty && SyntaxFacts.isBuiltinType(name))
+            ColorPalette.Keyword
+          else ColorPalette.Identifier
+
+        writeColor(color)
+        append(typ._name(ns, name))
+
+        append("<")
+        _printGenTypes(generics, true)
+        append(">")
+
+      case Type.InstantiatedGenericAlias(
+            genericAlias,
+            typeArguments,
+            _,
+            _
+          ) =>
+        val color =
+          if (
+            genericAlias.ns.isEmpty && SyntaxFacts.isBuiltinType(
+              genericAlias.name
+            )
+          )
+            ColorPalette.Keyword
+          else ColorPalette.Identifier
+
+        writeColor(color)
+        append(typ._name(genericAlias.ns, genericAlias.name))
+
+        append("<")
+        _printTypes(typeArguments, ", ", true)
+        append(">")
+
       case Type.Any =>
         writeColor(ColorPalette.Keyword)
         append("any")
@@ -693,7 +743,7 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
     if (clear) writeClear() else ()
   }
 
-  def _printGenTypes(types: List[GenericTypeParameter], first: bool): unit = {
+  def _printGenTypes(types: List[Type.GenericTypeParameter], first: bool): unit = {
     types match {
       case List.Nil => writeClear()
       case List.Cons(typ, tail) =>

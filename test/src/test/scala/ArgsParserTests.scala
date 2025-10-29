@@ -1,8 +1,7 @@
-import TestHelpers._
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 
-class ArgsParserTests extends AnyFunSpec with Matchers {
+class ArgsParserTests extends AnyFunSpec with TestHelpers {
 
   describe("ArgsParser") {
     it("should show help when no args provided") {

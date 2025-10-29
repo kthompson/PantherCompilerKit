@@ -298,7 +298,7 @@ case class ExprBinder(
 
     // Extract the element type from the Array[T] type
     arrayType match {
-      case Type.Class(_, _, "Array", List.Cons(elementType, List.Nil), _) =>
+      case Type.Class(_, _, "Array", _) =>
         // Bind the array size expression
         val sizeExpr = node.arrayRank match {
           case Option.Some(rankExpr) =>
@@ -310,26 +310,7 @@ case class ExprBinder(
 
         val location = AstUtils.locationOfExpression(node)
 
-        elementType match {
-          case Type.Error(message) => BoundExpression.Error(message)
-          case _                   =>
-            // Create array type from element type
-            val arrayType = Type.Class(
-              location,
-              List.Nil,
-              "Array",
-              List.Cons(elementType, List.Nil),
-              binder.arraySymbol
-            )
-
-            // Return a special ArrayCreation expression that will be handled in lowering
-            BoundExpression.ArrayCreation(
-              location,
-              elementType,
-              sizeExpr,
-              arrayType
-            )
-        }
+        ???
       case _ =>
         panic("Invalid array type in ArrayCreation: " + arrayType)
         BoundExpression.Error(
@@ -506,23 +487,22 @@ case class ExprBinder(
           }
 
         case gf: Type.GenericFunction =>
+          // TODO: instantiate the method here
+          ???
           bindGenericFunctionCall(function, gf, args, scope) match {
             case Result.Error(value) => Result.Error(value)
             case Result.Success(value) =>
               Result.Success(BoundLeftHandSide.Call(value))
           }
 
-        case Type.Class(_, ns, name, typeArgs, symbol) =>
+        case Type.Class(_, ns, name, symbol) =>
           val location = AstUtils.locationOfBoundLeftHandSide(function)
           // Handle array indexing
           if (name == "Array") {
             args match {
               case List.Cons(indexArg, List.Nil) =>
                 val boundIndex = bindConversion(indexArg, binder.intType, false)
-                val elementType = typeArgs match {
-                  case List.Cons(elemType, List.Nil) => elemType
-                  case _                             => binder.anyType
-                }
+                val elementType = ???
                 val arrayExpr = function match {
                   case BoundLeftHandSide.Variable(loc, sym) =>
                     BoundExpression.Variable(
@@ -593,17 +573,11 @@ case class ExprBinder(
               bindApply(args, scope, functionType, symbol, location)
             case Option.Some(ctor) =>
               // Try to infer type arguments from constructor arguments
-              val inferredTypeArgs =
-                typeInference.inferTypeArgumentsFromConstructor(
-                  genericParams,
-                  ctor,
-                  args
-                )
+              val inferredTypeArgs = ???
               val instantiatedType = Type.Class(
                 location,
                 ns,
                 name,
-                inferredTypeArgs,
                 symbol
               )
 
@@ -623,11 +597,7 @@ case class ExprBinder(
                       Type.GenericFunction(loc, generics, traits, params, _)
                     ) =>
                   // For generic functions, we need to substitute type variables in parameters
-                  val substitutedParams =
-                    typeInference.substituteParameterTypes(
-                      params,
-                      inferredTypeArgs
-                    )
+                  val substitutedParams = ???
                   val instantiatedFunction: Type.Function =
                     Type.Function(loc, substitutedParams, instantiatedType)
                   bindNewExpressionForSymbol(
@@ -774,25 +744,12 @@ case class ExprBinder(
     // First, infer type arguments from the call arguments
     val argTypes = binder.getTypes(args)
     val parameterTypes = getParameterTypes(genericFunctionType.parameters)
-    val inferredTypeArgs = typeInference.inferTypeArgumentsFromCall(
-      genericFunctionType.generics,
-      parameterTypes,
-      argTypes
-    )
+    val inferredTypeArgs = ???
 
     // Instantiate the generic function with inferred type arguments
-    val instantiatedParameterTypes =
-      typeInference.substituteGenericTypesInParameters(
-        parameterTypes,
-        genericFunctionType.generics,
-        inferredTypeArgs
-      )
+    val instantiatedParameterTypes: List[Nothing] = ???
 
-    val instantiatedReturnType = typeInference.substituteGenericTypesInType(
-      genericFunctionType.returnType,
-      genericFunctionType.generics,
-      inferredTypeArgs
-    )
+    val instantiatedReturnType = ???
 
     // Check argument count matches
     if (instantiatedParameterTypes.length != args.length) {
@@ -881,10 +838,7 @@ case class ExprBinder(
     } else {
       val boundArgs = bindArguments(ctorType.parameters, args, scope)
       // Extract generic arguments from the return type (instantiation type)
-      val genericArguments = ctorType.returnType match {
-        case Type.Class(_, _, _, args, _) => args
-        case _                            => List.Nil
-      }
+      val genericArguments = List.Nil
       Result.Success(
         BoundLeftHandSide.New(
           BoundExpression.New(
@@ -1264,13 +1218,8 @@ case class ExprBinder(
                     " for type: " + leftType.toString()
                 )
               case Option.Some(typ) =>
-                // If leftType has type arguments, substitute them in the member type
-                val substitutedType = leftType match {
-                  case Type.Class(_, _, _, typeArgs, _) =>
-                    typeInference.substituteTypeVariable(typ, typeArgs)
-                  case _ => typ
-                }
-                Either.Right(Tuple2(member, substitutedType))
+                // TODO: If leftType has type arguments, substitute them in the member type
+                Either.Right(Tuple2(member, typ))
             }
         }
     }
@@ -1717,13 +1666,10 @@ case class ExprBinder(
     val instantiationType = binder.bindTypeName(node.name, scope)
     instantiationType match {
       case Type.Error(message) => Result.Error(BoundExpression.Error(message))
-      case Type.Class(_, ns, name, args, symbol) =>
+      case Type.Class(_, ns, name, symbol) =>
         // Special handling for Array construction - convert to ArrayCreation
         if (name == "Array") {
-          val elementType = args match {
-            case List.Cons(elemType, List.Nil) => elemType
-            case _                             => binder.anyType
-          }
+          val elementType = ???
           val argsList = bindExpressions(
             fromExpressionList(node.arguments.expressions),
             scope
@@ -1788,30 +1734,23 @@ case class ExprBinder(
                   // For generic constructors, infer type arguments from constructor arguments
                   val parameterTypes = getParameterTypes(params)
                   val argumentTypes = getArgumentTypes(args)
-                  val inferredTypeArgs =
-                    typeInference.inferTypeArgumentsFromCall(
-                      generics,
-                      parameterTypes,
-                      argumentTypes
-                    )
+                  val inferredTypeArgs = ???
 
                   // Create the instantiated return type using inferred type arguments
                   val inferredInstantiationType = instantiationType match {
-                    case Type.Class(clsLoc, clsNs, clsName, _, clsSymbol) =>
+                    case Type.Class(clsLoc, clsNs, clsName, clsSymbol) =>
                       // Replace generic type arguments with inferred ones
                       Type.Class(
                         clsLoc,
                         clsNs,
                         clsName,
-                        inferredTypeArgs,
                         clsSymbol
                       )
                     case other => other
                   }
 
                   // Substitute type variables in parameter types
-                  val substitutedParams = typeInference
-                    .substituteParameterTypes(params, inferredTypeArgs)
+                  val substitutedParams = ???
 
                   val instantiatedFunction: Type.Function =
                     Type.Function(
@@ -1858,29 +1797,11 @@ case class ExprBinder(
             val location = AstUtils.locationOfExpression(node)
 
             // Try to infer type arguments from constructor arguments
-            val inferredTypeArgs = binder.tryGetSymbolType(ctor) match {
-              case Option.Some(
-                    Type.GenericFunction(_, ctorGenerics, _, ctorParams, _)
-                  ) =>
-                val parameterTypes = getParameterTypes(ctorParams)
-                val argumentTypes = getArgumentTypes(args)
-                typeInference.inferTypeArgumentsFromCall(
-                  ctorGenerics,
-                  parameterTypes,
-                  argumentTypes
-                )
-              case _ =>
-                typeInference.inferTypeArgumentsFromConstructor(
-                  genericParams,
-                  ctor,
-                  args
-                )
-            }
+            val inferredTypeArgs = ???
             val instantiatedType = Type.Class(
               location,
               ns,
               name,
-              inferredTypeArgs,
               symbol
             )
 
@@ -1897,12 +1818,9 @@ case class ExprBinder(
               case Option.Some(
                     Type.GenericFunction(loc, generics, traits, params, _)
                   ) =>
+                ???
                 // For generic functions, we need to substitute type variables in parameters
-                val substitutedParams =
-                  typeInference.substituteParameterTypes(
-                    params,
-                    inferredTypeArgs
-                  )
+                val substitutedParams = ???
                 val instantiatedFunction: Type.Function =
                   Type.Function(loc, substitutedParams, instantiatedType)
                 bindNewExpressionForSymbol(

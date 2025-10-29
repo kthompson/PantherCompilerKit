@@ -988,29 +988,47 @@ case class Emitter(
 
   def emitTypeSignature(typ: Type, sig: SignatureBuilder): unit = {
     typ match {
-      case t: Type.Class           => emitClassTypeSignature(t, sig)
-      case t: Type.Alias           => emitAliasTypeSignature(t, sig)
-      case t: Type.Union           => emitUnionTypeSignature(t, sig)
-      case t: Type.GenericClass    => emitGenericClassTypeSignature(t, sig)
-      case t: Type.GenericFunction => emitGenericFunctionTypeSignature(t, sig)
+      case t: Type.Union => emitUnionTypeSignature(t, sig)
+
+      case t: Type.Alias                    => emitAliasTypeSignature(t, sig)
+      case t: Type.GenericAlias             => ???
+      case t: Type.InstantiatedGenericAlias => ???
+
+      case t: Type.Class        => emitClassTypeSignature(t, sig)
+      case t: Type.GenericClass => emitGenericClassTypeSignature(t, sig)
+      case t: Type.InstantiatedGenericClass => ???
+
       case t: Type.Function        => emitFunctionTypeSignature(t, sig)
-      case t: Type.Variable        => emitVariableTypeSignature(t, sig)
-      case Type.Any                => emitAnyTypeSignature(sig)
-      case Type.Never              => emitNeverTypeSignature(sig)
-      case Type.Error(_)           => emitErrorTypeSignature(sig)
+      case t: Type.GenericFunction => emitGenericFunctionTypeSignature(t, sig)
+      case t: Type.InstantiatedGenericFunction => ???
+
+      case Type.GenericTypeParameter(_, _, _, _) => ???
+
+      case Type.Any      => emitAnyTypeSignature(sig)
+      case Type.Never    => emitNeverTypeSignature(sig)
+      case Type.Error(_) => emitErrorTypeSignature(sig)
     }
   }
 
   def getTypeDefToken(typ: Type): Option[TypeDefToken] = {
     typ match {
-      case Type.Class(_, _, _, _, symbol) =>
+      case Type.Class(_, _, _, symbol)                 => typeTokens.get(symbol)
+      case Type.GenericClass(_, _, _, _, symbol)       => typeTokens.get(symbol)
+      case Type.InstantiatedGenericClass(_, _, symbol) => typeTokens.get(symbol)
+
+      case Type.Alias(_, _, _, _, symbol)           => typeTokens.get(symbol)
+      case Type.GenericAlias(_, _, _, _, _, symbol) => typeTokens.get(symbol)
+      case Type.InstantiatedGenericAlias(_, _, _, symbol) =>
         typeTokens.get(symbol)
-      case Type.GenericClass(_, _, _, _, symbol) =>
-        typeTokens.get(symbol)
-      case Type.Alias(_, _, _, _, _, symbol) =>
-        typeTokens.get(symbol)
-      case _ =>
-        Option.None
+
+      case Type.GenericTypeParameter(_, _, _, _)        => Option.None
+      case Type.Union(_, _)                             => Option.None
+      case Type.Function(_, _, _)                       => Option.None
+      case Type.GenericFunction(_, _, _, _, _)          => Option.None
+      case Type.InstantiatedGenericFunction(_, _, _, _) => Option.None
+      case Type.Any                                     => Option.None
+      case Type.Never                                   => Option.None
+      case Type.Error(_)                                => Option.None
     }
   }
 
@@ -1044,7 +1062,6 @@ case class Emitter(
       sig: SignatureBuilder
   ): unit = {}
   def emitFunctionTypeSignature(typ: Type, sig: SignatureBuilder): unit = {}
-  def emitVariableTypeSignature(typ: Type, sig: SignatureBuilder): unit = {}
   def emitAnyTypeSignature(sig: SignatureBuilder): unit = {}
   def emitNeverTypeSignature(sig: SignatureBuilder): unit = {}
   def emitErrorTypeSignature(sig: SignatureBuilder): unit = {}

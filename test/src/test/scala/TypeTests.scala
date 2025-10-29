@@ -1,9 +1,8 @@
 import panther.*
-import TestHelpers.*
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 
-class TypeTests extends AnyFunSpec with Matchers {
+class TypeTests extends AnyFunSpec with TestHelpers {
 
   describe("Type checker") {
     it("should handle primitive types") {
@@ -223,7 +222,7 @@ class TypeTests extends AnyFunSpec with Matchers {
 
     it("should handle methods without return type") {
       val comp = mkCompilation("def foo() = 12")
-      val symbols = enumNonBuiltinSymbols(comp)
+      val symbols = enumerateSymbolsSkipBuiltin(comp)
       assertProgramSymbol(symbols)
       val foo = assertSymbol(symbols, SymbolKind.Method, "foo")
       assertSymbolType(comp, foo, "() -> int")
@@ -233,7 +232,7 @@ class TypeTests extends AnyFunSpec with Matchers {
 
     it("should handle methods with parameters") {
       val comp = mkCompilation("def foo(x: int, y: int) = 12")
-      val symbols = enumNonBuiltinSymbols(comp)
+      val symbols = enumerateSymbolsSkipBuiltin(comp)
       assertProgramSymbol(symbols)
       val foo = assertSymbol(symbols, SymbolKind.Method, "foo")
       assertSymbolType(comp, foo, "(x: int, y: int) -> int")

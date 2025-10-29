@@ -1,9 +1,8 @@
 import panther.*
-import TestHelpers.*
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 
-class ParserTests extends AnyFunSpec with Matchers {
+class ParserTests extends AnyFunSpec with TestHelpers {
 
   describe("Parser") {
     it("should parse binary expressions") {

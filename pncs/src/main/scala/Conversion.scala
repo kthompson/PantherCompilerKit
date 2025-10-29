@@ -33,7 +33,7 @@ class ConversionClassifier(binder: Binder) {
         // Handle conversion from union to alias (e.g., Enum.Case1 | Enum.Case2 -> Enum)
         case Tuple2(
               Type.Union(_, fromCases),
-              Type.Alias(_, _, _, List.Nil, aliasValue, _)
+              Type.Alias(_, _, _, aliasValue, _)
             ) =>
           aliasValue match {
             case Type.Union(_, aliasCases) =>
@@ -47,16 +47,8 @@ class ConversionClassifier(binder: Binder) {
           }
         case _ =>
           toType match {
-            case Type.Alias(location, _, _, generics, value, _) =>
-              generics match {
-                case List.Nil =>
-                  classify(from, value)
-                case _ =>
-                  // For generic type aliases check if from type is compatible with
-                  // one of the union cases when instantiated with the type
-                  // arguments
-                  classifyWithGenericAlias(from, generics, value)
-              }
+            case Type.Alias(location, _, _, value, _) =>
+              classify(from, value)
             case Type.Union(location, cases) =>
               cases match {
                 case List.Nil => Conversion.None
@@ -74,108 +66,23 @@ class ConversionClassifier(binder: Binder) {
     }
   }
 
-  def classifyWithGenericAlias(
-      from: Type,
-      typeArgs: List[Type],
-      aliasValue: Type
-  ): Conversion = {
-    aliasValue match {
-      case Type.Union(location, cases) =>
-        classifyWithGenericUnion(from, typeArgs, cases)
-      case _ =>
-        // For non-union alias values, try direct substitution
-        val substitutedType = substituteTypeArgs(aliasValue, typeArgs)
-        classify(from, substitutedType)
-    }
-  }
-
-  def classifyWithGenericUnion(
-      from: Type,
-      typeArgs: List[Type],
-      cases: List[Type]
-  ): Conversion = {
-    cases match {
-      case List.Nil                  => Conversion.None
-      case List.Cons(caseType, tail) =>
-        // Substitute type arguments in this union case and check for conversion
-        val instantiatedCase = substituteTypeArgs(caseType, typeArgs)
-        classify(from, instantiatedCase) match {
-          case Conversion.None =>
-            classifyWithGenericUnion(from, typeArgs, tail)
-          case conversion => conversion
-        }
-    }
-  }
-
-  def substituteTypeArgs(typ: Type, typeArgs: List[Type]): Type = {
-    typ match {
-      case Type.Variable(loc, id) =>
-        getTypeArg(typeArgs, id) match {
-          case Option.Some(substituted) => substituted
-          case Option.None => typ // Return original if id out of bounds
-        }
-      case Type.Class(loc, ns, name, args, symbol) =>
-        // Substitute type arguments in the class type arguments
-        Type.Class(
-          loc,
-          ns,
-          name,
-          substituteTypeArgsList(args, typeArgs),
-          symbol
-        )
-      case Type.GenericClass(loc, ns, name, genParams, symbol) =>
-        // For generic classes, convert to regular class with substituted type arguments
-        Type.Class(loc, ns, name, typeArgs, symbol)
-      case _ => typ // For other types, return as-is
-    }
-  }
-
-  def substituteTypeArgsList(
-      args: List[Type],
-      typeArgs: List[Type]
-  ): List[Type] = {
-    args match {
-      case List.Nil => List.Nil
-      case List.Cons(head, tail) =>
-        List.Cons(
-          substituteTypeArgs(head, typeArgs),
-          substituteTypeArgsList(tail, typeArgs)
-        )
-    }
-  }
-
-  def getTypeArg(args: List[Type], index: int): Option[Type] = {
-    args match {
-      case List.Nil => Option.None
-      case List.Cons(head, tail) =>
-        if (index == 0) {
-          Option.Some(head)
-        } else {
-          getTypeArg(tail, index - 1)
-        }
-    }
-  }
-
   def semanticTypeEquals(type1: Type, type2: Type): bool = {
     Tuple2(type1, type2) match {
       case Tuple2(
-            Type.Class(_, ns1, name1, args1, sym1),
-            Type.Class(_, ns2, name2, args2, sym2)
+            Type.Class(_, ns1, name1, sym1),
+            Type.Class(_, ns2, name2, sym2)
           ) =>
-        sym1 == sym2 && name1 == name2 && ns1 == ns2 && semanticTypeListEquals(
-          args1,
-          args2
-        )
+        sym1 == sym2 && name1 == name2 && ns1 == ns2
       case Tuple2(Type.Union(_, cases1), Type.Union(_, cases2)) =>
         semanticTypeListEquals(cases1, cases2)
       case Tuple2(
-            Type.Alias(_, ns1, name1, args1, value1, sym1),
-            Type.Alias(_, ns2, name2, args2, value2, sym2)
+            Type.Alias(_, ns1, name1, value1, sym1),
+            Type.Alias(_, ns2, name2, value2, sym2)
           ) =>
-        sym1 == sym2 && name1 == name2 && ns1 == ns2 && semanticTypeListEquals(
-          args1,
-          args2
-        ) && semanticTypeEquals(value1, value2)
+        sym1 == sym2 && name1 == name2 && ns1 == ns2 && semanticTypeEquals(
+          value1,
+          value2
+        )
       case Tuple2(
             Type.Function(_, params1, ret1),
             Type.Function(_, params2, ret2)
@@ -192,8 +99,6 @@ class ConversionClassifier(binder: Binder) {
           args1,
           args2
         )
-      case Tuple2(Type.Variable(_, id1), Type.Variable(_, id2)) =>
-        id1 == id2
       case Tuple2(Type.Any, Type.Any)                 => true
       case Tuple2(Type.Never, Type.Never)             => true
       case Tuple2(Type.Error(msg1), Type.Error(msg2)) => msg1 == msg2
@@ -226,8 +131,8 @@ class ConversionClassifier(binder: Binder) {
   }
 
   def semanticGenericParameterListEquals(
-      params1: List[GenericTypeParameter],
-      params2: List[GenericTypeParameter]
+      params1: List[Type.GenericTypeParameter],
+      params2: List[Type.GenericTypeParameter]
   ): bool = {
     Tuple2(params1, params2) match {
       case Tuple2(List.Nil, List.Nil) => true

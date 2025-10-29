@@ -74,10 +74,10 @@ class TypeInference(binder: Binder) {
         if (!typeMap.contains(key)) {
           typeMap.put(key, argType)
         }
-      case Type.Class(_, _, _, paramTypeArgs, _) =>
+      case Type.Class(_, _, _, _) =>
         argType match {
-          case Type.Class(_, _, _, argTypeArgs, _) =>
-            inferFromParameterArgumentPairs(paramTypeArgs, argTypeArgs, typeMap)
+          case Type.Class(_, _, _, _) =>
+            inferFromParameterArgumentPairs(???, ???, typeMap)
           case _ =>
         }
       case _ => // Other cases don't provide inference information for this simple implementation
@@ -121,10 +121,9 @@ class TypeInference(binder: Binder) {
           case Option.Some(typeArg) => typeArg
           case Option.None          => typ
         }
-      case Type.Class(loc, ns, name, classTypeArgs, symbol) =>
-        val substitutedTypeArgs =
-          mapClassTypeArgs(classTypeArgs, genericParams, typeArgs)
-        Type.Class(loc, ns, name, substitutedTypeArgs, symbol)
+      case Type.Class(loc, ns, name, symbol) =>
+        val substitutedTypeArgs = mapClassTypeArgs(???, genericParams, typeArgs)
+        Type.Class(loc, ns, name, symbol)
       case _ =>
         typ // Other types don't need substitution for this simple implementation
     }
