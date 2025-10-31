@@ -1,8 +1,8 @@
 import panther.*
-import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 
-class MetadataTests extends AnyFlatSpec with Matchers {
+class MetadataTests extends AnyFunSpec with Matchers {
 
   val metadata: Metadata = Metadata()
   val point: TypeDefToken = metadata.addTypeDef("Point", "", MetadataFlags.None)
@@ -54,29 +54,31 @@ class MetadataTests extends AnyFlatSpec with Matchers {
   val circleRadius: FieldToken =
     metadata.addField("radius", MetadataFlags.None, 1, 0)
 
-  "Metadata" should "find type def for methods" in {
-    point.token shouldBe metadata.findTypeDefForMethod(pointCtor).token
-    point.token shouldBe metadata.findTypeDefForMethod(pointGetX).token
-    point.token shouldBe metadata.findTypeDefForMethod(pointGetY).token
-    point3.token shouldBe metadata.findTypeDefForMethod(point3Ctor).token
-    point3.token shouldBe metadata.findTypeDefForMethod(point3GetX).token
-    point3.token shouldBe metadata.findTypeDefForMethod(point3GetY).token
-    point3.token shouldBe metadata.findTypeDefForMethod(point3GetZ).token
-    circle.token shouldBe metadata.findTypeDefForMethod(circleCtor).token
-    circle.token shouldBe metadata.findTypeDefForMethod(circleGetCenter).token
-    circle.token shouldBe metadata.findTypeDefForMethod(circleGetRadius).token
-  }
+  describe("Metadata") {
+    it("should find type def for methods") {
+      point.token shouldBe metadata.findTypeDefForMethod(pointCtor).token
+      point.token shouldBe metadata.findTypeDefForMethod(pointGetX).token
+      point.token shouldBe metadata.findTypeDefForMethod(pointGetY).token
+      point3.token shouldBe metadata.findTypeDefForMethod(point3Ctor).token
+      point3.token shouldBe metadata.findTypeDefForMethod(point3GetX).token
+      point3.token shouldBe metadata.findTypeDefForMethod(point3GetY).token
+      point3.token shouldBe metadata.findTypeDefForMethod(point3GetZ).token
+      circle.token shouldBe metadata.findTypeDefForMethod(circleCtor).token
+      circle.token shouldBe metadata.findTypeDefForMethod(circleGetCenter).token
+      circle.token shouldBe metadata.findTypeDefForMethod(circleGetRadius).token
+    }
 
-  it should "get method parameter count" in {
-    metadata.getMethodParameterCount(pointCtor) shouldBe 2
-    metadata.getMethodParameterCount(pointGetX) shouldBe 0
-    metadata.getMethodParameterCount(pointGetY) shouldBe 0
-    metadata.getMethodParameterCount(point3Ctor) shouldBe 3
-    metadata.getMethodParameterCount(point3GetX) shouldBe 0
-    metadata.getMethodParameterCount(point3GetY) shouldBe 0
-    metadata.getMethodParameterCount(point3GetZ) shouldBe 0
-    metadata.getMethodParameterCount(circleCtor) shouldBe 2
-    metadata.getMethodParameterCount(circleGetCenter) shouldBe 0
-    metadata.getMethodParameterCount(circleGetRadius) shouldBe 0
+    it("should get method parameter count") {
+      metadata.getMethodParameterCount(pointCtor) shouldBe 2
+      metadata.getMethodParameterCount(pointGetX) shouldBe 0
+      metadata.getMethodParameterCount(pointGetY) shouldBe 0
+      metadata.getMethodParameterCount(point3Ctor) shouldBe 3
+      metadata.getMethodParameterCount(point3GetX) shouldBe 0
+      metadata.getMethodParameterCount(point3GetY) shouldBe 0
+      metadata.getMethodParameterCount(point3GetZ) shouldBe 0
+      metadata.getMethodParameterCount(circleCtor) shouldBe 2
+      metadata.getMethodParameterCount(circleGetCenter) shouldBe 0
+      metadata.getMethodParameterCount(circleGetRadius) shouldBe 0
+    }
   }
 }
