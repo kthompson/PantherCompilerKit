@@ -10,12 +10,34 @@ class TypeInference(binder: Binder) {
       parameterTypes: List[Type],
       argumentTypes: List[Type]
   ): List[Type] = {
-    // Simple type inference: try to match parameter types with argument types
-    // This is a basic implementation - a full implementation would be more sophisticated
     val typeMap = new scala.collection.mutable.HashMap[String, Type]()
 
     // Try to infer from parameter/argument pairs
     inferFromParameterArgumentPairs(parameterTypes, argumentTypes, typeMap)
+
+    // Convert to list of types in the order of generic parameters
+    mapGenericParamsToTypes(genericParams, typeMap)
+  }
+
+  /** Infers type arguments for a generic function call using both argument
+    * types AND the expected return type (bidirectional inference)
+    */
+  def checkTypeArgumentsFromCall(
+      genericParams: List[GenericTypeParameter],
+      parameterTypes: List[Type],
+      argumentTypes: List[Type],
+      returnType: Type,
+      expectedType: Type
+  ): List[Type] = {
+    val typeMap = new scala.collection.mutable.HashMap[String, Type]()
+
+    // First, infer from parameter/argument pairs (same as before)
+    inferFromParameterArgumentPairs(parameterTypes, argumentTypes, typeMap)
+
+    // NEW: Also infer from return type vs expected type
+    // This helps when the return type contains type variables
+    // Example: identity<T>(x: T): T called with expected type string
+    inferTypeFromPair(returnType, expectedType, typeMap)
 
     // Convert to list of types in the order of generic parameters
     mapGenericParamsToTypes(genericParams, typeMap)
@@ -164,41 +186,6 @@ class TypeInference(binder: Binder) {
           substituted,
           mapClassTypeArgs(tail, genericParams, substitutionArgs)
         )
-    }
-  }
-
-  def findTypeArgument(
-      name: String,
-      genericParams: List[GenericTypeParameter],
-      typeArgs: List[Type]
-  ): Option[Type] = {
-    Tuple2(genericParams, typeArgs) match {
-      case Tuple2(List.Cons(param, paramTail), List.Cons(typeArg, argTail)) =>
-        if (param.name == name) Option.Some(typeArg)
-        else findTypeArgument(name, paramTail, argTail)
-      case _ => Option.None
-    }
-  }
-
-  def createSubstitutionMap(
-      genericParams: List[GenericTypeParameter],
-      typeArgs: List[Type]
-  ): scala.collection.mutable.HashMap[String, Type] = {
-    val map = new scala.collection.mutable.HashMap[String, Type]()
-    fillSubstitutionMap(genericParams, typeArgs, map)
-    map
-  }
-
-  def fillSubstitutionMap(
-      genericParams: List[GenericTypeParameter],
-      typeArgs: List[Type],
-      map: scala.collection.mutable.HashMap[String, Type]
-  ): Unit = {
-    Tuple2(genericParams, typeArgs) match {
-      case Tuple2(List.Cons(param, paramTail), List.Cons(typeArg, argTail)) =>
-        map.put(param.name, typeArg)
-        fillSubstitutionMap(paramTail, argTail, map)
-      case _ => // Lists are different lengths or empty
     }
   }
 

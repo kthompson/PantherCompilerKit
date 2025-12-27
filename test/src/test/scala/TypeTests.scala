@@ -643,6 +643,94 @@ class TypeTests extends AnyFunSpec with Matchers {
 //      )
 //    }
 
+    it("should infer generic type from expected return type - identity") {
+      val setup = "def identity[T](x: T): T = x"
+
+      // When checking against an expected type, the compiler should use that
+      // information to help infer the generic type parameter
+      assertCheckExprTypeWithSetup(setup, "identity(42)", "int")
+      assertCheckExprTypeWithSetup(setup, "identity(\"hello\")", "string")
+      assertCheckExprTypeWithSetup(setup, "identity(true)", "bool")
+      assertCheckExprTypeWithSetup(setup, "identity('x')", "char")
+    }
+
+    it("should infer generic type from expected return type - cast scenarios") {
+      val setup = "def identity[T](x: T): T = x"
+
+      // Test that expected type flows through to help inference
+      // Even when the argument requires conversion
+      assertCheckExprTypeWithSetup(setup, "identity(42 as any)", "any")
+      assertCheckExprTypeWithSetup(setup, "identity(\"test\" as any)", "any")
+    }
+
+    it(
+      "should infer generic type from expected return type - container creation"
+    ) {
+      val containerSetup = "class Box[T](value: T)\n" +
+        "def createBox[T](x: T): Box[T] = new Box(x)"
+
+      // Test that the generic function works with type inference
+      assertInferExprTypeWithSetup(containerSetup, "createBox(42)", "Box<int>")
+      assertInferExprTypeWithSetup(
+        containerSetup,
+        "createBox(\"test\")",
+        "Box<string>"
+      )
+      assertInferExprTypeWithSetup(
+        containerSetup,
+        "createBox(true)",
+        "Box<bool>"
+      )
+    }
+
+    it(
+      "should infer generic type from expected return type - multiple type parameters"
+    ) {
+      val setup = "def pair[A, B](a: A, b: B): A = a"
+
+      // First type parameter comes from both argument and expected type
+      assertCheckExprTypeWithSetup(setup, "pair(1, true)", "int")
+      assertCheckExprTypeWithSetup(setup, "pair(\"a\", 2)", "string")
+      assertCheckExprTypeWithSetup(setup, "pair(true, 'c')", "bool")
+    }
+
+    it(
+      "should infer generic type from expected return type - nested generics"
+    ) {
+      val setup = "class Container[T](value: T)\n" +
+        "def wrap[T](x: T): Container[T] = new Container(x)\n" +
+        "def wrapTwice[T](x: T): Container[Container[T]] = new Container(wrap(x))"
+
+      // Nested generic types should still work with type inference from arguments
+      assertInferExprTypeWithSetup(
+        setup,
+        "wrapTwice(42)",
+        "Container<Container<int>>"
+      )
+      assertInferExprTypeWithSetup(
+        setup,
+        "wrapTwice(\"test\")",
+        "Container<Container<string>>"
+      )
+    }
+
+    it("should prefer argument type when both sources agree") {
+      val setup = "def identity[T](x: T): T = x"
+
+      // When both argument and expected type provide the same information,
+      // inference should succeed smoothly
+      assertCheckExprTypeWithSetup(setup, "identity(42)", "int")
+      assertCheckExprTypeWithSetup(setup, "identity(true)", "bool")
+    }
+
+    it("should infer from return type when argument is polymorphic") {
+      val setup = "def selectFirst[T](x: T, y: T): T = x"
+
+      // When both arguments must have the same type T, expected type helps
+      assertCheckExprTypeWithSetup(setup, "selectFirst(1, 2)", "int")
+      assertCheckExprTypeWithSetup(setup, "selectFirst(true, false)", "bool")
+    }
+
     it("should infer enums without args") {
       val setup = "enum Foo {\n" +
         "  case Bar\n" +

@@ -253,7 +253,7 @@ class ExprBinder(
       expectedType: Type,
       scope: Scope
   ): BoundExpression = {
-    val lhs = bindLHS(expr.left, scope)
+    val lhs = inferLHS(expr.left, scope)
     val rhs = infer(expr.right, scope)
     Tuple2(lhs, rhs) match {
       case Tuple2(Result.Error(error), _) =>
@@ -308,15 +308,76 @@ class ExprBinder(
   }
 
   def checkCall(
-      expr: Expression.Call,
+      node: Expression.Call,
       expectedType: Type,
       scope: Scope
   ): BoundExpression = {
-    inferCall(expr, scope) match {
-      case Result.Error(value) => value
-      case Result.Success(value) =>
-        val inferred = convertLHSToExpression(value)
-        subsume(inferred, expectedType)
+    // For call expressions, we can use the expected type to improve type inference
+    // for generic functions
+    inferLHS(node.name, scope) match {
+      case Result.Error(error) => error
+      case Result.Success(function) =>
+        val exprs = fromExpressionList(node.arguments.expressions)
+        val args = bindExpressions(exprs, scope)
+
+        // Try to use expected type for better generic inference
+        checkCallLHS(
+          function,
+          args,
+          expectedType,
+          scope
+        ) match {
+          case Result.Error(value) => value
+          case Result.Success(value) =>
+            val inferred = convertLHSToExpression(value)
+            subsume(inferred, expectedType)
+        }
+    }
+  }
+
+  def checkCallLHS(
+      function: BoundLeftHandSide,
+      args: List[BoundExpression],
+      expectedType: Type,
+      scope: Scope
+  ): Result[BoundExpression.Error, BoundLeftHandSide] = {
+    val functionType = getLHSType(function)
+    val argTypes = binder.getTypes(args)
+
+    if (typesWithError(List.Cons(functionType, argTypes))) {
+      Result.Error(
+        BoundExpression.Error(
+          "Cannot bind call expression because of type errors"
+        )
+      )
+    } else {
+      functionType match {
+        case func: Type.Function =>
+          // Non-generic function: use normal binding
+          bindFunctionCall(function, func, args, scope) match {
+            case Result.Error(value) => Result.Error(value)
+            case Result.Success(value) =>
+              Result.Success(BoundLeftHandSide.Call(value))
+          }
+
+        case gf: Type.GenericFunction =>
+          // Generic function: use expected type to help infer type arguments!
+          checkGenericFunctionCall(
+            function,
+            gf,
+            args,
+            expectedType,
+            scope
+          ) match {
+            case Result.Error(value) => Result.Error(value)
+            case Result.Success(value) =>
+              Result.Success(BoundLeftHandSide.Call(value))
+          }
+
+        case _ =>
+          // Fall back to regular inference
+          inferCall(function, args, scope)
+      }
     }
   }
 
@@ -528,7 +589,7 @@ class ExprBinder(
     }
   }
 
-  def bindLHS(
+  def inferLHS(
       expr: Expression,
       scope: Scope
   ): Result[BoundExpression.Error, BoundLeftHandSide] = {
@@ -690,7 +751,7 @@ class ExprBinder(
       node: Expression.Assignment,
       scope: Scope
   ): BoundExpression = {
-    bindLHS(node.left, scope) match {
+    inferLHS(node.left, scope) match {
       case Result.Error(value) => value
       case Result.Success(lhs) =>
         getLHSType(lhs) match {
@@ -800,17 +861,17 @@ class ExprBinder(
     BoundExpression.Error,
     BoundLeftHandSide
   ] = {
-    bindLHS(node.name, scope) match {
+    inferLHS(node.name, scope) match {
       case Result.Error(error) => Result.Error(error)
 
       case Result.Success(function) =>
         val exprs = fromExpressionList(node.arguments.expressions)
         val args = bindExpressions(exprs, scope)
-        bindCall(function, args, scope)
+        inferCall(function, args, scope)
     }
   }
 
-  def bindCall(
+  def inferCall(
       function: BoundLeftHandSide,
       args: List[BoundExpression],
       scope: Scope
@@ -1184,6 +1245,97 @@ class ExprBinder(
     }
   }
 
+  /** Bind a generic function call using BOTH argument types AND expected return
+    * type for improved type inference (bidirectional typing)
+    */
+  def checkGenericFunctionCall(
+      function: BoundLeftHandSide,
+      genericFunctionType: Type.GenericFunction,
+      args: List[BoundExpression],
+      expectedType: Type,
+      scope: Scope
+  ): Result[BoundExpression.Error, BoundExpression.Call] = {
+    val location = AstUtils.locationOfBoundLeftHandSide(function)
+
+    // Infer type arguments using BOTH arguments AND expected return type!
+    val argTypes = binder.getTypes(args)
+    val parameterTypes = getParameterTypes(genericFunctionType.parameters)
+
+    val inferredTypeArgs =
+      typeInference.checkTypeArgumentsFromCall(
+        genericFunctionType.generics,
+        parameterTypes,
+        argTypes,
+        genericFunctionType.returnType, // The declared return type (may contain type vars)
+        expectedType // The expected type from context
+      )
+
+    // Instantiate the generic function with inferred type arguments
+    val instantiatedParameterTypes =
+      typeInference.substituteGenericTypesInParameters(
+        parameterTypes,
+        genericFunctionType.generics,
+        inferredTypeArgs
+      )
+
+    val instantiatedReturnType = typeInference.substituteGenericTypesInType(
+      genericFunctionType.returnType,
+      genericFunctionType.generics,
+      inferredTypeArgs
+    )
+
+    // Check argument count matches
+    if (instantiatedParameterTypes.length != args.length) {
+      diagnosticBag.reportArgumentCountMismatch(
+        location,
+        instantiatedParameterTypes.length,
+        args.length
+      )
+      Result.Error(
+        BoundExpression.Error(
+          "Argument count mismatch: expected " + instantiatedParameterTypes.length +
+            " but got " + args.length
+        )
+      )
+    } else {
+      // Bind arguments with instantiated parameter types
+      val boundArgs =
+        bindArgumentsToTypes(instantiatedParameterTypes, args, scope)
+
+      function match {
+        case BoundLeftHandSide.Index(expression) => ???
+        case BoundLeftHandSide.MemberAccess(access) =>
+          val receiver = if (access.member.isStatic()) {
+            Option.None
+          } else {
+            Option.Some(access.receiver)
+          }
+          Result.Success(
+            BoundExpression.Call(
+              location,
+              receiver,
+              access.member,
+              inferredTypeArgs,
+              boundArgs,
+              instantiatedReturnType
+            )
+          )
+        case BoundLeftHandSide.Variable(location, symbol) =>
+          Result.Success(
+            BoundExpression.Call(
+              location,
+              Option.None,
+              symbol,
+              inferredTypeArgs,
+              boundArgs,
+              instantiatedReturnType
+            )
+          )
+        case _ => ???
+      }
+    }
+  }
+
   def bindArgumentsToTypes(
       parameterTypes: List[Type],
       args: List[BoundExpression],
@@ -1504,7 +1656,7 @@ class ExprBinder(
   ): Result[BoundExpression.Error, BoundExpression.MemberAccess] = {
     // For member access, the left side doesn't need to be a left-hand side
     // It just needs to be a valid expression that produces a value
-    val leftExpr = bindLHS(node.left, scope)
+    val leftExpr = inferLHS(node.left, scope)
     leftExpr match {
       case Result.Error(error) =>
         Result.Error(error)
