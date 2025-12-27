@@ -639,7 +639,80 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   def lowerForExpression(
       expr: BoundExpression.For,
       context: LoweredBlock
-  ): LoweredBlock = ???
+  ): LoweredBlock = {
+
+    // convert for expression to while expression first
+    /*
+     * for (<initializer>; <condition>; <iterator>)
+     *     <body>
+     *
+     * to
+     *
+     * <initializer>
+     * while (<condition>)
+     *     <body>
+     *     <iterator>
+     */
+    val upperBound = createTemporary()
+    val setupUpperBound = BoundExpression.Assignment(
+      upperBound.location,
+      BoundLeftHandSide.Variable(upperBound.location, upperBound),
+      expr.upperBound
+    )
+    val initializer = BoundExpression.Assignment(
+      expr.variable.location,
+      BoundLeftHandSide.Variable(expr.variable.location, expr.variable),
+      expr.lowerBound
+    )
+    val condition = BoundExpression.Binary(
+      expr.location,
+      BoundExpression.Variable(expr.variable.location, expr.variable, None),
+      BinaryOperatorKind.LessThanOrEqual, // TODO: should this be LessThan?
+      BoundExpression.Variable(upperBound.location, upperBound, None),
+      binder.boolType
+    )
+    val variableType = binder.getSymbolType(expr.variable)
+    val iterator = BoundExpression.Assignment(
+      expr.variable.location,
+      BoundLeftHandSide.Variable(expr.variable.location, expr.variable),
+      BoundExpression.Binary(
+        expr.location,
+        BoundExpression.Variable(expr.variable.location, expr.variable, None),
+        BinaryOperatorKind.Plus,
+        BoundExpression.Int(expr.location, 1),
+        variableType
+      )
+    )
+
+    val block = BoundExpression.Block(
+      List.Cons(
+        // setup upper bound so it doesnt need to be recalculated every loop
+        BoundStatement.ExpressionStatement(setupUpperBound),
+        List.Cons(
+          // initialize variable to the lower bound
+          BoundStatement.ExpressionStatement(initializer),
+          List.Nil
+        )
+      ),
+      // the while loop
+      BoundExpression.While(
+        expr.location,
+        // test our variable against the upper bound
+        condition,
+        BoundExpression.Block(
+          List.Cons(
+            // the body of the for loop
+            BoundStatement.ExpressionStatement(expr.body),
+            List.Nil
+          ),
+          // increment the loop variable
+          iterator
+        )
+      )
+    )
+
+    lowerExpression(block, context)
+  }
 
   def lowerIfExpression(
       expr: BoundExpression.If,

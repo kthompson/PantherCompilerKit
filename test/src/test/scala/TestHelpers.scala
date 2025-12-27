@@ -455,12 +455,25 @@ object TestHelpers {
     }
   }
 
-  def assertExprTypeWithSetup(
+  def assertInferExprTypeWithSetup(
       setup: string,
       expression: string,
       expectedType: string
   ): Unit = {
     val comp = mkCompilation(setup + "\n\nval typeTestSymbol = " + expression)
+    val program = assertSome(comp.root.lookup("$Program"))
+    val symbol = assertSome(program.lookup("typeTestSymbol"))
+    assertSymbolType(comp, symbol, expectedType)
+  }
+
+  def assertCheckExprTypeWithSetup(
+      setup: string,
+      expression: string,
+      expectedType: string
+  ): Unit = {
+    val comp = mkCompilation(
+      setup + "\n\nval typeTestSymbol: " + expectedType + " = " + expression
+    )
     val program = assertSome(comp.root.lookup("$Program"))
     val symbol = assertSome(program.lookup("typeTestSymbol"))
     assertSymbolType(comp, symbol, expectedType)
@@ -476,12 +489,21 @@ object TestHelpers {
     )
   }
 
-  def assertExprTypeTest(expression: string, expectedType: string): Unit = {
-    assertExprType(expression, expectedType)
+  def assertInferExprType(expression: string, expectedType: string): Unit = {
+    val comp = mkCompilation("val x = " + expression)
+    val symbols = enumNonBuiltinSymbols(comp)
+
+    assertProgramSymbol(symbols)
+
+    val x = assertSymbol(symbols, SymbolKind.Field, "x")
+    assertSymbolType(comp, x, expectedType)
+
+    assertMainSymbol(symbols)
+    //    assertNoSymbols(symbols)
   }
 
-  def assertExprType(expression: string, expectedType: string): Unit = {
-    val comp = mkCompilation("val x = " + expression)
+  def assertCheckExprType(expression: string, expectedType: string): Unit = {
+    val comp = mkCompilation("val x: " + expectedType + " = " + expression)
     val symbols = enumNonBuiltinSymbols(comp)
 
     assertProgramSymbol(symbols)

@@ -98,6 +98,79 @@ case class ExprBinder(
     *        same symbol (assuming no polymorphism in this example).
     */
 
+  def isSubtype(subType: Type, superType: Type): bool = {
+    // Handle Error types
+    if (subType == Type.Error || superType == Type.Error) {
+      return false
+    }
+
+    // Base cases
+    if (subType == superType) {
+      return true
+    }
+    if (subType == binder.neverType) {
+      return true
+    }
+    if (superType == binder.anyType) {
+      return true
+    }
+
+    Tuple2(subType, superType) match {
+      // Function subtyping
+      case Tuple2(
+            Type.Function(_, subParams, subReturn),
+            Type.Function(_, superParams, superReturn)
+          ) =>
+        if (subParams.length != superParams.length) {
+          return false
+        }
+        val paramsAreSubtypes = Tuple2(subParams, superParams) match {
+          case Tuple2(
+                List.Cons(subParam, subTail),
+                List.Cons(superParam, superTail)
+              ) =>
+            isSubtype(superParam.typ, subParam.typ) && // Contravariant
+            isSubtypeList(subTail, superTail)
+          case Tuple2(List.Nil, List.Nil) => true
+          case _                          => false
+        }
+        paramsAreSubtypes && isSubtype(subReturn, superReturn) // Covariant
+
+      // Array subtyping
+      case Tuple2(
+            Type.Class(_, _, "Array", List.Cons(subElemType, List.Nil), _),
+            Type.Class(_, _, "Array", List.Cons(superElemType, List.Nil), _)
+          ) =>
+        isSubtype(subElemType, superElemType)
+
+      case _ => false
+    }
+  }
+
+  def isSubtypeList(
+      value: List[BoundParameter],
+      value1: List[BoundParameter]
+  ): bool = {
+    Tuple2(value, value1) match {
+      case Tuple2(
+            List.Cons(head1, tail1),
+            List.Cons(head2, tail2)
+          ) =>
+        isSubtype(head1.typ, head2.typ) && isSubtypeList(tail1, tail2)
+      case Tuple2(List.Nil, List.Nil) => true
+      case _                          => false
+    }
+  }
+
+  def subsume(expr: BoundExpression, expectedType: Type): BoundExpression = {
+    val exprType = binder.getType(expr)
+    if (isSubtype(exprType, expectedType)) {
+      expr
+    } else {
+      bindConversion(expr, expectedType, false)
+    }
+  }
+
   def bindUnaryOperator(token: SyntaxToken): UnaryOperatorKind = {
     token.kind match {
       case SyntaxKind.BangToken  => UnaryOperatorKind.LogicalNegation
@@ -138,46 +211,320 @@ case class ExprBinder(
     }
   }
 
-  def bind(expr: Expression, scope: Scope): BoundExpression = {
+  def check(
+      expr: Expression,
+      expectedType: Type,
+      scope: Scope
+  ): BoundExpression = {
     expr match {
       case node: Expression.ArrayCreation =>
-        bindArrayCreationExpression(node, scope)
+        checkArrayCreation(node, expectedType, scope)
       case node: Expression.Assignment =>
-        bindAssignmentExpression(node, scope)
-      case node: Expression.Binary =>
-        bindBinaryExpression(node, scope)
-      case node: Expression.Block => bindBlockExpression(node, scope)
-      case node: Expression.Call =>
-        bindCallExpression(node, scope) match {
-          case Result.Error(value)   => value
-          case Result.Success(value) => convertLHSToExpression(value)
-        }
-      case node: Expression.Cast  => bindCast(node, scope)
-      case node: Expression.For   => bindForExpression(node, scope)
-      case node: Expression.Group => bindGroupExpression(node, scope)
+        checkAssignment(node, expectedType, scope)
+      case node: Expression.Binary => checkBinary(node, expectedType, scope)
+      case node: Expression.Block  => checkBlock(node, expectedType, scope)
+      case node: Expression.Call   => checkCall(node, expectedType, scope)
+      case node: Expression.Cast   => checkCast(node, expectedType, scope)
+      case node: Expression.For    => checkFor(node, expectedType, scope)
+      case node: Expression.Group  => checkGroup(node, expectedType, scope)
       case node: Expression.IdentifierName =>
-        bindIdentifierName(node, scope) match {
-          case Result.Error(value)   => value
-          case Result.Success(value) => value
-        }
-      case node: Expression.If => bindIf(node, scope)
-      case node: Expression.Is => bindIsExpression(node, scope)
-      case node: Expression.Literal =>
-        bindLiteralExpression(node, scope)
+        checkIdentifierName(node, expectedType, scope)
+      case node: Expression.If      => checkIf(node, expectedType, scope)
+      case node: Expression.Is      => checkIs(node, expectedType, scope)
+      case node: Expression.Literal => checkLiteral(node, expectedType, scope)
       case node: Expression.MemberAccess =>
-        bindMemberAccessExpression(node, scope) match {
-          case Result.Error(value)   => value
-          case Result.Success(value) => value
+        checkMemberAccess(node, expectedType, scope)
+      case node: Expression.Match => checkMatch(node, expectedType, scope)
+      case node: Expression.New   => checkNew(node, expectedType, scope)
+      case node: Expression.Unary => checkUnary(node, expectedType, scope)
+      case node: Expression.Unit  => checkUnit(node, expectedType, scope)
+      case node: Expression.While => checkWhile(node, expectedType, scope)
+    }
+  }
+
+  def checkArrayCreation(
+      expr: Expression.ArrayCreation,
+      expectedType: Type,
+      scope: Scope
+  ): BoundExpression = ???
+
+  def checkAssignment(
+      expr: Expression.Assignment,
+      expectedType: Type,
+      scope: Scope
+  ): BoundExpression = {
+    val lhs = bindLHS(expr.left, scope)
+    val rhs = infer(expr.right, scope)
+    Tuple2(lhs, rhs) match {
+      case Tuple2(Result.Error(error), _) =>
+        error
+      case Tuple2(_, BoundExpression.Error(_)) =>
+        rhs
+      case Tuple2(Result.Success(lhs), rhs) =>
+        getLHSType(lhs) match {
+          case Type.Error(message) => BoundExpression.Error(message)
+          case lhsType =>
+            BoundExpression.Assignment(
+              AstUtils.locationOfExpression(expr),
+              lhs,
+              bindConversion(rhs, lhsType, false)
+            )
         }
-      case node: Expression.Match => bindMatchExpression(node, scope)
-      case node: Expression.New =>
-        bindNewExpression(node, scope) match {
+
+      case _ =>
+        val location = AstUtils.locationOfExpression(expr.left)
+        diagnosticBag.reportExpressionIsNotAssignable(location)
+        BoundExpression.Error("Expression is not assignable: " + location)
+    }
+  }
+
+  def checkBinary(
+      expr: Expression.Binary,
+      expectedType: Type,
+      scope: Scope
+  ): BoundExpression = {
+    val inferred = inferBinary(expr, scope)
+    subsume(inferred, expectedType)
+  }
+
+  def checkBlock(
+      node: Expression.Block,
+      expectedType: Type,
+      scope: Scope
+  ): BoundExpression = {
+    val block = scope.newBlock()
+    val statements = bindStatements(node.block.statements, block)
+    val expr = node.block.expression match {
+      case Option.None =>
+        BoundExpression.Unit(TextLocationFactory.empty())
+      case Option.Some(value) => check(value, expectedType, block)
+    }
+
+    if (expr == BoundExpression.Error) {
+      expr
+    } else {
+      BoundExpression.Block(statements, expr)
+    }
+  }
+
+  def checkCall(
+      expr: Expression.Call,
+      expectedType: Type,
+      scope: Scope
+  ): BoundExpression = {
+    inferCall(expr, scope) match {
+      case Result.Error(value) => value
+      case Result.Success(value) =>
+        val inferred = convertLHSToExpression(value)
+        subsume(inferred, expectedType)
+    }
+  }
+
+  def checkCast(
+      expr: Expression.Cast,
+      expectedType: Type,
+      scope: Scope
+  ): BoundExpression = {
+    val inferred = inferCast(expr, scope)
+    subsume(inferred, expectedType)
+  }
+
+  def checkFor(
+      expr: Expression.For,
+      expectedType: Type,
+      scope: Scope
+  ): BoundExpression = {
+    // For expressions always return unit, so just infer and subsume
+    val inferred = inferForExpression(expr, scope)
+    subsume(inferred, expectedType)
+  }
+
+  def checkGroup(
+      expr: Expression.Group,
+      expectedType: Type,
+      scope: Scope
+  ): BoundExpression =
+    check(expr.expression, expectedType, scope)
+
+  def checkIdentifierName(
+      expr: Expression.IdentifierName,
+      expectedType: Type,
+      scope: Scope
+  ): BoundExpression = {
+    inferIdentifierName(expr, scope) match {
+      case Result.Error(value) => value
+      case Result.Success(value) =>
+        subsume(value, expectedType)
+    }
+  }
+
+  def checkIf(
+      expr: Expression.If,
+      expectedType: Type,
+      scope: Scope
+  ): BoundExpression = {
+    val cond = check(expr.condition, binder.boolType, scope)
+    val thenBranch = check(expr.thenExpr, expectedType, scope)
+    val elseBranch = expr.elseExpr match {
+      case Option.None =>
+        // If there's no else branch, we assume it's a unit type
+        Option.None
+      case Option.Some(elseExpr) =>
+        Option.Some(check(elseExpr.expression, expectedType, scope))
+    }
+
+    BoundExpression.If(
+      AstUtils.locationOfExpression(expr),
+      cond,
+      thenBranch,
+      elseBranch,
+      expectedType
+    )
+  }
+
+  def checkIs(
+      expr: Expression.Is,
+      expectedType: Type,
+      scope: Scope
+  ): BoundExpression = {
+    val inferred = inferIsExpression(expr, scope)
+    subsume(inferred, expectedType)
+  }
+
+  def checkLiteral(
+      expr: Expression.Literal,
+      expectedType: Type,
+      scope: Scope
+  ): BoundExpression = {
+    val inferred = inferLiteral(expr, scope)
+    subsume(inferred, expectedType)
+  }
+
+  def checkMemberAccess(
+      expr: Expression.MemberAccess,
+      expectedType: Type,
+      scope: Scope
+  ): BoundExpression = {
+    inferMemberAccess(expr, scope) match {
+      case Result.Error(value) => value
+      case Result.Success(value) =>
+        subsume(value, expectedType)
+    }
+  }
+
+  def checkMatch(
+      expr: Expression.Match,
+      expectedType: Type,
+      scope: Scope
+  ): BoundExpression = {
+
+    // Bind the expression being matched against
+    val matchedExpr = infer(expr.expression, scope)
+
+    matchedExpr match {
+      case error: BoundExpression.Error => error
+      case _                            =>
+        // Bind all the match cases
+        checkMatchCases(
+          expr.cases.head,
+          expr.cases.tail,
+          expectedType,
+          scope
+        ) match {
+          case Result.Error(value) => value
+          case Result.Success(boundCases) =>
+            val location = AstUtils.locationOfExpression(expr)
+
+            BoundExpression.Match(
+              location,
+              expectedType,
+              matchedExpr,
+              boundCases
+            )
+        }
+    }
+  }
+
+  def checkNew(
+      expr: Expression.New,
+      expectedType: Type,
+      scope: Scope
+  ): BoundExpression = {
+    inferNew(expr, scope) match {
+      case Result.Error(value) => value
+      case Result.Success(value) =>
+        val inferred = convertLHSToExpression(value)
+        subsume(inferred, expectedType)
+    }
+  }
+
+  def checkUnary(
+      expr: Expression.Unary,
+      expectedType: Type,
+      scope: Scope
+  ): BoundExpression = {
+    val inferred = inferUnary(expr, scope)
+    subsume(inferred, expectedType)
+  }
+
+  def checkUnit(
+      expr: Expression.Unit,
+      expectedType: Type,
+      scope: Scope
+  ): BoundExpression = {
+    val inferred = inferUnit(expr, scope)
+    subsume(inferred, expectedType)
+  }
+
+  def checkWhile(
+      expr: Expression.While,
+      expectedType: Type,
+      scope: Scope
+  ): BoundExpression = {
+    val inferred = inferWhileExpression(expr, scope)
+    subsume(inferred, expectedType)
+  }
+
+  def infer(expr: Expression, scope: Scope): BoundExpression = {
+    expr match {
+      case node: Expression.ArrayCreation =>
+        inferArrayCreationExpression(node, scope)
+      case node: Expression.Assignment =>
+        inferAssignmentExpression(node, scope)
+      case node: Expression.Binary =>
+        inferBinary(node, scope)
+      case node: Expression.Block => inferBlock(node, scope)
+      case node: Expression.Call =>
+        inferCall(node, scope) match {
           case Result.Error(value)   => value
           case Result.Success(value) => convertLHSToExpression(value)
         }
-      case node: Expression.Unary => bindUnaryExpression(node, scope)
-      case node: Expression.Unit  => bindUnitExpression(node, scope)
-      case node: Expression.While => bindWhileExpression(node, scope)
+      case node: Expression.Cast  => inferCast(node, scope)
+      case node: Expression.For   => inferForExpression(node, scope)
+      case node: Expression.Group => inferGroup(node, scope)
+      case node: Expression.IdentifierName =>
+        inferIdentifierName(node, scope) match {
+          case Result.Error(value)   => value
+          case Result.Success(value) => value
+        }
+      case node: Expression.If => inferIf(node, scope)
+      case node: Expression.Is => inferIsExpression(node, scope)
+      case node: Expression.Literal =>
+        inferLiteral(node, scope)
+      case node: Expression.MemberAccess =>
+        inferMemberAccess(node, scope) match {
+          case Result.Error(value)   => value
+          case Result.Success(value) => value
+        }
+      case node: Expression.Match => inferMatchExpression(node, scope)
+      case node: Expression.New =>
+        inferNew(node, scope) match {
+          case Result.Error(value)   => value
+          case Result.Success(value) => convertLHSToExpression(value)
+        }
+      case node: Expression.Unary => inferUnary(node, scope)
+      case node: Expression.Unit  => inferUnit(node, scope)
+      case node: Expression.While => inferWhileExpression(node, scope)
     }
   }
 
@@ -187,25 +534,25 @@ case class ExprBinder(
   ): Result[BoundExpression.Error, BoundLeftHandSide] = {
     expr match {
       case node: Expression.IdentifierName =>
-        bindIdentifierName(node, scope) match {
+        inferIdentifierName(node, scope) match {
           case Result.Error(value) => Result.Error(value)
           case Result.Success(value) =>
             val location = AstUtils.locationOfExpression(node)
             Result.Success(BoundLeftHandSide.Variable(location, value.symbol))
         }
       case node: Expression.MemberAccess =>
-        bindMemberAccessExpression(node, scope) match {
+        inferMemberAccess(node, scope) match {
           case Result.Error(value) => Result.Error(value)
           case Result.Success(value) =>
             Result.Success(BoundLeftHandSide.MemberAccess(value))
         }
       case node: Expression.Call =>
-        bindCallExpression(node, scope) match {
+        inferCall(node, scope) match {
           case Result.Error(value)   => Result.Error(value)
           case Result.Success(value) => Result.Success(value)
         }
       case node: Expression.New =>
-        bindNewExpression(node, scope) match {
+        inferNew(node, scope) match {
           case Result.Error(value)   => Result.Error(value)
           case Result.Success(value) => Result.Success(value)
         }
@@ -226,7 +573,7 @@ case class ExprBinder(
       toType: Type,
       scope: Scope
   ): BoundExpression = {
-    val bound = bind(expr, scope)
+    val bound = infer(expr, scope)
     if (bound == BoundExpression.Error) {
       bound
     } else {
@@ -289,7 +636,7 @@ case class ExprBinder(
     BoundStatement.Error
   }
 
-  def bindArrayCreationExpression(
+  def inferArrayCreationExpression(
       node: Expression.ArrayCreation,
       scope: Scope
   ): BoundExpression = {
@@ -302,7 +649,7 @@ case class ExprBinder(
         // Bind the array size expression
         val sizeExpr = node.arrayRank match {
           case Option.Some(rankExpr) =>
-            bindConversion(bind(rankExpr, scope), binder.intType, false)
+            bindConversion(infer(rankExpr, scope), binder.intType, false)
           case Option.None =>
             // Default to size 0 if no size provided
             BoundExpression.Int(TextLocationFactory.empty(), 0)
@@ -339,41 +686,32 @@ case class ExprBinder(
 
   }
 
-  def bindAssignmentExpression(
+  def inferAssignmentExpression(
       node: Expression.Assignment,
       scope: Scope
   ): BoundExpression = {
-    val lhs = bindLHS(node.left, scope)
-    val rhs = bind(node.right, scope)
-    Tuple2(lhs, rhs) match {
-      case Tuple2(Result.Error(error), _) =>
-        error
-      case Tuple2(_, BoundExpression.Error(_)) =>
-        rhs
-      case Tuple2(Result.Success(lhs), rhs) =>
+    bindLHS(node.left, scope) match {
+      case Result.Error(value) => value
+      case Result.Success(lhs) =>
         getLHSType(lhs) match {
           case Type.Error(message) => BoundExpression.Error(message)
           case lhsType =>
+            val rhs = check(node.right, lhsType, scope)
             BoundExpression.Assignment(
               AstUtils.locationOfExpression(node),
               lhs,
-              bindConversion(rhs, lhsType, false)
+              rhs
             )
         }
-
-      case _ =>
-        val location = AstUtils.locationOfExpression(node.left)
-        diagnosticBag.reportExpressionIsNotAssignable(location)
-        BoundExpression.Error("Expression is not assignable: " + location)
     }
   }
 
-  def bindBinaryExpression(
+  def inferBinary(
       node: Expression.Binary,
       scope: Scope
   ): BoundExpression = {
-    val left = bind(node.left, scope)
-    val right = bind(node.right, scope)
+    val left = infer(node.left, scope)
+    val right = infer(node.right, scope)
 
     Tuple2(left, right) match {
       case Tuple2(BoundExpression.Error(_), _) =>
@@ -416,7 +754,7 @@ case class ExprBinder(
     }
   }
 
-  def bindBlockExpression(
+  def inferBlock(
       node: Expression.Block,
       scope: Scope
   ): BoundExpression = {
@@ -425,7 +763,7 @@ case class ExprBinder(
     val expr = node.block.expression match {
       case Option.None =>
         BoundExpression.Unit(TextLocationFactory.empty())
-      case Option.Some(value) => bind(value, block)
+      case Option.Some(value) => infer(value, block)
     }
 
     if (expr == BoundExpression.Error) {
@@ -455,7 +793,7 @@ case class ExprBinder(
     }
   }
 
-  def bindCallExpression(
+  def inferCall(
       node: Expression.Call,
       scope: Scope
   ): Result[
@@ -902,11 +1240,11 @@ case class ExprBinder(
   def findConstructor(symbol: Symbol): Option[Symbol] =
     symbol.lookupMember(".ctor")
 
-  def bindCast(
+  def inferCast(
       cast: Expression.Cast,
       scope: Scope
   ): BoundExpression = {
-    val expr = bind(cast.expression, scope)
+    val expr = infer(cast.expression, scope)
     val typ = binder.bindTypeName(cast.typ, scope)
 
     expr match {
@@ -921,11 +1259,11 @@ case class ExprBinder(
     }
   }
 
-  def bindIsExpression(
+  def inferIsExpression(
       isExpr: Expression.Is,
       scope: Scope
   ): BoundExpression = {
-    val expr = bind(isExpr.expression, scope)
+    val expr = infer(isExpr.expression, scope)
     val typ = binder.bindTypeName(isExpr.typ, scope)
     val location = AstUtils.locationOfExpression(isExpr)
 
@@ -988,18 +1326,18 @@ case class ExprBinder(
     list match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
-        val expr = bind(head, scope)
+        val expr = infer(head, scope)
         List.Cons(expr, bindExpressions(tail, scope))
     }
 
-  def bindForExpression(
+  def inferForExpression(
       node: Expression.For,
       scope: Scope
   ): BoundExpression = {
 
     val blockScope = scope.newBlock()
-    val lowerBound = bindConversionExpr(node.fromExpr, binder.intType, scope)
-    val upperBound = bindConversionExpr(node.toExpr, binder.intType, scope)
+    val lowerBound = check(node.fromExpr, binder.intType, scope)
+    val upperBound = check(node.toExpr, binder.intType, scope)
     val identifier = node.identifier
 
     blockScope.defineLocal(identifier.text, identifier.location) match {
@@ -1008,7 +1346,7 @@ case class ExprBinder(
       case Either.Right(variable) =>
         binder.setSymbolType(variable, binder.intType)
 
-        val body = bind(node.body, blockScope)
+        val body = check(node.body, binder.unitType, blockScope)
 
         BoundExpression.For(
           node.forKeyword.location,
@@ -1020,13 +1358,13 @@ case class ExprBinder(
     }
   }
 
-  def bindGroupExpression(
+  def inferGroup(
       node: Expression.Group,
       scope: Scope
   ): BoundExpression =
-    bind(node.expression, scope)
+    infer(node.expression, scope)
 
-  def bindIdentifierName(
+  def inferIdentifierName(
       node: Expression.IdentifierName,
       scope: Scope
   ): Result[BoundExpression.Error, BoundExpression.Variable] = {
@@ -1064,9 +1402,9 @@ case class ExprBinder(
     }
   }
 
-  def bindIf(node: Expression.If, scope: Scope): BoundExpression = {
+  def inferIf(node: Expression.If, scope: Scope): BoundExpression = {
     val cond = bindConversionExpr(node.condition, binder.boolType, scope)
-    val thenExpr = bind(node.thenExpr, scope)
+    val thenExpr = infer(node.thenExpr, scope)
     Tuple2(cond, thenExpr) match {
       case Tuple2(BoundExpression.Error(_), _) =>
         cond
@@ -1102,7 +1440,7 @@ case class ExprBinder(
     }
   }
 
-  def bindLiteralExpression(
+  def inferLiteral(
       node: Expression.Literal,
       scope: Scope
   ): BoundExpression = {
@@ -1160,7 +1498,7 @@ case class ExprBinder(
     }
   }
 
-  def bindMemberAccessExpression(
+  def inferMemberAccess(
       node: Expression.MemberAccess,
       scope: Scope
   ): Result[BoundExpression.Error, BoundExpression.MemberAccess] = {
@@ -1609,7 +1947,7 @@ case class ExprBinder(
     }
   }
 
-  def bindMatchCase(
+  def inferMatchCase(
       matchCase: MatchCaseSyntax,
       scope: Scope
   ): Result[BoundExpression.Error, BoundMatchCase] = {
@@ -1624,7 +1962,7 @@ case class ExprBinder(
         val resultExpr = matchCase.block.expression match {
           case Option.None =>
             BoundExpression.Unit(TextLocationFactory.empty())
-          case Option.Some(expr) => bind(expr, caseScope)
+          case Option.Some(expr) => infer(expr, caseScope)
         }
 
         resultExpr match {
@@ -1646,12 +1984,51 @@ case class ExprBinder(
     }
   }
 
-  def bindMatchCases(
+  def checkMatchCase(
+      matchCase: MatchCaseSyntax,
+      expectedType: Type,
+      scope: Scope
+  ): Result[BoundExpression.Error, BoundMatchCase] = {
+    // Create a new scope for this case to allow pattern variables
+    val caseScope = scope.newBlock()
+
+    bindPattern(matchCase.pattern, caseScope) match {
+      case Result.Error(error)          => Result.Error(error)
+      case Result.Success(boundPattern) =>
+        // Bind the statements and expression within the case scope
+        val statements = bindStatements(matchCase.block.statements, caseScope)
+        val resultExpr = matchCase.block.expression match {
+          case Option.None =>
+            BoundExpression.Unit(TextLocationFactory.empty())
+          case Option.Some(expr) => check(expr, expectedType, caseScope)
+        }
+
+        resultExpr match {
+          case error: BoundExpression.Error => Result.Error(error)
+          case _ =>
+            val caseResult = if (statements.isEmpty) {
+              resultExpr
+            } else {
+              BoundExpression.Block(statements, resultExpr)
+            }
+            Result.Success(
+              BoundMatchCase(
+                matchCase.caseKeyword.location,
+                boundPattern,
+                caseResult
+              )
+            )
+        }
+    }
+  }
+
+  def checkMatchCases(
       head: MatchCaseSyntax,
       tail: List[MatchCaseSyntax],
+      expectedType: Type,
       scope: Scope
   ): Result[BoundExpression.Error, NonEmptyList[BoundMatchCase]] = {
-    bindMatchCase(head, scope) match {
+    checkMatchCase(head, expectedType, scope) match {
       case Result.Error(expr) =>
         Result.Error(expr)
       case Result.Success(boundCase) =>
@@ -1659,7 +2036,29 @@ case class ExprBinder(
           case List.Nil =>
             Result.Success(NonEmptyList(boundCase, List.Nil))
           case List.Cons(head, tail) =>
-            bindMatchCases(head, tail, scope) match {
+            checkMatchCases(head, tail, expectedType, scope) match {
+              case Result.Error(expr) => Result.Error(expr)
+              case Result.Success(tailCases) =>
+                Result.Success(NonEmptyList(boundCase, tailCases.toList()))
+            }
+        }
+    }
+  }
+
+  def inferMatchCases(
+      head: MatchCaseSyntax,
+      tail: List[MatchCaseSyntax],
+      scope: Scope
+  ): Result[BoundExpression.Error, NonEmptyList[BoundMatchCase]] = {
+    inferMatchCase(head, scope) match {
+      case Result.Error(expr) =>
+        Result.Error(expr)
+      case Result.Success(boundCase) =>
+        tail match {
+          case List.Nil =>
+            Result.Success(NonEmptyList(boundCase, List.Nil))
+          case List.Cons(head, tail) =>
+            inferMatchCases(head, tail, scope) match {
               case Result.Error(expr) => Result.Error(expr)
               case Result.Success(tailCases) =>
                 Result.Success(NonEmptyList(boundCase, tailCases.toList()))
@@ -1681,18 +2080,18 @@ case class ExprBinder(
     }
   }
 
-  def bindMatchExpression(
+  def inferMatchExpression(
       node: Expression.Match,
       scope: Scope
   ): BoundExpression = {
     // Bind the expression being matched against
-    val matchedExpr = bind(node.expression, scope)
+    val matchedExpr = infer(node.expression, scope)
 
     matchedExpr match {
       case error: BoundExpression.Error => error
       case _                            =>
         // Bind all the match cases
-        bindMatchCases(node.cases.head, node.cases.tail, scope) match {
+        inferMatchCases(node.cases.head, node.cases.tail, scope) match {
           case Result.Error(value)        => value
           case Result.Success(boundCases) =>
             // Calculate the result type from all cases
@@ -1710,7 +2109,7 @@ case class ExprBinder(
     }
   }
 
-  def bindNewExpression(
+  def inferNew(
       node: Expression.New,
       scope: Scope
   ): Result[BoundExpression.Error, BoundLeftHandSide] = {
@@ -1927,12 +2326,12 @@ case class ExprBinder(
     }
   }
 
-  def bindUnaryExpression(
+  def inferUnary(
       node: Expression.Unary,
       scope: Scope
   ): BoundExpression = {
     val op = bindUnaryOperator(node.operator)
-    bind(node.expression, scope) match {
+    infer(node.expression, scope) match {
       case error: BoundExpression.Error => error
       case operand =>
         binder.getType(operand) match {
@@ -1960,7 +2359,7 @@ case class ExprBinder(
 
   }
 
-  def bindUnitExpression(
+  def inferUnit(
       node: Expression.Unit,
       scope: Scope
   ): BoundExpression =
@@ -1968,12 +2367,12 @@ case class ExprBinder(
       node.openParen.location.merge(node.closeParen.location)
     )
 
-  def bindWhileExpression(
+  def inferWhileExpression(
       node: Expression.While,
       scope: Scope
   ): BoundExpression = {
-    val cond = bind(node.condition, scope)
-    val body = bind(node.body, scope)
+    val cond = infer(node.condition, scope)
+    val body = infer(node.body, scope)
     new BoundExpression.While(node.whileKeyword.location, cond, body)
   }
 
@@ -2010,11 +2409,11 @@ case class ExprBinder(
         )
         BoundStatement.Error
       case Either.Right(symbol) =>
-        // symbol was created so lets bind it
-        val expr = bind(statement.expression, scope)
 
         statement.typeAnnotation match {
           case Option.None =>
+            // no type annotation so lets use type inference
+            val expr = infer(statement.expression, scope)
             // no type annotation, so we need to infer the type from the expr
             val typ = binder.getType(expr)
             binder.setSymbolType(symbol, typ)
@@ -2022,10 +2421,8 @@ case class ExprBinder(
 
           case Option.Some(value) =>
             val annotatedType = binder.bindTypeName(value.typ, scope)
+            val boundExpr = check(statement.expression, annotatedType, scope)
             binder.setSymbolType(symbol, annotatedType)
-
-            // make sure we can convert the expression
-            val boundExpr = bindConversion(expr, annotatedType, false)
 
             BoundStatement.VariableDeclaration(
               symbol,
@@ -2052,7 +2449,7 @@ case class ExprBinder(
       statement: StatementSyntax.ExpressionStatement,
       scope: Scope
   ): BoundStatement = {
-    val expr = bind(statement.expression, scope)
+    val expr = infer(statement.expression, scope)
     BoundStatement.ExpressionStatement(expr)
   }
 
