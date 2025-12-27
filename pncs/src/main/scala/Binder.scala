@@ -630,12 +630,12 @@ case class Binder(
     options match {
       case FieldOptions.TypeAndExpression(fieldType, expression) =>
         // TODO: this expression needs to be added to the symbol's constructor body
-        val expr = exprBinder.bindConversionExpr(expression, fieldType, scope)
+        val expr = exprBinder.check(expression, fieldType, scope)
         setSymbolType(symbol, fieldType)
       case FieldOptions.TypeOnly(fieldType) =>
         setSymbolType(symbol, fieldType)
       case FieldOptions.ExpressionOnly(expression) =>
-        val expr = exprBinder.bind(expression, scope)
+        val expr = exprBinder.infer(expression, scope)
         // TODO: this expression needs to be added to the symbol's constructor body
         val returnType = getType(expr)
         setSymbolType(symbol, returnType)
@@ -657,9 +657,9 @@ case class Binder(
       case Option.Some(expression) =>
 
         val boundExpr = returnType match {
-          case Option.None => exprBinder.bind(expression, methodScope)
+          case Option.None => exprBinder.infer(expression, methodScope)
           case Option.Some(toType) =>
-            exprBinder.bindConversionExpr(expression, toType, methodScope)
+            exprBinder.check(expression, toType, methodScope)
         }
 
         functionBodies = functionBodies.put(symbol, boundExpr)
