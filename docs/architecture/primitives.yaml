@@ -1,0 +1,348 @@
+# Panther Compiler Kit system primitives map (taxonomy)
+#
+# Stable vocabulary for the visual-recap skill
+# (.claude/skills/visual-recap/SKILL.md). This is NOT a feature changelog and
+# NOT derived source-of-truth for behavior — the source under pncs/, pnc/,
+# runtime/, metadata/, and text/ is. This file exists to give PR recaps and
+# plans a shared, stable set of names for the moving parts of the compiler
+# pipeline.
+#
+# Risk labels used in recaps:
+#   composes - wires existing primitives without changing them
+#   extends  - changes a primitive's behavior, shape, or contract
+#   adds     - introduces a new primitive (update this file in the same PR)
+#
+# Update this file only when adding, removing, or materially reshaping a
+# primitive (id, name, group, code roots, or meaning). Do NOT edit `summary`
+# for ordinary feature work — that's what commit messages and PR descriptions
+# are for.
+#
+# `code` entries are coarse ownership roots for
+# `classify-primitives.mjs` (longest-prefix match). Prefer directories over
+# file lists, but pncs/ (hand-written Scala) and pnc/ (self-hosted Panther,
+# generated from pncs/runtime/metadata/text via `sbt pncs/transpile`) are both
+# flat directories of one file per concept with no shared prefix, so most
+# primitives below list the Scala file and its generated .pn twin explicitly.
+# Keep the map small — one primitive per pipeline concept, not per file.
+
+version: 1
+
+groups:
+  - id: frontend
+    name: Lexing & parsing
+  - id: semantics
+    name: Binding & type checking
+  - id: backend
+    name: Lowering & code generation
+  - id: runtime
+    name: PVM execution
+  - id: stdlib
+    name: Shared libraries
+  - id: tooling
+    name: Build, CLI & self-hosting
+  - id: quality
+    name: Tests & docs
+
+primitives:
+  # --- Lexing & parsing ----------------------------------------------------
+  - id: lexer
+    group: frontend
+    name: Lexer & tokens
+    summary:
+      Scans Panther source text into a token stream, including trivia
+      (whitespace/comments) and syntax-kind classification.
+    code:
+      - pncs/src/main/scala/Lexer.scala
+      - pnc/src/Lexer.pn
+      - pncs/src/main/scala/SimpleToken.scala
+      - pnc/src/SimpleToken.pn
+      - pncs/src/main/scala/SyntaxToken.scala
+      - pnc/src/SyntaxToken.pn
+      - pncs/src/main/scala/SyntaxTokenValue.scala
+      - pnc/src/SyntaxTokenValue.pn
+      - pncs/src/main/scala/SyntaxTrivia.scala
+      - pnc/src/SyntaxTrivia.pn
+      - pncs/src/main/scala/SyntaxTriviaList.scala
+      - pnc/src/SyntaxTriviaList.pn
+      - pncs/src/main/scala/TokenList.scala
+      - pnc/src/TokenList.pn
+      - pncs/src/main/scala/MakeTokenList.scala
+      - pnc/src/MakeTokenList.pn
+      - pncs/src/main/scala/SyntaxFacts.scala
+      - pnc/src/SyntaxFacts.pn
+      - pncs/src/main/scala/SyntaxKind.scala
+      - pnc/src/SyntaxKind.pn
+
+  - id: parser
+    group: frontend
+    name: Parser & syntax tree
+    summary:
+      Builds the concrete syntax tree from the token stream using
+      operator-precedence parsing.
+    code:
+      - pncs/src/main/scala/Parser.scala
+      - pnc/src/Parser.pn
+      - pncs/src/main/scala/MakeSyntaxTree.scala
+      - pnc/src/MakeSyntaxTree.pn
+      - pncs/src/main/scala/SyntaxTree.scala
+      - pnc/src/SyntaxTree.pn
+      - pncs/src/main/scala/Ast.scala
+      - pnc/src/ast.pn
+      - pncs/src/main/scala/AstPrinter.scala
+      - pnc/src/AstPrinter.pn
+      - pncs/src/main/scala/OperatorPrecedence.scala
+      - pnc/src/OperatorPrecedence.pn
+      - pncs/src/main/scala/BinaryOperator.scala
+      - pnc/src/BinaryOperator.pn
+      - pncs/src/main/scala/BinaryOperatorKind.scala
+      - pnc/src/BinaryOperatorKind.pn
+      - pncs/src/main/scala/BinaryOperators.scala
+      - pnc/src/BinaryOperators.pn
+      - pncs/src/main/scala/UnaryOperator.scala
+      - pnc/src/UnaryOperator.pn
+      - pncs/src/main/scala/UnaryOperatorKind.scala
+      - pnc/src/UnaryOperatorKind.pn
+
+  # --- Binding & type checking ----------------------------------------------
+  - id: binder
+    group: semantics
+    name: Binder & type inference
+    summary:
+      Resolves symbols and scopes, checks types bidirectionally, and produces
+      the bound tree plus diagnostics.
+    code:
+      - pncs/src/main/scala/Binder.scala
+      - pnc/src/Binder.pn
+      - pncs/src/main/scala/ExprBinder.scala
+      - pnc/src/ExprBinder.pn
+      - pncs/src/main/scala/BoundNodes.scala
+      - pnc/src/BoundNodes.pn
+      - pncs/src/main/scala/BoundAssemblyPrinter.scala
+      - pnc/src/BoundAssemblyPrinter.pn
+      - pncs/src/main/scala/TypeInference.scala
+      - pnc/src/TypeInference.pn
+      - pncs/src/main/scala/Inference.scala
+      - pnc/src/Inference.pn
+      - pncs/src/main/scala/Type.scala
+      - pnc/src/Type.pn
+      - pncs/src/main/scala/Variance.scala
+      - pnc/src/Variance.pn
+      - pncs/src/main/scala/Conversion.scala
+      - pnc/src/Conversion.pn
+      - pncs/src/main/scala/Scope.scala
+      - pnc/src/Scope.pn
+      - pncs/src/main/scala/Symbol.scala
+      - pnc/src/Symbol.pn
+      - pncs/src/main/scala/SymbolKind.scala
+      - pnc/src/SymbolKind.pn
+      - pncs/src/main/scala/SymbolChain.scala
+      - pnc/src/SymbolChain.pn
+      - pncs/src/main/scala/SymbolLinks.scala
+      - pnc/src/SymbolLinks.pn
+      - pncs/src/main/scala/SymbolPrinter.scala
+      - pnc/src/SymbolPrinter.pn
+      - pncs/src/main/scala/DiagnosticBag.scala
+      - pnc/src/DiagnosticBag.pn
+
+  # --- Lowering & code generation -------------------------------------------
+  - id: lowering-emit
+    group: backend
+    name: Lowering & bytecode emission
+    summary:
+      Lowers the bound tree to a simplified IR and emits PVM bytecode from it.
+    code:
+      - pncs/src/main/scala/Lowered.scala
+      - pnc/src/Lowered.pn
+      - pncs/src/main/scala/LoweredAssemblyPrinter.scala
+      - pnc/src/LoweredAssemblyPrinter.pn
+      - pncs/src/main/scala/Emitter.scala
+      - pnc/src/Emitter.pn
+
+  - id: metadata-format
+    group: backend
+    name: PVM metadata format
+    summary:
+      Binary metadata tables (types, methods, fields, params, strings, blobs,
+      signatures) shared by the emitter, disassembler, and VM loader.
+    code:
+      - metadata/src/main/scala/
+      - pnc/src/BlobTable.pn
+      - pnc/src/Chunk.pn
+      - pnc/src/FieldMetadata.pn
+      - pnc/src/FieldTable.pn
+      - pnc/src/IntList.pn
+      - pnc/src/MetadataFlags.pn
+      - pnc/src/Metadata.pn
+      - pnc/src/MethodMetadata.pn
+      - pnc/src/MethodTable.pn
+      - pnc/src/Opcode.pn
+      - pnc/src/ParamMetadata.pn
+      - pnc/src/ParamTable.pn
+      - pnc/src/SignatureBuilder.pn
+      - pnc/src/Signature.pn
+      - pnc/src/StringTable.pn
+      - pnc/src/TypeDefMetadata.pn
+      - pnc/src/TypeDefTable.pn
+
+  # --- PVM execution ---------------------------------------------------------
+  - id: vm-runtime
+    group: runtime
+    name: PVM virtual machine
+    summary:
+      Executes PVM bytecode against the heap and value model; includes the
+      disassembler used for bytecode inspection and debugging.
+    code:
+      - pncs/src/main/scala/VM.scala
+      - pnc/src/VM.pn
+      - pncs/src/main/scala/Heap.scala
+      - pnc/src/Heap.pn
+      - pncs/src/main/scala/Value.scala
+      - pnc/src/Value.pn
+      - pncs/src/main/scala/Disassembler.scala
+      - pnc/src/Disassembler.pn
+
+  # --- Shared libraries --------------------------------------------------
+  - id: panther-stdlib
+    group: stdlib
+    name: Panther standard library
+    summary:
+      Core runtime types (collections, Option/Result/Either, string/ANSI/hex
+      helpers) available to every Panther program, including the compiler
+      itself once self-hosted.
+    code:
+      - runtime/src/main/scala/
+      - pnc/src/List.pn
+      - pnc/src/Dictionary.pn
+      - pnc/src/Option.pn
+      - pnc/src/Result.pn
+      - pnc/src/Either.pn
+      - pnc/src/Chain.pn
+      - pnc/src/NonEmptyList.pn
+      - pnc/src/Tuple2.pn
+      - pnc/src/ANSI.pn
+      - pnc/src/Hex.pn
+
+  - id: text-source-model
+    group: stdlib
+    name: Source text model
+    summary:
+      Source file, line, and span/location tracking shared across lexing,
+      diagnostics, and printers.
+    code:
+      - text/src/main/scala/
+      - pnc/src/MakeSourceFile.pn
+      - pnc/src/SourceFile.pn
+      - pnc/src/TextLineList.pn
+      - pnc/src/TextLineParser.pn
+      - pnc/src/TextLine.pn
+      - pnc/src/TextLocationFactory.pn
+      - pnc/src/TextLocation.pn
+      - pnc/src/TextSpanFactory.pn
+      - pnc/src/TextSpan.pn
+
+  - id: shared-utils
+    group: stdlib
+    name: Formatting & string utilities
+    summary:
+      Small shared helpers (indentation, padding, trimming, string building,
+      math) used across the lexer, parser, binder, and printers.
+    code:
+      - pncs/src/main/scala/IndentedStringBuilder.scala
+      - pnc/src/IndentedStringBuilder.pn
+      - pncs/src/main/scala/StringBuilder.scala
+      - pnc/src/StringBuilder.pn
+      - pncs/src/main/scala/Pad.scala
+      - pnc/src/Pad.pn
+      - pncs/src/main/scala/Trim.scala
+      - pnc/src/Trim.pn
+      - pncs/src/main/scala/Math.scala
+      - pnc/src/Math.pn
+
+  # --- Build, CLI & self-hosting -------------------------------------------
+  - id: compiler-driver
+    group: tooling
+    name: Compiler driver & CLI
+    summary:
+      Entry point, argument parsing, and compiler settings that wire
+      lexer -> parser -> binder -> lowering -> emitter into one pipeline.
+    code:
+      - pncs/src/main/scala/Program.scala
+      - pnc/src/Program.pn
+      - pncs/src/main/scala/compilation.scala
+      - pnc/src/compilation.pn
+      - pncs/src/main/scala/CompilerSettings.scala
+      - pnc/src/CompilerSettings.pn
+      - pncs/src/main/scala/ArgsParser.scala
+      - pnc/src/ArgsParser.pn
+      - pncs/src/main/scala/ColorPalette.scala
+      - pnc/src/ColorPalette.pn
+
+  - id: transpiler
+    group: tooling
+    name: Scala-to-Panther transpiler
+    summary:
+      Converts pncs/runtime/metadata/text Scala sources into the self-hosted
+      Panther (.pn) sources under pnc/src, driven by the sbt `transpile` task.
+    code:
+      - pncs/src/main/scala/Transpiler.scala
+      - pnc/src/Transpiler.pn
+      - build.sbt
+      - scripts/stage0.ps1
+      - scripts/stage1.ps1
+      - scripts/stage2.ps1
+    docs:
+      - .github/instructions/copilot.instructions.md
+
+  # --- Tests & docs ----------------------------------------------------------
+  - id: test-suite
+    group: quality
+    name: Test suite
+    summary:
+      ScalaTest coverage for the lexer, parser, binder, type checker, VM,
+      args parser, and metadata format, run via `sbt test/test`.
+    code:
+      - test/
+
+  - id: language-docs
+    group: quality
+    name: Panther language docs (Astro site)
+    summary:
+      User-facing documentation for the Panther language, published from the
+      Astro/Starlight site in docs/.
+    code:
+      - docs/src/
+      - docs/public/
+
+invariants:
+  - id: transpile-sync
+    summary:
+      pnc/src/*.pn is generated from pncs/runtime/metadata/text via
+      `sbt pncs/transpile`; never hand-edit pnc/src directly. CI's `transpile`
+      job re-runs the transpile and fails the build if it produces a diff, so
+      a PR that edits a Scala source in a mirrored primitive must include the
+      regenerated .pn output in the same commit.
+    docs:
+      - .github/workflows/ci.yml
+      - .github/instructions/copilot.instructions.md
+
+  - id: pncs-is-canonical
+    summary:
+      pncs/ (Scala) is the actively developed, buildable compiler; pnc/ (self-
+      hosted) is a generated mirror that currently does not build end-to-end
+      (`sbt pnc/compile` fails). Treat pnc/ changes as a byproduct of pncs/
+      changes via transpile, not a separate implementation to hand-edit.
+    docs:
+      - .github/instructions/copilot.instructions.md
+
+  - id: panther-scala-excluded-from-transpile
+    summary:
+      runtime/src/main/scala/panther.scala is a Scala-only interop prelude and
+      is explicitly excluded from transpilation (see the `sourceFiles` filter
+      in build.sbt); it has no pnc/src equivalent.
+    docs:
+      - build.sbt
+
+  - id: diagnostics-not-exceptions
+    summary:
+      Compilation errors surface through DiagnosticBag, not thrown exceptions,
+      so the compiler can recover and report multiple errors from one run.
