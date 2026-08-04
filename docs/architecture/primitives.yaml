@@ -313,6 +313,17 @@ primitives:
       - docs/src/
       - docs/public/
 
+  - id: visual-recap-tooling
+    group: quality
+    name: Visual-recap skill & taxonomy
+    summary:
+      Contributor-facing PR review tooling: this primitives taxonomy itself
+      plus the Claude Code skill and automated PR-recap bot that classify a
+      diff against it.
+    code:
+      - docs/architecture/primitives.yaml
+      - .claude/skills/visual-recap/
+
 invariants:
   - id: transpile-sync
     summary:
