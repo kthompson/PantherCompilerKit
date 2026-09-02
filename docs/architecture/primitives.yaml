@@ -313,6 +313,19 @@ primitives:
       - docs/src/
       - docs/public/
 
+  - id: doc-check
+    group: quality
+    name: Documentation code-block checker
+    summary:
+      Extracts ```panther blocks from the markdown under docs/ and runs each
+      through the pncs front end, with per-block directives and a baseline so
+      CI can ratchet the docs toward compiling.
+    code:
+      - tools/doccheck/
+    docs:
+      - tools/doccheck/README.md
+      - ROADMAP.md
+
   - id: visual-recap-tooling
     group: quality
     name: Visual-recap skill & taxonomy
