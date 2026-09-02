@@ -152,6 +152,19 @@ lazy val pnc = project
     }.value
   )
 
+/** Documentation code-block checker
+  *
+  * Extracts ```panther blocks from the markdown under docs/ and runs each one
+  * through the pncs front end, so the docs cannot drift away from the language
+  * the compiler actually accepts.
+  */
+lazy val doccheck = project
+  .in(file("tools/doccheck"))
+  .dependsOn(runtime, metadata, text, pncs)
+  .settings(
+    mainClass := Some("DocCheck")
+  )
+
 lazy val test = project
   .dependsOn(runtime, pncs)
   .settings(

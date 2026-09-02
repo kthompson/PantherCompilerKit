@@ -1,0 +1,5 @@
+# Documentation blocks that do not yet compile.
+# Regenerate with: sbt "doccheck/run --update-baseline docs/src/content/docs"
+# This list is a ratchet: it should only ever get shorter. It is
+# currently empty -- every panther block in docs/ compiles.
+

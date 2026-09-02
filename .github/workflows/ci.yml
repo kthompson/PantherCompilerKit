@@ -45,6 +45,27 @@ jobs:
           sbt pncs/transpile
           git diff --exit-code || (echo "Transpilation produced changes, please commit them." && exit 1)
 
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup SBT
+        uses: sbt/setup-sbt@v1
+
+      # Picks up tools/doccheck/baseline.txt automatically, so this fails only
+      # when a doc snippet that used to compile stops compiling, or when a
+      # baselined snippet starts compiling and the baseline needs shortening.
+      - name: doc code blocks
+        run: sbt "doccheck/run docs/src/content/docs"
+
   lint:
     runs-on: ubuntu-latest
     steps:
