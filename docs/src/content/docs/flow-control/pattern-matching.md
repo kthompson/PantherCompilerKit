@@ -7,14 +7,19 @@ Pattern matching provides a powerful way to check values against patterns and ex
 
 ## Match Expressions
 
-The `match` expression checks a value against multiple patterns:
+The `match` expression checks a value against multiple patterns. Every pattern is introduced with `case`, and there is no way to combine several literals into one case — each value needs its own `case`:
 
 ```panther
 val day = "Monday"
 
 day match {
-    "Saturday", "Sunday" => println("Weekend")
-    "Monday", "Tuesday", "Wednesday", "Thursday", "Friday" => println("Weekday")
+    case "Saturday" => println("Weekend")
+    case "Sunday" => println("Weekend")
+    case "Monday" => println("Weekday")
+    case "Tuesday" => println("Weekday")
+    case "Wednesday" => println("Weekday")
+    case "Thursday" => println("Weekday")
+    case "Friday" => println("Weekday")
 }
 ```
 
@@ -22,11 +27,12 @@ day match {
 
 Basic structure of a match expression:
 
+<!-- panther-check: parse-only -->
 ```panther
 value match {
-    pattern1 => expression1
-    pattern2 => expression2
-    pattern3 => expression3
+    case pattern1 => expression1
+    case pattern2 => expression2
+    case pattern3 => expression3
 }
 ```
 
@@ -38,25 +44,33 @@ Match against specific values:
 val number = 42
 
 number match {
-    0 => println("Zero")
-    1 => println("One")
-    42 => println("The answer!")
-    100 => println("Century")
+    case 0 => println("Zero")
+    case 1 => println("One")
+    case 42 => println("The answer!")
+    case 100 => println("Century")
 }
 ```
 
 ## Multiple Patterns
 
-Match multiple values with a single case:
+Panther's `match` has no `|` or comma syntax for matching several values with one case body. Write a separate `case` for each value instead:
 
 ```panther
 val month = "June"
 
 month match {
-    "December", "January", "February" => println("Winter")
-    "March", "April", "May" => println("Spring")
-    "June", "July", "August" => println("Summer")
-    "September", "October", "November" => println("Fall")
+    case "December" => println("Winter")
+    case "January" => println("Winter")
+    case "February" => println("Winter")
+    case "March" => println("Spring")
+    case "April" => println("Spring")
+    case "May" => println("Spring")
+    case "June" => println("Summer")
+    case "July" => println("Summer")
+    case "August" => println("Summer")
+    case "September" => println("Fall")
+    case "October" => println("Fall")
+    case "November" => println("Fall")
 }
 ```
 
@@ -68,9 +82,9 @@ The `_` wildcard matches any value:
 val value = 99
 
 value match {
-    0 => println("Zero")
-    1 => println("One")
-    _ => println("Some other number")
+    case 0 => println("Zero")
+    case 1 => println("One")
+    case _ => println("Some other number")
 }
 ```
 
@@ -81,10 +95,17 @@ The wildcard is typically used as the last case to handle all remaining values.
 Match expressions return values:
 
 ```panther
+val day = "Monday"
+
 val dayType = day match {
-    "Saturday", "Sunday" => "Weekend"
-    "Monday", "Tuesday", "Wednesday", "Thursday", "Friday" => "Weekday"
-    _ => "Unknown"
+    case "Saturday" => "Weekend"
+    case "Sunday" => "Weekend"
+    case "Monday" => "Weekday"
+    case "Tuesday" => "Weekday"
+    case "Wednesday" => "Weekday"
+    case "Thursday" => "Weekday"
+    case "Friday" => "Weekday"
+    case _ => "Unknown"
 }
 
 println(dayType)
@@ -93,13 +114,15 @@ println(dayType)
 Use in calculations:
 
 ```panther
+val grade = "B"
+
 val points = grade match {
-    "A" => 4
-    "B" => 3
-    "C" => 2
-    "D" => 1
-    "F" => 0
-    _ => 0
+    case "A" => 4
+    case "B" => 3
+    case "C" => 2
+    case "D" => 1
+    case "F" => 0
+    case _ => 0
 }
 ```
 
@@ -108,20 +131,23 @@ val points = grade match {
 Match cases can contain multiple statements:
 
 ```panther
+def logSuccess(message: string): unit = println("LOG: " + message)
+def logError(message: string): unit = println("ERR: " + message)
+
 val status = "error"
 
 status match {
-    "success" => {
+    case "success" => {
         val message = "Operation completed"
         logSuccess(message)
         println(message)
     }
-    "error" => {
+    case "error" => {
         val message = "Operation failed"
         logError(message)
         println(message)
     }
-    _ => {
+    case _ => {
         println("Unknown status")
     }
 }
@@ -135,27 +161,34 @@ Match against numeric values:
 val age = 25
 
 val category = age match {
-    0 => "newborn"
-    1, 2 => "toddler"
-    3, 4, 5 => "preschool"
-    _ => "other"
+    case 0 => "newborn"
+    case 1 => "toddler"
+    case 2 => "toddler"
+    case 3 => "preschool"
+    case 4 => "preschool"
+    case 5 => "preschool"
+    case _ => "other"
 }
 ```
 
 ## Matching Strings
 
 ```panther
+def startProcess(): unit = println("starting")
+def stopProcess(): unit = println("stopping")
+def printStatus(): unit = println("status: ok")
+
 val command = "start"
 
 command match {
-    "start" => startProcess()
-    "stop" => stopProcess()
-    "restart" => {
+    case "start" => startProcess()
+    case "stop" => stopProcess()
+    case "restart" => {
         stopProcess()
         startProcess()
     }
-    "status" => printStatus()
-    _ => println("Unknown command")
+    case "status" => printStatus()
+    case _ => println("Unknown command")
 }
 ```
 
@@ -164,76 +197,98 @@ command match {
 Match based on type:
 
 ```panther
-val value: Any = 42
+val value: any = 42
 
 value match {
-    v: int => println("Integer: " + v)
-    v: string => println("String: " + v)
-    v: bool => println("Boolean: " + v)
-    _ => println("Other type")
+    case v: int => println("Integer: " + string(v))
+    case v: string => println("String: " + v)
+    case v: bool => println("Boolean: " + string(v))
+    case _ => println("Other type")
 }
 ```
 
-## Destructuring Tuples
+## Destructuring Classes
 
-Extract values from tuples:
+Panther has no tuple literal syntax (`(x, y)`), but any class can be destructured the same way — a pattern names the class and binds its fields:
 
 ```panther
-val point = (10, 20)
+class Point(x: int, y: int)
+
+val point = Point(10, 20)
 
 point match {
-    (0, 0) => println("Origin")
-    (x, 0) => println("On X-axis at " + x)
-    (0, y) => println("On Y-axis at " + y)
-    (x, y) => println("Point at (" + x + ", " + y + ")")
+    case Point(0, 0) => println("Origin")
+    case Point(x, 0) => println("On X-axis at " + string(x))
+    case Point(0, y) => println("On Y-axis at " + string(y))
+    case Point(x, y) => println("Point at (" + string(x) + ", " + string(y) + ")")
 }
 ```
 
 ## Matching Options
 
-Handle optional values:
+`Option` is not a built-in type, but you can define one and match on it like any other enum:
 
 ```panther
-val maybeValue: Option<int> = Some(42)
+enum Option[T] {
+    case Some(value: T)
+    case None
+}
+
+val maybeValue: Option[int] = Option.Some(42)
 
 maybeValue match {
-    Some(value) => println("Found: " + value)
-    None => println("No value")
+    case Option.Some(value) => println("Found: " + string(value))
+    case Option.None => println("No value")
 }
 ```
 
 Use in functions:
 
 ```panther
-def processOption(opt: Option<string>): string = {
+enum Option[T] {
+    case Some(value: T)
+    case None
+}
+
+def processOption(opt: Option[string]): string = {
     opt match {
-        Some(s) => "Value: " + s
-        None => "No value provided"
+        case Option.Some(s) => "Value: " + string(s)
+        case Option.None => "No value provided"
     }
 }
 ```
 
 ## Matching Results
 
-Handle success or failure:
+The same approach works for a `Result`-shaped enum:
 
 ```panther
-val result: Result<int, string> = Ok(42)
+enum Result {
+    case Ok(value: int)
+    case Err(error: string)
+}
+
+val result: Result = Result.Ok(42)
 
 result match {
-    Ok(value) => println("Success: " + value)
-    Err(error) => println("Error: " + error)
+    case Result.Ok(value) => println("Success: " + string(value))
+    case Result.Err(error) => println("Error: " + error)
 }
 ```
 
 With error handling:
 
 ```panther
-def processResult(r: Result<int, string>): int = {
+enum Result {
+    case Ok(value: int)
+    case Err(error: string)
+}
+
+def processResult(r: Result): int = {
     r match {
-        Ok(n) => n * 2
-        Err(msg) => {
-            logError(msg)
+        case Result.Ok(n) => n * 2
+        case Result.Err(msg) => {
+            println(msg)
             0
         }
     }
@@ -242,73 +297,88 @@ def processResult(r: Result<int, string>): int = {
 
 ## Guard Conditions
 
-Add conditions to patterns:
+Panther's `match` does not support pattern guards (`case n if n < 0 => ...`) — a `case` is followed directly by `=>`, with no conditional clause in between. For value ranges like this, use an `if`/`else if` chain instead:
 
 ```panther
 val number = 15
 
-number match {
-    n if n < 0 => println("Negative")
-    n if n == 0 => println("Zero")
-    n if n < 10 => println("Small positive")
-    n if n < 100 => println("Medium positive")
-    _ => println("Large positive")
+val description = if (number < 0) {
+    "Negative"
+} else if (number == 0) {
+    "Zero"
+} else if (number < 10) {
+    "Small positive"
+} else if (number < 100) {
+    "Medium positive"
+} else {
+    "Large positive"
 }
+
+println(description)
 ```
 
 ## Nested Matching
 
-Match expressions can be nested:
+Patterns can nest, including inside a class's fields:
 
 ```panther
-val pair = (Some(10), Some(20))
+enum Option[T] {
+    case Some(value: T)
+    case None
+}
+
+class Pair(first: Option[int], second: Option[int])
+
+val pair = Pair(Option.Some(10), Option.Some(20))
 
 pair match {
-    (Some(x), Some(y)) => println("Both values: " + x + ", " + y)
-    (Some(x), None) => println("Only first: " + x)
-    (None, Some(y)) => println("Only second: " + y)
-    (None, None) => println("No values")
+    case Pair(Option.Some(x), Option.Some(y)) => println("Both values: " + string(x) + ", " + string(y))
+    case Pair(Option.Some(x), Option.None) => println("Only first: " + string(x))
+    case Pair(Option.None, Option.Some(y)) => println("Only second: " + string(y))
+    case Pair(Option.None, Option.None) => println("No values")
 }
 ```
 
 ## Matching Enums
 
-Match enum variants:
+Match enum variants. Enum cases are declared one per `case` line (no trailing commas), and `match` is always written after the scrutinee — there is no `match (value) { ... }` prefix form:
 
 ```panther
 enum Color {
-    Red,
-    Green,
-    Blue
+    case Red
+    case Green
+    case Blue
 }
 
 val color = Color.Red
 
-match (color) {
-    Color.Red => println("Red color")
-    Color.Green => println("Green color")
-    Color.Blue => println("Blue color")
+color match {
+    case Color.Red => println("Red color")
+    case Color.Green => println("Green color")
+    case Color.Blue => println("Blue color")
 }
 ```
 
 ## Matching Discriminated Unions
 
-Match on union variants:
+Panther has no `union` keyword — algebraic sum types with per-variant data are written as an `enum` whose cases carry parameters, just like `Color` above but with fields:
 
 ```panther
-union Shape {
-    Circle(radius: float),
-    Rectangle(width: float, height: float),
-    Triangle(base: float, height: float)
+enum Shape {
+    case Circle(radius: int)
+    case Rectangle(width: int, height: int)
+    case Triangle(base: int, height: int)
 }
 
-val shape = Shape.Circle(5.0)
+val shape = Shape.Circle(5)
 
-val area = match (shape) {
-    Circle(r) => 3.14159 * r * r
-    Rectangle(w, h) => w * h
-    Triangle(b, h) => 0.5 * b * h
+val description = shape match {
+    case Shape.Circle(r) => "circle with radius " + string(r)
+    case Shape.Rectangle(w, h) => "rectangle " + string(w) + "x" + string(h)
+    case Shape.Triangle(b, h) => "triangle with base " + string(b) + " and height " + string(h)
 }
+
+println(description)
 ```
 
 ## Exhaustiveness
@@ -316,17 +386,26 @@ val area = match (shape) {
 Match expressions should handle all possible cases:
 
 ```panther
+enum Option[T] {
+    case Some(value: T)
+    case None
+}
+
+val option: Option[int] = Option.Some(5)
+
 // Good: all cases covered
 val result = option match {
-    Some(x) => x
-    None => 0
+    case Option.Some(x) => x
+    case Option.None => 0
 }
+
+val value = 1
 
 // Good: wildcard catches all remaining cases
 val category = value match {
-    0 => "zero"
-    1 => "one"
-    _ => "other"
+    case 0 => "zero"
+    case 1 => "one"
+    case _ => "other"
 }
 ```
 
@@ -339,19 +418,19 @@ var state = "idle"
 
 while (state != "done") {
     state = state match {
-        "idle" => {
+        case "idle" => {
             println("Starting")
             "processing"
         }
-        "processing" => {
+        case "processing" => {
             println("Working")
             "complete"
         }
-        "complete" => {
+        case "complete" => {
             println("Finishing")
             "done"
         }
-        _ => "done"
+        case _ => "done"
     }
 }
 ```
@@ -359,13 +438,18 @@ while (state != "done") {
 ### Command Processing
 
 ```panther
-def executeCommand(cmd: string, args: Array<string>): string = {
+def addItem(item: string): string = "added: " + item
+def removeItem(item: string): string = "removed: " + item
+def listItems(): string = "listing items"
+def clearAll(): string = "cleared"
+
+def executeCommand(cmd: string, args: Array[string]): string = {
     cmd match {
-        "add" => addItem(args[0])
-        "remove" => removeItem(args[0])
-        "list" => listItems()
-        "clear" => clearAll()
-        _ => "Unknown command: " + cmd
+        case "add" => addItem(args(0))
+        case "remove" => removeItem(args(0))
+        case "list" => listItems()
+        case "clear" => clearAll()
+        case _ => "Unknown command: " + cmd
     }
 }
 ```
@@ -373,25 +457,27 @@ def executeCommand(cmd: string, args: Array<string>): string = {
 ### Error Code Translation
 
 ```panther
+val errorCode = 2
+
 val errorMessage = errorCode match {
-    0 => "Success"
-    1 => "File not found"
-    2 => "Permission denied"
-    3 => "Invalid input"
-    4 => "Network error"
-    _ => "Unknown error: " + errorCode
+    case 0 => "Success"
+    case 1 => "File not found"
+    case 2 => "Permission denied"
+    case 3 => "Invalid input"
+    case 4 => "Network error"
+    case _ => "Unknown error: " + string(errorCode)
 }
 ```
 
 ### Type-Based Dispatch
 
 ```panther
-def processValue(value: Any): string = {
+def processValue(value: any): string = {
     value match {
-        n: int => "Processing integer: " + n
-        s: string => "Processing string: " + s
-        b: bool => "Processing boolean: " + b
-        _ => "Unknown type"
+        case n: int => "Processing integer: " + string(n)
+        case s: string => "Processing string: " + s
+        case b: bool => "Processing boolean: " + string(b)
+        case _ => "Unknown type"
     }
 }
 ```

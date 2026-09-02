@@ -65,6 +65,7 @@ val notResult = !true           // false
 
 Logical operators use short-circuit evaluation:
 
+<!-- panther-check: parse-only -->
 ```panther
 // If first condition is false, second is not evaluated
 val result = false && expensiveOperation()
@@ -78,8 +79,8 @@ val result2 = true || expensiveOperation()
 ### Concatenation
 
 ```panther
-val greeting = "Hello, " + "World!"  // "Hello, World!"
-val message = "Count: " + 42         // "Count: 42"
+val greeting = "Hello, " + "World!"        // "Hello, World!"
+val message = "Count: " + string(42)       // "Count: 42"
 ```
 
 ## Assignment Operators
@@ -91,16 +92,18 @@ var x = 10
 x = 20  // Assigns 20 to x
 ```
 
-### Compound Assignment
+### No Compound Assignment Operators
+
+Panther does not have compound assignment operators like `+=`, `-=`, `*=`, `/=`, or `%=`. Write the full expression instead:
 
 ```panther
 var count = 10
 
-count += 5   // count = count + 5  (15)
-count -= 3   // count = count - 3  (12)
-count *= 2   // count = count * 2  (24)
-count /= 4   // count = count / 4  (6)
-count %= 4   // count = count % 4  (2)
+count = count + 5   // 15
+count = count - 3   // 12
+count = count * 2   // 24
+count = count / 4   // 6
+count = count % 4   // 2
 ```
 
 ## Operator Precedence
@@ -129,9 +132,11 @@ val bool2 = (true || false) && false // false
 
 ### Numeric Types
 
+Panther does not currently have a floating-point type — `int` is the only numeric type, and division truncates:
+
 ```panther
-val intResult = 10 / 3       // Integer division: 3
-val floatResult = 10.0 / 3.0 // Float division: 3.333...
+val intResult = 10 / 3       // Integer division truncates: 3
+val remainder = 10 % 3       // Use modulo to get what division drops: 1
 ```
 
 ### Boolean Logic

@@ -18,6 +18,7 @@ val x = 42  // Comment after code
 
 Use `/* */` for comments spanning multiple lines:
 
+<!-- panther-check: parse-only -->
 ```panther
 /* This is a multi-line comment
    that spans several lines
@@ -26,15 +27,17 @@ Use `/* */` for comments spanning multiple lines:
 val result = calculateValue()
 ```
 
-## Nested Comments
+## Block Comments Do Not Nest
 
-Multi-line comments can be nested:
+Unlike some languages, Panther block comments do **not** nest. The first `*/` closes the comment, even if it looks like it should close an inner one:
 
 ```panther
-/* Outer comment
-   /* Inner comment */
-   More outer comment */
+/* This block comment
+   ends at the first closing marker */
+val x = 1
 ```
+
+Avoid writing a `/* */` comment inside another `/* */` comment — the outer comment will end early, and whatever follows will be parsed as code.
 
 ## Documentation Comments
 
@@ -46,7 +49,7 @@ While Panther doesn't have special doc comments yet, use a consistent style:
 //   width - the width of the rectangle
 //   height - the height of the rectangle
 // Returns: the calculated area
-def calculateArea(width: float, height: float): float = {
+def calculateArea(width: int, height: int): int = {
     width * height
 }
 ```
@@ -56,29 +59,34 @@ def calculateArea(width: float, height: float): float = {
 ### Do Comment
 
 **Why, not what:**
+<!-- panther-check: parse-only -->
 ```panther
 // Use binary search because the list is sorted
 val index = binarySearch(sortedList, target)
 ```
 
 **Complex algorithms:**
+<!-- panther-check: parse-only -->
 ```panther
 // Implements Dijkstra's shortest path algorithm
-def findShortestPath(graph: Graph, start: Node, end: Node): Path {
+def findShortestPath(graph: Graph, start: Node, end: Node): Path = {
     // Implementation...
 }
 ```
 
 **Non-obvious decisions:**
 ```panther
-// Multiply by 0.621371 to convert kilometers to miles
-val miles = kilometers * 0.621371
+// Multiply by 1000 to convert kilometers to meters
+val kilometers = 5
+val meters = kilometers * 1000
 ```
 
 ### Don't Comment
 
 **Obvious code:**
 ```panther
+var counter = 0
+
 // Bad: comment just repeats the code
 // Increment counter by 1
 counter = counter + 1
@@ -89,6 +97,8 @@ counter = counter + 1
 
 **Outdated information:**
 ```panther
+val value = 10
+
 // Bad: comment doesn't match code
 // Divide by 2
 val result = value * 3  // Comment is wrong!
@@ -115,15 +125,22 @@ def experimentalFeature() {
 
 Mark areas that need work:
 
+<!-- panther-check: parse-only -->
 ```panther
 // TODO: Add error handling
-def processFile(filename: string): Data {
-    return readFile(filename)
+def processFile(filename: string): string = {
+    readFile(filename)
 }
+```
 
+```panther
 // FIXME: This crashes with negative values
-def calculateSquareRoot(n: float): float {
-    return Math.sqrt(n)
+def calculateSquareRoot(n: int): int = {
+    var result = 0
+    while (result * result < n) {
+        result = result + 1
+    }
+    result
 }
 ```
 
@@ -139,8 +156,9 @@ Consider adding headers to files:
  * Date: 2025-12-27
  */
 
-def reverseString(s: string): string {
+def reverseString(s: string): string = {
     // Implementation...
+    s
 }
 ```
 

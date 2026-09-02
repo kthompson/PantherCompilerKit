@@ -22,7 +22,7 @@ val version = 1
 
 // Function calls
 println("Welcome to " + name)
-println("Version: " + version)
+println("Version: " + string(version))
 ```
 
 ## Compiling Your Code

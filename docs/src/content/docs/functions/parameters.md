@@ -22,12 +22,12 @@ greet("Alice")
 Functions can have multiple parameters:
 
 ```panther
-def add(a: int, b: int): int {
-    return a + b
+def add(a: int, b: int): int = {
+    a + b
 }
 
-def introduce(firstName: string, lastName: string, age: int): string {
-    return firstName + " " + lastName + " is " + age + " years old"
+def introduce(firstName: string, lastName: string, age: int): string = {
+    firstName + " " + lastName + " is " + string(age) + " years old"
 }
 
 val result = introduce("John", "Doe", 30)
@@ -38,8 +38,8 @@ val result = introduce("John", "Doe", 30)
 Arguments must be passed in the order parameters are defined:
 
 ```panther
-def divide(numerator: int, denominator: int): int {
-    return numerator / denominator
+def divide(numerator: int, denominator: int): int = {
+    numerator / denominator
 }
 
 val result = divide(10, 2)  // 5
@@ -52,28 +52,34 @@ All parameters must have explicit type annotations:
 
 ```panther
 // Correct
-def square(x: int): int {
-    return x * x
-}
-
-// Error: parameter type required
-def square(x) {  // Error!
-    return x * x
+def square(x: int): int = {
+    x * x
 }
 ```
 
-## Immutable Parameters
+<!-- panther-check: expect-error -->
+```panther
+// Error: parameter type required
+def square(x) = {  // Error!
+    x * x
+}
+```
 
-Parameters are immutable by default:
+## Parameter Reassignment
+
+Parameters are ordinary local bindings, so they can be reassigned inside the function body:
 
 ```panther
 def increment(x: int): int = {
-    x = x + 1  // Error: Cannot reassign parameter
+    x = x + 1  // Allowed - x behaves like a local variable
     x
 }
+```
 
-// Instead, create a new variable
-def increment(x: int): int = {
+Many style guides still prefer introducing a new value instead of mutating a parameter, since it keeps the original argument visible for the rest of the function:
+
+```panther
+def incrementPure(x: int): int = {
     val result = x + 1
     result
 }
@@ -97,41 +103,45 @@ def example(x: int): int = {
 While Panther doesn't have built-in varargs, you can use arrays:
 
 ```panther
-def sum(numbers: Array<int>): int = {
+def sum(numbers: Array[int]): int = {
     var total = 0
-    for (num in numbers) {
-        total = total + num
+    for (i <- 0 to numbers.length - 1) {
+        total = total + numbers(i)
     }
     total
 }
 
-val result = sum([1, 2, 3, 4, 5])  // 15
+val numbers = new Array[int](5)
+numbers(0) = 1
+numbers(1) = 2
+numbers(2) = 3
+numbers(3) = 4
+numbers(4) = 5
+
+val result = sum(numbers)  // 15
 ```
 
 ## Function Parameters
 
-Functions can take other functions as parameters (see [Higher-Order Functions](higher-order-functions)):
-
-```panther
-def applyOperation(x: int, y: int, op: (int, int) => int): int = {
-    op(x, y)
-}
-
-def add(a: int, b: int): int = a + b
-
-val result = applyOperation(5, 3, add)  // 8
-```
+Panther does not yet have function types or lambdas, so a function cannot be declared to take
+another function as a parameter (see [Higher-Order Functions](higher-order-functions) for what
+is and isn't possible today).
 
 ## Common Patterns
 
 ### Validation
 
 ```panther
-def divide(numerator: int, denominator: int): Result<int, string> = {
+enum DivideResult {
+    case Ok(value: int)
+    case Err(message: string)
+}
+
+def divide(numerator: int, denominator: int): DivideResult = {
     if (denominator == 0) {
-        Err("Division by zero")
+        DivideResult.Err("Division by zero")
     } else {
-        Ok(numerator / denominator)
+        DivideResult.Ok(numerator / denominator)
     }
 }
 ```
@@ -139,11 +149,9 @@ def divide(numerator: int, denominator: int): Result<int, string> = {
 ### Transformation
 
 ```panther
-def toUpperCase(text: string): string {
-    // Convert text to uppercase
-}
-
 def double(x: int): int = x * 2
+
+def negate(x: int): int = -x
 ```
 
 ### Predicate Functions
@@ -153,5 +161,5 @@ def isPositive(n: int): bool = n > 0
 
 def isEven(n: int): bool = n % 2 == 0
 
-def isEmpty(text: string): bool = text.length() == 0
+def isEmpty(text: string): bool = text.length == 0
 ```

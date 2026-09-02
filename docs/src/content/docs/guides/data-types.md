@@ -7,37 +7,31 @@ Panther is a statically-typed language with a rich type system. Understanding ty
 
 ## Primitive Types
 
-### Integer Types
+### Integer Type
 
-Panther supports various integer types:
-
-```panther
-val byte: Byte = 127           // 8-bit signed integer (-128 to 127)
-val short: Short = 32767       // 16-bit signed integer
-val int: Int = 2147483647      // 32-bit signed integer (default)
-val long: Long = 9223372036854775807L  // 64-bit signed integer
-```
-
-### Floating-Point Types
+Panther has a single integer type, `int`, a 32-bit signed integer. There is no separate `Byte`, `Short`, or `Long` type, and no numeric literal suffixes:
 
 ```panther
-val float: Float = 3.14f       // 32-bit floating point
-val double: Double = 3.14159   // 64-bit floating point (default)
+val count: int = 2147483647
 ```
+
+### No Floating-Point Type
+
+Panther does not currently have a floating-point type (no `float` or `double`). Numeric computation is done with `int`.
 
 ### Boolean Type
 
 ```panther
-val isTrue: Bool = true
-val isFalse: Bool = false
+val isTrue: bool = true
+val isFalse: bool = false
 ```
 
 ### Character Type
 
 ```panther
-val letter: Char = 'A'
-val digit: Char = '5'
-val symbol: Char = '@'
+val letter: char = 'A'
+val digit: char = '5'
+val symbol: char = '@'
 ```
 
 ## String Type
@@ -45,16 +39,13 @@ val symbol: Char = '@'
 Strings represent sequences of characters:
 
 ```panther
-val message: String = "Hello, Panther!"
-val empty: String = ""
-val multiLine: String = """
-    This is a
-    multi-line
-    string
-"""
+val message: string = "Hello, Panther!"
+val empty: string = ""
 ```
 
 ### String Operations
+
+Panther's `string` type supports concatenation and a `length` field. There is no string interpolation, so build messages with `+` and convert non-string values with `string(...)`:
 
 ```panther
 val greeting = "Hello"
@@ -63,34 +54,32 @@ val name = "World"
 // Concatenation
 val message = greeting + ", " + name + "!"
 
-// Length
-val len = message.length()
+// Length (a field, not a method call)
+val len = message.length
 
-// Substring
-val sub = message.substring(0, 5)
-
-// Character at index
-val char = message.charAt(0)
-
-// String interpolation
-val interpolated = "Hello, ${name}!"
+println(message)
+println("length: " + string(len))
 ```
 
 ## Array Type
 
-Arrays are fixed-size collections of elements:
+Arrays are fixed-size collections created with `new Array[T](size)`. There are no array literals, so elements are assigned individually. Indexing uses parentheses, not brackets:
 
 ```panther
 // Array initialization
-val numbers: Array<Int> = [1, 2, 3, 4, 5]
-val names: Array<String> = ["Alice", "Bob", "Charlie"]
+val numbers = new Array[int](5)
+numbers(0) = 1
+numbers(1) = 2
+numbers(2) = 3
+numbers(3) = 4
+numbers(4) = 5
 
 // Access elements
-val first = numbers[0]
-val second = numbers[1]
+val first = numbers(0)
+val second = numbers(1)
 
 // Modify elements
-numbers[0] = 10
+numbers(0) = 10
 
 // Array length
 val size = numbers.length
@@ -98,162 +87,143 @@ val size = numbers.length
 
 ## List Type
 
-Lists are dynamic collections:
+Panther's standard library has a `List[T]` type, but it is not a language built-in and has to be defined like any other type. It is a classic recursive "cons list": either `Nil` (empty) or `Cons(head, tail)`:
 
 ```panther
-val fruits = List.of("apple", "banana", "cherry")
+enum IntList {
+  case Nil
+  case Cons(head: int, tail: IntList)
+}
 
-// Add elements
-val moreFruits = fruits.add("date")
+val numbers = IntList.Cons(1, IntList.Cons(2, IntList.Cons(3, IntList.Nil)))
 
-// Get element
-val first = fruits.get(0)
+val first = numbers match {
+  case IntList.Cons(head, _) => head
+  case IntList.Nil => 0
+}
 
-// Size
-val count = fruits.size()
-
-// Check if empty
-val isEmpty = fruits.isEmpty()
+println(string(first))
 ```
 
 ## Option Type
 
-The `Option` type represents values that may or may not exist:
+An `Option` type represents values that may or may not exist. Panther has no built-in `Option`, but it is easy to define as a generic enum with two cases:
 
 ```panther
-val some: Option<Int> = Some(42)
-val none: Option<Int> = None
-
-// Pattern matching
-val result = match (some) {
-    Some(value) => value * 2
-    None => 0
+enum Option[in T] {
+  case None
+  case Some(value: T)
 }
 
-// Methods
-val hasValue = some.isSome()
-val hasNoValue = none.isNone()
-val unwrapped = some.getOrElse(0)
+val some: Option[int] = Option.Some(42)
+val none: Option[int] = Option.None
+
+// Pattern matching
+val result = some match {
+  case Option.Some(value) => value
+  case Option.None => 0
+}
+
+println(string(result))
 ```
 
 ## Result Type
 
-The `Result` type represents operations that can succeed or fail:
+A `Result` type represents operations that can succeed or fail. Like `Option`, it is defined with an enum rather than being built into the language:
 
 ```panther
-fun divide(a: Int, b: Int): Result<Int, String> {
-    if (b == 0) {
-        return Err("Division by zero")
-    }
-    return Ok(a / b)
+enum DivideResult {
+  case Ok(value: int)
+  case Err(error: string)
+}
+
+def divide(a: int, b: int): DivideResult = {
+  if (b == 0) {
+    DivideResult.Err("Division by zero")
+  } else {
+    DivideResult.Ok(a / b)
+  }
 }
 
 val result = divide(10, 2)
 
-match (result) {
-    Ok(value) => println("Result: " + value)
-    Err(error) => println("Error: " + error)
+val message = result match {
+  case DivideResult.Ok(value) => "Result: " + string(value)
+  case DivideResult.Err(error) => "Error: " + error
 }
+
+println(message)
 ```
 
-## Tuple Types
+## Grouping Values
 
-Tuples group multiple values together:
+There is no built-in tuple syntax (no `(int, string)` type and no `(1, "a")` literal), but a small class does the same job:
 
 ```panther
-// Pair (2-tuple)
-val pair: (Int, String) = (42, "answer")
-val first = pair._1   // 42
-val second = pair._2  // "answer"
+class Pair[A, B](first: A, second: B)
 
-// Triple (3-tuple)
-val triple: (Int, String, Bool) = (1, "hello", true)
-val a = triple._1
-val b = triple._2
-val c = triple._3
+val pair = new Pair[int, string](42, "answer")
+val first = pair.first    // 42
+val second = pair.second  // "answer"
 ```
 
 ## Custom Types
 
 ### Classes
 
-Define custom data types using classes:
+Define custom data types using classes. Constructor parameters are automatically accessible as fields:
 
 ```panther
-class Person {
-    val name: String
-    val age: Int
-    
-    fun new(name: String, age: Int): Person {
-        this.name = name
-        this.age = age
-    }
-    
-    fun greet(): String {
-        return "Hello, my name is " + name
-    }
+class Person(name: string, age: int) {
+  def greet(): string = "Hello, my name is " + name
 }
 
-val person = Person.new("Alice", 30)
+val person = new Person("Alice", 30)
 println(person.greet())
-```
-
-### Records
-
-Records are immutable data structures:
-
-```panther
-record Point(x: Int, y: Int)
-
-val origin = Point(0, 0)
-val point = Point(10, 20)
-
-// Access fields
-val xCoord = point.x
-val yCoord = point.y
 ```
 
 ### Enums
 
-Enumerations define a type with a fixed set of values:
+Enumerations define a type with a fixed set of values. Each case goes on its own line, and matches must use the qualified name:
 
 ```panther
 enum Color {
-    Red,
-    Green,
-    Blue
+  case Red
+  case Green
+  case Blue
 }
 
 val color: Color = Color.Red
 
-match (color) {
-    Color.Red => println("Red")
-    Color.Green => println("Green")
-    Color.Blue => println("Blue")
+val name = color match {
+  case Color.Red => "Red"
+  case Color.Green => "Green"
+  case Color.Blue => "Blue"
 }
+
+println(name)
 ```
 
-### Discriminated Unions
+### Enums With Data (Discriminated Unions)
 
-Define types with multiple variants:
+There is no separate `union` keyword — an enum case can carry its own fields, which is how Panther expresses discriminated unions:
 
 ```panther
-union Shape {
-    Circle(radius: Float),
-    Rectangle(width: Float, height: Float),
-    Triangle(base: Float, height: Float)
+enum Shape {
+  case Circle(radius: int)
+  case Rectangle(width: int, height: int)
+  case Triangle(base: int, height: int)
 }
 
-fun area(shape: Shape): Float {
-    return match (shape) {
-        Circle(r) => 3.14159 * r * r
-        Rectangle(w, h) => w * h
-        Triangle(b, h) => 0.5 * b * h
-    }
+def area(shape: Shape): int = shape match {
+  case Shape.Circle(r) => r * r * 3
+  case Shape.Rectangle(w, h) => w * h
+  case Shape.Triangle(b, h) => b * h / 2
 }
 
-val circle = Shape.Circle(5.0)
-val area = area(circle)
+val circle = Shape.Circle(5)
+val circleArea = area(circle)
+println(string(circleArea))
 ```
 
 ## Type Inference
@@ -261,110 +231,65 @@ val area = area(circle)
 Panther can infer types automatically:
 
 ```panther
-// Type is inferred as Int
+// Type is inferred as int
 val number = 42
 
-// Type is inferred as String
+// Type is inferred as string
 val text = "hello"
 
-// Type is inferred as List<Int>
-val numbers = [1, 2, 3]
-
 // Type is inferred from function return type
-fun getAge(): Int = 25
-val age = getAge()  // age is Int
+def getAge(): int = 25
+val age = getAge()  // age is int
 ```
 
 ## Generic Types
 
-Create reusable types with type parameters:
+Create reusable types with type parameters, written in square brackets:
 
 ```panther
-class Box<T> {
-    val value: T
-    
-    fun new(value: T): Box<T> {
-        this.value = value
-    }
-    
-    fun get(): T {
-        return value
-    }
+class Box[T](value: T) {
+  def get(): T = value
 }
 
-val intBox = Box.new(42)
-val stringBox = Box.new("hello")
+val intBox = new Box[int](42)
+val stringBox = new Box[string]("hello")
+
+println(string(intBox.get()))
+println(stringBox.get())
 ```
 
-## Type Aliases
+## Type Checking and Casting
 
-Create alternative names for types:
-
-```panther
-type UserId = Int
-type UserName = String
-type Coordinate = (Float, Float)
-
-val id: UserId = 12345
-val name: UserName = "Alice"
-val position: Coordinate = (10.5, 20.3)
-```
-
-## Nullable Types
-
-Explicitly handle nullable values:
+Panther has `is` for runtime type checks and `as` for casts:
 
 ```panther
-// Non-nullable (default)
-val name: String = "Alice"
+val value: any = "hello"
 
-// Nullable
-val optionalName: String? = null
-
-// Safe navigation
-val length = optionalName?.length()
-
-// Elvis operator
-val len = optionalName?.length() ?: 0
-
-// Null check
-if (optionalName != null) {
-    // Smart cast: optionalName is String here
-    println(optionalName.length())
-}
-```
-
-## Type Casting
-
-Convert between types:
-
-```panther
-// Implicit conversion (when safe)
-val int: Int = 42
-val long: Long = int  // Int automatically widens to Long
-
-// Explicit conversion
-val double: Double = int.toDouble()
-val string: String = int.toString()
-
-// Type checking
-if (value is String) {
-    // value is automatically cast to String
-    println(value.length())
+if (value is string) {
+    println("it is a string")
 }
 
-// As operator
-val text = value as String
+val text = value as string
+println(text)
+```
+
+Convert between primitive types with the `string(...)` and `int(...)` conversion functions rather than `.toString()`/`.toDouble()` style methods:
+
+```panther
+val n: int = 42
+val asText: string = string(n)   // Explicit conversion to string
+val backToInt: int = int(asText) // Explicit conversion back to int
 ```
 
 ## Best Practices
 
 1. **Use type inference** - Let the compiler infer types when obvious
 2. **Prefer immutability** - Use `val` over `var` when possible
-3. **Use Option and Result** - Avoid null when representing absence or failure
-4. **Leverage pattern matching** - Destructure complex types safely
-5. **Keep types simple** - Avoid deeply nested generic types
-6. **Use type aliases** - Make domain types more expressive
+3. **Use Option and Result-shaped enums** - Model absence or failure instead of relying on `null`
+4. **Leverage pattern matching** - Destructure enum and class values safely
+5. **Keep types simple** - Deeply generic types can run into inference limits (see note below)
+
+> **Note:** The examples above that involve generics keep to a single type parameter used directly, because the current compiler's type inference for generics defined and used within one small snippet is limited — passing a generic value through a second generic function, or using two type parameters at once, can fail to infer correctly even when the shapes match. Panther's real standard library (`Option`, `List`, `Result`-like types) is generic; these gaps mostly show up when writing small, self-contained generic code rather than in the full compiler build.
 
 ## Next Steps
 

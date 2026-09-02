@@ -31,10 +31,9 @@ count = count + 1
 While Panther has type inference, you can explicitly specify types:
 
 ```panther
-val name: String = "Panther"
-val age: Int = 42
-val price: Float = 99.99
-val isActive: Bool = true
+val name: string = "Panther"
+val age: int = 42
+val isActive: bool = true
 ```
 
 ## Comments
@@ -85,7 +84,7 @@ Panther provides built-in string manipulation:
 
 ```panther
 val greeting = "Hello, " + "World!"  // String concatenation
-val length = greeting.length()       // Get string length
+val len = greeting.length            // Get string length
 ```
 
 ## Output
