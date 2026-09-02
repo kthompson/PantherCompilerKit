@@ -26,7 +26,7 @@ The condition is checked before each iteration:
 ```panther
 var i = 0
 while (i < 3) {
-    println("Iteration: " + i)
+    println("Iteration: " + string(i))
     i = i + 1
 }
 ```
@@ -49,98 +49,64 @@ var running = true
 var attempts = 0
 
 while (running) {
-    val input = readLine()
-    
-    if (input == "quit") {
-        running = false
-    }
-    
+    // ... do some work here ...
+
     attempts = attempts + 1
-    
+
+    // Always include a way out, in case the expected condition never arrives
     if (attempts > 100) {
         running = false
     }
 }
+
+println("Stopped after " + string(attempts) + " attempts")
 ```
 
 ## For Loops
 
-Iterate over ranges and collections.
+Panther's `for` loop counts a variable across an integer range. There is no `for (x in xs)` collection syntax — to visit every element of an array, loop over its indices instead.
 
 ### Range-Based For Loops
 
-Iterate from a start value to an end value:
+The loop variable counts from a start value up to (and including) an end value:
 
 ```panther
-// Inclusive range (0 to 5)
-for (i in 0..5) {
-    println(i)
+for (i <- 0 to 5) {
+    println(string(i))
 }
 // Prints: 0, 1, 2, 3, 4, 5
-
-// Exclusive range (0 to 4)
-for (i in 0..<5) {
-    println(i)
-}
-// Prints: 0, 1, 2, 3, 4
 ```
 
-### Step Ranges
-
-Iterate with a custom step:
-
-```panther
-// Count by twos
-for (i in 0..10 step 2) {
-    println(i)
-}
-// Prints: 0, 2, 4, 6, 8, 10
-
-// Count by fives
-for (i in 0..50 step 5) {
-    println(i)
-}
-// Prints: 0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50
-```
-
-### Descending Ranges
-
-Iterate backwards:
-
-```panther
-for (i in 10 downTo 0) {
-    println(i)
-}
-// Prints: 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0
-
-for (i in 5 downTo 1 step 2) {
-    println(i)
-}
-// Prints: 5, 3, 1
-```
+The range is always inclusive on both ends, and always counts upward by one — there is no `step`, `downTo`, or exclusive-range syntax. To count downward or skip values, use a `while` loop instead (see below).
 
 ## Collection Iteration
 
-Iterate over arrays and lists:
+Arrays don't support a `for (x in xs)` form. Iterate by index instead, using `.length` for the bound:
 
 ```panther
-val fruits = ["apple", "banana", "cherry"]
+val fruits = new Array[string](3)
+fruits(0) = "apple"
+fruits(1) = "banana"
+fruits(2) = "cherry"
 
-for (fruit in fruits) {
-    println(fruit)
+for (i <- 0 to (fruits.length - 1)) {
+    println(fruits(i))
 }
 // Prints: apple, banana, cherry
 ```
 
 ### With Index
 
-Access both the element and its index:
+Since you're already looping by index, the index is available for free — no separate `withIndex()` call is needed:
 
 ```panther
-val colors = ["red", "green", "blue"]
+val colors = new Array[string](3)
+colors(0) = "red"
+colors(1) = "green"
+colors(2) = "blue"
 
-for ((index, color) in colors.withIndex()) {
-    println(index + ": " + color)
+for (index <- 0 to (colors.length - 1)) {
+    println(string(index) + ": " + colors(index))
 }
 // Prints: 0: red, 1: green, 2: blue
 ```
@@ -150,9 +116,9 @@ for ((index, color) in colors.withIndex()) {
 Loops can be nested inside other loops:
 
 ```panther
-for (i in 1..3) {
-    for (j in 1..3) {
-        println("i=" + i + ", j=" + j)
+for (i <- 1 to 3) {
+    for (j <- 1 to 3) {
+        println("i=" + string(i) + ", j=" + string(j))
     }
 }
 ```
@@ -160,10 +126,10 @@ for (i in 1..3) {
 Create multiplication tables:
 
 ```panther
-for (i in 1..10) {
-    for (j in 1..10) {
+for (i <- 1 to 10) {
+    for (j <- 1 to 10) {
         val product = i * j
-        print(product + "\t")
+        print(string(product) + "\t")
     }
     println("")
 }
@@ -177,24 +143,31 @@ Sum values in a loop:
 
 ```panther
 var sum = 0
-for (i in 1..10) {
+for (i <- 1 to 10) {
     sum = sum + i
 }
-println("Sum: " + sum)  // Sum: 55
+println("Sum: " + string(sum))  // Sum: 55
 ```
 
 ### Finding Maximum
 
 ```panther
-val numbers = [3, 7, 2, 9, 1, 5]
-var max = numbers[0]
+val numbers = new Array[int](6)
+numbers(0) = 3
+numbers(1) = 7
+numbers(2) = 2
+numbers(3) = 9
+numbers(4) = 1
+numbers(5) = 5
 
-for (num in numbers) {
-    if (num > max) {
-        max = num
+var max = numbers(0)
+
+for (i <- 0 to (numbers.length - 1)) {
+    if (numbers(i) > max) {
+        max = numbers(i)
     }
 }
-println("Maximum: " + max)  // Maximum: 9
+println("Maximum: " + string(max))  // Maximum: 9
 ```
 
 ### Counting
@@ -202,42 +175,60 @@ println("Maximum: " + max)  // Maximum: 9
 Count elements that match a condition:
 
 ```panther
-val values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-var evenCount = 0
+val values = new Array[int](10)
+for (i <- 0 to (values.length - 1)) {
+    values(i) = i + 1
+}
 
-for (value in values) {
-    if (value % 2 == 0) {
+var evenCount = 0
+for (i <- 0 to (values.length - 1)) {
+    if (values(i) % 2 == 0) {
         evenCount = evenCount + 1
     }
 }
-println("Even numbers: " + evenCount)  // Even numbers: 5
+println("Even numbers: " + string(evenCount))  // Even numbers: 5
 ```
 
 ### Building Collections
 
-Create a new collection based on existing data:
+Arrays are fixed-size, so "building" one means allocating a same-sized array up front and filling it in a loop:
 
 ```panther
-val numbers = [1, 2, 3, 4, 5]
-val doubled = []
+val numbers = new Array[int](5)
+for (i <- 0 to (numbers.length - 1)) {
+    numbers(i) = i + 1
+}
 
-for (num in numbers) {
-    doubled.add(num * 2)
+val doubled = new Array[int](numbers.length)
+for (i <- 0 to (numbers.length - 1)) {
+    doubled(i) = numbers(i) * 2
 }
 // doubled is [2, 4, 6, 8, 10]
 ```
 
 ### Filtering
 
-Select elements that match criteria:
+To select only matching elements, count the matches first, then allocate a result array of exactly that size:
 
 ```panther
-val values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-val evens = []
+val values = new Array[int](10)
+for (i <- 0 to (values.length - 1)) {
+    values(i) = i + 1
+}
 
-for (value in values) {
-    if (value % 2 == 0) {
-        evens.add(value)
+var evenCount = 0
+for (i <- 0 to (values.length - 1)) {
+    if (values(i) % 2 == 0) {
+        evenCount = evenCount + 1
+    }
+}
+
+val evens = new Array[int](evenCount)
+var evenIndex = 0
+for (i <- 0 to (values.length - 1)) {
+    if (values(i) % 2 == 0) {
+        evens(evenIndex) = values(i)
+        evenIndex = evenIndex + 1
     }
 }
 // evens is [2, 4, 6, 8, 10]
@@ -248,23 +239,26 @@ for (value in values) {
 **Use while when:**
 - The number of iterations is unknown
 - Looping until a condition changes
-- Reading input until a sentinel value
+- Counting downward or by a custom step (`for` only counts up by one)
 
 ```panther
-var input = ""
-while (input != "quit") {
-    input = readLine()
-    processInput(input)
+var count = 10
+while (count > 0) {
+    println(string(count))
+    count = count - 1
 }
+println("Liftoff!")
 ```
 
 **Use for when:**
 - Iterating a specific number of times
-- Processing collections
-- Working with ranges
+- Processing an array by index
+- Working with a simple ascending range
 
 ```panther
-for (i in 0..10) {
+def processValue(value: int): unit = println(string(value))
+
+for (i <- 0 to 10) {
     processValue(i)
 }
 ```
@@ -273,9 +267,13 @@ for (i in 0..10) {
 
 ### Countdown
 
+`for` only counts upward, so a countdown uses `while`:
+
 ```panther
-for (i in 10 downTo 1) {
-    println(i)
+var i = 10
+while (i >= 1) {
+    println(string(i))
+    i = i - 1
 }
 println("Liftoff!")
 ```
@@ -283,23 +281,33 @@ println("Liftoff!")
 ### Processing Pairs
 
 ```panther
-val names = ["Alice", "Bob", "Charlie"]
-val scores = [95, 87, 92]
+val names = new Array[string](3)
+names(0) = "Alice"
+names(1) = "Bob"
+names(2) = "Charlie"
 
-for (i in 0..<names.length()) {
-    println(names[i] + ": " + scores[i])
+val scores = new Array[int](3)
+scores(0) = 95
+scores(1) = 87
+scores(2) = 92
+
+for (i <- 0 to (names.length - 1)) {
+    println(names(i) + ": " + string(scores(i)))
 }
 ```
 
 ### Sliding Window
 
 ```panther
-val numbers = [1, 2, 3, 4, 5]
+val numbers = new Array[int](5)
+for (i <- 0 to (numbers.length - 1)) {
+    numbers(i) = i + 1
+}
 
-for (i in 0..<numbers.length() - 1) {
-    val current = numbers[i]
-    val next = numbers[i + 1]
-    println(current + " -> " + next)
+for (i <- 0 to (numbers.length - 2)) {
+    val current = numbers(i)
+    val next = numbers(i + 1)
+    println(string(current) + " -> " + string(next))
 }
 ```
 
@@ -309,10 +317,10 @@ for (i in 0..<numbers.length() - 1) {
 val rows = 3
 val cols = 4
 
-for (row in 0..<rows) {
-    for (col in 0..<cols) {
+for (row <- 0 to (rows - 1)) {
+    for (col <- 0 to (cols - 1)) {
         val index = row * cols + col
-        println("Cell[" + row + "][" + col + "] = " + index)
+        println("Cell[" + string(row) + "][" + string(col) + "] = " + string(index))
     }
 }
 ```
@@ -322,23 +330,18 @@ for (row in 0..<rows) {
 Loop variables are scoped to the loop:
 
 ```panther
-for (i in 0..5) {
-    println(i)
+for (i <- 0 to 5) {
+    println(string(i))
 }
 // i is not accessible here
-
-for (item in collection) {
-    println(item)
-}
-// item is not accessible here
 ```
 
 ## Empty Loops
 
-Loops with no iterations are valid:
+Loops with no iterations are valid — a range that starts above where it ends simply never runs:
 
 ```panther
-for (i in 5..<5) {
+for (i <- 5 to 4) {
     println("Never executes")
 }
 

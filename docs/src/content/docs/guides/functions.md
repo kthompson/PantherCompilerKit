@@ -7,12 +7,10 @@ Functions are the building blocks of Panther programs. They allow you to organiz
 
 ## Function Declaration
 
-Define a function using the `fun` keyword:
+Define a function using the `def` keyword:
 
 ```panther
-fun greet(name: String): String {
-    return "Hello, " + name + "!"
-}
+def greet(name: string): string = "Hello, " + name + "!"
 
 val message = greet("World")
 println(message)  // Prints: Hello, World!
@@ -23,9 +21,9 @@ println(message)  // Prints: Hello, World!
 The general syntax for functions:
 
 ```panther
-fun functionName(param1: Type1, param2: Type2): ReturnType {
-    // function body
-    return value
+def functionName(param1: int, param2: string): bool = {
+  // function body — the last expression is the result
+  param1 > 0
 }
 ```
 
@@ -34,123 +32,100 @@ fun functionName(param1: Type1, param2: Type2): ReturnType {
 Functions can take multiple parameters:
 
 ```panther
-fun add(a: Int, b: Int): Int {
-    return a + b
-}
+def add(a: int, b: int): int = a + b
 
-fun introduce(firstName: String, lastName: String, age: Int): String {
-    return firstName + " " + lastName + " is " + age + " years old"
-}
+def introduce(firstName: string, lastName: string, age: int): string =
+  firstName + " " + lastName + " is " + string(age) + " years old"
 ```
 
-## Return Types
+Note the `string(age)` conversion. Panther has no automatic conversion from
+`int` to `string`, so concatenating a number requires it explicitly.
 
-### Explicit Return
+## Return Values
 
-Use the `return` keyword to return a value:
+Panther has no `return` keyword. A function's value is its body — for a block
+body, the last expression:
 
 ```panther
-fun multiply(x: Int, y: Int): Int {
-    return x * y
+def multiply(x: int, y: int): int = x * y
+
+def describe(n: int): string = {
+  val doubled = n * 2
+  "twice " + string(n) + " is " + string(doubled)
 }
 ```
 
 ### Unit Functions
 
-Functions that don't return a value have a `Unit` return type (similar to `void` in other languages):
+Functions that do not produce a value have the `unit` return type, the
+equivalent of `void` in other languages:
 
 ```panther
-fun printMessage(message: String): Unit {
-    println(message)
-}
+def printMessage(message: string): unit = println(message)
 
-// Unit can be omitted
-fun printNumber(n: Int) {
-    println(n)
-}
+def printNumber(n: int): unit = println(string(n))
 ```
 
 ## Expression Bodies
 
-For simple functions, you can use expression syntax:
+Simple functions read well as a single expression:
 
 ```panther
-fun square(x: Int): Int = x * x
+def square(x: int): int = x * x
 
-fun isEven(n: Int): Bool = n % 2 == 0
+def isEven(n: int): bool = n % 2 == 0
 
-fun max(a: Int, b: Int): Int = if (a > b) a else b
+def max(a: int, b: int): int = if (a > b) a else b
 ```
 
-## Local Functions
-
-Functions can be nested inside other functions:
-
-```panther
-fun outer(x: Int): Int {
-    fun inner(y: Int): Int {
-        return y * 2
-    }
-    
-    return inner(x) + 1
-}
-```
+`if` is an expression in Panther, so it can be a function body directly.
 
 ## Recursion
 
 Panther supports recursive functions:
 
 ```panther
-fun factorial(n: Int): Int {
-    if (n <= 1) {
-        return 1
-    }
-    return n * factorial(n - 1)
-}
+def factorial(n: int): int = if (n <= 1) 1 else n * factorial(n - 1)
 
-fun fibonacci(n: Int): Int {
-    if (n <= 1) {
-        return n
-    }
-    return fibonacci(n - 1) + fibonacci(n - 2)
-}
+def fibonacci(n: int): int =
+  if (n <= 1) n else fibonacci(n - 1) + fibonacci(n - 2)
+
+println(string(factorial(5)))   // Prints: 120
+println(string(fibonacci(10)))  // Prints: 55
 ```
 
-## Higher-Order Functions
+Recursion is the main tool for iteration over recursive data, since Panther's
+`for` loop only counts over a numeric range.
 
-Functions can take other functions as parameters:
+## Not yet supported
+
+Three things that functions in other languages have, and Panther does not yet:
+
+**Nested functions.** A `def` cannot appear inside another function's body.
+Declare helpers at the top level instead:
 
 ```panther
-fun applyTwice(f: (Int) => Int, x: Int): Int {
-    return f(f(x))
-}
+def double(y: int): int = y * 2
 
-fun increment(x: Int): Int = x + 1
-
-val result = applyTwice(increment, 5)  // Returns 7
+def outer(x: int): int = double(x) + 1
 ```
 
-## Anonymous Functions (Lambdas)
+**Function-typed parameters.** There is no way to declare a parameter that
+takes a function, so higher-order functions cannot be written yet.
 
-Define functions inline without a name:
+**Anonymous functions.** There are no lambdas — `(x: int) => x * 2` does not
+parse.
 
-```panther
-val double = (x: Int) => x * 2
+All three are tracked in the repository's `ROADMAP.md`.
 
-val sum = (a: Int, b: Int) => a + b
+## Calling Methods
 
-// Use with higher-order functions
-val result = applyTwice((x: Int) => x * 2, 3)  // Returns 12
-```
-
-## Method Calls
-
-Functions can be called on objects using dot notation:
+Methods are called with dot notation. Note that `length` on a `string` is a
+field, not a method, so it takes no parentheses:
 
 ```panther
 val text = "hello"
-val upper = text.toUpperCase()
-val length = text.length()
+println(string(text.length))  // Prints: 5
 ```
 
 ## Best Practices

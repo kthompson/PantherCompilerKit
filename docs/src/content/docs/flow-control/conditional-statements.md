@@ -56,8 +56,11 @@ if (score >= 90) {
 In Panther, `if` is an expression that returns a value:
 
 ```panther
+val a = 10
+val b = 20
 val max = if (a > b) a else b
 
+val isActive = true
 val status = if (isActive) {
     "active"
 } else {
@@ -91,6 +94,11 @@ if (x > 0) {
 Each branch can contain multiple expressions:
 
 ```panther
+def computeValue(): int = 21
+def getDefault(): int = 0
+
+val condition = true
+
 val result = if (condition) {
     val temp = computeValue()
     val adjusted = temp * 2
@@ -149,14 +157,20 @@ if (!hasLicense) {
 Logical operators use short-circuit evaluation:
 
 ```panther
+val numerator = 10
+val denominator = 2
+
 // If first is false, second is not evaluated
 if (denominator != 0 && numerator / denominator > 1) {
     println("Safe division")
 }
 
+val useDefault = true
+val value = ""
+
 // If first is true, second is not evaluated
-if (value == null || value.length() > 0) {
-    println("Valid or null")
+if (useDefault || value.length > 0) {
+    println("Using default or value is non-empty")
 }
 ```
 
@@ -195,7 +209,7 @@ def processValue(value: int): string = {
     } else if (value > 100) {
         "Invalid: too large"
     } else {
-        "Valid: " + value
+        "Valid: " + string(value)
     }
 }
 ```
@@ -220,11 +234,16 @@ if (isValid && isComplete) {
 Since if is an expression, you can use it anywhere a value is expected:
 
 ```panther
+val isDebug = true
+
 // As a function argument
 println(if (isDebug) "Debug mode" else "Production mode")
 
-// In calculations
-val discount = basePrice * if (isMember) 0.1 else 0
+val basePrice = 100
+val isMember = true
+
+// In calculations (a flat member discount, since there is no float type)
+val discount = basePrice * if (isMember) 10 else 0
 ```
 
 ## Exhaustive Conditions
@@ -232,6 +251,8 @@ val discount = basePrice * if (isMember) 0.1 else 0
 Ensure all cases are covered:
 
 ```panther
+val age = 30
+
 // Good: all cases covered
 val category = if (age < 13) {
     "child"
@@ -242,6 +263,8 @@ val category = if (age < 13) {
 } else {
     "senior"
 }
+
+val condition = true
 
 // Each branch must return the same type
 val result: int = if (condition) {

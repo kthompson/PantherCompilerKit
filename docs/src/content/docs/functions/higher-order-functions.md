@@ -1,275 +1,166 @@
 ---
 title: Higher-Order Functions
-description: Functions as first-class values in Panther
+description: Where Panther stands on functions as values, and what to use instead
 ---
 
-Higher-order functions are functions that take other functions as parameters or return functions as results. This enables powerful abstraction and code reuse.
+A higher-order function is one that takes another function as an argument or
+returns one. **Panther does not support this yet.** There is no way to write a
+parameter whose type is a function, and there are no anonymous functions.
 
-## Functions as Parameters
+This page records the intended design and, more usefully, shows what to write
+today instead.
 
-Pass functions to other functions:
+## What is not implemented
 
+Neither of these parses:
+
+<!-- panther-check: skip reason="function-typed parameters are not implemented" -->
 ```panther
-def applyOperation(x: int, y: int, op: (int, int) => int): int = {
-    op(x, y)
-}
-
-def add(a: int, b: int): int = a + b
-def multiply(a: int, b: int): int = a * b
-
-val sum = applyOperation(5, 3, add)       // 8
-val product = applyOperation(5, 3, multiply)  // 15
+def applyTwice(f: (int) -> int, x: int): int = f(f(x))
 ```
 
-## Function Type Syntax
-
-Function types are written as `(ParamTypes) => ReturnType`:
-
-```panther
-// Takes int, returns int
-val f: (int) => int
-
-// Takes two ints, returns int
-val g: (int, int) => int
-
-// Takes string, returns bool
-val h: (string) => bool
-
-// Takes no parameters, returns unit
-val i: () => unit
-```
-
-## Lambda Expressions
-
-Create anonymous functions inline:
-
+<!-- panther-check: skip reason="lambdas are not implemented" -->
 ```panther
 val double = (x: int) => x * 2
-
-val sum = (a: int, b: int) => a + b
-
-val greet = (name: string) => "Hello, " + name
 ```
 
-Use lambdas with higher-order functions:
+The parser rejects the first at the parameter's opening parenthesis, and the
+second at `=>`. Because function values do not exist, none of the usual
+building blocks — `map`, `filter`, `reduce`, function composition, currying,
+partial application, closures — can be expressed. Nested functions are not
+supported either: a `def` cannot appear inside another function's body.
+
+## What to write instead
+
+### Named functions at the top level
+
+Give the operation a name and call it directly. This covers most cases where a
+lambda would otherwise be passed inline:
 
 ```panther
-val result = applyOperation(5, 3, (a: int, b: int) => a * a + b * b)
+def double(x: int): int = x * 2
+
+def applyToRange(limit: int): unit = {
+  for (i <- 0 to limit) {
+    println(string(double(i)))
+  }
+}
+
+applyToRange(4)
 ```
 
-## Type Inference in Lambdas
+### Generic functions
 
-Parameter types can often be inferred:
+Generics do work, so a function can be written once and used at several types:
 
 ```panther
-def applyTwice(f: (int) => int, x: int): int = {
-    f(f(x))
-}
+def identity[T](x: T): T = x
 
-// Type inferred from context
-val result = applyTwice((x) => x + 1, 5)  // 7
+println(string(identity(42)))
+println(identity("hello"))
 ```
 
-## Returning Functions
+### Transforming an array
 
-Functions can return other functions:
+Where another language would write `map`, walk the array by index and build a
+new one:
 
 ```panther
-def makeMultiplier(factor: int): (int) => int = {
-    (x: int) => x * factor
+val source = new Array[int](4)
+source(0) = 1
+source(1) = 2
+source(2) = 3
+source(3) = 4
+
+val doubled = new Array[int](source.length)
+for (i <- 0 to (source.length - 1)) {
+  doubled(i) = source(i) * 2
 }
 
-val double = makeMultiplier(2)
-val triple = makeMultiplier(3)
-
-println(double(5))  // 10
-println(triple(5))  // 15
+for (i <- 0 to (doubled.length - 1)) {
+  println(string(doubled(i)))
+}
 ```
 
-## Closures
+### Filtering
 
-Returned functions can capture variables from their enclosing scope:
+Without function values, filtering is a two-pass job: count the matches, then
+allocate and fill.
 
 ```panther
-def makeCounter(): () => int = {
-    var count = 0
-    
-    () => {
-        count = count + 1
-        count
-    }
+val values = new Array[int](5)
+values(0) = 1
+values(1) = 2
+values(2) = 3
+values(3) = 4
+values(4) = 5
+
+var matches = 0
+for (i <- 0 to (values.length - 1)) {
+  if (values(i) % 2 == 0) {
+    matches = matches + 1
+  }
 }
 
-val counter = makeCounter()
-println(counter())  // 1
-println(counter())  // 2
-println(counter())  // 3
+val evens = new Array[int](matches)
+var next = 0
+for (i <- 0 to (values.length - 1)) {
+  if (values(i) % 2 == 0) {
+    evens(next) = values(i)
+    next = next + 1
+  }
+}
+
+println("found " + string(matches) + " even numbers")
 ```
 
-## Common Higher-Order Functions
+### Reducing
 
-### Map
-
-Transform each element of a collection:
+An accumulator in a loop replaces `reduce`:
 
 ```panther
-def map<T, R>(list: List<T>, f: (T) => R): List<R> = {
-    val result = []
-    for (item in list) {
-        result.add(f(item))
-    }
-    result
+val numbers = new Array[int](4)
+numbers(0) = 10
+numbers(1) = 20
+numbers(2) = 30
+numbers(3) = 40
+
+var total = 0
+for (i <- 0 to (numbers.length - 1)) {
+  total = total + numbers(i)
 }
 
-val numbers = [1, 2, 3, 4, 5]
-val doubled = map(numbers, (x) => x * 2)  // [2, 4, 6, 8, 10]
+println("sum: " + string(total))
 ```
 
-### Filter
+### Choosing behaviour at runtime
 
-Select elements that match a predicate:
+Where another language would pass a strategy function, use an `enum` and
+`match`. This is the closest thing Panther has to dispatching on behaviour:
 
 ```panther
-def filter<T>(list: List<T>, predicate: (T) => bool): List<T> = {
-    val result = []
-    for (item in list) {
-        if (predicate(item)) {
-            result.add(item)
-        }
-    }
-    result
+enum Operation {
+  case Add
+  case Multiply
+  case Max
 }
 
-val numbers = [1, 2, 3, 4, 5, 6]
-val evens = filter(numbers, (x) => x % 2 == 0)  // [2, 4, 6]
+def apply(op: Operation, a: int, b: int): int = op match {
+  case Operation.Add      => a + b
+  case Operation.Multiply => a * b
+  case Operation.Max      => if (a > b) a else b
+}
+
+println(string(apply(Operation.Add, 3, 4)))
+println(string(apply(Operation.Multiply, 3, 4)))
+println(string(apply(Operation.Max, 3, 4)))
 ```
 
-### Reduce
+The enum is closed, so unlike a function parameter it cannot be extended by a
+caller — but it is checked exhaustively and it works today.
 
-Combine all elements into a single value:
+## Next Steps
 
-```panther
-def reduce<T>(list: List<T>, initial: T, f: (T, T) => T): T = {
-    var result = initial
-    for (item in list) {
-        result = f(result, item)
-    }
-    result
-}
-
-val numbers = [1, 2, 3, 4, 5]
-val sum = reduce(numbers, 0, (acc, x) => acc + x)  // 15
-```
-
-## Function Composition
-
-Combine functions to create new functions:
-
-```panther
-def compose<A, B, C>(f: (B) => C, g: (A) => B): (A) => C = {
-    (x: A) => f(g(x))
-}
-
-val addOne = (x: int) => x + 1
-val double = (x: int) => x * 2
-
-val addOneThenDouble = compose(double, addOne)
-println(addOneThenDouble(5))  // 12 (5 + 1 = 6, 6 * 2 = 12)
-```
-
-## Currying
-
-Transform a multi-parameter function into a series of single-parameter functions:
-
-```panther
-def add(a: int): (int) => int = {
-    (b: int) => a + b
-}
-
-val add5 = add(5)
-println(add5(3))  // 8
-println(add5(10)) // 15
-```
-
-## Partial Application
-
-Create new functions by fixing some arguments:
-
-```panther
-def makeAdder(x: int): (int) => int = {
-    (y: int) => x + y
-}
-
-def makeMultiplier(factor: int): (int) => int = {
-    (n: int) => n * factor
-}
-
-val add10 = makeAdder(10)
-val triple = makeMultiplier(3)
-
-println(add10(5))   // 15
-println(triple(4))  // 12
-```
-
-## Predicates
-
-Functions that return boolean values:
-
-```panther
-def any<T>(list: List<T>, predicate: (T) => bool): bool = {
-    for (item in list) {
-        if (predicate(item)) {
-            true  // Found a match
-        }
-    }
-    false  // No matches found
-}
-
-def all<T>(list: List<T>, predicate: (T) => bool): bool = {
-    for (item in list) {
-        if (!predicate(item)) {
-            false  // Found non-match
-        }
-    }
-    true  // All match
-}
-
-val numbers = [1, 2, 3, 4, 5]
-val hasEven = any(numbers, (x) => x % 2 == 0)    // true
-val allPositive = all(numbers, (x) => x > 0)     // true
-```
-
-## Common Patterns
-
-### Chaining Operations
-
-```panther
-val result = numbers
-    .map((x) => x * 2)
-    .filter((x) => x > 10)
-    .reduce(0, (acc, x) => acc + x)
-```
-
-### Event Handlers
-
-```panther
-def onClick(handler: () => unit): unit = {
-    // Register the handler
-}
-
-onClick(() => println("Button clicked!"))
-```
-
-### Strategy Pattern
-
-```panther
-def processData(data: Data, strategy: (Data) => Result): Result = {
-    strategy(data)
-}
-
-val fastStrategy = (data: Data) => quickProcess(data)
-val thoroughStrategy = (data: Data) => deepProcess(data)
-
-val result1 = processData(data, fastStrategy)
-val result2 = processData(data, thoroughStrategy)
-```
+- [Defining Functions](defining-functions) - Function declaration syntax
+- [Parameters](parameters) - Passing values into functions
+- [Return Values](return-values) - What a function produces

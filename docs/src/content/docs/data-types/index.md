@@ -17,8 +17,10 @@ Explore Panther's type system:
 ## Quick Example
 
 ```panther
-val name: String = "Panther"
-val age: Int = 42
-val scores: Array<Int> = [95, 87, 92]
-val user: Option<User> = Some(currentUser)
+val name: string = "Panther"
+val age: int = 42
+val scores: Array[int] = new Array[int](3)
+scores(0) = 95
+scores(1) = 87
+scores(2) = 92
 ```

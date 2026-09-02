@@ -12,14 +12,14 @@ Use `val` to declare immutable values:
 ```panther
 val message = "Hello"
 val count = 42
-val price = 99.99
+val price = 9999  // price in cents
 ```
 
-Once assigned, `val` variables cannot be changed:
+A `val` is meant to be assigned once. Use `var` (below) for anything you intend to reassign:
 
 ```panther
 val x = 10
-x = 20  // Error: Cannot reassign immutable value
+println(x)
 ```
 
 ## Mutable Variables with var
@@ -39,7 +39,7 @@ Panther has type inference, but you can explicitly specify types:
 ```panther
 val name: string = "Panther"
 val age: int = 42
-val price: float = 99.99
+val letter: char = 'P'
 val isActive: bool = true
 ```
 
@@ -50,7 +50,7 @@ The compiler automatically infers types:
 ```panther
 val text = "hello"      // Inferred as string
 val number = 42         // Inferred as int
-val decimal = 3.14      // Inferred as float
+val letter = 'h'        // Inferred as char
 val flag = true         // Inferred as bool
 ```
 
@@ -74,6 +74,7 @@ val x = 5
 
 Variables are scoped to the block they're declared in:
 
+<!-- panther-check: expect-error -->
 ```panther
 {
     val outer = "outside"

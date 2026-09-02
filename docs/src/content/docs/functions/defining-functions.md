@@ -10,9 +10,9 @@ Functions encapsulate reusable blocks of code.
 Define a function using the `def` keyword:
 
 ```panther
-def functionName(param1: Type1, param2: Type2): ReturnType = {
+def functionName(param1: int, param2: string): bool = {
     // function body
-    value  // Last expression is returned
+    param1 > 0  // Last expression is returned
 }
 ```
 
@@ -88,35 +88,27 @@ def printNumber(n: int) = {
 }
 ```
 
-## Local Functions (future)
+## Local Functions (not supported)
 
-Define functions inside other functions:
+Panther does not currently support defining a function inside another function's body — `def`
+is only valid at the top level or as a class/object member. To split logic the way a nested
+helper would in other languages, define a second top-level function instead:
 
 ```panther
+def double(y: int): int = {
+    y * 2
+}
+
 def outer(x: int): int = {
-    def inner(y: int): int = {
-        y * 2
-    }
-    
-    inner(x) + 1
+    double(x) + 1
 }
 
 val result = outer(5)  // 11
 ```
 
-Local functions can access variables from the enclosing scope:
-
-```panther
-def makeAdder(n: int): (int) => int = {
-    def add(x: int): int = {
-        x + n  // Accesses n from outer scope
-    }
-    add
-}
-
-val add5 = makeAdder(5)
-val result = add5(10)  // 15
-```
+Because Panther has no function types or lambdas (see [Higher-Order Functions](higher-order-functions)),
+functions also cannot close over a variable and be handed back as a value. Every function's
+behavior is fixed by its top-level or class-member definition.
 
 ## Recursive Functions
 
@@ -143,19 +135,21 @@ Follow these conventions:
 - Be descriptive: `validateEmailAddress` over `validate`
 
 ```panther
+class User(id: int)
+
 // Good
-def calculateArea(width: float, height: float): float
+def calculateArea(width: int, height: int): int = width * height
 
-def isValidEmail(email: string): bool
+def isValidEmail(email: string): bool = email.length > 0
 
-def getUserById(id: int): User
+def getUserById(id: int): User = new User(id)
 
 // Avoid
-def calc(w: float, h: float): float
+def calc(w: int, h: int): int = w * h
 
-def check(s: string): bool
+def check(s: string): bool = s.length > 0
 
-def get(x: int): User
+def get(x: int): User = new User(x)
 ```
 
 ## Pure Functions
