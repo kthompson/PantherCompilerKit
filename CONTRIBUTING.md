@@ -95,6 +95,32 @@ Suites are organized by pipeline stage: `LexerTests`, `ParserTests`,
 new cases to the suite for the stage you changed, and add a test for every bug
 you fix.
 
+## Documentation code blocks
+
+Every ` ```panther ` block under `docs/` is compiled by
+[`doccheck`](tools/doccheck/README.md):
+
+```bash
+sbt "doccheck/run docs/src/content/docs"
+```
+
+Every block currently compiles, and `tools/doccheck/baseline.txt` — the list of
+blocks known not to compile — is empty. Keep it that way: a snippet you add or
+change has to pass.
+
+The check fails in two directions — a snippet that used to compile breaking,
+*and* a baselined snippet starting to compile — so if you ever do need to
+baseline something, regenerate it in the same commit:
+
+```bash
+sbt "doccheck/run --update-baseline docs/src/content/docs"
+```
+
+A snippet that should not be compiled as written gets a directive on the line
+above its fence — `parse-only`, `expect-error`, or `skip reason="..."`. Prefer
+fixing the snippet; see [ROADMAP.md](ROADMAP.md#4-documentation-that-is-checked)
+for the plan to empty the baseline.
+
 ## Commits
 
 Commit messages follow a Conventional-Commits style, with an optional scope
@@ -126,15 +152,20 @@ sbt pncs/transpile
 sbt pncs/compile && sbt test/test && sbt scalafmtCheckAll
 ```
 
+```bash
+sbt "doccheck/run docs/src/content/docs"
+```
+
 Then **commit the regenerated `.pn` files** along with your Scala changes.
 
-The [`ci`](.github/workflows/ci.yml) workflow runs three jobs on every pull
+The [`ci`](.github/workflows/ci.yml) workflow runs four jobs on every pull
 request, all of which must pass:
 
 1. `sbt pncs/compile`, then `sbt test/test`
 2. `sbt pncs/transpile`, then `git diff --exit-code` — this fails if the
    transpiled output in `pnc/src/` is out of sync with the Scala sources
-3. `sbt scalafmtCheckAll`
+3. `doccheck` against its baseline
+4. `sbt scalafmtCheckAll`
 
 For the pull request itself:
 

@@ -55,6 +55,10 @@ sbt "pncs/run --help"
 sbt "pncs/run output.pnb source.pn"
 ```
 
+Note that the output path is not honoured yet: the emitter builds the chunk and
+metadata in memory and nothing is written to disk, so no `output.pnb` appears.
+See [ROADMAP.md](ROADMAP.md#31-write-and-read-pnb).
+
 ### Regenerating the Panther sources
 
 Any change to the Scala sources must be transpiled and the result committed —
@@ -64,13 +68,17 @@ CI checks that `pnc/src/` is in sync.
 sbt pncs/transpile
 ```
 
-### Commands that are expected to fail
+### Commands that do not work yet
 
-Self-hosting is not finished yet, so these do not currently succeed:
+Self-hosting is not finished, so these do not produce a working compiler:
 
-- `sbt compile` (fails in the `pnc/compile` step — use `sbt pncs/compile`)
-- `sbt pnc/compile`
+- `sbt compile` (use `sbt pncs/compile`)
+- `sbt pnc/compile` — reports 1058 diagnostics against the generated `.pn`
+  sources. It still *exits zero*, because the compiler does not set a failure
+  exit code; read the diagnostic count, not the exit status.
 - `sbt pncs/bootstrap`
+
+[ROADMAP.md](ROADMAP.md#1-self-hosting) tracks what is left.
 
 ### Scripts
 
@@ -89,6 +97,7 @@ Self-hosting is not finished yet, so these do not currently succeed:
 | `text/`     | Text processing library                                                     |
 | `test/`     | ScalaTest suites plus shared helpers                                        |
 | `docs/`     | Astro/Starlight documentation site                                          |
+| `tools/`    | Development tooling — currently `doccheck`, the doc code-block checker      |
 | `scripts/`  | Cross-platform PowerShell wrappers around the sbt tasks                     |
 
 Entry points: [`pncs/src/main/scala/Program.scala`](pncs/src/main/scala/Program.scala)
@@ -105,6 +114,22 @@ pnpm --dir docs install && pnpm --dir docs dev
 
 `docs_old/` is the previous mdbook-based site, kept for reference. New
 documentation goes in `docs/`.
+
+Every ` ```panther ` block in the docs is checked against the compiler by
+[`doccheck`](tools/doccheck/README.md):
+
+```sh
+sbt "doccheck/run docs/src/content/docs"
+```
+
+Every block currently compiles, and `tools/doccheck/baseline.txt` — the list of
+known-broken blocks — is empty, so CI fails if that stops being true.
+
+## Roadmap
+
+[ROADMAP.md](ROADMAP.md) covers the three things being worked toward —
+self-hosting, generics, and runnable sample programs — with the current
+measurements for each.
 
 ## Contributing
 
