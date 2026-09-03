@@ -12,6 +12,11 @@ case class Symbol(
   var _blockId: int = -1
   var extern: bool = false
 
+  /** True for a `val`. Assigning to one is a diagnostic; `var` and constructor
+    * parameters stay assignable.
+    */
+  var isReadOnly: bool = false
+
   var _children: Dictionary[string, Symbol] = DictionaryModule.empty()
 
   def isStatic(): bool = {
@@ -41,7 +46,8 @@ case class Symbol(
   def tryDefine(
       name: string,
       location: TextLocation,
-      kind: SymbolKind
+      kind: SymbolKind,
+      isReadOnly: bool
   ): Either[TextLocation, Symbol] = {
     _children.get(name) match {
       case Option.Some(symbol) =>
@@ -49,6 +55,7 @@ case class Symbol(
       case Option.None =>
 
         val symbol = Symbol(name, location, kind, Option.Some(this))
+        symbol.isReadOnly = isReadOnly
         _children = _children.put(name, symbol)
         Either.Right(symbol)
     }
@@ -87,7 +94,7 @@ case class Symbol(
       name: string,
       location: TextLocation
   ): Either[TextLocation, Symbol] =
-    tryDefine(name, location, SymbolKind.Object)
+    tryDefine(name, location, SymbolKind.Object, false)
 
   def defineObject(name: string, location: TextLocation): Symbol =
     tryDefineObject(name, location) match {
@@ -99,7 +106,7 @@ case class Symbol(
       name: string,
       location: TextLocation
   ): Either[TextLocation, Symbol] =
-    tryDefine(name, location, SymbolKind.Alias)
+    tryDefine(name, location, SymbolKind.Alias, false)
 
   def defineAlias(name: string, location: TextLocation): Symbol =
     tryDefineAlias(name, location) match {
@@ -111,7 +118,7 @@ case class Symbol(
       name: string,
       location: TextLocation
   ): Either[TextLocation, Symbol] =
-    tryDefine(name, location, SymbolKind.Class)
+    tryDefine(name, location, SymbolKind.Class, false)
 
   def defineClass(name: string, location: TextLocation): Symbol =
     tryDefineClass(name, location) match {
@@ -124,7 +131,7 @@ case class Symbol(
       location: TextLocation,
       variance: Variance
   ): Either[TextLocation, Symbol] =
-    tryDefine(name, location, SymbolKind.TypeParameter(variance))
+    tryDefine(name, location, SymbolKind.TypeParameter(variance), false)
 
   def defineTypeParameter(
       name: string,
@@ -138,12 +145,17 @@ case class Symbol(
 
   def tryDefineField(
       name: string,
-      location: TextLocation
+      location: TextLocation,
+      isReadOnly: bool
   ): Either[TextLocation, Symbol] =
-    tryDefine(name, location, SymbolKind.Field)
+    tryDefine(name, location, SymbolKind.Field, isReadOnly)
 
-  def defineField(name: string, location: TextLocation): Symbol =
-    tryDefineField(name, location) match {
+  def defineField(
+      name: string,
+      location: TextLocation,
+      isReadOnly: bool
+  ): Symbol =
+    tryDefineField(name, location, isReadOnly) match {
       case Either.Left(_)       => panic("Symbol " + name + " already exists!")
       case Either.Right(symbol) => symbol
     }
@@ -155,7 +167,8 @@ case class Symbol(
     tryDefine(
       name,
       location,
-      if (name == ".ctor") SymbolKind.Constructor else SymbolKind.Method
+      if (name == ".ctor") SymbolKind.Constructor else SymbolKind.Method,
+      false
     )
 
   def defineMethod(name: string, location: TextLocation): Symbol =
@@ -168,7 +181,7 @@ case class Symbol(
       name: string,
       location: TextLocation
   ): Either[TextLocation, Symbol] =
-    tryDefine(name, location, SymbolKind.Parameter)
+    tryDefine(name, location, SymbolKind.Parameter, false)
 
   def defineParameter(name: string, location: TextLocation): Symbol =
     tryDefineParameter(name, location) match {
@@ -178,12 +191,17 @@ case class Symbol(
 
   def tryDefineLocal(
       name: string,
-      location: TextLocation
+      location: TextLocation,
+      isReadOnly: bool
   ): Either[TextLocation, Symbol] =
-    tryDefine(name, location, SymbolKind.Local)
+    tryDefine(name, location, SymbolKind.Local, isReadOnly)
 
-  def defineLocal(name: string, location: TextLocation): Symbol =
-    tryDefineLocal(name, location) match {
+  def defineLocal(
+      name: string,
+      location: TextLocation,
+      isReadOnly: bool
+  ): Symbol =
+    tryDefineLocal(name, location, isReadOnly) match {
       case Either.Left(_)       => panic("Symbol " + name + " already exists!")
       case Either.Right(symbol) => symbol
     }

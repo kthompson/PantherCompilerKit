@@ -15,12 +15,22 @@ val count = 42
 val price = 9999  // price in cents
 ```
 
-A `val` is meant to be assigned once. Use `var` (below) for anything you intend to reassign:
+A `val` is assigned once and cannot be reassigned:
 
 ```panther
 val x = 10
 println(x)
 ```
+
+Reassigning one is a compile error:
+
+<!-- panther-check: expect-error -->
+```panther
+val total = 10
+total = 20  // reassignment to val total
+```
+
+Use `var` (below) for anything you intend to reassign.
 
 ## Mutable Variables with var
 

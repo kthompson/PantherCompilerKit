@@ -433,10 +433,20 @@ In rough order of usefulness:
 
 Things that do not belong to one goal but block several.
 
-- **`val` is not enforced.** `val x = 10` followed by `x = 20` compiles with
-  zero diagnostics. The binder records the distinction and never checks it, so
-  the immutability the docs promise does not exist. Cheap to fix and worth
-  doing early — every day it stays, more code depends on it.
+- **Assigning through member access is unimplemented in the lowerer.**
+  `obj.field = x` binds, then hits a `???` in `lowerAssignment`
+  ([`Lowered.scala`](pncs/src/main/scala/Lowered.scala)), so it takes the
+  compiler down for any assignable field. One of the §1.4 holes, and the
+  reason `val` enforcement can only be tested end to end on the rejecting
+  side.
+
+- **`doccheck --stage bind` lowers.** `Stage.Bind` calls
+  `MakeCompilation.create`, which lowers whenever the diagnostic bag is empty
+  ([`BlockChecker.scala`](tools/doccheck/src/main/scala/BlockChecker.scala)).
+  A snippet that binds cleanly and then hits a lowering `???` crashes the
+  checker instead of being reported — the §4.2 pattern, one stage later. A
+  bind-only entry point would fix this and give tests a way to check binder
+  behaviour independent of lowering.
 - **No `float`/`double`, and decimal literals do not even lex.** `99.99` comes
   back as `Unexpected token NumberToken, expected IdentifierToken` — the lexer
   reads `99`, `.`, `99` as a member access. `Math.scala` carries a `TODO` about

@@ -272,7 +272,8 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
     _variableCount = _variableCount + 1
     symbol.defineLocal(
       "$" + string(_variableCount),
-      TextLocationFactory.empty()
+      TextLocationFactory.empty(),
+      false
     )
   }
 

@@ -171,7 +171,8 @@ class Binder(
   // array.length: int
   val arrayLength: Symbol = arraySymbol.defineField(
     "length",
-    noLoc
+    noLoc,
+    true
   )
   arrayLength.extern = true
   setSymbolType(arrayLength, intType)
@@ -195,7 +196,8 @@ class Binder(
   setSymbolType(
     stringSymbol.defineField(
       "length",
-      noLoc
+      noLoc,
+      true
     ),
     intType
   )
@@ -834,7 +836,11 @@ class Binder(
       acc: Dictionary[Symbol, TypingMember],
       scope: Scope
   ): Dictionary[Symbol, TypingMember] = {
-    scope.defineField(value.identifier.text, value.identifier.location) match {
+    scope.defineField(
+      value.identifier.text,
+      value.identifier.location,
+      value.valOrVarKeyword.kind == SyntaxKind.ValKeyword
+    ) match {
       case Either.Left(location) =>
         diagnosticBag.reportDuplicateDefinition(
           value.identifier.text,
@@ -862,7 +868,13 @@ class Binder(
       acc: Dictionary[Symbol, TypingMember],
       scope: Scope
   ): Dictionary[Symbol, TypingMember] = {
-    scope.defineField(value.identifier.text, value.identifier.location) match {
+    // A constructor parameter carries no val/var keyword, so nothing declares
+    // it immutable. Left assignable rather than guessing.
+    scope.defineField(
+      value.identifier.text,
+      value.identifier.location,
+      false
+    ) match {
       case Either.Left(location) =>
         diagnosticBag.reportDuplicateDefinition(
           value.identifier.text,

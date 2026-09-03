@@ -186,6 +186,49 @@ class BinderTests extends AnyFunSpec with Matchers {
       foundPatternVariable shouldBe true
     }
 
+    it("should reject reassigning a val") {
+      val comp = mkFailingCompilation("val x = 10\nx = 20")
+      diagnosticMessages(comp) shouldEqual Seq("reassignment to val x")
+    }
+
+    it("should allow reassigning a var") {
+      mkCompilation("var y = 10\ny = 20")
+    }
+
+    it("should not treat a val initializer as a reassignment") {
+      // Field initializers are rewritten into assignments for $runtimeInit,
+      // so the declaration must not report against itself.
+      mkCompilation("val x = 10\nval y = x")
+    }
+
+    it("should reject reassigning a local val") {
+      val comp =
+        mkFailingCompilation("def f() = {\n  val a = 1\n  a = 2\n  a\n}")
+      diagnosticMessages(comp) shouldEqual Seq("reassignment to val a")
+    }
+
+    it("should allow reassigning a local var") {
+      mkCompilation("def f() = {\n  var a = 1\n  a = 2\n  a\n}")
+    }
+
+    it("should reject assigning to a val field through member access") {
+      val comp = mkFailingCompilation(
+        "class Box(v: int) {\n  val fixed = 1\n}\nval b = new Box(3)\nb.fixed = 5"
+      )
+      diagnosticMessages(comp) shouldEqual Seq("reassignment to val fixed")
+    }
+
+    // The positive case - assigning to a `var` field through member access -
+    // cannot be covered end to end yet: the binder accepts it and the lowerer
+    // then hits the `???` at Lowered.scala lowerAssignment. The val case below
+    // works because reporting a diagnostic stops the pipeline before lowering.
+
+    it("should reject assigning to a builtin read-only field") {
+      val comp =
+        mkFailingCompilation("val arr = new Array[int](3)\narr.length = 9")
+      diagnosticMessages(comp) shouldEqual Seq("reassignment to val length")
+    }
+
     // A failure has to come back as a diagnostic, never as an exception.
     // Each of these used to take the compiler down instead of reporting.
     it("should report a diagnostic for an unsupported operator") {

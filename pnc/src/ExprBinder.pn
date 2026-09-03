@@ -267,6 +267,7 @@ class ExprBinder(
       case Tuple2(_, BoundExpression.Error(_)) =>
         rhs
       case Tuple2(Result.Success(lhs), rhs) =>
+        reportIfReadOnly(lhs)
         getLHSType(lhs) match {
           case Type.Error(message) => BoundExpression.Error(message)
           case lhsType =>
@@ -748,6 +749,36 @@ class ExprBinder(
 
   }
 
+  /** `val` bindings are immutable. Reports at the assignment rather than the
+    * declaration, and binding continues so the right-hand side still gets
+    * checked.
+    *
+    * A field initializer is not a reassignment: fieldsToInitStatements rewrites
+    * `val x = e` into an assignment for $runtimeInit, reusing the declaration's
+    * own identifier token. That synthesized assignment is the one whose
+    * location matches the symbol's, so it is skipped.
+    */
+  def reportIfReadOnly(lhs: BoundLeftHandSide): unit =
+    lhs match {
+      case BoundLeftHandSide.Variable(location, symbol) =>
+        // Compared on offset and file rather than on TextLocation itself:
+        // the self-hosted binder has no == for a class type.
+        val atDeclaration =
+          location.span.start == symbol.location.span.start &&
+            location.fileName == symbol.location.fileName
+        if (symbol.isReadOnly && !atDeclaration) {
+          diagnosticBag.reportAssignmentToVal(location, symbol.name)
+        }
+      case BoundLeftHandSide.MemberAccess(expression) =>
+        if (expression.member.isReadOnly) {
+          diagnosticBag.reportAssignmentToVal(
+            expression.location,
+            expression.member.name
+          )
+        }
+      case _ => ()
+    }
+
   def inferAssignmentExpression(
       node: Expression.Assignment,
       scope: Scope
@@ -755,6 +786,7 @@ class ExprBinder(
     inferLHS(node.left, scope) match {
       case Result.Error(value) => value
       case Result.Success(lhs) =>
+        reportIfReadOnly(lhs)
         getLHSType(lhs) match {
           case Type.Error(message) => BoundExpression.Error(message)
           case lhsType =>
@@ -1493,7 +1525,7 @@ class ExprBinder(
     val upperBound = check(node.toExpr, binder.intType, scope)
     val identifier = node.identifier
 
-    blockScope.defineLocal(identifier.text, identifier.location) match {
+    blockScope.defineLocal(identifier.text, identifier.location, true) match {
       case Either.Left(value) =>
         panic("symbol already defined even though that should not be possible")
       case Either.Right(variable) =>
@@ -2057,7 +2089,7 @@ class ExprBinder(
       expectedType: Type
   ): Result[BoundExpression.Error, BoundPattern] = {
     // Create a new local variable for the pattern binding
-    scope.defineLocal(identifier.text, identifier.location) match {
+    scope.defineLocal(identifier.text, identifier.location, true) match {
       case Either.Left(originalLocation) =>
         diagnosticBag.reportDuplicateDefinition(
           identifier.text,
@@ -2552,7 +2584,8 @@ class ExprBinder(
     val identifier = statement.identifier
     val name = identifier.text
     val location = identifier.location
-    scope.defineLocal(name, location) match {
+    val isReadOnly = statement.valOrVarKeyword.kind == SyntaxKind.ValKeyword
+    scope.defineLocal(name, location, isReadOnly) match {
       case Either.Left(originalLocation) =>
         // symbol is already defined in this scope
         diagnosticBag.reportDuplicateDefinition(
@@ -2562,7 +2595,6 @@ class ExprBinder(
         )
         BoundStatement.Error
       case Either.Right(symbol) =>
-
         statement.typeAnnotation match {
           case Option.None =>
             // no type annotation so lets use type inference
@@ -2570,7 +2602,7 @@ class ExprBinder(
             // no type annotation, so we need to infer the type from the expr
             val typ = binder.getType(expr)
             binder.setSymbolType(symbol, typ)
-            BoundStatement.VariableDeclaration(symbol, false, typ, expr)
+            BoundStatement.VariableDeclaration(symbol, isReadOnly, typ, expr)
 
           case Option.Some(value) =>
             val annotatedType = binder.bindTypeName(value.typ, scope)
@@ -2579,7 +2611,7 @@ class ExprBinder(
 
             BoundStatement.VariableDeclaration(
               symbol,
-              false,
+              isReadOnly,
               annotatedType,
               boundExpr
             )

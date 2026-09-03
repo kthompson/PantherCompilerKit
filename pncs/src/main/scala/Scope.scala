@@ -43,15 +43,17 @@ case class Scope(current: Symbol, imports: List[Symbol]) {
 
   def defineField(
       name: string,
-      location: TextLocation
+      location: TextLocation,
+      isReadOnly: bool
   ): Either[TextLocation, Symbol] =
-    current.tryDefineField(name, location)
+    current.tryDefineField(name, location, isReadOnly)
 
   def defineLocal(
       name: string,
-      location: TextLocation
+      location: TextLocation,
+      isReadOnly: bool
   ): Either[TextLocation, Symbol] =
-    current.tryDefineLocal(name, location)
+    current.tryDefineLocal(name, location, isReadOnly)
 
   def defineMethod(
       name: string,

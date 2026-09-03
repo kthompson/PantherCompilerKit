@@ -115,6 +115,9 @@ case class DiagnosticBag(settings: CompilerSettings) {
   def reportExpressionIsNotAssignable(location: TextLocation): unit =
     report(location, "expression is not assignable")
 
+  def reportAssignmentToVal(location: TextLocation, name: string): unit =
+    report(location, "reassignment to val " + name)
+
   def reportArgumentCountMismatch(
       location: TextLocation,
       expected: int,
