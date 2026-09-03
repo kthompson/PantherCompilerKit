@@ -144,16 +144,23 @@ case-insensitive, so a tracked `ast.pn` and a generated `Ast.pn` collapse into
 one entry locally while remaining two separate files on Linux CI. Duplicates
 of that shape are invisible in a local build.
 
-### 1.2 Make the compiler exit non-zero on errors
+### 1.2 The exit code reflects the diagnostics
 
-`Program.run` prints `found N diagnostics` and returns normally
-([`Program.scala:94`](pncs/src/main/scala/Program.scala:94)). `sbt pnc/compile`
-"succeeds" with 1030 errors, so nothing downstream — CI, scripts, an editor
-integration — can tell success from failure.
+`Program.run` returns the number of diagnostics it reported, and `main` turns
+a non-zero count into `exit(1)`
+([`Program.scala`](pncs/src/main/scala/Program.scala)). An unparseable
+argument list exits non-zero too; `--help` and a clean compile exit zero.
 
-The build already fails on a non-zero exit code
-([`build.sbt:145`](build.sbt:145)), so the compiler is the only piece missing
-between a failing compile and a failing build.
+`exit(code: int): never` is a predef intrinsic, defined for the Scala compiler
+in [`panther.scala`](runtime/src/main/scala/panther.scala) and registered as a
+builtin in [`Binder.scala`](pncs/src/main/scala/Binder.scala) so the
+transpiled `Program.pn` binds it. Like `println` and `panic`, it is marked
+`extern` and has no emitter or VM support yet — see §3.2.
+
+Because `build.sbt` fails the task on a non-zero exit code
+([`build.sbt:146`](build.sbt:146)), `sbt pnc/compile` now **fails** rather
+than reporting 1030 diagnostics and succeeding. `ProgramTests` covers the
+count that decision is made from.
 
 ### 1.3 Burn down the diagnostics
 
@@ -455,9 +462,9 @@ Things that do not belong to one goal but block several.
 Sequenced so each step makes the next one measurable.
 
 **First — stop flying blind.**
-§1.1 generated-source drift, §1.2 exit codes, §4.2 exceptions where
-diagnostics belong. Small, independent, and each one makes a signal
-trustworthy that currently is not.
+§1.1 and §1.2 hold: the generated tree matches the transpiler and the exit
+code is trustworthy. What remains here is §4.2, exceptions where diagnostics
+belong — the last place a failure does not come back as a diagnostic.
 
 **Second — generics.**
 §2.1 inference, §2.2 bounds. The 1030 should fall
@@ -481,7 +488,7 @@ The three numbers worth putting on a wall:
 
 | Metric                            |         Now | Target | Command                                    |
 | --------------------------------- | ----------: | -----: | ------------------------------------------ |
-| Self-hosting diagnostics          |        1030 |      0 | `sbt pnc/compile`                          |
+| Self-hosting diagnostics          |        1030 |      0 | `sbt pnc/compile` (now fails, as it should) |
 | Doc blocks that fail              | **0 / 200** |      0 | `sbt "doccheck/run docs/src/content/docs"` |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                   |
 | Samples that run in CI            |           0 |      6 | not yet built                              |

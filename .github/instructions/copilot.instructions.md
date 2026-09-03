@@ -67,9 +67,8 @@ sbt "doccheck/run docs/src/content/docs"
 ```bash
 # DO NOT USE for validation:
 sbt compile        # Fails during the pnc/compile step
-sbt pnc/compile    # Reports ~1058 diagnostics against the generated .pn
-                   # sources. It exits ZERO regardless - read the diagnostic
-                   # count, not the exit status.
+sbt pnc/compile    # Reports ~1030 diagnostics against the generated .pn
+                   # sources and exits non-zero, so the sbt task fails.
 sbt pncs/bootstrap # Fails during the transpilation step
 ```
 
@@ -128,7 +127,7 @@ sbt "pncs/run /tmp/output.pnb /tmp/test.pn"
 
 # Verify transpiled code was generated (after pncs/transpile)
 ls -la pnc/src/*.pn | wc -l
-# Should show ~92 .pn files after successful transpilation
+# Should show ~91 .pn files after successful transpilation
 ```
 
 ## Project Structure
@@ -156,7 +155,7 @@ ls -la pnc/src/*.pn | wc -l
 
 - **pncs/src/main/scala/Program.scala** - Main entry point for Scala compiler
 - **pnc/src/Program.pn** - Main entry point for Panther compiler (transpiled)
-- **.github/workflows/ci.yml** - CI pipeline (runs compile, test, transpile, lint)
+- **.github/workflows/ci.yml** - CI pipeline (runs compile/test, transpile, doccheck, lint)
 
 ## Development Workflow
 
@@ -208,7 +207,7 @@ When you're done making changes, always run these commands in order:
 - **sbt version**: ~6 seconds (first run may take 8-15s for dependency downloads)
 - **pncs/compile**: ~8 seconds per command
 - **test/test**: ~8-16 seconds (all must pass)
-- **pncs/transpile**: ~8 seconds (writes ~92 .pn files)
+- **pncs/transpile**: ~8 seconds (writes ~91 .pn files)
 - **doccheck/run**: ~30 seconds
 - **scalafmtAll**: ~8-16 seconds
 - **scalafmtCheckAll**: ~7-9 seconds

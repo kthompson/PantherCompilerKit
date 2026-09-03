@@ -8,15 +8,21 @@ object Program {
       case Option.Some(errorMsg) =>
         println("Error: " + errorMsg)
         ArgsParser.printUsage()
+        exit(1)
       case Option.None =>
         if (parseResult.showHelp) {
           ArgsParser.printUsage()
         } else {
-          run(
+          val diagnostics = run(
             parseResult.settings,
             parseResult.outputFile,
             parseResult.sourceFiles
           )
+          // Anything downstream - CI, scripts, an editor - reads the exit
+          // code, so a compile that reported diagnostics has to fail.
+          if (diagnostics > 0) {
+            exit(1)
+          }
         }
     }
   }
@@ -36,7 +42,7 @@ object Program {
       settings: CompilerSettings,
       outputFile: string,
       sourceFiles: List[string]
-  ): unit = {
+  ): int = {
     printLogo()
     var trees: List[SyntaxTree] = List.Nil
 
@@ -67,9 +73,11 @@ object Program {
         }
       }
       println("found " + string(parseErrors) + " diagnostics")
+      parseErrors
     } else if (settings.transpile) {
       val transpiler = new Transpiler(trees, outputFile)
       transpiler.transpile()
+      0
     } else {
       val compilation = MakeCompilation.create(trees, settings)
       if (settings.printSymbols) {
@@ -88,10 +96,12 @@ object Program {
         case Diagnostics.Empty =>
           println("emitting to " + outputFile + "...")
           compilation.emit(outputFile)
+          0
 
         case diags =>
           val count = diags.printDiagnostics(settings.diagnosticsToPrint)
-          println("found " + count + " diagnostics")
+          println("found " + string(count) + " diagnostics")
+          count
       }
     }
   }

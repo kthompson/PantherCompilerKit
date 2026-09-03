@@ -90,6 +90,8 @@ object panther {
 
   def panic(message: string): never = throw new Exception(message)
 
+  def exit(code: int): never = scala.sys.exit(code)
+
   def assert(condition: bool, message: string): unit = {
     if (!condition) panic(message) else ()
   }

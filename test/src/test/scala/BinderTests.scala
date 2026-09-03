@@ -33,6 +33,8 @@ class BinderTests extends AnyFunSpec with Matchers {
       assertSymbol(symbols, SymbolKind.Parameter, "message")
       assertSymbol(symbols, SymbolKind.Method, "panic")
       assertSymbol(symbols, SymbolKind.Parameter, "message")
+      assertSymbol(symbols, SymbolKind.Method, "exit")
+      assertSymbol(symbols, SymbolKind.Parameter, "code")
       assertSymbol(symbols, SymbolKind.Method, "assert")
       assertSymbol(symbols, SymbolKind.Parameter, "condition")
       assertSymbol(symbols, SymbolKind.Parameter, "message")

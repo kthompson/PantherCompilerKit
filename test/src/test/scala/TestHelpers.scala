@@ -414,6 +414,8 @@ object TestHelpers {
     assertSymbol(enumerator, SymbolKind.Parameter, "message")
     assertSymbol(enumerator, SymbolKind.Method, "panic")
     assertSymbol(enumerator, SymbolKind.Parameter, "message")
+    assertSymbol(enumerator, SymbolKind.Method, "exit")
+    assertSymbol(enumerator, SymbolKind.Parameter, "code")
     assertSymbol(enumerator, SymbolKind.Method, "assert")
     assertSymbol(enumerator, SymbolKind.Parameter, "condition")
     assertSymbol(enumerator, SymbolKind.Parameter, "message")

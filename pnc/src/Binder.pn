@@ -266,6 +266,21 @@ class Binder(
     )
   )
 
+  // exit(code: int): never
+  val exitSymbol = method(predef, "exit")
+  val exitCodeSymbol = param(exitSymbol, "code", intType)
+  setSymbolType(
+    exitSymbol,
+    Type.Function(
+      noLoc,
+      List.Cons(
+        BoundParameter(exitCodeSymbol, intType),
+        List.Nil
+      ),
+      neverType
+    )
+  )
+
   // assert(condition: bool, message: string): unit
   val assertSymbol = method(predef, "assert")
   val assertConditionSymbol = param(assertSymbol, "condition", boolType)
