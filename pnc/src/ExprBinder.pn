@@ -105,31 +105,26 @@ class ExprBinder(
     }
 
   def isSubtype(subType: Type, superType: Type): bool = {
-    // Handle Error types
     if (isErrorType(subType) || isErrorType(superType)) {
-      return false
+      false
+    } else if (
+      subType == superType || subType == binder.neverType ||
+      superType == binder.anyType
+    ) {
+      true
+    } else {
+      isSubtypeStructurally(subType, superType)
     }
+  }
 
-    // Base cases
-    if (subType == superType) {
-      return true
-    }
-    if (subType == binder.neverType) {
-      return true
-    }
-    if (superType == binder.anyType) {
-      return true
-    }
-
+  def isSubtypeStructurally(subType: Type, superType: Type): bool = {
     Tuple2(subType, superType) match {
       // Function subtyping
       case Tuple2(
             Type.Function(_, subParams, subReturn),
             Type.Function(_, superParams, superReturn)
           ) =>
-        if (subParams.length != superParams.length) {
-          return false
-        }
+        // isSubtypeList is false for lists of different lengths
         val paramsAreSubtypes = Tuple2(subParams, superParams) match {
           case Tuple2(
                 List.Cons(subParam, subTail),

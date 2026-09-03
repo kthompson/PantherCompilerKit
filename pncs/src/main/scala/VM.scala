@@ -435,7 +435,7 @@ case class VM(
 
       // control instructions
       case Opcode.Ret =>
-        return methodReturn()
+        methodReturn()
 
       case Opcode.Call =>
         val token = readMethodToken()
