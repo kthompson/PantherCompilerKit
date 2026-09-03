@@ -184,6 +184,27 @@ class BinderTests extends AnyFunSpec with Matchers {
       foundPatternVariable shouldBe true
     }
 
+    it("should bind out as covariant and in as contravariant") {
+      val comp = mkCompilation(
+        "class Producer[out T]()\n" +
+          "class Consumer[in T]()\n" +
+          "class Fixed[T]()"
+      )
+      val symbols = enumNonBuiltinSymbols(comp)
+      assertSymbol(symbols, SymbolKind.Class, "Producer")
+      assertSymbol(symbols, SymbolKind.TypeParameter(Variance.Covariant), "T")
+      assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
+      assertSymbol(symbols, SymbolKind.Class, "Consumer")
+      assertSymbol(
+        symbols,
+        SymbolKind.TypeParameter(Variance.Contravariant),
+        "T"
+      )
+      assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
+      assertSymbol(symbols, SymbolKind.Class, "Fixed")
+      assertSymbol(symbols, SymbolKind.TypeParameter(Variance.Invariant), "T")
+    }
+
     it("should not create named locals for discard patterns") {
       val comp = mkCompilation(
         "enum Option[T] {\n" +

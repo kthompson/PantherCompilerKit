@@ -27,7 +27,7 @@ reproduces the measurement. Re-run them rather than trusting the number.
 sbt pncs/compile && sbt test/test
 ```
 
-Green: 246 tests across the lexer, parser, binder, type checker, VM, metadata
+Green: 247 tests across the lexer, parser, binder, type checker, VM, metadata
 format, and args parser.
 
 ### The self-hosted compiler does not
@@ -36,22 +36,21 @@ format, and args parser.
 sbt pnc/compile
 ```
 
-Runs to completion and reports **1058 diagnostics** against the generated
-`.pn` sources. (1029 of those come from the committed tree; the other 29 come
-from `Ast.pn`, which the transpile step writes — see §1.1.) By message:
+Runs to completion and reports **1030 diagnostics** against the generated
+`.pn` sources. By message:
 
 | Count | Diagnostic                      |
 | ----: | ------------------------------- |
-|   642 | `Cannot convert from A to B`    |
-|   181 | `Symbol X not found for type T` |
+|   645 | `Cannot convert from A to B`    |
+|   182 | `Symbol X not found for type T` |
 |   130 | `Symbol X not found`            |
 |    38 | `Type X not defined`            |
-|    32 | `Duplicate definition`          |
 |    18 | `Invalid namespace`             |
-|    16 | argument-count mismatches       |
+|    14 | argument-count mismatches       |
+|     2 | `Duplicate definition`          |
 |     1 | no operator for operands        |
 
-**685 of the 1058 mention an unsolved type variable** (`$0`, `$1`, …) — a
+**686 of the 1030 mention an unsolved type variable** (`$0`, `$1`, …) — a
 generic parameter the binder gave up on. That is the strongest single signal we
 have about what to fix first.
 
@@ -62,9 +61,9 @@ on generic collections:
 | ----: | ------------------ |
 |   245 | `Binder.pn`        |
 |   118 | `ExprBinder.pn`    |
-|    83 | `Lowered.pn`       |
-|    80 | `Parser.pn`        |
-|    72 | `Emitter.pn`       |
+|    84 | `Lowered.pn`       |
+|    78 | `Parser.pn`        |
+|    73 | `Emitter.pn`       |
 |    54 | `TypeInference.pn` |
 
 ### Nothing is ever written to disk
@@ -120,36 +119,50 @@ nothing would run if it did.
 The goal: `pnc` compiles `pnc` and the output is byte-identical to the input
 compiler's output.
 
-### 1.1 Fix the generated-source drift — small, do it first
+### 1.1 Generated sources stay in step with the transpiler
 
-`sbt pncs/transpile` emits `Ast.pn` and `AstPrinter.pn`. `pnc/src/ast.pn` and
-`pnc/src/printer.pn` are committed alongside them and define the same types.
-All four get compiled, which accounts for the 32 duplicate-definition
-diagnostics on its own.
+Every `.pn` file under `pnc/src/` is written by `sbt pncs/transpile`, and
+nothing else belongs there. Verify with a transpile followed by a check that
+no file predates the run:
 
-CI cannot see this. The `transpile` job runs `git diff --exit-code`,
-which ignores **untracked** files, so `Ast.pn` appearing as a brand-new
-generated file passes the check silently.
+```bash
+sbt pncs/transpile && find pnc/src -name '*.pn' -not -newermt '-5 minutes'
+```
 
-- Delete `pnc/src/ast.pn` and `pnc/src/printer.pn`.
-- Change the CI check to `git status --porcelain` (or `git diff --exit-code`
-  after `git add -A`) so new and deleted generated files fail the build too.
+The `transpile` CI job stages with `git add -A` before diffing, so a newly
+generated file, a modified one, and a deleted one all fail the build. A bare
+`git diff --exit-code` misses untracked files, which is how a stale tracked
+name and its regenerated replacement can both sit in the tree.
+
+Two duplicate-definition diagnostics remain, and neither is drift:
+`inferCall` in `ExprBinder.pn` and `printNew` in `LoweredAssemblyPrinter.pn`
+are overloaded in the Scala source, and Panther has no overload resolution.
+Either give them distinct names or add overloading — tracked under §1.3.
+
+A caution for anyone re-checking this on macOS: the default filesystem is
+case-insensitive, so a tracked `ast.pn` and a generated `Ast.pn` collapse into
+one entry locally while remaining two separate files on Linux CI. Duplicates
+of that shape are invisible in a local build.
 
 ### 1.2 Make the compiler exit non-zero on errors
 
 `Program.run` prints `found N diagnostics` and returns normally
 ([`Program.scala:94`](pncs/src/main/scala/Program.scala:94)). `sbt pnc/compile`
-"succeeds" with 1058 errors. Nothing downstream — CI, scripts, an editor
+"succeeds" with 1030 errors, so nothing downstream — CI, scripts, an editor
 integration — can tell success from failure.
+
+The build already fails on a non-zero exit code
+([`build.sbt:145`](build.sbt:145)), so the compiler is the only piece missing
+between a failing compile and a failing build.
 
 ### 1.3 Burn down the diagnostics
 
 Ordered by what the counts say, not by what is interesting:
 
-1. **Generic inference** (see §2). 685 diagnostics reference an unsolved type
+1. **Generic inference** (see §2). 686 diagnostics reference an unsolved type
    variable; this is the bulk of the work.
 2. **Member lookup on generic receivers** — `Symbol X not found for type $0`,
-   181 diagnostics. Falls out of §2 but worth tracking separately in case it
+   182 diagnostics. Falls out of §2 but worth tracking separately in case it
    does not.
 3. **Namespace and import resolution** — 18 `Invalid namespace`, plus some
    share of the 130 bare `Symbol not found`. The transpiler turns
@@ -162,7 +175,7 @@ Track the number after every change:
 sbt pnc/compile
 ```
 
-**1058 → 0.** Nothing else in this section matters until that number moves.
+**1030 → 0.** Nothing else in this section matters until that number moves.
 
 Only the first 20 diagnostics are printed. To see them all, transpile first —
 `pnc/compile` does this implicitly, and the count depends on it — then run the
@@ -226,22 +239,22 @@ parses into a `GenericParameterSyntax` with no bounds and is silently ignored.
 Wire it end to end: parse, bind, and enforce at the call site with a real
 diagnostic.
 
-### 2.3 Fix the inverted variance keywords
+### 2.3 Variance keywords mean what they say
 
-[`Variance.scala`](pncs/src/main/scala/Variance.scala) documents
-`Covariant // "out"` and `Contravariant // "in"`, matching C# and Kotlin. Both
-places that touch the keywords disagree with it:
+`out` is covariance and `in` is contravariance, matching C# and Kotlin
+([`Variance.scala`](pncs/src/main/scala/Variance.scala)). The transpiler emits
+`out` for Scala's `+` and `in` for `-`
+([`Transpiler.scala:210`](pncs/src/main/scala/Transpiler.scala:210)), and the
+binder reads them back the same way
+([`Binder.scala:1505`](pncs/src/main/scala/Binder.scala:1505)), so the
+generated stdlib reads `enum List[out T]` for a covariant list.
 
-- [`Transpiler.scala:210`](pncs/src/main/scala/Transpiler.scala:210) emits
-  `in` for Scala's `+` (covariant) and `out` for `-`.
-- [`Binder.scala:1505`](pncs/src/main/scala/Binder.scala:1505) reads `"in"`
-  back as `Covariant` and `"out"` as `Contravariant`.
+`BinderTests` pins the mapping directly — a hand-written `[out T]` binds to
+`Covariant`, `[in T]` to `Contravariant`. Keep that test: the two sides are
+inverses of each other, so flipping both at once is silent in every build
+except one that checks a hand-written annotation.
 
-The two inversions cancel, so nothing is broken today — which is exactly why
-this will stay wrong until someone writes `[out T]` by hand and gets
-contravariance. The generated stdlib currently reads `enum List[in T]` for a
-covariant list. Fix both sides, regenerate, and add a test that a hand-written
-`[out T]` binds to `Covariant`.
+The annotations are recorded but not enforced; that is §2.4.
 
 ### 2.4 Variance enforcement
 
@@ -431,7 +444,7 @@ Things that do not belong to one goal but block several.
   blocks in §4.1.
 - **No lexer support for exponents or shifts**
   ([`Lexer.scala:243`](pncs/src/main/scala/Lexer.scala:243)).
-- **Test coverage is stage-shaped, not feature-shaped.** 246 tests, but
+- **Test coverage is stage-shaped, not feature-shaped.** 247 tests, but
   `MetadataTests` has 2 and there is no end-to-end test that takes source all
   the way to output. §3.4 is the fix.
 
@@ -447,7 +460,7 @@ diagnostics belong. Small, independent, and each one makes a signal
 trustworthy that currently is not.
 
 **Second — generics.**
-§2.1 inference, §2.2 bounds, §2.3 variance keywords. The 1058 should fall
+§2.1 inference, §2.2 bounds. The 1030 should fall
 sharply. If it does not, the assumption behind this roadmap was wrong and the
 plan should be rewritten around what the diagnostics actually say.
 
@@ -468,7 +481,7 @@ The three numbers worth putting on a wall:
 
 | Metric                            |         Now | Target | Command                                    |
 | --------------------------------- | ----------: | -----: | ------------------------------------------ |
-| Self-hosting diagnostics          |        1058 |      0 | `sbt pnc/compile`                          |
+| Self-hosting diagnostics          |        1030 |      0 | `sbt pnc/compile`                          |
 | Doc blocks that fail              | **0 / 200** |      0 | `sbt "doccheck/run docs/src/content/docs"` |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                   |
 | Samples that run in CI            |           0 |      6 | not yet built                              |

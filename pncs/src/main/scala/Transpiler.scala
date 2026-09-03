@@ -207,7 +207,7 @@ case class Transpiler(
   ): unit = {
     parameter.variance match {
       case Option.Some(value) =>
-        val text = if (value.kind == SyntaxKind.PlusToken) "in " else "out "
+        val text = if (value.kind == SyntaxKind.PlusToken) "out " else "in "
         transpileTokenWithText(value, text, context)
       case _ =>
     }

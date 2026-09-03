@@ -68,7 +68,7 @@ object ListModule {
   }
 }
 
-enum List[in T] {
+enum List[out T] {
   case Nil
   case Cons(head: T, tail: List[T])
 

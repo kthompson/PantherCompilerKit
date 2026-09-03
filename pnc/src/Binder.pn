@@ -1502,8 +1502,8 @@ class Binder(
             value.text match {
               case "+"   => Variance.Covariant
               case "-"   => Variance.Contravariant
-              case "in"  => Variance.Covariant
-              case "out" => Variance.Contravariant
+              case "in"  => Variance.Contravariant
+              case "out" => Variance.Covariant
               case x     => panic("Invalid variance token: " + x)
             }
         }

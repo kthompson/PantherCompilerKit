@@ -43,7 +43,11 @@ jobs:
       - name: pncs transpile
         run: |
           sbt pncs/transpile
-          git diff --exit-code || (echo "Transpilation produced changes, please commit them." && exit 1)
+          # Stage everything first: a bare `git diff` ignores untracked files,
+          # so a newly generated .pn would slip through, and deletions of
+          # stale generated files would too.
+          git add -A
+          git diff --cached --exit-code || (echo "Transpilation changed pnc/src, please commit the result." && exit 1)
 
   docs:
     runs-on: ubuntu-latest
