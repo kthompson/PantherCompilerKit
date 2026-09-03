@@ -172,7 +172,7 @@ case class Emitter(
         methodTokens.get(entry) match {
           case Option.None =>
             println(entry.toString())
-            ???
+            panic("unimplemented: emit")
           case Option.Some(value) => Option.Some(value)
         }
     }
@@ -224,7 +224,7 @@ case class Emitter(
 
     if (symbol.kind == SymbolKind.Field) {
       fieldTokens.get(symbol) match {
-        case Option.None => ???
+        case Option.None => panic("unimplemented: buildSignature")
         case Option.Some(value) =>
           metadata.fields.fields(value.token).fieldSig = sigId
       }
@@ -234,18 +234,18 @@ case class Emitter(
       methodTokens.get(symbol) match {
         case Option.None =>
           println("buildSignature: no method token for " + symbol)
-          ???
+          panic("unimplemented: buildSignature")
         case Option.Some(value) =>
           metadata.methods.methods(value.token).methodSig = sigId
       }
     } else if (symbol.kind == SymbolKind.Parameter) {
       paramTokens.get(symbol) match {
-        case Option.None => ???
+        case Option.None => panic("unimplemented: buildSignature")
         case Option.Some(value) =>
           metadata.params.params(value.token).paramSig = sigId
       }
     } else {
-      ???
+      panic("unimplemented: buildSignature")
     }
   }
 
@@ -486,7 +486,8 @@ case class Emitter(
       case BinaryOperatorKind.ShiftRight =>
         chunk.emitOpcode(Opcode.Shr, expr.location.startLine)
 
-      case BinaryOperatorKind.Error => ???
+      case BinaryOperatorKind.Error =>
+        panic("unimplemented: emitBinaryExpression")
     }
   }
 
@@ -611,7 +612,7 @@ case class Emitter(
   def emitCharacterLiteral(
       expr: LoweredExpression.Character,
       context: EmitContext
-  ): unit = ???
+  ): unit = panic("unimplemented: emitCharacterLiteral")
 
   def emitIntLiteral(
       expr: LoweredExpression.Integer,
@@ -704,7 +705,8 @@ case class Emitter(
       case UnaryOperatorKind.BitwiseNegation => // ~x
         chunk.emitOpcode(Opcode.Not, expr.location.startLine)
 
-      case UnaryOperatorKind.Error => ???
+      case UnaryOperatorKind.Error =>
+        panic("unimplemented: emitUnaryExpression")
     }
   }
 
@@ -859,7 +861,7 @@ case class Emitter(
       statement: LoweredStatement.Return,
       context: EmitContext
   ): unit = {
-    ???
+    panic("unimplemented: emitReturnStatement")
   }
 
   def emitExpressionStatement(

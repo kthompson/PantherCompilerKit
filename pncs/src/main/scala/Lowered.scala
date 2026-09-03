@@ -374,12 +374,16 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
     val block = lowerExpression(expr.expression, context)
 
     expr.receiver match {
-      case BoundLeftHandSide.ArrayCreation(expression) => ???
-      case BoundLeftHandSide.Call(expression)          => ???
+      case BoundLeftHandSide.ArrayCreation(expression) =>
+        panic("unimplemented: lowerAssignment")
+      case BoundLeftHandSide.Call(expression) =>
+        panic("unimplemented: lowerAssignment")
       case BoundLeftHandSide.Index(expression) =>
         lowerIndexAssignment(expression, block)
-      case BoundLeftHandSide.MemberAccess(expression) => ???
-      case BoundLeftHandSide.New(expression)          => ???
+      case BoundLeftHandSide.MemberAccess(expression) =>
+        panic("unimplemented: lowerAssignment")
+      case BoundLeftHandSide.New(expression) =>
+        panic("unimplemented: lowerAssignment")
       case BoundLeftHandSide.Variable(location, symbol) =>
         if (symbol.kind == SymbolKind.Field) {
           lowerFieldAssignment(symbol, block)
@@ -914,11 +918,11 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   ): LoweredLeftHandSideBlock = {
     lhs match {
       case BoundLeftHandSide.ArrayCreation(expression) =>
-        ???
+        panic("unimplemented: lowerLeftHandSide")
       case BoundLeftHandSide.Call(expression) =>
-        ???
+        panic("unimplemented: lowerLeftHandSide")
       case BoundLeftHandSide.Index(expression) =>
-        ???
+        panic("unimplemented: lowerLeftHandSide")
       case BoundLeftHandSide.New(expression) =>
         lowerNewExpression(expression, context)
       case BoundLeftHandSide.MemberAccess(expression) =>
@@ -1243,7 +1247,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       context: LoweredBlock
   ): LoweredBlock = {
     statement match {
-      case BoundStatement.Error => ???
+      case BoundStatement.Error => panic("unimplemented: lowerStatement")
       case statement: BoundStatement.ExpressionStatement =>
         lowerExpressionStatement(statement, context)
       case statement: BoundStatement.VariableDeclaration =>

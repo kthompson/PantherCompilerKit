@@ -220,7 +220,7 @@ class BinderTests extends AnyFunSpec with Matchers {
 
     // The positive case - assigning to a `var` field through member access -
     // cannot be covered end to end yet: the binder accepts it and the lowerer
-    // then hits the `???` at Lowered.scala lowerAssignment. The val case below
+    // then hits the unimplemented panic in Lowered.scala lowerAssignment. The val case below
     // works because reporting a diagnostic stops the pipeline before lowering.
 
     it("should reject assigning to a builtin read-only field") {

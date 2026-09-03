@@ -792,9 +792,9 @@ case class Transpiler(
       case value: SimpleNameSyntax.IdentifierNameSyntax =>
         transpileIdentifierName(value, context)
       case value: SimpleNameSyntax.AliasSyntax =>
-        ??? // todo
+        panic("unimplemented: transpileSimpleName") // todo
       case value: SimpleNameSyntax.ScalaAliasSyntax =>
-        ??? // todo
+        panic("unimplemented: transpileSimpleName") // todo
     }
   }
 
@@ -840,7 +840,7 @@ case class Transpiler(
           transpileSimpleName(name.right, context)
         }
       case alias: SimpleNameSyntax.AliasSyntax =>
-        ???
+        panic("unimplemented: transpileQualifiedName")
       case alias: SimpleNameSyntax.ScalaAliasSyntax =>
         transpileToken(name.dotToken, context)
         transpileTokenWithText(alias.open, "", context)

@@ -201,13 +201,15 @@ compiler directly with a higher limit:
 sbt pncs/transpile && sbt --error "pncs/run --diagnostics-limit 5000 out.pnb $(find pnc/src -name '*.pn' | tr '\n' ' ')"
 ```
 
-### 1.4 Close the `???` holes
+### 1.4 Close the unimplemented holes
 
-38 live `???` remain in paths the self-hosted compiler will eventually walk:
-9 in `Emitter.scala`, 8 in `Lowered.scala`, 4 across the assembly printers,
-3 in `Transpiler.scala`, and the rest scattered. Each is a crash waiting for
-the first program that hits it. They can stay until the diagnostics are down,
-but they cannot stay through stage 2.
+38 `panic("unimplemented: …")` calls remain in paths the self-hosted
+compiler will eventually walk: 9 in `Emitter.scala`, 8 in `Lowered.scala`, 4
+across the assembly printers, 3 in `Transpiler.scala`, and the rest
+scattered. Each names the function it sits in, so `grep unimplemented` finds
+them all. Each is a crash waiting for the first program that hits it. They
+can stay until the diagnostics are down, but they cannot stay through stage
+2.
 
 ### 1.5 Run the stages
 

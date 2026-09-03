@@ -88,7 +88,9 @@ class BoundAssemblyPrinter(
     }
   }
 
-  def printError(expr: BoundExpression.Error): unit = ???
+  def printError(expr: BoundExpression.Error): unit = panic(
+    "unimplemented: printError"
+  )
 
   def printArrayCreation(expr: BoundExpression.ArrayCreation): unit = {
     writeWithColor(ColorPalette.Keyword, "new")
@@ -189,7 +191,9 @@ class BoundAssemblyPrinter(
     writeWithColor(ColorPalette.Punctuation, " ")
     ast._printType(expr.targetType, true)
   }
-  def printForExpression(expr: BoundExpression.For): unit = ???
+  def printForExpression(expr: BoundExpression.For): unit = panic(
+    "unimplemented: printForExpression"
+  )
 
   def printIfExpression(expr: BoundExpression.If): unit = {
     writeWithColor(ColorPalette.Keyword, "if")
@@ -206,7 +210,9 @@ class BoundAssemblyPrinter(
         printExpression(elseExpr)
     }
   }
-  def printIndexExpression(expr: BoundExpression.Index): unit = ???
+  def printIndexExpression(expr: BoundExpression.Index): unit = panic(
+    "unimplemented: printIndexExpression"
+  )
   def printIntLiteral(expr: BoundExpression.Int): unit = {
     writeWithColor(ColorPalette.Number, string(expr.value))
   }

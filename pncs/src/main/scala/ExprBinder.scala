@@ -252,7 +252,7 @@ case class ExprBinder(
       expr: Expression.ArrayCreation,
       expectedType: Type,
       scope: Scope
-  ): BoundExpression = ???
+  ): BoundExpression = panic("unimplemented: checkArrayCreation")
 
   def checkAssignment(
       expr: Expression.Assignment,
@@ -1121,7 +1121,8 @@ case class ExprBinder(
       val boundArgs = bindArguments(functionType.parameters, args, scope)
 
       function match {
-        case BoundLeftHandSide.Index(expression) => ???
+        case BoundLeftHandSide.Index(expression) =>
+          panic("unimplemented: bindFunctionCall")
         case BoundLeftHandSide.MemberAccess(access) =>
           val receiver = if (access.member.isStatic()) {
             Option.None
@@ -1149,7 +1150,7 @@ case class ExprBinder(
               functionType.returnType
             )
           )
-        case _ => ???
+        case _ => panic("unimplemented: bindFunctionCall")
       }
     }
   }
@@ -1197,7 +1198,8 @@ case class ExprBinder(
         bindArgumentsToTypes(instantiatedParameterTypes, args, scope)
 
       function match {
-        case BoundLeftHandSide.Index(expression) => ???
+        case BoundLeftHandSide.Index(expression) =>
+          panic("unimplemented: bindGenericFunctionCall")
         case BoundLeftHandSide.MemberAccess(access) =>
           val receiver = if (access.member.isStatic()) {
             Option.None
@@ -1225,7 +1227,7 @@ case class ExprBinder(
               instantiatedReturnType
             )
           )
-        case _ => ???
+        case _ => panic("unimplemented: bindGenericFunctionCall")
       }
     }
   }
@@ -1281,7 +1283,8 @@ case class ExprBinder(
         bindArgumentsToTypes(instantiatedParameterTypes, args, scope)
 
       function match {
-        case BoundLeftHandSide.Index(expression) => ???
+        case BoundLeftHandSide.Index(expression) =>
+          panic("unimplemented: checkGenericFunctionCall")
         case BoundLeftHandSide.MemberAccess(access) =>
           val receiver = if (access.member.isStatic()) {
             Option.None
@@ -1309,7 +1312,7 @@ case class ExprBinder(
               instantiatedReturnType
             )
           )
-        case _ => ???
+        case _ => panic("unimplemented: checkGenericFunctionCall")
       }
     }
   }
@@ -1631,10 +1634,12 @@ case class ExprBinder(
     node.value match {
       case SimpleNameSyntax.IdentifierNameSyntax(identifier) =>
         bindIdentifier(identifier, scope)
-      case generic: SimpleNameSyntax.GenericNameSyntax => ???
+      case generic: SimpleNameSyntax.GenericNameSyntax =>
+        panic("unimplemented: inferIdentifierName")
       case SimpleNameSyntax.ScalaAliasSyntax(open, name, arrow, alias, close) =>
-        ???
-      case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) => ???
+        panic("unimplemented: inferIdentifierName")
+      case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) =>
+        panic("unimplemented: inferIdentifierName")
     }
   }
 
@@ -1804,8 +1809,9 @@ case class ExprBinder(
                     alias,
                     close
                   ) =>
-                ???
-              case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) => ???
+                panic("unimplemented: inferMemberAccess")
+              case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) =>
+                panic("unimplemented: inferMemberAccess")
               case SimpleNameSyntax.IdentifierNameSyntax(right) =>
                 bindMemberForSymbolAndType(leftType, right) match {
                   case Either.Left(message) =>

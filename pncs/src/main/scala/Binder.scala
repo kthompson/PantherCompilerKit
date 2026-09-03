@@ -1121,7 +1121,7 @@ case class Binder(
                 // if we found the symbol but not the type then something
                 // funky happened and that shouldn't be possible panic for
                 // now
-                ???
+                panic("unimplemented: bindTypeSimpleName")
               case Option.Some(
                     Type.Class(location, ns, name, _, symbol)
                   ) =>
@@ -1180,7 +1180,7 @@ case class Binder(
                   // if we found the symbol but not the type then something
                   // funky happened and that shouldn't be possible panic for
                   // now
-                  ???
+                  panic("unimplemented: bindTypeSimpleName")
                 case Option.Some(typ) => typ
               }
           }

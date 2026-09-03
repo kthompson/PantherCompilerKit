@@ -106,7 +106,7 @@ class LoweredAssemblyPrinter(
         printLabelDeclaration(stmt)
 
       case stmt: LoweredStatement.Return =>
-        ???
+        panic("unimplemented: printStatement")
     }
   }
 
