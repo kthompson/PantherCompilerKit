@@ -643,6 +643,39 @@ class TypeTests extends AnyFunSpec with Matchers {
 //      )
 //    }
 
+    it("should substitute type arguments through enum aliases") {
+      // Every enum is a Type.Alias, so a parameter or return type written
+      // as List[T] has to be instantiated the same way a class type is.
+      val setup = "enum List[T] {\n" +
+        "  case Cons(head: T, tail: List[T])\n" +
+        "  case Nil\n" +
+        "}\n" +
+        "def prepend(x: string, xs: List[string]): List[string] = List.Cons(x, xs)\n" +
+        "def wrap[T](x: T): List[T] = List.Nil"
+
+      assertInferExprTypeWithSetup(setup, "wrap(42)", "List<int>")
+      assertInferExprTypeWithSetup(
+        setup,
+        "prepend(\"a\", List.Nil)",
+        "List<string>"
+      )
+    }
+
+    it(
+      "should substitute type arguments in member types through enum aliases"
+    ) {
+      val setup = "enum List[T] {\n" +
+        "  case Cons(head: T, tail: List[T])\n" +
+        "  case Nil\n" +
+        "}\n" +
+        "class Box[T](value: T) {\n" +
+        "  def wrapped(): List[T] = List.Nil\n" +
+        "}\n" +
+        "val box = new Box(1)"
+
+      assertInferExprTypeWithSetup(setup, "box.wrapped()", "List<int>")
+    }
+
     it("should infer generic type from expected return type - identity") {
       val setup = "def identity[T](x: T): T = x"
 

@@ -36,7 +36,7 @@ format, and args parser.
 sbt pnc/compile
 ```
 
-Runs to completion and reports **996 diagnostics** against the generated
+Runs to completion and reports **921 diagnostics** against the generated
 `.pn` sources. By message:
 
 | Count | Diagnostic                      |
@@ -50,7 +50,7 @@ Runs to completion and reports **996 diagnostics** against the generated
 |    11 | argument-count mismatches       |
 |     2 | `Duplicate definition`          |
 
-**586 of the 996 mention an unsolved type variable** (`$0`, `$1`, …) — a
+**487 of the 921 mention an unsolved type variable** (`$0`, `$1`, …) — a
 generic parameter the binder gave up on. That is the strongest single signal we
 have about what to fix first.
 
@@ -166,7 +166,7 @@ count that decision is made from.
 
 Ordered by what the counts say, not by what is interesting:
 
-1. **Generic inference** (see §2). 586 diagnostics reference an unsolved type
+1. **Generic inference** (see §2). 487 diagnostics reference an unsolved type
    variable; this is the bulk of the work.
 2. **Member lookup on generic receivers** — `Symbol X not found for type $0`,
    149 diagnostics. Falls out of §2 but worth tracking separately in case it
@@ -182,7 +182,7 @@ Track the number after every change:
 sbt pnc/compile
 ```
 
-**996 → 0.** Nothing else in this section matters until that number moves.
+**921 → 0.** Nothing else in this section matters until that number moves.
 
 Only the first 20 diagnostics are printed. To see them all, transpile first —
 `pnc/compile` does this implicitly, and the count depends on it — then run the
@@ -214,9 +214,15 @@ is the point at which `pncs` stops being load-bearing.
 
 Generics are further along than the diagnostic count suggests — `Type.Class`,
 `Type.GenericClass`, `Type.GenericFunction`, and `Type.Variable` all exist,
-`Inference.scala` and `TypeInference.scala` are real implementations, and
-`TypeTests` covers identity functions, generic containers, and generic methods
-with concrete returns. What is missing is everything past the simple cases.
+`TypeInference.scala` infers type arguments at call sites, `Types.substitute`
+instantiates them through every type constructor, and `TypeTests` covers
+identity functions, generic containers, enum aliases, and generic methods with
+concrete returns. (`Inference.scala` is commented out in its entirety and is
+not part of the pipeline.) What is missing is everything past the simple cases.
+
+[ADR 0001](docs/architecture/adr/0001-generic-type-inference.md) traces every
+diagnostic that mentions a type variable to one of five causes and fixes them
+in five measured steps. Step A (one substitution) is in; B–E follow.
 
 ### 2.1 Type-argument inference through call chains
 
@@ -229,7 +235,9 @@ head match {
 ```
 
 where `x`'s type has to flow from the scrutinee's type argument into the call.
-The binder produces `$0` and then reports `Cannot convert from $0 to T`.
+The binder produces `$0` and then reports `Cannot convert from $0 to T`. That
+is ADR 0001's step C; steps B, D and E cover the call-site, constructor and
+variance halves of the same problem.
 
 This is the highest-value work in the entire roadmap. Every diagnostic it
 removes from §1.3 is one that does not need fixing by hand.
@@ -489,11 +497,11 @@ Sequenced so each step makes the next one measurable.
 
 **First — stop flying blind.** Done. The generated tree matches the
 transpiler (§1.1), the exit code is trustworthy (§1.2), and failures come back
-as diagnostics rather than exceptions (§4.2). The 996 counts every error the
+as diagnostics rather than exceptions (§4.2). The 921 counts every error the
 front end finds — none are discarded.
 
 **Second — generics.**
-§2.1 inference, §2.2 bounds. The 996 should fall
+§2.1 inference, §2.2 bounds. The 921 should fall
 sharply. If it does not, the assumption behind this roadmap was wrong and the
 plan should be rewritten around what the diagnostics actually say.
 
@@ -514,7 +522,7 @@ The three numbers worth putting on a wall:
 
 | Metric                            |         Now | Target | Command                                    |
 | --------------------------------- | ----------: | -----: | ------------------------------------------ |
-| Self-hosting diagnostics          |         996 |      0 | `sbt pnc/compile` (now fails, as it should) |
+| Self-hosting diagnostics          |         921 |      0 | `sbt pnc/compile` (now fails, as it should) |
 | Doc blocks that fail              | **0 / 200** |      0 | `sbt "doccheck/run docs/src/content/docs"` |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                   |
 | Samples that run in CI            |           0 |      6 | not yet built                              |

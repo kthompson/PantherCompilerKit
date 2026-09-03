@@ -204,6 +204,71 @@ enum Type {
 
 object Types {
 
+  /** Replace every type variable with the argument at its index, all the way
+    * down: class and alias arguments, union cases, function parameters and
+    * return types. A variable whose index is out of range is left alone; it
+    * belongs to an enclosing declaration, not the one being instantiated.
+    */
+  def substitute(typ: Type, typeArgs: List[Type]): Type = {
+    typ match {
+      case Type.Variable(_, id) =>
+        typeArgAt(typeArgs, id) match {
+          case Option.Some(arg) => arg
+          case Option.None      => typ
+        }
+      case Type.Class(loc, ns, name, args, symbol) =>
+        Type.Class(loc, ns, name, substituteList(args, typeArgs), symbol)
+      case Type.Alias(loc, ns, name, args, value, symbol) =>
+        Type.Alias(loc, ns, name, substituteList(args, typeArgs), value, symbol)
+      case Type.Union(loc, cases) =>
+        Type.Union(loc, substituteList(cases, typeArgs))
+      case Type.Function(loc, params, returnType) =>
+        Type.Function(
+          loc,
+          substituteParameters(params, typeArgs),
+          substitute(returnType, typeArgs)
+        )
+      case Type.GenericFunction(loc, generics, traits, params, returnType) =>
+        Type.GenericFunction(
+          loc,
+          generics,
+          substituteList(traits, typeArgs),
+          substituteParameters(params, typeArgs),
+          substitute(returnType, typeArgs)
+        )
+      case _ => typ
+    }
+  }
+
+  def substituteList(types: List[Type], typeArgs: List[Type]): List[Type] =
+    types match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        List.Cons(substitute(head, typeArgs), substituteList(tail, typeArgs))
+    }
+
+  def substituteParameters(
+      params: List[BoundParameter],
+      typeArgs: List[Type]
+  ): List[BoundParameter] =
+    params match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        List.Cons(
+          BoundParameter(head.symbol, substitute(head.typ, typeArgs)),
+          substituteParameters(tail, typeArgs)
+        )
+    }
+
+  def typeArgAt(typeArgs: List[Type], index: int): Option[Type] =
+    typeArgs match {
+      case List.Nil => Option.None
+      case List.Cons(head, tail) =>
+        if (index == 0) Option.Some(head)
+        else if (index < 0) Option.None
+        else typeArgAt(tail, index - 1)
+    }
+
   // TODO: skip redundant types in the union
   def union(t1: Type, t2: Type): Type = {
     if (t1 == t2) t1

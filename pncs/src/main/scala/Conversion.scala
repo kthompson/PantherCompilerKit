@@ -109,50 +109,11 @@ class ConversionClassifier(binder: Binder) {
 
   def substituteTypeArgs(typ: Type, typeArgs: List[Type]): Type = {
     typ match {
-      case Type.Variable(loc, id) =>
-        getTypeArg(typeArgs, id) match {
-          case Option.Some(substituted) => substituted
-          case Option.None => typ // Return original if id out of bounds
-        }
-      case Type.Class(loc, ns, name, args, symbol) =>
-        // Substitute type arguments in the class type arguments
-        Type.Class(
-          loc,
-          ns,
-          name,
-          substituteTypeArgsList(args, typeArgs),
-          symbol
-        )
-      case Type.GenericClass(loc, ns, name, genParams, symbol) =>
-        // For generic classes, convert to regular class with substituted type arguments
+      case Type.GenericClass(loc, ns, name, _, symbol) =>
+        // An uninstantiated case of the alias: its parameters are the
+        // alias's own, so the alias's arguments apply directly.
         Type.Class(loc, ns, name, typeArgs, symbol)
-      case _ => typ // For other types, return as-is
-    }
-  }
-
-  def substituteTypeArgsList(
-      args: List[Type],
-      typeArgs: List[Type]
-  ): List[Type] = {
-    args match {
-      case List.Nil => List.Nil
-      case List.Cons(head, tail) =>
-        List.Cons(
-          substituteTypeArgs(head, typeArgs),
-          substituteTypeArgsList(tail, typeArgs)
-        )
-    }
-  }
-
-  def getTypeArg(args: List[Type], index: int): Option[Type] = {
-    args match {
-      case List.Nil => Option.None
-      case List.Cons(head, tail) =>
-        if (index == 0) {
-          Option.Some(head)
-        } else {
-          getTypeArg(tail, index - 1)
-        }
+      case _ => Types.substitute(typ, typeArgs)
     }
   }
 

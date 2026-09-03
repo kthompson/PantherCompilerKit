@@ -1056,7 +1056,7 @@ case class ExprBinder(
                     ) =>
                   // For generic functions, we need to substitute type variables in parameters
                   val substitutedParams =
-                    typeInference.substituteParameterTypes(
+                    Types.substituteParameters(
                       params,
                       inferredTypeArgs
                     )
@@ -1214,17 +1214,10 @@ case class ExprBinder(
 
     // Instantiate the generic function with inferred type arguments
     val instantiatedParameterTypes =
-      typeInference.substituteGenericTypesInParameters(
-        parameterTypes,
-        genericFunctionType.generics,
-        inferredTypeArgs
-      )
+      Types.substituteList(parameterTypes, inferredTypeArgs)
 
-    val instantiatedReturnType = typeInference.substituteGenericTypesInType(
-      genericFunctionType.returnType,
-      genericFunctionType.generics,
-      inferredTypeArgs
-    )
+    val instantiatedReturnType =
+      Types.substitute(genericFunctionType.returnType, inferredTypeArgs)
 
     // Check argument count matches
     if (instantiatedParameterTypes.length != args.length) {
@@ -1305,17 +1298,10 @@ case class ExprBinder(
 
     // Instantiate the generic function with inferred type arguments
     val instantiatedParameterTypes =
-      typeInference.substituteGenericTypesInParameters(
-        parameterTypes,
-        genericFunctionType.generics,
-        inferredTypeArgs
-      )
+      Types.substituteList(parameterTypes, inferredTypeArgs)
 
-    val instantiatedReturnType = typeInference.substituteGenericTypesInType(
-      genericFunctionType.returnType,
-      genericFunctionType.generics,
-      inferredTypeArgs
-    )
+    val instantiatedReturnType =
+      Types.substitute(genericFunctionType.returnType, inferredTypeArgs)
 
     // Check argument count matches
     if (instantiatedParameterTypes.length != args.length) {
@@ -1790,7 +1776,7 @@ case class ExprBinder(
                 // If leftType has type arguments, substitute them in the member type
                 val substitutedType = leftType match {
                   case Type.Class(_, _, _, typeArgs, _) =>
-                    typeInference.substituteTypeVariable(typ, typeArgs)
+                    Types.substitute(typ, typeArgs)
                   case _ => typ
                 }
                 Either.Right(Tuple2(member, substitutedType))
@@ -2394,8 +2380,8 @@ case class ExprBinder(
                   }
 
                   // Substitute type variables in parameter types
-                  val substitutedParams = typeInference
-                    .substituteParameterTypes(params, inferredTypeArgs)
+                  val substitutedParams =
+                    Types.substituteParameters(params, inferredTypeArgs)
 
                   val instantiatedFunction: Type.Function =
                     Type.Function(
@@ -2483,7 +2469,7 @@ case class ExprBinder(
                   ) =>
                 // For generic functions, we need to substitute type variables in parameters
                 val substitutedParams =
-                  typeInference.substituteParameterTypes(
+                  Types.substituteParameters(
                     params,
                     inferredTypeArgs
                   )
