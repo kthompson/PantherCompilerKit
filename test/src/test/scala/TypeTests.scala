@@ -698,6 +698,31 @@ class TypeTests extends AnyFunSpec with Matchers {
       )
     }
 
+    it("should type pattern variables from the scrutinee's type arguments") {
+      val setup = "enum List[T] {\n" +
+        "  case Cons(head: T, tail: List[T])\n" +
+        "  case Nil\n" +
+        "}\n" +
+        "def first(xs: List[int]): int = xs match {\n" +
+        "  case List.Cons(head, _) => head\n" +
+        "  case List.Nil => 0\n" +
+        "}\n" +
+        "def second(xs: List[int]): int = xs match {\n" +
+        "  case List.Cons(_, List.Cons(head, _)) => head\n" +
+        "  case _ => 0\n" +
+        "}\n" +
+        "def firstOr[T](xs: List[T], default: T): T = xs match {\n" +
+        "  case List.Cons(head, _) => head\n" +
+        "  case List.Nil => default\n" +
+        "}"
+
+      assertInferExprTypeWithSetup(setup, "first(List.Nil)", "int")
+      // Nested: the tail is List<int>, so its head is int too
+      assertInferExprTypeWithSetup(setup, "second(List.Nil)", "int")
+      // Inside a generic method the scrutinee's argument is the method's T
+      assertInferExprTypeWithSetup(setup, "firstOr(List.Nil, 5)", "int")
+    }
+
     it("should infer generic type from expected return type - identity") {
       val setup = "def identity[T](x: T): T = x"
 
