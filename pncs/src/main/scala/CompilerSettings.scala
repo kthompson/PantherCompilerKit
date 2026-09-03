@@ -14,17 +14,18 @@ case class CompilerSettings(
 )
 
 object CompilerSettingsFactory {
-  // Default instance
+  // Default instance. Panther has no named arguments, so the order follows
+  // the constructor above.
   val default = CompilerSettings(
-    kindRecoveryAttempts = 5,
-    diagnosticsToPrint = 20,
-    stackSize = 50,
-    heapSize = 1024,
-    debug = false,
-    enableTracing = false,
-    printSymbols = false,
-    printBoundAssembly = false,
-    printLoweredAssembly = false,
-    transpile = false
+    5, // kindRecoveryAttempts
+    20, // diagnosticsToPrint
+    50, // stackSize
+    1024, // heapSize
+    false, // debug
+    false, // enableTracing
+    false, // printSymbols
+    false, // printBoundAssembly
+    false, // printLoweredAssembly
+    false // transpile
   )
 }
