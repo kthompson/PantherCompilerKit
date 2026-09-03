@@ -776,6 +776,51 @@ class TypeTests extends AnyFunSpec with Matchers {
       )
     }
 
+    it("should default an unsolved covariant parameter to never") {
+      val setup = "enum Result[out A, out B] {\n" +
+        "  case Error(value: A)\n" +
+        "  case Success(value: B)\n" +
+        "}\n" +
+        "val e = Result.Error(\"no\")"
+
+      assertInferExprTypeWithSetup(setup, "e", "Result.Error<string, Never>")
+      // ...which is what lets it stand in for any Result[string, B]
+      assertAssignableToWithSetup(setup, "e", "Result[string, int]")
+    }
+
+    it("should convert type arguments under the declared variance") {
+      val setup = "enum List[out T] {\n" +
+        "  case Cons(head: T, tail: List[T])\n" +
+        "  case Nil\n" +
+        "}\n" +
+        "class Box[T](value: T)\n" +
+        "val ints: List[int] = List.Cons(1, List.Nil)\n" +
+        "val box = new Box(1)"
+
+      // out T: List[int] widens to List[any]
+      assertAssignableToWithSetup(setup, "ints", "List[any]")
+      // Invariant T: Box[int] does not
+      val messages = diagnosticMessages(
+        mkFailingCompilation(setup + "\n\nval widened: Box[any] = box")
+      )
+      messages should contain("Cannot convert from Box<int> to Box<any>")
+    }
+
+    it("should convert a union when every case converts") {
+      val setup = "enum Option[out T] {\n" +
+        "  case Some(value: T)\n" +
+        "  case None\n" +
+        "}\n" +
+        "val flag = true\n" +
+        "val o = flag match {\n" +
+        "  case true => Option.Some(1)\n" +
+        "  case false => Option.None\n" +
+        "}"
+
+      assertInferExprTypeWithSetup(setup, "o", "Option.Some<int> | Option.None")
+      assertAssignableToWithSetup(setup, "o", "Option[int]")
+    }
+
     it("should infer generic type from expected return type - identity") {
       val setup = "def identity[T](x: T): T = x"
 

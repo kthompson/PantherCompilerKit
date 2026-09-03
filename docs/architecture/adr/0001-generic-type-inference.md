@@ -1,6 +1,6 @@
 # ADR 0001: Generic type inference
 
-**Status:** Proposed
+**Status:** Accepted — implemented 2026-09-03, see [Outcome](#outcome)
 **Date:** 2026-09-03
 **Primitives:** `binder` (see [`primitives.yaml`](../primitives.yaml))
 **Roadmap:** [§2.1](../../../ROADMAP.md#21-type-argument-inference-through-call-chains)
@@ -229,3 +229,43 @@ constructor path does today. Rejected: an `any` argument cannot be assigned
 to a narrower one, so `Result.Error(e)` can never satisfy a declared
 `Result[E, B]`. With the covariance the stdlib already declares, `never` is
 the type that assigns everywhere it should.
+
+## Outcome
+
+Each step landed as its own commit and was measured with `sbt pnc/compile`:
+
+| Step                                                       | Diagnostics |
+| ---------------------------------------------------------- | ----------: |
+| baseline                                                   |         996 |
+| A — one substitution                                       |         921 |
+| B — inference over every type constructor                  |         907 |
+| C — patterns carry the scrutinee type                      |         553 |
+| A′ — alias-typed receivers (`opt.get()`, `list.reverse()`) |         502 |
+| D — constructors infer like calls                          |         423 |
+| E — variance-aware conversion, `never` default             |         388 |
+
+Of the 388, six mention a type variable and nine a parameter that defaulted
+to `any`. The largest buckets are now `Symbol X not found` (135, of which 35
+are `this`, which the binder never defines) and operators (112).
+
+Where the implementation departs from the decision above:
+
+- `substitute` lives in `object Types` (`Type.scala`), not `TypeInference`.
+  It is pure, and `ConversionClassifier` has no path to a `TypeInference`.
+- Step A also had to cover member access: `bindMemberForSymbolAndType`
+  substituted the receiver's arguments only for a `Type.Class` receiver, so
+  every method on an enum value came back in terms of the enum's own `T`.
+- `ExprBinder.isSubtype` is untouched. `subsume` falls through to
+  `bindConversion` when `isSubtype` is false, and an `Identity` conversion
+  returns the expression unchanged, so the two already agree with no cast.
+- Step E also generalised the union rule: a union converts when every case
+  does, replacing the rule that only handled a union of cases against an
+  unparameterised alias. `Option.Some<int> | Option.None` now converts to
+  `Option<int>`.
+- `Conversion.isIdentity` and its siblings are `val`s computed as
+  `this == Identity` while the case objects are still being constructed, so
+  they are `false` even on the case they name. The classifier matches on the
+  case instead. Nothing else reads the `val`s.
+- The diagnostic for a generic method on a generic class is not written.
+  No such method exists in the sources, so nothing measures it yet; it goes
+  with the follow-up ADR on scoped ids.

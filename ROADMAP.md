@@ -36,35 +36,34 @@ format, and args parser.
 sbt pnc/compile
 ```
 
-Runs to completion and reports **423 diagnostics** against the generated
+Runs to completion and reports **388 diagnostics** against the generated
 `.pn` sources. By message:
 
 | Count | Diagnostic                      |
 | ----: | ------------------------------- |
-|   545 | `Cannot convert from A to B`    |
-|   149 | `Symbol X not found for type T` |
-|   133 | `Symbol X not found`            |
-|   100 | `No operator for operands`      |
-|    38 | `Type X not defined`            |
+|   135 | `Symbol X not found`            |
+|   112 | `No operator for operands`      |
+|    39 | `Type X not defined`            |
+|    39 | `Cannot convert from A to B`    |
+|    27 | `Symbol X not found for type T` |
 |    18 | `Invalid namespace`             |
 |    11 | argument-count mismatches       |
 |     2 | `Duplicate definition`          |
 
-**6 of the 423 mention an unsolved type variable** (`$0`, `$1`, …) — a
-generic parameter the binder gave up on. That is the strongest single signal we
-have about what to fix first.
+**6 of the 388 mention an unsolved type variable** (`$0`, `$1`, …) — a
+generic parameter the binder gave up on. The largest buckets are now name
+resolution (`this`, imports) and operators, not generics.
 
-By file, the damage concentrates in the parts of the compiler that lean hardest
-on generic collections:
+By file:
 
 | Count | File               |
 | ----: | ------------------ |
-|   188 | `Binder.pn`        |
-|   113 | `ExprBinder.pn`    |
-|    84 | `Lowered.pn`       |
-|    81 | `Parser.pn`        |
-|    76 | `Emitter.pn`       |
-|    46 | `TypeInference.pn` |
+|    58 | `Parser.pn`        |
+|    38 | `Emitter.pn`       |
+|    32 | `ExprBinder.pn`    |
+|    26 | `TypeInference.pn` |
+|    24 | `Lowered.pn`       |
+|    24 | `Binder.pn`        |
 
 ### Nothing is ever written to disk
 
@@ -187,7 +186,7 @@ Track the number after every change:
 sbt pnc/compile
 ```
 
-**423 → 0.** Nothing else in this section matters until that number moves.
+**388 → 0.** Nothing else in this section matters until that number moves.
 
 Only the first 20 diagnostics are printed. To see them all, transpile first —
 `pnc/compile` does this implicitly, and the count depends on it — then run the
@@ -226,12 +225,14 @@ concrete returns. (`Inference.scala` is commented out in its entirety and is
 not part of the pipeline.) What is missing is everything past the simple cases.
 
 [ADR 0001](docs/architecture/adr/0001-generic-type-inference.md) traces every
-diagnostic that mentions a type variable to one of five causes and fixes them
-in five measured steps. Steps A–D are in — one substitution, inference over every type constructor, patterns carrying the scrutinee type, and constructors inferring like calls. E (variance) follows.
+diagnostic that mentioned a type variable to one of five causes and fixes them
+in five measured steps, all in: one substitution, inference over every type
+constructor, patterns carrying the scrutinee type, constructors inferring like
+calls, and variance-aware conversion.
 
 ### 2.1 Type-argument inference through call chains
 
-The failing pattern in `pnc/src` is not exotic. It is code like:
+Type arguments flow through the paths the compiler's own sources use:
 
 ```
 head match {
@@ -239,13 +240,14 @@ head match {
 }
 ```
 
-where `x`'s type has to flow from the scrutinee's type argument into the call.
-The binder produces `$0` and then reports `Cannot convert from $0 to T`. That
-is ADR 0001's step C; steps B, D and E cover the call-site, constructor and
-variance halves of the same problem.
+`x` takes the scrutinee's type argument, `List.Cons(x, xs)` and
+`new Dictionary[K, V](List.Nil)` instantiate every parameter, an expected type
+solves what the arguments cannot, and an unsolved covariant parameter defaults
+to `never` so `Result.Error(e)` satisfies any `Result[E, B]`.
 
-This is the highest-value work in the entire roadmap. Every diagnostic it
-removes from §1.3 is one that does not need fixing by hand.
+Six diagnostics still mention a type variable and nine a parameter that
+defaulted to `any`. The next lever is the positional-id constraint recorded in
+ADR 0001: a generic method on a generic class shares `$0` with its class.
 
 ### 2.2 Upper bounds
 
@@ -502,11 +504,11 @@ Sequenced so each step makes the next one measurable.
 
 **First — stop flying blind.** Done. The generated tree matches the
 transpiler (§1.1), the exit code is trustworthy (§1.2), and failures come back
-as diagnostics rather than exceptions (§4.2). The 423 counts every error the
+as diagnostics rather than exceptions (§4.2). The 388 counts every error the
 front end finds — none are discarded.
 
 **Second — generics.**
-§2.1 inference, §2.2 bounds. The 423 should fall
+§2.1 inference, §2.2 bounds. The 388 should fall
 sharply. If it does not, the assumption behind this roadmap was wrong and the
 plan should be rewritten around what the diagnostics actually say.
 
@@ -527,7 +529,7 @@ The three numbers worth putting on a wall:
 
 | Metric                            |         Now | Target | Command                                    |
 | --------------------------------- | ----------: | -----: | ------------------------------------------ |
-| Self-hosting diagnostics          |         423 |      0 | `sbt pnc/compile` (now fails, as it should) |
+| Self-hosting diagnostics          |         388 |      0 | `sbt pnc/compile` (now fails, as it should) |
 | Doc blocks that fail              | **0 / 200** |      0 | `sbt "doccheck/run docs/src/content/docs"` |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                   |
 | Samples that run in CI            |           0 |      6 | not yet built                              |
