@@ -67,7 +67,7 @@ sbt "doccheck/run docs/src/content/docs"
 ```bash
 # DO NOT USE for validation:
 sbt compile        # Fails during the pnc/compile step
-sbt pnc/compile    # Reports ~1030 diagnostics against the generated .pn
+sbt pnc/compile    # Reports ~1112 diagnostics against the generated .pn
                    # sources and exits non-zero, so the sbt task fails.
 sbt pncs/bootstrap # Fails during the transpilation step
 ```

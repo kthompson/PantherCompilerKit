@@ -186,6 +186,25 @@ class BinderTests extends AnyFunSpec with Matchers {
       foundPatternVariable shouldBe true
     }
 
+    // A failure has to come back as a diagnostic, never as an exception.
+    // Each of these used to take the compiler down instead of reporting.
+    it("should report a diagnostic for an unsupported operator") {
+      val comp = mkFailingCompilation("val n = 5\nval s = \"text \" + n")
+      diagnosticMessages(comp) should contain(
+        "No operator '+' for operands string and int"
+      )
+    }
+
+    it("should report a diagnostic for break") {
+      val comp = mkFailingCompilation("while (true) {\n  break\n}")
+      diagnosticMessages(comp) should contain("break is not supported")
+    }
+
+    it("should report a diagnostic for continue") {
+      val comp = mkFailingCompilation("while (true) {\n  continue\n}")
+      diagnosticMessages(comp) should contain("continue is not supported")
+    }
+
     it("should bind out as covariant and in as contravariant") {
       val comp = mkCompilation(
         "class Producer[out T]()\n" +

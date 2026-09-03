@@ -36,35 +36,35 @@ format, and args parser.
 sbt pnc/compile
 ```
 
-Runs to completion and reports **1030 diagnostics** against the generated
+Runs to completion and reports **1112 diagnostics** against the generated
 `.pn` sources. By message:
 
 | Count | Diagnostic                      |
 | ----: | ------------------------------- |
-|   645 | `Cannot convert from A to B`    |
-|   182 | `Symbol X not found for type T` |
+|   542 | `Cannot convert from A to B`    |
+|   223 | `No operator for operands`      |
+|   148 | `Symbol X not found for type T` |
 |   130 | `Symbol X not found`            |
 |    38 | `Type X not defined`            |
 |    18 | `Invalid namespace`             |
-|    14 | argument-count mismatches       |
+|    11 | argument-count mismatches       |
 |     2 | `Duplicate definition`          |
-|     1 | no operator for operands        |
 
-**686 of the 1030 mention an unsolved type variable** (`$0`, `$1`, …) — a
+**585 of the 1112 mention an unsolved type variable** (`$0`, `$1`, …) — a
 generic parameter the binder gave up on. That is the strongest single signal we
 have about what to fix first.
 
 By file, the damage concentrates in the parts of the compiler that lean hardest
 on generic collections:
 
-| Count | File               |
-| ----: | ------------------ |
-|   245 | `Binder.pn`        |
-|   118 | `ExprBinder.pn`    |
-|    84 | `Lowered.pn`       |
-|    78 | `Parser.pn`        |
-|    73 | `Emitter.pn`       |
-|    54 | `TypeInference.pn` |
+| Count | File            |
+| ----: | --------------- |
+|   188 | `Binder.pn`     |
+|   118 | `Parser.pn`     |
+|   116 | `ExprBinder.pn` |
+|    84 | `Lowered.pn`    |
+|    75 | `Emitter.pn`    |
+|    68 | `Lexer.pn`      |
 
 ### Nothing is ever written to disk
 
@@ -159,17 +159,17 @@ transpiled `Program.pn` binds it. Like `println` and `panic`, it is marked
 
 Because `build.sbt` fails the task on a non-zero exit code
 ([`build.sbt:146`](build.sbt:146)), `sbt pnc/compile` now **fails** rather
-than reporting 1030 diagnostics and succeeding. `ProgramTests` covers the
+than reporting diagnostics and succeeding. `ProgramTests` covers the
 count that decision is made from.
 
 ### 1.3 Burn down the diagnostics
 
 Ordered by what the counts say, not by what is interesting:
 
-1. **Generic inference** (see §2). 686 diagnostics reference an unsolved type
+1. **Generic inference** (see §2). 585 diagnostics reference an unsolved type
    variable; this is the bulk of the work.
 2. **Member lookup on generic receivers** — `Symbol X not found for type $0`,
-   182 diagnostics. Falls out of §2 but worth tracking separately in case it
+   148 diagnostics. Falls out of §2 but worth tracking separately in case it
    does not.
 3. **Namespace and import resolution** — 18 `Invalid namespace`, plus some
    share of the 130 bare `Symbol not found`. The transpiler turns
@@ -182,7 +182,7 @@ Track the number after every change:
 sbt pnc/compile
 ```
 
-**1030 → 0.** Nothing else in this section matters until that number moves.
+**1112 → 0.** Nothing else in this section matters until that number moves.
 
 Only the first 20 diagnostics are printed. To see them all, transpile first —
 `pnc/compile` does this implicitly, and the count depends on it — then run the
@@ -361,19 +361,27 @@ gap and the workarounds available today — named top-level functions, generic
 functions, and `enum` + `match` for behaviour dispatch. The skips come off when
 lambdas land (see [cross-cutting](#cross-cutting)).
 
-### 4.2 The compiler throws on `string + int`
+### 4.2 Failures come back as diagnostics
 
-`"text " + someInt` raises
-`Binary operator 'Plus' not found for types 'string' and 'int'` as an
-exception rather than a diagnostic, violating the `diagnostics-not-exceptions`
-invariant in [`primitives.yaml`](docs/architecture/primitives.yaml). The docs
-sidestep it with `"text " + string(n)`, the idiom the compiler's own sources
-use.
+The `diagnostics-not-exceptions` invariant in
+[`primitives.yaml`](docs/architecture/primitives.yaml) holds.
+`"text " + someInt` reports
+`No operator '+' for operands string and int` at the operator's location, and
+`break` / `continue` report `break is not supported` rather than taking the
+compiler down. `BinderTests` covers all three; a regression to a panic fails
+the test as an exception.
 
-Two things to settle: whether `string + int` should work at all, and,
-regardless of that, that the failure comes back as a diagnostic. The same
-applies to `break`/`continue`, which panic through the same
-`boundErrorStatement` path.
+The binary-operator case was not a missing check but a comparison that could
+never be true: `Type.Error` carries a message, so `resultType == Type.Error`
+compared a type against the case constructor. Two more comparisons had the
+same shape, in `isSubtype` and `typesWithError`; all three now pattern-match
+through an `isErrorType` helper. Lowering was already skipped when the
+diagnostic bag is non-empty, so reporting the error was the whole fix — the
+panic came from the lowerer walking an error node nothing had reported.
+
+Still open: whether `string + int` should work at all, rather than requiring
+`"text " + string(n)`. And `break`/`continue` are rejected, not implemented —
+they parse, and the diagnostic is a placeholder for lowering them to jumps.
 
 ### 4.3 Clean up the docs tree
 
@@ -422,6 +430,15 @@ Things that do not belong to one goal but block several.
   back as `Unexpected token NumberToken, expected IdentifierToken` — the lexer
   reads `99`, `.`, `99` as a member access. `Math.scala` carries a `TODO` about
   the missing type; the literal syntax is a separate, earlier problem.
+- **`==` binds looser than `||`.** `currentPrecedence()` puts
+  `EqualsEqualsToken` in the same branch as assignment at precedence 1
+  ([`Parser.scala:93`](pncs/src/main/scala/Parser.scala:93)), so the branch
+  that means to give it 6 is unreachable. With `||` at 2, `a == b || c == d`
+  groups as `a == (b || c) == d`. This accounts for about half the
+  `No operator for operands` diagnostics — `Hex.pn` alone contributes 63 from
+  `curr == 'a' || curr == 'A'`. Removing `EqualsEqualsToken` from the
+  assignment branch is the fix.
+
 - **No compound assignment.** `count += 5` does not parse; `+` and `=` are
   lexed separately.
 - **No `return`.** It is not a keyword anywhere in the lexer or
@@ -430,13 +447,10 @@ Things that do not belong to one goal but block several.
   than `Symbol return not found`.
 - **Block comments do not nest.** `/* outer /* inner */ more */` ends at the
   first `*/`.
-- **`break` and `continue` crash the compiler.** Both are real keywords and
-  parse fine, but `bindBreakStatement` and `bindContinueStatement` call
-  `boundErrorStatement`, which calls `panic()`
-  ([`ExprBinder.scala:695`](pncs/src/main/scala/ExprBinder.scala:695)). Any
-  program using them takes the compiler down rather than getting a diagnostic —
-  another instance of the §4.2 pattern. Either implement them or reject them
-  with a real diagnostic.
+- **`break` and `continue` are rejected, not implemented.** Both are real
+  keywords and parse fine, but there is no lowering for them, so the binder
+  reports `break is not supported` and stops. Implementing them means loop
+  context in the binder and jumps in the lowerer.
 - **No pattern guards, alternation, or tuples.** `case n if n > 0 =>` does not
   parse (`parseMatchCase` goes straight from pattern to `=>`), neither does
   `case 1 | 2 =>`, and there is no tuple literal or tuple pattern — only
@@ -461,13 +475,14 @@ Things that do not belong to one goal but block several.
 
 Sequenced so each step makes the next one measurable.
 
-**First — stop flying blind.**
-§1.1 and §1.2 hold: the generated tree matches the transpiler and the exit
-code is trustworthy. What remains here is §4.2, exceptions where diagnostics
-belong — the last place a failure does not come back as a diagnostic.
+**First — stop flying blind.** Done. The generated tree matches the
+transpiler (§1.1), the exit code is trustworthy (§1.2), and failures come back
+as diagnostics rather than exceptions (§4.2). The 1112 counts every error the
+front end finds — none are discarded — so it is a larger number than a
+compiler that drops what it cannot report would show.
 
 **Second — generics.**
-§2.1 inference, §2.2 bounds. The 1030 should fall
+§2.1 inference, §2.2 bounds. The 1112 should fall
 sharply. If it does not, the assumption behind this roadmap was wrong and the
 plan should be rewritten around what the diagnostics actually say.
 
@@ -488,7 +503,7 @@ The three numbers worth putting on a wall:
 
 | Metric                            |         Now | Target | Command                                    |
 | --------------------------------- | ----------: | -----: | ------------------------------------------ |
-| Self-hosting diagnostics          |        1030 |      0 | `sbt pnc/compile` (now fails, as it should) |
+| Self-hosting diagnostics          |        1112 |      0 | `sbt pnc/compile` (now fails, as it should) |
 | Doc blocks that fail              | **0 / 200** |      0 | `sbt "doccheck/run docs/src/content/docs"` |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                   |
 | Samples that run in CI            |           0 |      6 | not yet built                              |

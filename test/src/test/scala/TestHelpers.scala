@@ -23,6 +23,28 @@ object TestHelpers {
     comp
   }
 
+  /** Compile text that is expected to report diagnostics. Unlike mkCompilation
+    * this does not throw, so a caller can inspect what came back — and a
+    * compiler that panics instead of reporting fails the test.
+    */
+  def mkFailingCompilation(text: string): Compilation =
+    MakeCompilation.create(
+      ListModule.one(
+        MakeSyntaxTree.parseContent(text, CompilerSettingsFactory.default)
+      ),
+      CompilerSettingsFactory.default
+    )
+
+  def diagnosticMessages(comp: Compilation): Seq[String] = {
+    def walk(diagnostics: Diagnostics): Seq[String] =
+      diagnostics match {
+        case Diagnostics.Empty => Seq.empty
+        case Diagnostics.Node(left, head, right) =>
+          walk(left) ++ Seq(head.message) ++ walk(right)
+      }
+    walk(comp.diagnostics)
+  }
+
   def mkSyntaxTree(text: string): SyntaxTree =
     MakeSyntaxTree.parseContent(text, CompilerSettingsFactory.default)
 

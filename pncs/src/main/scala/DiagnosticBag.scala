@@ -199,6 +199,12 @@ case class DiagnosticBag(settings: CompilerSettings) {
   def reportInvalidNamespace(location: TextLocation): unit =
     report(location, "Invalid namespace")
 
+  def reportUnsupportedStatement(
+      location: TextLocation,
+      keyword: string
+  ): unit =
+    report(location, keyword + " is not supported")
+
   def reportBadCharacter(location: TextLocation, value: char): unit =
     report(location, "Invalid character in input: " + string(value))
 

@@ -98,9 +98,15 @@ case class ExprBinder(
     *        same symbol (assuming no polymorphism in this example).
     */
 
+  def isErrorType(typ: Type): bool =
+    typ match {
+      case Type.Error(_) => true
+      case _             => false
+    }
+
   def isSubtype(subType: Type, superType: Type): bool = {
     // Handle Error types
-    if (subType == Type.Error || superType == Type.Error) {
+    if (isErrorType(subType) || isErrorType(superType)) {
       return false
     }
 
@@ -692,11 +698,6 @@ case class ExprBinder(
     BoundExpression.Error("binding error: " + text)
   }
 
-  def boundErrorStatement(text: string): BoundStatement = {
-    panic("\nbinding error: " + text + "\n")
-    BoundStatement.Error
-  }
-
   def inferArrayCreationExpression(
       node: Expression.ArrayCreation,
       scope: Scope
@@ -790,26 +791,26 @@ case class ExprBinder(
 
           case _ =>
             val op = bindBinaryOperator(node.operator)
-            val resultType = operators.checkBinary(leftType, rightType, op)
-            if (resultType == Type.Error) {
-              diagnosticBag.reportNoOperatorForOperands(
-                node.operator.location,
-                node.operator.text,
-                leftType,
-                rightType
-              )
-              BoundExpression.Error(
-                "No operator for operands: " + node.operator.text + " for types: " +
-                  leftType.toString() + " and " + rightType.toString()
-              )
-            } else {
-              BoundExpression.Binary(
-                node.operator.location,
-                left,
-                op,
-                right,
-                resultType
-              )
+            operators.checkBinary(leftType, rightType, op) match {
+              case Type.Error(_) =>
+                diagnosticBag.reportNoOperatorForOperands(
+                  node.operator.location,
+                  node.operator.text,
+                  leftType,
+                  rightType
+                )
+                BoundExpression.Error(
+                  "No operator for operands: " + node.operator.text + " for types: " +
+                    leftType.toString() + " and " + rightType.toString()
+                )
+              case resultType =>
+                BoundExpression.Binary(
+                  node.operator.location,
+                  left,
+                  op,
+                  right,
+                  resultType
+                )
             }
         }
     }
@@ -849,7 +850,7 @@ case class ExprBinder(
     list match {
       case List.Nil => false
       case List.Cons(head, tail) =>
-        if (head == Type.Error) true
+        if (isErrorType(head)) true
         else typesWithError(tail)
     }
   }
@@ -2589,13 +2590,23 @@ case class ExprBinder(
       statement: StatementSyntax.BreakStatement,
       scope: Scope
   ): BoundStatement = {
-    boundErrorStatement("bindBreakStatement")
+    // break parses, but there is no lowering for it yet. Reject it with a
+    // diagnostic rather than taking the compiler down.
+    diagnosticBag.reportUnsupportedStatement(
+      statement.breakKeyword.location,
+      "break"
+    )
+    BoundStatement.Error
   }
   def bindContinueStatement(
       statement: StatementSyntax.ContinueStatement,
       scope: Scope
   ): BoundStatement = {
-    boundErrorStatement("bindContinueStatement")
+    diagnosticBag.reportUnsupportedStatement(
+      statement.continueKeyword.location,
+      "continue"
+    )
+    BoundStatement.Error
   }
   def bindExpressionStatement(
       statement: StatementSyntax.ExpressionStatement,
