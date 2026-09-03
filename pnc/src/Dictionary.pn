@@ -28,9 +28,9 @@ class Dictionary[K, V](list: List[KeyValue[K, V]]) {
 
   def _get(key: K, input: List[KeyValue[K, V]]): Option[V] = {
     input match {
-      case List.Nil => None
+      case List.Nil => Option.None
       case List.Cons(KeyValue(k, v), tail) =>
-        if (k == key) Some(v)
+        if (k == key) Option.Some(v)
         else _get(key, tail)
     }
   }

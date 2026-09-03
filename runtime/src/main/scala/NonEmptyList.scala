@@ -18,7 +18,7 @@ case class NonEmptyList[T](head: T, tail: List[T]) {
 
 object NonEmptyListModule {
   def fromList[T](list: List[T]): Option[NonEmptyList[T]] = list match {
-    case List.Nil              => None
-    case List.Cons(head, tail) => Some(NonEmptyList(head, tail))
+    case List.Nil              => Option.None
+    case List.Cons(head, tail) => Option.Some(NonEmptyList(head, tail))
   }
 }

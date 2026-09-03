@@ -670,7 +670,7 @@ class Binder(
 
     // if returnType is None, then we need to infer the type and set the methods type
     val expr = expression match {
-      case Option.None => None
+      case Option.None => Option.None
       case Option.Some(expression) =>
 
         val boundExpr = returnType match {
@@ -680,7 +680,7 @@ class Binder(
         }
 
         functionBodies = functionBodies.put(symbol, boundExpr)
-        Some(boundExpr)
+        Option.Some(boundExpr)
     }
 
     returnType match {
@@ -930,11 +930,11 @@ class Binder(
 
         val parameters = bindParameters(value.parameters, methodScope)
         val expr = value.body match {
-          case Option.None       => None
-          case Option.Some(body) => Some(body.expression)
+          case Option.None       => Option.None
+          case Option.Some(body) => Option.Some(body.expression)
         }
         val returnType = value.typeAnnotation match {
-          case Option.None => None // infer type later
+          case Option.None => Option.None // infer type later
           case Option.Some(typeAnnotation) =>
             val returnType = bindTypeName(typeAnnotation.typ, methodScope)
             val typ = if (genTypeParams.isEmpty) {
@@ -949,7 +949,7 @@ class Binder(
               )
             }
             setSymbolType(symbol, typ)
-            Some(returnType)
+            Option.Some(returnType)
         }
 
         acc.put(
@@ -1551,7 +1551,12 @@ class Binder(
             bindGenericTypeParametersWithIndex(tail, scope, index + 1)
           case Either.Right(value) =>
             val generic =
-              GenericTypeParameter(identifier.location, name, variance, None)
+              GenericTypeParameter(
+                identifier.location,
+                name,
+                variance,
+                Option.None
+              )
             setSymbolType(value, genericTypeParamAsType(generic, index))
             List.Cons(
               generic,

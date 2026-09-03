@@ -667,9 +667,10 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
     )
     val condition = BoundExpression.Binary(
       expr.location,
-      BoundExpression.Variable(expr.variable.location, expr.variable, None),
+      BoundExpression
+        .Variable(expr.variable.location, expr.variable, Option.None),
       BinaryOperatorKind.LessThanOrEqual, // TODO: should this be LessThan?
-      BoundExpression.Variable(upperBound.location, upperBound, None),
+      BoundExpression.Variable(upperBound.location, upperBound, Option.None),
       binder.boolType
     )
     val variableType = binder.getSymbolType(expr.variable)
@@ -678,7 +679,8 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       BoundLeftHandSide.Variable(expr.variable.location, expr.variable),
       BoundExpression.Binary(
         expr.location,
-        BoundExpression.Variable(expr.variable.location, expr.variable, None),
+        BoundExpression
+          .Variable(expr.variable.location, expr.variable, Option.None),
         BinaryOperatorKind.Plus,
         BoundExpression.Int(expr.location, 1),
         variableType
@@ -1185,7 +1187,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
           matchCase.location,
           BoundExpression.Binary(
             matchCase.location,
-            BoundExpression.Variable(matchCase.location, variable, None),
+            BoundExpression.Variable(matchCase.location, variable, Option.None),
             BinaryOperatorKind.Equals,
             literal match {
               case BoundLiteral.Int(location, value) =>

@@ -87,9 +87,9 @@ enum List[+T] {
   }
 
   def last(): Option[T] = this match {
-    case List.Nil => None
+    case List.Nil => Option.None
     case List.Cons(head, tail) =>
-      if (tail.isEmpty) Some(head)
+      if (tail.isEmpty) Option.Some(head)
       else tail.last()
   }
 

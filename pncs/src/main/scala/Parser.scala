@@ -291,11 +291,11 @@ case class Parser(
       val keyword = accept()
       val name = parseName(false)
 
-      Some(
+      Option.Some(
         new NamespaceDeclarationSyntax(keyword, name)
       )
     } else {
-      None
+      Option.None
     }
   }
 
@@ -356,9 +356,11 @@ case class Parser(
       val parameters = parseGenericTypeParameterArray()
       val greaterThan = acceptKind(close)
 
-      Some(new GenericParametersSyntax(lessThan, parameters, greaterThan))
+      Option.Some(
+        new GenericParametersSyntax(lessThan, parameters, greaterThan)
+      )
     } else {
-      None
+      Option.None
     }
   }
 
@@ -389,22 +391,22 @@ case class Parser(
         currentKind() == SyntaxKind.OutKeyword
 
     val variance = if (hasVariance) {
-      Some(accept())
+      Option.Some(accept())
     } else {
-      None
+      Option.None
     }
     val identifier = acceptKind(SyntaxKind.IdentifierToken)
     // TODO: bounds support
-    new GenericParameterSyntax(variance, identifier, None)
+    new GenericParameterSyntax(variance, identifier, Option.None)
   }
 
   def parseClassDeclaration(): MemberSyntax = {
     debugPrint("parseClassDeclaration")
 
     val caseKeyword = if (currentKind() == SyntaxKind.CaseKeyword) {
-      Some(accept())
+      Option.Some(accept())
     } else {
-      None
+      Option.None
     }
     val keyword = acceptKind(SyntaxKind.ClassKeyword)
     val identifier = acceptKind(SyntaxKind.IdentifierToken)
@@ -413,9 +415,9 @@ case class Parser(
     val parameters = parseParameterList()
     val close = acceptKind(SyntaxKind.CloseParenToken)
     val template = if (currentKind() == SyntaxKind.OpenBraceToken) {
-      Some(parseTemplate())
+      Option.Some(parseTemplate())
     } else {
-      None
+      Option.None
     }
 
     new ClassDeclarationSyntax(
@@ -433,18 +435,18 @@ case class Parser(
   def parseParameter(): ParameterSyntax = {
     debugPrint("parseParameter")
     val modifier = if (scala && currentKind() == SyntaxKind.ValKeyword) {
-      Some(accept())
+      Option.Some(accept())
     } else if (scala && currentKind() == SyntaxKind.VarKeyword) {
-      Some(accept())
+      Option.Some(accept())
     } else {
-      None
+      Option.None
     }
     val identifier = accept()
     val typeAnnotation = parseTypeAnnotation()
     val comma = if (currentKind() == SyntaxKind.CommaToken) {
-      Some(accept())
+      Option.Some(accept())
     } else {
-      None
+      Option.None
     }
     new ParameterSyntax(modifier, identifier, typeAnnotation, comma)
   }
@@ -466,7 +468,7 @@ case class Parser(
   ): Array[TypeArgumentItemSyntax] = {
     val arg = parseName(inUsing)
     if (currentKind() != SyntaxKind.CommaToken) {
-      arguments(size - 1) = new TypeArgumentItemSyntax(arg, None)
+      arguments(size - 1) = new TypeArgumentItemSyntax(arg, Option.None)
 
       // TODO: support resizing of arrays or use a different data structure
 
@@ -477,7 +479,8 @@ case class Parser(
       }
       result
     } else {
-      arguments(size - 1) = new TypeArgumentItemSyntax(arg, Some(accept()))
+      arguments(size - 1) =
+        new TypeArgumentItemSyntax(arg, Option.Some(accept()))
       _parseTypeArgumentListNames(inUsing, arguments, size + 1)
     }
   }
@@ -507,9 +510,9 @@ case class Parser(
   def parseOptionalTypeAnnotation(): Option[TypeAnnotationSyntax] = {
     debugPrint("parseOptionalTypeAnnotation")
     if (currentKind() == SyntaxKind.ColonToken) {
-      Some(parseTypeAnnotation())
+      Option.Some(parseTypeAnnotation())
     } else {
-      None
+      Option.None
     }
   }
 
@@ -557,18 +560,18 @@ case class Parser(
 
     NonEmptyListModule.fromList(statements) match {
       case Option.None =>
-        new BlockExpressionListSyntax(statements, None)
+        new BlockExpressionListSyntax(statements, Option.None)
       case Option.Some(nel) =>
         val lastStatement = nel.last()
         lastStatement match {
           case StatementSyntax.ExpressionStatement(value) =>
             new BlockExpressionListSyntax(
               dropStatement(statements),
-              Some(value)
+              Option.Some(value)
             )
 
           case _ =>
-            new BlockExpressionListSyntax(statements, None)
+            new BlockExpressionListSyntax(statements, Option.None)
         }
 
     }
@@ -626,9 +629,9 @@ case class Parser(
     if (currentKind() == SyntaxKind.ElseKeyword) {
       val elseKeyword = accept()
       val expr = parseExpression(OperatorPrecedence.Lowest)
-      Some(new ElseSyntax(elseKeyword, expr))
+      Option.Some(new ElseSyntax(elseKeyword, expr))
     } else {
-      None
+      Option.None
     }
   }
 
@@ -650,16 +653,16 @@ case class Parser(
       debugPrint("parsing array creation")
       val openBracket = accept()
       val rank = if (currentKind() == SyntaxKind.CloseBracketToken) {
-        None
+        Option.None
       } else {
-        Some(parseExpression(OperatorPrecedence.Lowest))
+        Option.Some(parseExpression(OperatorPrecedence.Lowest))
       }
       val closeBracket = acceptKind(SyntaxKind.CloseBracketToken)
 
       val initializer = if (currentKind() == SyntaxKind.OpenBraceToken) {
-        Some(parseArrayInitializers())
+        Option.Some(parseArrayInitializers())
       } else {
-        None
+        Option.None
       }
 
       new Expression.ArrayCreation(
@@ -820,12 +823,12 @@ case class Parser(
     if (
       currentKind() == terminator || currentKind() == SyntaxKind.EndOfInputToken || currentKind() != SyntaxKind.CommaToken
     ) {
-      val exprItem = new ExpressionItemSyntax(expr, None)
+      val exprItem = new ExpressionItemSyntax(expr, Option.None)
       new ExpressionListSyntax(
         ListModule.reverse(List.Cons(exprItem, arguments))
       )
     } else {
-      val exprItem = new ExpressionItemSyntax(expr, Some(accept()))
+      val exprItem = new ExpressionItemSyntax(expr, Option.Some(accept()))
       parseExpressionListInner(terminator, List.Cons(exprItem, arguments))
     }
   }
@@ -971,8 +974,9 @@ case class Parser(
       *   - case Type.Any => ... Type(Type.Any)
       *   - case Any => ... Type(Any)
       *   - case Type.Some(x) => ... Extract(Identifier(x))
-      *   - case Some(x) => ... Extract(Identifier(x))
-      *   - case Some(x : int) => ... Extract(TypeAssertion(Identifier(x), int))
+      *   - case Option.Some(x) => ... Extract(Identifier(x))
+      *   - case Option.Some(x : int) => ...
+      *     Extract(TypeAssertion(Identifier(x), int))
       *   - case "taco" => ... Literal("taco")
       *   - case 7 => ... Literal(7)
       */
@@ -1032,17 +1036,17 @@ case class Parser(
 
   def identFromName(name: NameSyntax): Option[SyntaxToken] = {
     name match {
-      case _: QualifiedName => None
+      case _: QualifiedName => Option.None
       case NameSyntax.SimpleName(simpleName) =>
         simpleName match {
           case value: SimpleNameSyntax.GenericNameSyntax =>
-            None
+            Option.None
           case SimpleNameSyntax.ScalaAliasSyntax(_, identifier, _, _, _) =>
-            Some(identifier)
+            Option.Some(identifier)
           case SimpleNameSyntax.AliasSyntax(identifier, _, _) =>
-            Some(identifier)
+            Option.Some(identifier)
           case SimpleNameSyntax.IdentifierNameSyntax(identifier) =>
-            Some(identifier)
+            Option.Some(identifier)
         }
     }
   }
@@ -1080,10 +1084,10 @@ case class Parser(
     val pattern = parsePattern()
 
     if (currentKind() == SyntaxKind.CommaToken) {
-      array(i - 1) = PatternItemSyntax(pattern, Some(accept()))
+      array(i - 1) = PatternItemSyntax(pattern, Option.Some(accept()))
       _parsePatternList(array, i + 1)
     } else {
-      array(i - 1) = PatternItemSyntax(pattern, None)
+      array(i - 1) = PatternItemSyntax(pattern, Option.None)
       val result = new Array[PatternItemSyntax](i)
       for (j <- 0 to (i - 1)) {
         result(j) = array(j)
@@ -1103,9 +1107,9 @@ case class Parser(
     if (currentKind() == SyntaxKind.EqualsToken) {
       val equal = accept()
       val expr = parseExpression(OperatorPrecedence.Lowest)
-      Some(new FunctionBodySyntax(equal, expr))
+      Option.Some(new FunctionBodySyntax(equal, expr))
     } else {
-      None
+      Option.None
     }
   }
 
@@ -1179,9 +1183,9 @@ case class Parser(
     val keyword = accept()
     val identifier = acceptKind(SyntaxKind.IdentifierToken)
     val enumParams = if (currentKind() == SyntaxKind.OpenParenToken) {
-      Some(parseEnumCaseParameters())
+      Option.Some(parseEnumCaseParameters())
     } else {
-      None
+      Option.None
     }
 
     new EnumCaseSyntax(keyword, identifier, enumParams)

@@ -231,12 +231,12 @@ class Symbol(
 
   def lookup(name: string): Option[Symbol] = {
     _children.get(name) match {
-      case Option.Some(value) => Some(value)
+      case Option.Some(value) => Option.Some(value)
       case Option.None =>
 
         parent match {
           case Option.Some(p) => p.lookup(name)
-          case Option.None    => None
+          case Option.None    => Option.None
         }
     }
   }
