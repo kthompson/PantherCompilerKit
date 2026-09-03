@@ -1774,9 +1774,13 @@ case class ExprBinder(
                     " for type: " + leftType.toString()
                 )
               case Option.Some(typ) =>
-                // If leftType has type arguments, substitute them in the member type
+                // A member's type is written in terms of its class's type
+                // parameters; the receiver's arguments instantiate it. An
+                // enum is an alias, so its members go through the same path.
                 val substitutedType = leftType match {
                   case Type.Class(_, _, _, typeArgs, _) =>
+                    Types.substitute(typ, typeArgs)
+                  case Type.Alias(_, _, _, typeArgs, _, _) =>
                     Types.substitute(typ, typeArgs)
                   case _ => typ
                 }

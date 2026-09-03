@@ -723,6 +723,19 @@ class TypeTests extends AnyFunSpec with Matchers {
       assertInferExprTypeWithSetup(setup, "firstOr(List.Nil, 5)", "int")
     }
 
+    it("should instantiate members accessed through an enum alias") {
+      // A member's type is written in terms of the enum's T; the receiver's
+      // argument has to reach it even though the receiver is an alias.
+      val setup = "enum Option[T] {\n" +
+        "  case Some(value: T)\n" +
+        "  case None\n" +
+        "  def orElse(other: T): T = other\n" +
+        "}\n" +
+        "val opt: Option[int] = Option.None"
+
+      assertInferExprTypeWithSetup(setup, "opt.orElse(5)", "int")
+    }
+
     it("should infer generic type from expected return type - identity") {
       val setup = "def identity[T](x: T): T = x"
 

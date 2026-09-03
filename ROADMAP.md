@@ -36,7 +36,7 @@ format, and args parser.
 sbt pnc/compile
 ```
 
-Runs to completion and reports **553 diagnostics** against the generated
+Runs to completion and reports **502 diagnostics** against the generated
 `.pn` sources. By message:
 
 | Count | Diagnostic                      |
@@ -50,7 +50,7 @@ Runs to completion and reports **553 diagnostics** against the generated
 |    11 | argument-count mismatches       |
 |     2 | `Duplicate definition`          |
 
-**117 of the 553 mention an unsolved type variable** (`$0`, `$1`, …) — a
+**60 of the 502 mention an unsolved type variable** (`$0`, `$1`, …) — a
 generic parameter the binder gave up on. That is the strongest single signal we
 have about what to fix first.
 
@@ -166,15 +166,21 @@ count that decision is made from.
 
 Ordered by what the counts say, not by what is interesting:
 
-1. **Generic inference** (see §2). 117 diagnostics reference an unsolved type
-   variable; this is the bulk of the work.
-2. **Member lookup on generic receivers** — `Symbol X not found for type $0`,
-   149 diagnostics. Falls out of §2 but worth tracking separately in case it
+1. **Generic inference** (see §2). 60 diagnostics reference an unsolved type
+   variable, and a further 28 are a constructor with more than one type
+   parameter falling back to `<any, any>` — ADR 0001 steps D and E.
+2. **`this` is not bound** — 34 `Symbol this not found`. The lexer has no
+   keyword for it and the binder never defines it, so every enum or class
+   method that matches on `this` fails. Not a generics problem; a missing
+   feature.
+3. **Member lookup on generic receivers** — `Symbol X not found for type $0`,
+   40 diagnostics. Falls out of §2 but worth tracking separately in case it
    does not.
-3. **Namespace and import resolution** — 18 `Invalid namespace`, plus some
-   share of the 130 bare `Symbol not found`. The transpiler turns
-   `import ns._` into `using ns`; the binder's handling of that has a known
-   gap ([`Binder.scala:773`](pncs/src/main/scala/Binder.scala:773)).
+4. **Namespace and import resolution** — 18 `Invalid namespace`, plus some
+   share of the 133 bare `Symbol not found` (34 of which are `this`, above).
+   The transpiler turns `import ns._` into `using ns`; the binder's handling
+   of that has a known gap
+   ([`Binder.scala:773`](pncs/src/main/scala/Binder.scala:773)).
 
 Track the number after every change:
 
@@ -182,7 +188,7 @@ Track the number after every change:
 sbt pnc/compile
 ```
 
-**553 → 0.** Nothing else in this section matters until that number moves.
+**502 → 0.** Nothing else in this section matters until that number moves.
 
 Only the first 20 diagnostics are printed. To see them all, transpile first —
 `pnc/compile` does this implicitly, and the count depends on it — then run the
@@ -497,11 +503,11 @@ Sequenced so each step makes the next one measurable.
 
 **First — stop flying blind.** Done. The generated tree matches the
 transpiler (§1.1), the exit code is trustworthy (§1.2), and failures come back
-as diagnostics rather than exceptions (§4.2). The 553 counts every error the
+as diagnostics rather than exceptions (§4.2). The 502 counts every error the
 front end finds — none are discarded.
 
 **Second — generics.**
-§2.1 inference, §2.2 bounds. The 553 should fall
+§2.1 inference, §2.2 bounds. The 502 should fall
 sharply. If it does not, the assumption behind this roadmap was wrong and the
 plan should be rewritten around what the diagnostics actually say.
 
@@ -522,7 +528,7 @@ The three numbers worth putting on a wall:
 
 | Metric                            |         Now | Target | Command                                    |
 | --------------------------------- | ----------: | -----: | ------------------------------------------ |
-| Self-hosting diagnostics          |         553 |      0 | `sbt pnc/compile` (now fails, as it should) |
+| Self-hosting diagnostics          |         502 |      0 | `sbt pnc/compile` (now fails, as it should) |
 | Doc blocks that fail              | **0 / 200** |      0 | `sbt "doccheck/run docs/src/content/docs"` |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                   |
 | Samples that run in CI            |           0 |      6 | not yet built                              |
