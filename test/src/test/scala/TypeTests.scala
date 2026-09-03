@@ -676,6 +676,28 @@ class TypeTests extends AnyFunSpec with Matchers {
       assertInferExprTypeWithSetup(setup, "box.wrapped()", "List<int>")
     }
 
+    it("should infer type arguments from enum alias arguments") {
+      val setup = "enum List[T] {\n" +
+        "  case Cons(head: T, tail: List[T])\n" +
+        "  case Nil\n" +
+        "}\n" +
+        "enum Option[T] {\n" +
+        "  case Some(value: T)\n" +
+        "  case None\n" +
+        "}\n" +
+        "def head[T](xs: List[T]): Option[T] = Option.None\n" +
+        "val strings: List[string] = List.Nil"
+
+      // The argument is the enum itself...
+      assertInferExprTypeWithSetup(setup, "head(strings)", "Option<string>")
+      // ...or one of its cases, whose parameter list is the enum's.
+      assertInferExprTypeWithSetup(
+        setup,
+        "head(List.Cons(1, List.Nil))",
+        "Option<int>"
+      )
+    }
+
     it("should infer generic type from expected return type - identity") {
       val setup = "def identity[T](x: T): T = x"
 

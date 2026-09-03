@@ -88,23 +88,69 @@ class TypeInference(binder: Binder) {
       argType: Type,
       typeMap: scala.collection.mutable.HashMap[String, Type]
   ): unit = {
-    paramType match {
-      case Type.Variable(_, id) =>
-        // This handles both inference variables and generic type parameters
-        // For generic type parameters, we want to store the inferred type
+    Tuple2(paramType, argType) match {
+      case Tuple2(Type.Variable(_, id), _) =>
+        // First binding wins; a later, conflicting argument is caught when
+        // the arguments are converted to the instantiated parameter types.
         val key = "var_" + string(id)
         if (!typeMap.contains(key)) {
           typeMap.put(key, argType)
         }
-      case Type.Class(_, _, _, paramTypeArgs, _) =>
-        argType match {
-          case Type.Class(_, _, _, argTypeArgs, _) =>
-            inferFromParameterArgumentPairs(paramTypeArgs, argTypeArgs, typeMap)
-          case _ =>
+      case Tuple2(
+            Type.Class(_, _, _, paramArgs, _),
+            Type.Class(_, _, _, argArgs, _)
+          ) =>
+        inferFromParameterArgumentPairs(paramArgs, argArgs, typeMap)
+      case Tuple2(
+            Type.Alias(_, _, _, paramArgs, _, _),
+            Type.Alias(_, _, _, argArgs, _, _)
+          ) =>
+        inferFromParameterArgumentPairs(paramArgs, argArgs, typeMap)
+      case Tuple2(
+            Type.Alias(_, _, _, paramArgs, _, aliasSymbol),
+            Type.Class(_, _, _, argArgs, caseSymbol)
+          ) =>
+        // A case against its enum, e.g. List.Cons<int> against List<T>. The
+        // case's parameter list is the enum's, so the arguments line up.
+        if (isCaseOf(caseSymbol, aliasSymbol)) {
+          inferFromParameterArgumentPairs(paramArgs, argArgs, typeMap)
         }
-      case _ => // Other cases don't provide inference information for this simple implementation
+      case Tuple2(
+            Type.Class(_, _, _, paramArgs, caseSymbol),
+            Type.Alias(_, _, _, argArgs, _, aliasSymbol)
+          ) =>
+        if (isCaseOf(caseSymbol, aliasSymbol)) {
+          inferFromParameterArgumentPairs(paramArgs, argArgs, typeMap)
+        }
+      case Tuple2(
+            Type.Function(_, paramParams, paramReturn),
+            Type.Function(_, argParams, argReturn)
+          ) =>
+        inferFromParameterArgumentPairs(
+          parameterTypes(paramParams),
+          parameterTypes(argParams),
+          typeMap
+        )
+        inferTypeFromPair(paramReturn, argReturn, typeMap)
+      case _ =>
+        // A union has no single argument list to learn from, and nothing
+        // else carries type arguments.
+        ()
     }
   }
+
+  def isCaseOf(caseSymbol: Symbol, enumSymbol: Symbol): bool =
+    caseSymbol.parent match {
+      case Option.Some(parent) => parent == enumSymbol
+      case Option.None         => false
+    }
+
+  def parameterTypes(params: List[BoundParameter]): List[Type] =
+    params match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        List.Cons(head.typ, parameterTypes(tail))
+    }
 
   /** Constructor-specific type inference methods
     */
