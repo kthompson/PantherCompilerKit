@@ -73,7 +73,7 @@ sbt pncs/transpile
 Self-hosting is not finished, so these do not produce a working compiler:
 
 - `sbt compile` (use `sbt pncs/compile`)
-- `sbt pnc/compile` — reports 1112 diagnostics against the generated `.pn`
+- `sbt pnc/compile` — reports 996 diagnostics against the generated `.pn`
   sources and fails the build.
 - `sbt pncs/bootstrap`
 

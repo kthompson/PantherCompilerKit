@@ -36,35 +36,35 @@ format, and args parser.
 sbt pnc/compile
 ```
 
-Runs to completion and reports **1112 diagnostics** against the generated
+Runs to completion and reports **996 diagnostics** against the generated
 `.pn` sources. By message:
 
 | Count | Diagnostic                      |
 | ----: | ------------------------------- |
-|   542 | `Cannot convert from A to B`    |
-|   223 | `No operator for operands`      |
-|   148 | `Symbol X not found for type T` |
-|   130 | `Symbol X not found`            |
+|   545 | `Cannot convert from A to B`    |
+|   149 | `Symbol X not found for type T` |
+|   133 | `Symbol X not found`            |
+|   100 | `No operator for operands`      |
 |    38 | `Type X not defined`            |
 |    18 | `Invalid namespace`             |
 |    11 | argument-count mismatches       |
 |     2 | `Duplicate definition`          |
 
-**585 of the 1112 mention an unsolved type variable** (`$0`, `$1`, …) — a
+**586 of the 996 mention an unsolved type variable** (`$0`, `$1`, …) — a
 generic parameter the binder gave up on. That is the strongest single signal we
 have about what to fix first.
 
 By file, the damage concentrates in the parts of the compiler that lean hardest
 on generic collections:
 
-| Count | File            |
-| ----: | --------------- |
-|   188 | `Binder.pn`     |
-|   118 | `Parser.pn`     |
-|   116 | `ExprBinder.pn` |
-|    84 | `Lowered.pn`    |
-|    75 | `Emitter.pn`    |
-|    68 | `Lexer.pn`      |
+| Count | File               |
+| ----: | ------------------ |
+|   188 | `Binder.pn`        |
+|   113 | `ExprBinder.pn`    |
+|    84 | `Lowered.pn`       |
+|    81 | `Parser.pn`        |
+|    76 | `Emitter.pn`       |
+|    46 | `TypeInference.pn` |
 
 ### Nothing is ever written to disk
 
@@ -166,10 +166,10 @@ count that decision is made from.
 
 Ordered by what the counts say, not by what is interesting:
 
-1. **Generic inference** (see §2). 585 diagnostics reference an unsolved type
+1. **Generic inference** (see §2). 586 diagnostics reference an unsolved type
    variable; this is the bulk of the work.
 2. **Member lookup on generic receivers** — `Symbol X not found for type $0`,
-   148 diagnostics. Falls out of §2 but worth tracking separately in case it
+   149 diagnostics. Falls out of §2 but worth tracking separately in case it
    does not.
 3. **Namespace and import resolution** — 18 `Invalid namespace`, plus some
    share of the 130 bare `Symbol not found`. The transpiler turns
@@ -182,7 +182,7 @@ Track the number after every change:
 sbt pnc/compile
 ```
 
-**1112 → 0.** Nothing else in this section matters until that number moves.
+**996 → 0.** Nothing else in this section matters until that number moves.
 
 Only the first 20 diagnostics are printed. To see them all, transpile first —
 `pnc/compile` does this implicitly, and the count depends on it — then run the
@@ -379,9 +379,20 @@ through an `isErrorType` helper. Lowering was already skipped when the
 diagnostic bag is non-empty, so reporting the error was the whole fix — the
 panic came from the lowerer walking an error node nothing had reported.
 
-Still open: whether `string + int` should work at all, rather than requiring
-`"text " + string(n)`. And `break`/`continue` are rejected, not implemented —
-they parse, and the diagnostic is a placeholder for lowering them to jumps.
+Reporting these errors is what made a parser precedence bug visible: `==`
+shared the assignment branch in `currentPrecedence()`, so it bound looser than
+`||` and `&&` and `a == b || c == d` grouped as `a == (b || c) == d`. `==` now
+sits at its own precedence and `ParserTests` pins the ordering against `||`,
+`&&`, and the relational operators.
+
+Of the remaining `No operator` diagnostics, the two shapes worth deciding on
+are `string + T` for non-string `T` (the docs use `"text " + string(n)`) and
+`==` between an enum type and one of its cases, such as `SymbolKind` and
+`SymbolKind.Field`.
+
+Still open: whether `string + int` should work at all. And `break`/`continue`
+are rejected, not implemented — they parse, and the diagnostic is a
+placeholder for lowering them to jumps.
 
 ### 4.3 Clean up the docs tree
 
@@ -430,15 +441,6 @@ Things that do not belong to one goal but block several.
   back as `Unexpected token NumberToken, expected IdentifierToken` — the lexer
   reads `99`, `.`, `99` as a member access. `Math.scala` carries a `TODO` about
   the missing type; the literal syntax is a separate, earlier problem.
-- **`==` binds looser than `||`.** `currentPrecedence()` puts
-  `EqualsEqualsToken` in the same branch as assignment at precedence 1
-  ([`Parser.scala:93`](pncs/src/main/scala/Parser.scala:93)), so the branch
-  that means to give it 6 is unreachable. With `||` at 2, `a == b || c == d`
-  groups as `a == (b || c) == d`. This accounts for about half the
-  `No operator for operands` diagnostics — `Hex.pn` alone contributes 63 from
-  `curr == 'a' || curr == 'A'`. Removing `EqualsEqualsToken` from the
-  assignment branch is the fix.
-
 - **No compound assignment.** `count += 5` does not parse; `+` and `=` are
   lexed separately.
 - **No `return`.** It is not a keyword anywhere in the lexer or
@@ -477,12 +479,11 @@ Sequenced so each step makes the next one measurable.
 
 **First — stop flying blind.** Done. The generated tree matches the
 transpiler (§1.1), the exit code is trustworthy (§1.2), and failures come back
-as diagnostics rather than exceptions (§4.2). The 1112 counts every error the
-front end finds — none are discarded — so it is a larger number than a
-compiler that drops what it cannot report would show.
+as diagnostics rather than exceptions (§4.2). The 996 counts every error the
+front end finds — none are discarded.
 
 **Second — generics.**
-§2.1 inference, §2.2 bounds. The 1112 should fall
+§2.1 inference, §2.2 bounds. The 996 should fall
 sharply. If it does not, the assumption behind this roadmap was wrong and the
 plan should be rewritten around what the diagnostics actually say.
 
@@ -503,7 +504,7 @@ The three numbers worth putting on a wall:
 
 | Metric                            |         Now | Target | Command                                    |
 | --------------------------------- | ----------: | -----: | ------------------------------------------ |
-| Self-hosting diagnostics          |        1112 |      0 | `sbt pnc/compile` (now fails, as it should) |
+| Self-hosting diagnostics          |         996 |      0 | `sbt pnc/compile` (now fails, as it should) |
 | Doc blocks that fail              | **0 / 200** |      0 | `sbt "doccheck/run docs/src/content/docs"` |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                   |
 | Samples that run in CI            |           0 |      6 | not yet built                              |

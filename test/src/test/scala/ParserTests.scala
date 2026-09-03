@@ -46,6 +46,44 @@ class ParserTests extends AnyFunSpec with Matchers {
       assertNumberExpr(3, expr.right)
     }
 
+    it("should bind == tighter than ||") {
+      // `a == b || c == d` is two comparisons joined by ||, not
+      // `a == (b || c) == d`.
+      val expr = mkBinaryExpr("a == b || c == d")
+      assertTokenKind(SyntaxKind.PipePipeToken, expr.operator)
+
+      val left = assertBinaryExpr(expr.left)
+      assertIdentifierExpr("a", left.left)
+      assertTokenKind(SyntaxKind.EqualsEqualsToken, left.operator)
+      assertIdentifierExpr("b", left.right)
+
+      val right = assertBinaryExpr(expr.right)
+      assertIdentifierExpr("c", right.left)
+      assertTokenKind(SyntaxKind.EqualsEqualsToken, right.operator)
+      assertIdentifierExpr("d", right.right)
+    }
+
+    it("should bind == tighter than &&") {
+      val expr = mkBinaryExpr("a == b && c == d")
+      assertTokenKind(SyntaxKind.AmpersandAmpersandToken, expr.operator)
+      assertBinaryExpr(expr.left)
+      assertBinaryExpr(expr.right)
+    }
+
+    it("should bind relational operators tighter than ==") {
+      // `a < b == c < d` compares the two relational results.
+      val expr = mkBinaryExpr("a < b == c < d")
+      assertTokenKind(SyntaxKind.EqualsEqualsToken, expr.operator)
+      assertTokenKind(
+        SyntaxKind.LessThanToken,
+        assertBinaryExpr(expr.left).operator
+      )
+      assertTokenKind(
+        SyntaxKind.LessThanToken,
+        assertBinaryExpr(expr.right).operator
+      )
+    }
+
     it("should parse assignment expressions") {
       val expr = mkAssignmentExpr("a = 1")
       assertTokenKind(SyntaxKind.EqualsToken, expr.equals)

@@ -90,8 +90,10 @@ case class Parser(
 
   def currentPrecedence(): int = {
     val kind = currentKind()
-    if (kind == SyntaxKind.EqualsToken || kind == SyntaxKind.EqualsEqualsToken)
-      1
+    // Assignment only. EqualsEqualsToken belongs to the equality branch
+    // below; matching it here would shadow that branch and leave `==` looser
+    // than `||` and `&&`.
+    if (kind == SyntaxKind.EqualsToken) 1
     else if (kind == SyntaxKind.PipeToken || kind == SyntaxKind.PipePipeToken) 2
     else if (kind == SyntaxKind.CaretToken) 3
     else if (
