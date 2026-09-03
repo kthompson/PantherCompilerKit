@@ -104,13 +104,13 @@ Every ` ```panther ` block under `docs/` is compiled by
 sbt "doccheck/run docs/src/content/docs"
 ```
 
-Every block currently compiles, and `tools/doccheck/baseline.txt` — the list of
-blocks known not to compile — is empty. Keep it that way: a snippet you add or
-change has to pass.
+Every block compiles, and `tools/doccheck/baseline.txt` — the list of blocks
+known not to compile — is empty. Keep it that way: a snippet you add or change
+has to pass.
 
-The check fails in two directions — a snippet that used to compile breaking,
-*and* a baselined snippet starting to compile — so if you ever do need to
-baseline something, regenerate it in the same commit:
+The check fails in two directions — an unbaselined snippet producing a
+diagnostic, *and* a baselined snippet compiling cleanly — so if you ever do
+need to baseline something, regenerate it in the same commit:
 
 ```bash
 sbt "doccheck/run --update-baseline docs/src/content/docs"
@@ -118,8 +118,9 @@ sbt "doccheck/run --update-baseline docs/src/content/docs"
 
 A snippet that should not be compiled as written gets a directive on the line
 above its fence — `parse-only`, `expect-error`, or `skip reason="..."`. Prefer
-fixing the snippet; see [ROADMAP.md](ROADMAP.md#4-documentation-that-is-checked)
-for the plan to empty the baseline.
+fixing the snippet; see
+[ROADMAP.md](ROADMAP.md#4-documentation-that-is-checked) for what the checker
+does and does not cover.
 
 ## Commits
 

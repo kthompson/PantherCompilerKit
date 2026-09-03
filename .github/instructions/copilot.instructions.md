@@ -39,7 +39,7 @@ sbt pncs/compile
 
 # Run comprehensive test suite
 sbt test/test
-# Takes: ~16 seconds, runs 86 tests (all should pass). NEVER CANCEL. Timeout: 300+ seconds.
+# Takes: ~16 seconds, all tests should pass. NEVER CANCEL. Timeout: 300+ seconds.
 
 # Transpile Scala code to Panther (.pn files)
 sbt pncs/transpile
@@ -56,16 +56,25 @@ sbt scalafmtCheckAll
 # Show compiler help
 sbt "pncs/run --help"
 # Takes: ~10 seconds. Shows full usage with options and examples
+
+# Check every ```panther block in the docs compiles
+sbt "doccheck/run docs/src/content/docs"
+# Takes: ~30 seconds. Baseline is empty, so any failure is a real regression.
 ```
 
-#### Commands That Currently Fail
+#### Commands That Do Not Produce A Working Compiler
 
 ```bash
-# These commands fail with exit code 1 - DO NOT USE for validation:
-sbt compile        # Fails during pnc/compile step
-sbt pnc/compile    # Fails compiling .pn files
-sbt pncs/bootstrap # Fails during transpilation step
+# DO NOT USE for validation:
+sbt compile        # Fails during the pnc/compile step
+sbt pnc/compile    # Reports ~1058 diagnostics against the generated .pn
+                   # sources. It exits ZERO regardless - read the diagnostic
+                   # count, not the exit status.
+sbt pncs/bootstrap # Fails during the transpilation step
 ```
+
+Self-hosting is not finished; [ROADMAP.md](../../ROADMAP.md) tracks what is
+left.
 
 ### Cross-Platform Scripts
 
@@ -75,10 +84,10 @@ Use PowerShell scripts for consistent cross-platform execution:
 # Stage 0: Transpile Scala to Panther
 pwsh scripts/stage0.ps1  # Equivalent to: sbt pncs/transpile
 
-# Stage 1: Bootstrap (currently fails)
+# Stage 1: Bootstrap (does not succeed yet)
 pwsh scripts/stage1.ps1  # Equivalent to: sbt pncs/bootstrap
 
-# Stage 2: Compile Panther to bytecode (currently fails)
+# Stage 2: Compile Panther to bytecode (reports diagnostics, see above)
 pwsh scripts/stage2.ps1  # Equivalent to: sbt pnc/compile
 
 # Run tests
@@ -93,9 +102,11 @@ pwsh scripts/lint.ps1    # Equivalent to: sbt scalafmtAll
 ### Always Test After Changes
 
 1. **Build validation**: `sbt pncs/compile` (must succeed)
-2. **Test validation**: `sbt test/test` (all 86 tests must pass)
+2. **Test validation**: `sbt test/test` (all tests must pass)
 3. **Format validation**: `sbt scalafmtCheckAll` (must pass for CI)
 4. **Transpile validation**: `sbt pncs/transpile` (should complete without errors)
+5. **Doc validation**: `sbt "doccheck/run docs/src/content/docs"` (0 failing
+   blocks; required by CI)
 
 ### Manual Testing Scenarios
 
@@ -117,7 +128,7 @@ sbt "pncs/run /tmp/output.pnb /tmp/test.pn"
 
 # Verify transpiled code was generated (after pncs/transpile)
 ls -la pnc/src/*.pn | wc -l
-# Should show ~89 .pn files after successful transpilation
+# Should show ~92 .pn files after successful transpilation
 ```
 
 ## Project Structure
@@ -129,8 +140,11 @@ ls -la pnc/src/*.pn | wc -l
 - **runtime/** - Panther Standard Library
 - **metadata/** - Metadata reading/writing library
 - **text/** - Text processing library
-- **test/** - Test project (86 comprehensive tests)
-- **docs/** - Documentation (requires mdbook, not installed by default)
+- **test/** - Test project (ScalaTest suites, one per pipeline stage)
+- **docs/** - Astro/Starlight documentation site (Node and pnpm needed only to
+  run the site locally)
+- **tools/** - Development tooling, currently `doccheck`, the doc code-block
+  checker
 
 ### Build Configuration
 
@@ -175,7 +189,8 @@ When you're done making changes, always run these commands in order:
 ### Key Patterns
 
 - Main compiler logic is in `pncs/src/main/scala/`
-- Tests are in `test/src/test/scala/` using ujjwork
+- Tests are in `test/src/test/scala/` using ScalaTest (`AnyFunSpec` +
+  `Matchers`)
 - Test helpers are in `test/src/test/scala/TestHelpers.scala`
 - Transpiled Panther code appears in `pnc/src/` as `.pn` files
 
@@ -192,8 +207,9 @@ When you're done making changes, always run these commands in order:
 
 - **sbt version**: ~6 seconds (first run may take 8-15s for dependency downloads)
 - **pncs/compile**: ~8 seconds per command
-- **test/test**: ~8-16 seconds (86 tests, all must pass)
-- **pncs/transpile**: ~8 seconds (generates ~89 .pn files)
+- **test/test**: ~8-16 seconds (all must pass)
+- **pncs/transpile**: ~8 seconds (writes ~92 .pn files)
+- **doccheck/run**: ~30 seconds
 - **scalafmtAll**: ~8-16 seconds
 - **scalafmtCheckAll**: ~7-9 seconds
 - **NEVER CANCEL** these operations - they need time to complete
@@ -201,11 +217,11 @@ When you're done making changes, always run these commands in order:
 
 ### CI Pipeline Requirements
 
-The GitHub CI pipeline runs these commands and ALL must pass:
+The GitHub CI pipeline runs four jobs and ALL must pass:
 
-1. `sbt pncs/compile`
-2. `sbt test/test`
-3. `sbt pncs/transpile` (then checks for git diff)
+1. `sbt pncs/compile`, then `sbt test/test`
+2. `sbt pncs/transpile` (then checks for git diff)
+3. `sbt "doccheck/run docs/src/content/docs"`
 4. `sbt scalafmtCheckAll`
 
 Always run these locally before pushing changes.

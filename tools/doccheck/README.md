@@ -3,10 +3,10 @@
 Checks that every ` ```panther ` code block in the documentation is actually
 valid Panther.
 
-The docs are the language's public contract, and until now nothing verified
-that the snippets in them would survive the compiler. `doccheck` walks the
-markdown, extracts each Panther block, and pushes it through the real `pncs`
-front end — the same lexer, parser, and binder the compiler uses.
+The docs are the language's public contract, so every snippet in them has to
+survive the compiler. `doccheck` walks the markdown, extracts each Panther
+block, and pushes it through the real `pncs` front end — the same lexer,
+parser, and binder the compiler uses.
 
 ## Running it
 
@@ -30,15 +30,15 @@ The two skips are on `functions/higher-order-functions.md`, which documents
 lambdas and function-typed parameters — neither is implemented.
 
 [`baseline.txt`](baseline.txt) records blocks that are known not to compile and
-is **picked up automatically**, so a run reports only what has changed. It
-started at 157 entries and is now empty; keep it that way.
+is **picked up automatically**, so a run reports only what has changed. It is
+**empty**; keep it that way.
 
 Useful flags:
 
 | Flag | Effect |
 | --- | --- |
 | `--stage <parse\|bind>` | How far to take each block. `parse` catches syntax only; `bind` (the default) also resolves symbols and types. |
-| `--no-baseline` | Ignore the baseline and report every failure. This is the ~800-line view of everything that is broken. |
+| `--no-baseline` | Ignore the baseline and report every failure, baselined or not. |
 | `--show-known` | Detail the baselined failures instead of just counting them. |
 | `--baseline <file>` | Use a different baseline file. |
 | `--update-baseline` | Rewrite the baseline from this run. |
@@ -73,9 +73,9 @@ so a misspelled mode cannot quietly switch checking off.
 
 ## The baseline
 
-The baseline turns a red wall into a ratchet. A run fails only when a block
-that used to pass starts failing — and also when a baselined block starts
-passing, so the list cannot silently go stale. In that case, regenerate it:
+The baseline is a ratchet. A run fails when a block outside the baseline
+produces a diagnostic — and also when a baselined block compiles cleanly, so
+the list cannot silently go stale. In that case, regenerate it:
 
 ```bash
 sbt "doccheck/run --update-baseline docs/src/content/docs"
@@ -85,7 +85,8 @@ The baseline path is resolved relative to the working directory, so run this
 from the repository root.
 
 The baseline should only ever get shorter. See
-[`ROADMAP.md`](../../ROADMAP.md) for the plan to empty it.
+[`ROADMAP.md`](../../ROADMAP.md#41-keep-the-baseline-empty) for why it stays
+empty.
 
 ## Limitations
 

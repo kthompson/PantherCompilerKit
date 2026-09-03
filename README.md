@@ -112,8 +112,8 @@ The site under `docs/` is Astro + Starlight, with content in
 pnpm --dir docs install && pnpm --dir docs dev
 ```
 
-`docs_old/` is the previous mdbook-based site, kept for reference. New
-documentation goes in `docs/`.
+All documentation lives in `docs/`. (`docs_old/` is a stale mdbook tree pending
+deletion — do not add to it or cite it.)
 
 Every ` ```panther ` block in the docs is checked against the compiler by
 [`doccheck`](tools/doccheck/README.md):
@@ -122,7 +122,7 @@ Every ` ```panther ` block in the docs is checked against the compiler by
 sbt "doccheck/run docs/src/content/docs"
 ```
 
-Every block currently compiles, and `tools/doccheck/baseline.txt` — the list of
+Every block compiles, and `tools/doccheck/baseline.txt` — the list of
 known-broken blocks — is empty, so CI fails if that stops being true.
 
 ## Roadmap

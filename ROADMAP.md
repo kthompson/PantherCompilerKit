@@ -7,15 +7,15 @@ The three things that matter most:
 1. **Self-hosting** — `pnc` compiles itself without help from Scala.
 2. **Generics** — the type system holds up under the code the compiler is
    already written in.
-3. **Sample programs** — someone can write, compile, and *run* a Panther
+3. **Sample programs** — someone can write, compile, and _run_ a Panther
    program that does something.
 
 They are not independent. Generic inference is the single largest thing
 standing between `pnc` and self-hosting, and there is currently no way to run a
 compiled program at all, which caps how convincing any sample can be.
 
-Every number below is measured, not estimated, and every command reproduces the
-measurement. The measurements were taken on `main` at `1bdb118`.
+Every number below is measured, not estimated, and every command shown
+reproduces the measurement. Re-run them rather than trusting the number.
 
 ---
 
@@ -38,18 +38,18 @@ sbt pnc/compile
 
 Runs to completion and reports **1058 diagnostics** against the generated
 `.pn` sources. (1029 of those come from the committed tree; the other 29 come
-from `Ast.pn`, which the transpile step regenerates — see §1.1.) By message:
+from `Ast.pn`, which the transpile step writes — see §1.1.) By message:
 
-| Count | Diagnostic |
-| ---: | --- |
-| 642 | `Cannot convert from A to B` |
-| 181 | `Symbol X not found for type T` |
-| 130 | `Symbol X not found` |
-| 38 | `Type X not defined` |
-| 32 | `Duplicate definition` |
-| 18 | `Invalid namespace` |
-| 16 | argument-count mismatches |
-| 1 | no operator for operands |
+| Count | Diagnostic                      |
+| ----: | ------------------------------- |
+|   642 | `Cannot convert from A to B`    |
+|   181 | `Symbol X not found for type T` |
+|   130 | `Symbol X not found`            |
+|    38 | `Type X not defined`            |
+|    32 | `Duplicate definition`          |
+|    18 | `Invalid namespace`             |
+|    16 | argument-count mismatches       |
+|     1 | no operator for operands        |
 
 **685 of the 1058 mention an unsolved type variable** (`$0`, `$1`, …) — a
 generic parameter the binder gave up on. That is the strongest single signal we
@@ -58,14 +58,14 @@ have about what to fix first.
 By file, the damage concentrates in the parts of the compiler that lean hardest
 on generic collections:
 
-| Count | File |
-| ---: | --- |
-| 245 | `Binder.pn` |
-| 118 | `ExprBinder.pn` |
-| 83 | `Lowered.pn` |
-| 80 | `Parser.pn` |
-| 72 | `Emitter.pn` |
-| 54 | `TypeInference.pn` |
+| Count | File               |
+| ----: | ------------------ |
+|   245 | `Binder.pn`        |
+|   118 | `ExprBinder.pn`    |
+|    83 | `Lowered.pn`       |
+|    80 | `Parser.pn`        |
+|    72 | `Emitter.pn`       |
+|    54 | `TypeInference.pn` |
 
 ### Nothing is ever written to disk
 
@@ -80,7 +80,7 @@ So `pncs output.pnb source.pn` — the invocation in the README, in
 no `.pnb` reader either, and no CLI path to `Compilation.exec()`, even though
 the VM works and `VmTests` drives it in-process for 36 tests.
 
-### The docs now compile
+### The docs compile
 
 ```bash
 sbt "doccheck/run docs/src/content/docs"
@@ -90,27 +90,22 @@ sbt "doccheck/run docs/src/content/docs"
 are on `higher-order-functions.md`, which documents lambdas and function-typed
 parameters — neither exists (see cross-cutting below).
 
-It started at 215 blocks with **157 failing**, four of which made the compiler
-*throw* rather than report a diagnostic, including the second example on the
-Getting Started page. The gaps were systematic, not scattered typos:
+The tool that enforces this lives in
+[`tools/doccheck/`](tools/doccheck/README.md), and it is as useful for finding
+compiler holes as for finding prose errors: most of the language gaps listed
+under [cross-cutting](#cross-cutting) surfaced through it.
 
-| Docs say | Panther accepts |
-| --- | --- |
-| `for (item in items)` | `for (i <- 0 to n)` |
-| `Array<Int>`, `Option<User>` | `Array[int]`, `Option[User]` |
-| `Int`, `String`, `float` | `int`, `string`, no floats yet |
-| `Some(x)`, `None` | `Option.Some(x)`, `Option.None` |
-| `(x) => x + 1` | not parsed |
-| `[95, 87, 92]` | not parsed |
-| `fun f(): T { return x }` | `def f(): T = x` — no `return` |
-| `match (x) { 1 => ... }` | `x match { case 1 => ... }` |
-| `break` / `continue` | parse, then crash the binder |
+The syntax it holds every snippet to:
 
-The tool that found and now guards these lives in
-[`tools/doccheck/`](tools/doccheck/README.md). Fixing the docs is what surfaced
-most of the language gaps listed under [cross-cutting](#cross-cutting) — the
-checker turned out to be as useful for finding compiler holes as for finding
-prose errors.
+| Construct         | Panther                          |
+| ----------------- | -------------------------------- |
+| Iteration         | `for (i <- 0 to n)`, `while`     |
+| Generic types     | `Array[int]`, `Option[User]`     |
+| Primitives        | `int`, `string`, `bool`, `char`  |
+| Enum cases        | `Option.Some(x)`, `Option.None`  |
+| Functions         | `def f(): T = x`                 |
+| Pattern matching  | `x match { case 1 => ... }`      |
+| String formatting | `"text " + string(n)`            |
 
 ### There are no sample programs
 
@@ -127,12 +122,12 @@ compiler's output.
 
 ### 1.1 Fix the generated-source drift — small, do it first
 
-`sbt pncs/transpile` currently emits `Ast.pn` and `AstPrinter.pn`, but
-`pnc/src/ast.pn` and `pnc/src/printer.pn` are still committed from an older
-transpiler. All four get compiled, which accounts for the 32
-duplicate-definition diagnostics on its own.
+`sbt pncs/transpile` emits `Ast.pn` and `AstPrinter.pn`. `pnc/src/ast.pn` and
+`pnc/src/printer.pn` are committed alongside them and define the same types.
+All four get compiled, which accounts for the 32 duplicate-definition
+diagnostics on its own.
 
-Worse, CI cannot see this. The `transpile` job runs `git diff --exit-code`,
+CI cannot see this. The `transpile` job runs `git diff --exit-code`,
 which ignores **untracked** files, so `Ast.pn` appearing as a brand-new
 generated file passes the check silently.
 
@@ -295,14 +290,14 @@ Expose it:
 In a new `samples/` directory, each with a comment header saying what it
 demonstrates and what it prints:
 
-| Sample | Exercises |
-| --- | --- |
-| `hello.pn` | top-level statements, `println` |
-| `fizzbuzz.pn` | `while`, `if`/`else`, `mod`, string building |
-| `fib.pn` | recursion, `int` arithmetic |
-| `wordcount.pn` | `Array`, `List`, `Dictionary`, string handling |
-| `expr.pn` | `enum`, pattern matching, recursion over a tree |
-| `option-result.pn` | `Option` and `Result` as error handling |
+| Sample             | Exercises                                       |
+| ------------------ | ----------------------------------------------- |
+| `hello.pn`         | top-level statements, `println`                 |
+| `fizzbuzz.pn`      | `while`, `if`/`else`, `mod`, string building    |
+| `fib.pn`           | recursion, `int` arithmetic                     |
+| `wordcount.pn`     | `Array`, `List`, `Dictionary`, string handling  |
+| `expr.pn`          | `enum`, pattern matching, recursion over a tree |
+| `option-result.pn` | `Option` and `Result` as error handling         |
 
 `expr.pn` is the important one: a small expression evaluator is the shape of a
 compiler, so it exercises the same features `pnc` needs and doubles as a
@@ -318,9 +313,9 @@ end-to-end test the project would have.
 
 ## 4. Documentation that is checked
 
-Partly landed. [`tools/doccheck/`](tools/doccheck/README.md) extracts every
-` ```panther ` block from the markdown and runs it through the real front end.
-Blocks can be annotated in place:
+[`tools/doccheck/`](tools/doccheck/README.md) extracts every ` ```panther `
+block from the markdown and runs it through the real front end. Blocks can be
+annotated in place:
 
 ```markdown
 <!-- panther-check: parse-only -->
@@ -328,36 +323,32 @@ Blocks can be annotated in place:
 <!-- panther-check: skip reason="..." -->
 ```
 
-`tools/doccheck/baseline.txt` is picked up automatically and is **now empty**,
-so CI enforces a clean run: any snippet that stops compiling fails the build.
+`tools/doccheck/baseline.txt` is picked up automatically and is **empty**, so
+CI enforces a clean run: any snippet that stops compiling fails the build.
 
-### 4.1 Empty the baseline — done
+### 4.1 Keep the baseline empty
 
-**157 → 0.** The mechanical entries were the bulk: `<>` → `[]`, `Int` → `int`,
-`item in items` → `i <- 0 to n`, `fun`/`return` → `def` and a trailing
-expression, `match (x) { ... }` → `x match { case ... }`.
-
-Two blocks remain marked `skip`, both on `higher-order-functions.md`, because
-lambdas and function-typed parameters genuinely do not exist. That page was
-275 lines teaching a feature the language does not have; it is now a short,
-honest page that says so and shows the workarounds (named top-level functions,
-generic functions, `enum` + `match` for behaviour dispatch).
-
-Keep the baseline empty. If it grows, shorten it again rather than living with
-it:
+Nothing is baselined. If an entry appears, shorten the list again rather than
+living with it:
 
 ```bash
 sbt "doccheck/run --update-baseline docs/src/content/docs"
 ```
 
-### 4.2 The compiler still throws on `string + int`
+Two blocks are marked `skip`, both on `higher-order-functions.md`, because
+lambdas and function-typed parameters do not exist. That page documents the
+gap and the workarounds available today — named top-level functions, generic
+functions, and `enum` + `match` for behaviour dispatch. The skips come off when
+lambdas land (see [cross-cutting](#cross-cutting)).
 
-The four crashing blocks are fixed in the docs — the idiom is
-`"text " + string(n)`, as the compiler's own sources use. The underlying bug is
-not fixed: `"text " + someInt` still raises
+### 4.2 The compiler throws on `string + int`
+
+`"text " + someInt` raises
 `Binary operator 'Plus' not found for types 'string' and 'int'` as an
-exception, violating the `diagnostics-not-exceptions` invariant in
-[`primitives.yaml`](docs/architecture/primitives.yaml).
+exception rather than a diagnostic, violating the `diagnostics-not-exceptions`
+invariant in [`primitives.yaml`](docs/architecture/primitives.yaml). The docs
+sidestep it with `"text " + string(n)`, the idiom the compiler's own sources
+use.
 
 Two things to settle: whether `string + int` should work at all, and,
 regardless of that, that the failure comes back as a diagnostic. The same
@@ -367,8 +358,8 @@ applies to `break`/`continue`, which panic through the same
 ### 4.3 Clean up the docs tree
 
 - `docs/src/content/docs/guides/` duplicates `basics/`, `data-types/`,
-  `flow-control/`, and `functions/`. Pick one and delete the other; right now
-  the same wrong example is wrong in two places.
+  `flow-control/`, and `functions/`. Pick one and delete the other; every fix
+  currently has to be made in two places to stay consistent.
 - `guides/example.md` and `reference/example.md` are unedited Starlight
   boilerplate.
 - 17 of the 22 doc files are CRLF, against the LF rule in `.editorconfig`.
@@ -384,7 +375,7 @@ In rough order of usefulness:
 - **Linked blocks**, so a walkthrough can build up across several fences
   instead of needing `parse-only`.
 - **A stdlib prelude — the most limiting gap.** `Option`, `Result`, `Either`,
-  `List`, and `Dictionary` live in `pnc/src/*.pn` and are *not* builtins: only
+  `List`, and `Dictionary` live in `pnc/src/*.pn` and are _not_ builtins: only
   `int`, `string`, `bool`, `char`, `unit`, and `Array` are wired into the
   binder. A single-block compilation therefore cannot mention `Option` at all
   (`Type Option not defined`), which means the checker currently forbids
@@ -434,9 +425,10 @@ Things that do not belong to one goal but block several.
 - **Arrays cannot resize.** Four `// TODO: support resizing` in `Parser.scala`.
   The parser works around it with fixed-size arrays and rebuilds.
 - **No lambdas.** `Type.Function` exists and the binder understands function
-  types, but `(x) => x + 1` does not parse — 114 diagnostics in the docs alone.
-  `functions/higher-order-functions.md` is 275 lines about a feature the
-  language does not have.
+  types, but `(x) => x + 1` does not parse, so function values cannot be
+  written. This is the only feature the docs have to document as absent
+  (`functions/higher-order-functions.md`) and the reason for the two `skip`
+  blocks in §4.1.
 - **No lexer support for exponents or shifts**
   ([`Lexer.scala:243`](pncs/src/main/scala/Lexer.scala:243)).
 - **Test coverage is stage-shaped, not feature-shaped.** 246 tests, but
@@ -450,8 +442,9 @@ Things that do not belong to one goal but block several.
 Sequenced so each step makes the next one measurable.
 
 **First — stop flying blind.**
-§1.1 generated-source drift, §1.2 exit codes, §4.2 the four crashes. Small,
-independent, and each one makes a signal trustworthy that currently is not.
+§1.1 generated-source drift, §1.2 exit codes, §4.2 exceptions where
+diagnostics belong. Small, independent, and each one makes a signal
+trustworthy that currently is not.
 
 **Second — generics.**
 §2.1 inference, §2.2 bounds, §2.3 variance keywords. The 1058 should fall
@@ -463,8 +456,8 @@ plan should be rewritten around what the diagnostics actually say.
 and the stage-3 bootstrap comparison.
 
 **Fourth — samples and the rest of the docs.**
-§3.3, §3.4, §4.3. §4.1 is already done — the docs compile — so what is left
-here is the sample programs and the duplicated `guides/` tree.
+§3.3 the samples, §3.4 samples in CI, §4.3 the duplicated `guides/` tree. The
+doc blocks already compile, so nothing here is blocked on §4.1.
 
 **Fifth — finish self-hosting.**
 §1.3 to zero, §1.4 the `???` holes, §1.5 stage 3.
@@ -473,9 +466,9 @@ here is the sample programs and the duplicated `guides/` tree.
 
 The three numbers worth putting on a wall:
 
-| Metric | Now | Target | Command |
-| --- | ---: | ---: | --- |
-| Self-hosting diagnostics | 1058 | 0 | `sbt pnc/compile` |
-| Doc blocks that fail | **0 / 200** | 0 | `sbt "doccheck/run docs/src/content/docs"` |
-| Doc blocks skipped as unsupported | 2 | 0 | as above |
-| Samples that run in CI | 0 | 6 | not yet built |
+| Metric                            |         Now | Target | Command                                    |
+| --------------------------------- | ----------: | -----: | ------------------------------------------ |
+| Self-hosting diagnostics          |        1058 |      0 | `sbt pnc/compile`                          |
+| Doc blocks that fail              | **0 / 200** |      0 | `sbt "doccheck/run docs/src/content/docs"` |
+| Doc blocks skipped as unsupported |           2 |      0 | as above                                   |
+| Samples that run in CI            |           0 |      6 | not yet built                              |
