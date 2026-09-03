@@ -67,8 +67,9 @@ sbt "doccheck/run docs/src/content/docs"
 ```bash
 # DO NOT USE for validation:
 sbt compile        # Fails during the pnc/compile step
-sbt pnc/compile    # Reports ~996 diagnostics against the generated .pn
-                   # sources and exits non-zero, so the sbt task fails.
+sbt pnc/compile    # Reports diagnostics against the generated .pn sources
+                   # and exits non-zero, so the sbt task fails. ROADMAP.md
+                   # carries the current count.
 sbt pncs/bootstrap # Fails during the transpilation step
 ```
 
@@ -127,7 +128,8 @@ sbt "pncs/run /tmp/output.pnb /tmp/test.pn"
 
 # Verify transpiled code was generated (after pncs/transpile)
 ls -la pnc/src/*.pn | wc -l
-# Should show ~91 .pn files after successful transpilation
+# One .pn per transpiled Scala source; the count tracks pncs/, runtime/,
+# metadata/ and text/, so it changes whenever a source file is added.
 ```
 
 ## Project Structure
@@ -207,7 +209,7 @@ When you're done making changes, always run these commands in order:
 - **sbt version**: ~6 seconds (first run may take 8-15s for dependency downloads)
 - **pncs/compile**: ~8 seconds per command
 - **test/test**: ~8-16 seconds (all must pass)
-- **pncs/transpile**: ~8 seconds (writes ~91 .pn files)
+- **pncs/transpile**: ~8 seconds (rewrites every .pn under pnc/src)
 - **doccheck/run**: ~30 seconds
 - **scalafmtAll**: ~8-16 seconds
 - **scalafmtCheckAll**: ~7-9 seconds

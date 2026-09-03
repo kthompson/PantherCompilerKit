@@ -17,7 +17,7 @@ sbt "doccheck/run docs/src/content/docs"
 Paths may be files or directories; directories are walked for `.md` and
 `.mdx`.
 
-All 198 checked blocks currently compile:
+Every checked block compiles. A run reports what it found:
 
 ```
 panther doc check  (stage: Bind)
@@ -26,7 +26,8 @@ panther doc check  (stage: Bind)
   200 blocks: 198 ok, 0 failing, 2 skipped
 ```
 
-The two skips are on `functions/higher-order-functions.md`, which documents
+`0 failing` is the invariant CI enforces; the totals move as docs are added.
+The skips are on `functions/higher-order-functions.md`, which documents
 lambdas and function-typed parameters — neither is implemented.
 
 [`baseline.txt`](baseline.txt) records blocks that are known not to compile and

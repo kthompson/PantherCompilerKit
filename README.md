@@ -73,8 +73,9 @@ sbt pncs/transpile
 Self-hosting is not finished, so these do not produce a working compiler:
 
 - `sbt compile` (use `sbt pncs/compile`)
-- `sbt pnc/compile` — reports 996 diagnostics against the generated `.pn`
-  sources and fails the build.
+- `sbt pnc/compile` — reports diagnostics against the generated `.pn` sources
+  and fails the build. [ROADMAP.md](ROADMAP.md#1-self-hosting) carries the
+  current count.
 - `sbt pncs/bootstrap`
 
 [ROADMAP.md](ROADMAP.md#1-self-hosting) tracks what is left.
