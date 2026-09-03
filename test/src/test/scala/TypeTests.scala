@@ -736,6 +736,46 @@ class TypeTests extends AnyFunSpec with Matchers {
       assertInferExprTypeWithSetup(setup, "opt.orElse(5)", "int")
     }
 
+    it("should infer every constructor type argument from the arguments") {
+      val setup = "class Pair[A, B](first: A, second: B)"
+
+      assertInferExprTypeWithSetup(
+        setup,
+        "new Pair(1, \"x\")",
+        "Pair<int, string>"
+      )
+      assertInferExprTypeWithSetup(setup, "Pair(1, \"x\")", "Pair<int, string>")
+    }
+
+    it("should keep constructor type arguments written at the call site") {
+      val setup = "enum List[T] {\n" +
+        "  case Cons(head: T, tail: List[T])\n" +
+        "  case Nil\n" +
+        "}\n" +
+        "class Bag[T](items: List[T])"
+
+      // List.Nil says nothing about T; the annotation does
+      assertInferExprTypeWithSetup(
+        setup,
+        "new Bag[string](List.Nil)",
+        "Bag<string>"
+      )
+    }
+
+    it("should infer constructor type arguments from the expected type") {
+      val setup = "enum Result[A, B] {\n" +
+        "  case Error(value: A)\n" +
+        "  case Success(value: B)\n" +
+        "}"
+
+      // The argument fixes A; only the declared type can fix B
+      assertAssignableToWithSetup(
+        setup,
+        "Result.Error(\"no\")",
+        "Result[string, int]"
+      )
+    }
+
     it("should infer generic type from expected return type - identity") {
       val setup = "def identity[T](x: T): T = x"
 

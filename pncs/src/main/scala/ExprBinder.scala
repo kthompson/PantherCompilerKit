@@ -381,6 +381,18 @@ case class ExprBinder(
               Result.Success(BoundLeftHandSide.Call(value))
           }
 
+        case Type.GenericClass(_, ns, name, _, symbol) =>
+          bindGenericClassCall(
+            function,
+            functionType,
+            ns,
+            name,
+            symbol,
+            args,
+            Option.Some(expectedType),
+            scope
+          )
+
         case _ =>
           // Fall back to regular inference
           inferCall(function, args, scope)
@@ -519,7 +531,7 @@ case class ExprBinder(
       expectedType: Type,
       scope: Scope
   ): BoundExpression = {
-    inferNew(expr, scope) match {
+    bindNew(expr, Option.Some(expectedType), scope) match {
       case Result.Error(value) => value
       case Result.Success(value) =>
         val inferred = convertLHSToExpression(value)
@@ -1017,71 +1029,17 @@ case class ExprBinder(
             }
           }
 
-        case Type.GenericClass(_, ns, name, genericParams, symbol) =>
-          // Handle generic enum case instantiation by inferring type arguments
-          // from constructor arguments - similar to bindNewExpression logic
-          val location = AstUtils.locationOfBoundLeftHandSide(function)
-          findConstructor(symbol) match {
-            case Option.None =>
-              bindApply(args, scope, functionType, symbol, location)
-            case Option.Some(ctor) =>
-              // Try to infer type arguments from constructor arguments
-              val inferredTypeArgs =
-                typeInference.inferTypeArgumentsFromConstructor(
-                  genericParams,
-                  ctor,
-                  args
-                )
-              val instantiatedType = Type.Class(
-                location,
-                ns,
-                name,
-                inferredTypeArgs,
-                symbol
-              )
-
-              binder.tryGetSymbolType(ctor) match {
-                case Option.Some(Type.Function(loc, params, _)) =>
-                  bindNewExpressionForSymbol(
-                    location,
-                    ctor,
-                    Type.Function(loc, params, instantiatedType),
-                    args,
-                    scope
-                  ) match {
-                    case Result.Error(value)   => Result.Error(value)
-                    case Result.Success(value) => Result.Success(value)
-                  }
-                case Option.Some(
-                      Type.GenericFunction(loc, generics, traits, params, _)
-                    ) =>
-                  // For generic functions, we need to substitute type variables in parameters
-                  val substitutedParams =
-                    Types.substituteParameters(
-                      params,
-                      inferredTypeArgs
-                    )
-                  val instantiatedFunction: Type.Function =
-                    Type.Function(loc, substitutedParams, instantiatedType)
-                  bindNewExpressionForSymbol(
-                    location,
-                    ctor,
-                    instantiatedFunction,
-                    args,
-                    scope
-                  ) match {
-                    case Result.Error(value)   => Result.Error(value)
-                    case Result.Success(value) => Result.Success(value)
-                  }
-                case _ =>
-                  diagnosticBag.reportNotCallable(location)
-                  Result.Error(
-                    BoundExpression.Error(
-                      "Constructor symbol does not have a function type: " + name
-                    )
-                  )
-              }
-          }
+        case Type.GenericClass(_, ns, name, _, symbol) =>
+          bindGenericClassCall(
+            function,
+            functionType,
+            ns,
+            name,
+            symbol,
+            args,
+            Option.None,
+            scope
+          )
 
         case _ =>
           val location = AstUtils.locationOfBoundLeftHandSide(function)
@@ -1353,6 +1311,136 @@ case class ExprBinder(
           )
         case _ => ???
       }
+    }
+  }
+
+  /** A call to a generic class's constructor, with or without `new`. Type
+    * arguments written at the call site win. Otherwise they are inferred from
+    * the arguments and, when there is an expected type, from that too, so
+    * `val r: Result[E, B] = Result.Error(e)` solves B from the left-hand side.
+    */
+  def bindGenericConstructor(
+      location: TextLocation,
+      ctor: Symbol,
+      classLocation: TextLocation,
+      ns: List[string],
+      name: string,
+      symbol: Symbol,
+      explicitTypeArgs: List[Type],
+      args: List[BoundExpression],
+      expectedType: Option[Type],
+      scope: Scope
+  ): Result[BoundExpression.Error, BoundLeftHandSide] = {
+    binder.tryGetSymbolType(ctor) match {
+      case Option.Some(Type.Function(loc, params, _)) =>
+        bindNewExpressionForSymbol(
+          location,
+          ctor,
+          Type.Function(
+            loc,
+            params,
+            Type.Class(classLocation, ns, name, explicitTypeArgs, symbol)
+          ),
+          args,
+          scope
+        )
+      case Option.Some(Type.GenericFunction(loc, generics, _, params, _)) =>
+        val typeArgs =
+          if (!explicitTypeArgs.isEmpty) explicitTypeArgs
+          else {
+            val parameterTypes = getParameterTypes(params)
+            val argumentTypes = getArgumentTypes(args)
+            expectedType match {
+              case Option.Some(expected) =>
+                typeInference.checkTypeArgumentsFromCall(
+                  generics,
+                  parameterTypes,
+                  argumentTypes,
+                  Type.Class(
+                    classLocation,
+                    ns,
+                    name,
+                    genericsAsVariables(generics, 0),
+                    symbol
+                  ),
+                  expected
+                )
+              case Option.None =>
+                typeInference.inferTypeArgumentsFromCall(
+                  generics,
+                  parameterTypes,
+                  argumentTypes
+                )
+            }
+          }
+        val instantiatedType =
+          Type.Class(classLocation, ns, name, typeArgs, symbol)
+        bindNewExpressionForSymbol(
+          location,
+          ctor,
+          Type.Function(
+            loc,
+            Types.substituteParameters(params, typeArgs),
+            instantiatedType
+          ),
+          args,
+          scope
+        )
+      case _ =>
+        diagnosticBag.reportNotCallable(location)
+        Result.Error(
+          BoundExpression.Error(
+            "Constructor symbol does not have a function type: " + name
+          )
+        )
+    }
+  }
+
+  /** The class's own parameters as type variables, e.g. Result<$0, $1>, so an
+    * expected type can be matched against the constructor's result.
+    */
+  def genericsAsVariables(
+      generics: List[GenericTypeParameter],
+      index: int
+  ): List[Type] = {
+    generics match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        List.Cons(
+          Type.Variable(head.location, index),
+          genericsAsVariables(tail, index + 1)
+        )
+    }
+  }
+
+  /** `List.Cons(x, xs)` - a generic class called like a function. */
+  def bindGenericClassCall(
+      function: BoundLeftHandSide,
+      functionType: Type,
+      ns: List[string],
+      name: string,
+      symbol: Symbol,
+      args: List[BoundExpression],
+      expectedType: Option[Type],
+      scope: Scope
+  ): Result[BoundExpression.Error, BoundLeftHandSide] = {
+    val location = AstUtils.locationOfBoundLeftHandSide(function)
+    findConstructor(symbol) match {
+      case Option.None =>
+        bindApply(args, scope, functionType, symbol, location)
+      case Option.Some(ctor) =>
+        bindGenericConstructor(
+          location,
+          ctor,
+          location,
+          ns,
+          name,
+          symbol,
+          List.Nil,
+          args,
+          expectedType,
+          scope
+        )
     }
   }
 
@@ -2283,14 +2371,21 @@ case class ExprBinder(
   def inferNew(
       node: Expression.New,
       scope: Scope
+  ): Result[BoundExpression.Error, BoundLeftHandSide] =
+    bindNew(node, Option.None, scope)
+
+  def bindNew(
+      node: Expression.New,
+      expectedType: Option[Type],
+      scope: Scope
   ): Result[BoundExpression.Error, BoundLeftHandSide] = {
     val instantiationType = binder.bindTypeName(node.name, scope)
     instantiationType match {
       case Type.Error(message) => Result.Error(BoundExpression.Error(message))
-      case Type.Class(_, ns, name, args, symbol) =>
+      case Type.Class(classLocation, ns, name, typeArgs, symbol) =>
         // Special handling for Array construction - convert to ArrayCreation
         if (name == "Array") {
-          val elementType = args match {
+          val elementType = typeArgs match {
             case List.Cons(elemType, List.Nil) => elemType
             case _                             => binder.anyType
           }
@@ -2342,73 +2437,22 @@ case class ExprBinder(
               )
               val location = AstUtils.locationOfExpression(node)
 
-              val ctorType = binder.tryGetSymbolType(ctor)
-              ctorType match {
-                case Option.Some(Type.Function(loc, params, _)) =>
-                  bindNewExpressionForSymbol(
-                    location,
-                    ctor,
-                    Type.Function(loc, params, instantiationType),
-                    args,
-                    scope
-                  )
-                case Option.Some(
-                      Type.GenericFunction(loc, generics, traits, params, _)
-                    ) =>
-                  // For generic constructors, infer type arguments from constructor arguments
-                  val parameterTypes = getParameterTypes(params)
-                  val argumentTypes = getArgumentTypes(args)
-                  val inferredTypeArgs =
-                    typeInference.inferTypeArgumentsFromCall(
-                      generics,
-                      parameterTypes,
-                      argumentTypes
-                    )
-
-                  // Create the instantiated return type using inferred type arguments
-                  val inferredInstantiationType = instantiationType match {
-                    case Type.Class(clsLoc, clsNs, clsName, _, clsSymbol) =>
-                      // Replace generic type arguments with inferred ones
-                      Type.Class(
-                        clsLoc,
-                        clsNs,
-                        clsName,
-                        inferredTypeArgs,
-                        clsSymbol
-                      )
-                    case other => other
-                  }
-
-                  // Substitute type variables in parameter types
-                  val substitutedParams =
-                    Types.substituteParameters(params, inferredTypeArgs)
-
-                  val instantiatedFunction: Type.Function =
-                    Type.Function(
-                      loc,
-                      substitutedParams,
-                      inferredInstantiationType
-                    )
-                  bindNewExpressionForSymbol(
-                    location,
-                    ctor,
-                    instantiatedFunction,
-                    args,
-                    scope
-                  )
-                case _ =>
-                  diagnosticBag.reportNotCallable(location)
-                  Result.Error(
-                    BoundExpression.Error(
-                      "Constructor symbol does not have a function type: " + name
-                    )
-                  )
-              }
+              // The type arguments, if any, were written at the call site
+              bindGenericConstructor(
+                location,
+                ctor,
+                classLocation,
+                ns,
+                name,
+                symbol,
+                typeArgs,
+                args,
+                expectedType,
+                scope
+              )
           }
         }
-      case Type.GenericClass(_, ns, name, genericParams, symbol) =>
-        // Handle generic class instantiation by inferring type arguments
-        // from constructor arguments
+      case Type.GenericClass(_, ns, name, _, symbol) =>
         findConstructor(symbol) match {
           case Option.None =>
             diagnosticBag.reportSymbolNotFound(
@@ -2427,69 +2471,18 @@ case class ExprBinder(
             )
             val location = AstUtils.locationOfExpression(node)
 
-            // Try to infer type arguments from constructor arguments
-            val inferredTypeArgs = binder.tryGetSymbolType(ctor) match {
-              case Option.Some(
-                    Type.GenericFunction(_, ctorGenerics, _, ctorParams, _)
-                  ) =>
-                val parameterTypes = getParameterTypes(ctorParams)
-                val argumentTypes = getArgumentTypes(args)
-                typeInference.inferTypeArgumentsFromCall(
-                  ctorGenerics,
-                  parameterTypes,
-                  argumentTypes
-                )
-              case _ =>
-                typeInference.inferTypeArgumentsFromConstructor(
-                  genericParams,
-                  ctor,
-                  args
-                )
-            }
-            val instantiatedType = Type.Class(
+            bindGenericConstructor(
+              location,
+              ctor,
               location,
               ns,
               name,
-              inferredTypeArgs,
-              symbol
+              symbol,
+              List.Nil,
+              args,
+              expectedType,
+              scope
             )
-
-            val ctorType = binder.tryGetSymbolType(ctor)
-            ctorType match {
-              case Option.Some(Type.Function(loc, params, _)) =>
-                bindNewExpressionForSymbol(
-                  location,
-                  ctor,
-                  Type.Function(loc, params, instantiatedType),
-                  args,
-                  scope
-                )
-              case Option.Some(
-                    Type.GenericFunction(loc, generics, traits, params, _)
-                  ) =>
-                // For generic functions, we need to substitute type variables in parameters
-                val substitutedParams =
-                  Types.substituteParameters(
-                    params,
-                    inferredTypeArgs
-                  )
-                val instantiatedFunction: Type.Function =
-                  Type.Function(loc, substitutedParams, instantiatedType)
-                bindNewExpressionForSymbol(
-                  location,
-                  ctor,
-                  instantiatedFunction,
-                  args,
-                  scope
-                )
-              case _ =>
-                diagnosticBag.reportNotCallable(location)
-                Result.Error(
-                  BoundExpression.Error(
-                    "Constructor symbol does not have a function type: " + name
-                  )
-                )
-            }
         }
       case _ =>
         println(node.closeParen.location.toString())
