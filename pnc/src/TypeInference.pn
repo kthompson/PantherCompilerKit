@@ -59,11 +59,22 @@ class TypeInference(binder: Binder) {
       case List.Nil => List.Nil
       case List.Cons(param, tail) =>
         val key = "var_" + string(index)
-        val inferredType = typeMap.getOrElse(key, binder.anyType)
+        val inferredType = typeMap.getOrElse(key, unsolvedDefault(param))
         List.Cons(
           inferredType,
           mapGenericParamsToTypesWithIndex(tail, typeMap, index + 1)
         )
+    }
+  }
+
+  /** What an unsolved parameter becomes. A covariant slot filled with never
+    * converts to any instantiation, so Result.Error(e) satisfies every
+    * Result[E, B]. Anything else has nothing safer than any.
+    */
+  def unsolvedDefault(param: GenericTypeParameter): Type = {
+    param.variance match {
+      case Variance.Covariant => binder.neverType
+      case _                  => binder.anyType
     }
   }
 

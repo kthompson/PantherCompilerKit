@@ -36,13 +36,13 @@ format, and args parser.
 sbt pnc/compile
 ```
 
-Runs to completion and reports **388 diagnostics** against the generated
+Runs to completion and reports **391 diagnostics** against the generated
 `.pn` sources. By message:
 
 | Count | Diagnostic                      |
 | ----: | ------------------------------- |
 |   135 | `Symbol X not found`            |
-|   112 | `No operator for operands`      |
+|   115 | `No operator for operands`      |
 |    39 | `Type X not defined`            |
 |    39 | `Cannot convert from A to B`    |
 |    27 | `Symbol X not found for type T` |
@@ -50,7 +50,7 @@ Runs to completion and reports **388 diagnostics** against the generated
 |    11 | argument-count mismatches       |
 |     2 | `Duplicate definition`          |
 
-**6 of the 388 mention an unsolved type variable** (`$0`, `$1`, …) — a
+**6 of the 391 mention an unsolved type variable** (`$0`, `$1`, …) — a
 generic parameter the binder gave up on. The largest buckets are now name
 resolution (`this`, imports) and operators, not generics.
 
@@ -133,6 +133,11 @@ generated file, a modified one, and a deleted one all fail the build. A bare
 `git diff --exit-code` misses untracked files, which is how a stale tracked
 name and its regenerated replacement can both sit in the tree.
 
+The transpile itself exits non-zero when any source fails to parse. A Scala
+parameter named `to` — a Panther keyword — is enough to stop it, and the tree
+keeps whatever was generated last, so treat a parse error here as a failed
+build, not a warning.
+
 Two duplicate-definition diagnostics remain, and neither is drift:
 `inferCall` in `ExprBinder.pn` and `printNew` in `LoweredAssemblyPrinter.pn`
 are overloaded in the Scala source, and Panther has no overload resolution.
@@ -186,7 +191,7 @@ Track the number after every change:
 sbt pnc/compile
 ```
 
-**388 → 0.** Nothing else in this section matters until that number moves.
+**391 → 0.** Nothing else in this section matters until that number moves.
 
 Only the first 20 diagnostics are printed. To see them all, transpile first —
 `pnc/compile` does this implicitly, and the count depends on it — then run the
@@ -504,11 +509,11 @@ Sequenced so each step makes the next one measurable.
 
 **First — stop flying blind.** Done. The generated tree matches the
 transpiler (§1.1), the exit code is trustworthy (§1.2), and failures come back
-as diagnostics rather than exceptions (§4.2). The 388 counts every error the
+as diagnostics rather than exceptions (§4.2). The 391 counts every error the
 front end finds — none are discarded.
 
 **Second — generics.**
-§2.1 inference, §2.2 bounds. The 388 should fall
+§2.1 inference, §2.2 bounds. The 391 should fall
 sharply. If it does not, the assumption behind this roadmap was wrong and the
 plan should be rewritten around what the diagnostics actually say.
 
@@ -529,7 +534,7 @@ The three numbers worth putting on a wall:
 
 | Metric                            |         Now | Target | Command                                    |
 | --------------------------------- | ----------: | -----: | ------------------------------------------ |
-| Self-hosting diagnostics          |         388 |      0 | `sbt pnc/compile` (now fails, as it should) |
+| Self-hosting diagnostics          |         391 |      0 | `sbt pnc/compile` (now fails, as it should) |
 | Doc blocks that fail              | **0 / 200** |      0 | `sbt "doccheck/run docs/src/content/docs"` |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                   |
 | Samples that run in CI            |           0 |      6 | not yet built                              |

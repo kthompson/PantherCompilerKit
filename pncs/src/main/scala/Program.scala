@@ -67,7 +67,7 @@ object Program {
         trees match {
           case List.Nil => ()
           case List.Cons(head, tail) =>
-            parseErrors =
+            parseErrors = parseErrors +
               head.diagnostics.printDiagnostics(settings.diagnosticsToPrint)
             trees = tail
         }

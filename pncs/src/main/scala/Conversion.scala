@@ -128,11 +128,16 @@ class ConversionClassifier(binder: Binder) {
     }
   }
 
-  def typeArgumentConverts(variance: Variance, from: Type, to: Type): bool = {
+  def typeArgumentConverts(
+      variance: Variance,
+      from: Type,
+      toType: Type
+  ): bool = {
     variance match {
-      case Variance.Invariant     => from == to || semanticTypeEquals(from, to)
-      case Variance.Covariant     => widensTo(from, to)
-      case Variance.Contravariant => widensTo(to, from)
+      case Variance.Invariant =>
+        from == toType || semanticTypeEquals(from, toType)
+      case Variance.Covariant     => widensTo(from, toType)
+      case Variance.Contravariant => widensTo(toType, from)
     }
   }
 
@@ -140,10 +145,10 @@ class ConversionClassifier(binder: Binder) {
     * changes representation, like char to int, does not apply inside a type
     * argument: the elements are not converted one by one.
     */
-  def widensTo(from: Type, to: Type): bool = {
-    if (to == binder.anyType || from == binder.neverType) true
+  def widensTo(from: Type, toType: Type): bool = {
+    if (toType == binder.anyType || from == binder.neverType) true
     else
-      classify(from, to) match {
+      classify(from, toType) match {
         case Conversion.Identity => true
         case _                   => false
       }

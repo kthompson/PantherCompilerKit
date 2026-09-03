@@ -30,21 +30,34 @@ class ConversionClassifier(binder: Binder) {
       Conversion.Implicit
     } else {
       Tuple2(from, toType) match {
-        // Handle conversion from union to alias (e.g., Enum.Case1 | Enum.Case2 -> Enum)
+        // Same class, different arguments: compare them one by one under
+        // the variance the class declares
         case Tuple2(
-              Type.Union(_, fromCases),
-              Type.Alias(_, _, _, List.Nil, aliasValue, _)
+              Type.Class(_, _, _, fromArgs, fromSymbol),
+              Type.Class(_, _, _, toArgs, toSymbol)
             ) =>
-          aliasValue match {
-            case Type.Union(_, aliasCases) =>
-              if (unionSubsetOf(fromCases, aliasCases)) {
-                Conversion.Identity
-              } else {
-                Conversion.None
-              }
-            case _ =>
-              Conversion.None
-          }
+          if (fromSymbol == toSymbol)
+            classifyTypeArguments(
+              genericParametersOf(toSymbol),
+              fromArgs,
+              toArgs
+            )
+          else Conversion.None
+        case Tuple2(
+              Type.Alias(_, _, _, fromArgs, _, fromSymbol),
+              Type.Alias(_, _, _, toArgs, _, toSymbol)
+            ) =>
+          if (fromSymbol == toSymbol)
+            classifyTypeArguments(
+              genericParametersOf(toSymbol),
+              fromArgs,
+              toArgs
+            )
+          else Conversion.None
+        // A union converts when every one of its cases does, e.g.
+        // Option.Some<int> | Option.None to Option<int>
+        case Tuple2(Type.Union(_, fromCases), _) =>
+          classifyUnionCases(fromCases, toType)
         case _ =>
           toType match {
             case Type.Alias(location, _, _, generics, value, _) =>
@@ -71,6 +84,95 @@ class ConversionClassifier(binder: Binder) {
               Conversion.None
           }
       }
+    }
+  }
+
+  def classifyUnionCases(cases: List[Type], toType: Type): Conversion = {
+    cases match {
+      case List.Nil => Conversion.Identity
+      case List.Cons(head, tail) =>
+        classify(head, toType) match {
+          case Conversion.None     => Conversion.None
+          case Conversion.Explicit => Conversion.None
+          case Conversion.Identity => classifyUnionCases(tail, toType)
+          case Conversion.Implicit =>
+            classifyUnionCases(tail, toType) match {
+              case Conversion.None => Conversion.None
+              case _               => Conversion.Implicit
+            }
+        }
+    }
+  }
+
+  /** Argument lists of one class compared under its declared variance. The
+    * result is Identity, as for a case converting to its enum: nothing is cast
+    * at runtime, the arguments only refine what the value already is.
+    */
+  def classifyTypeArguments(
+      params: List[GenericTypeParameter],
+      fromArgs: List[Type],
+      toArgs: List[Type]
+  ): Conversion = {
+    params match {
+      case List.Nil =>
+        if (fromArgs.isEmpty && toArgs.isEmpty) Conversion.Identity
+        else Conversion.None
+      case List.Cons(param, paramTail) =>
+        Tuple2(fromArgs, toArgs) match {
+          case Tuple2(List.Cons(fromArg, fromTail), List.Cons(toArg, toTail)) =>
+            if (typeArgumentConverts(param.variance, fromArg, toArg))
+              classifyTypeArguments(paramTail, fromTail, toTail)
+            else Conversion.None
+          case _ => Conversion.None
+        }
+    }
+  }
+
+  def typeArgumentConverts(
+      variance: Variance,
+      from: Type,
+      toType: Type
+  ): bool = {
+    variance match {
+      case Variance.Invariant =>
+        from == toType || semanticTypeEquals(from, toType)
+      case Variance.Covariant     => widensTo(from, toType)
+      case Variance.Contravariant => widensTo(toType, from)
+    }
+  }
+
+  /** Widening only - identity, up to any, or from never. An implicit that
+    * changes representation, like char to int, does not apply inside a type
+    * argument: the elements are not converted one by one.
+    */
+  def widensTo(from: Type, toType: Type): bool = {
+    if (toType == binder.anyType || from == binder.neverType) true
+    else
+      classify(from, toType) match {
+        case Conversion.Identity => true
+        case _                   => false
+      }
+  }
+
+  /** The type parameters a class or enum declares. An enum's alias does not
+    * carry them itself; its parameterised cases do.
+    */
+  def genericParametersOf(symbol: Symbol): List[GenericTypeParameter] = {
+    binder.tryGetSymbolType(symbol) match {
+      case Option.Some(Type.GenericClass(_, _, _, params, _)) => params
+      case Option.Some(Type.Alias(_, _, _, _, Type.Union(_, cases), _)) =>
+        firstGenericParameters(cases)
+      case _ => List.Nil
+    }
+  }
+
+  def firstGenericParameters(
+      cases: List[Type]
+  ): List[GenericTypeParameter] = {
+    cases match {
+      case List.Nil                                            => List.Nil
+      case List.Cons(Type.GenericClass(_, _, _, params, _), _) => params
+      case List.Cons(_, tail) => firstGenericParameters(tail)
     }
   }
 
@@ -203,14 +305,6 @@ class ConversionClassifier(binder: Binder) {
         param1.name == param2.name && param1.variance == param2.variance &&
         semanticGenericParameterListEquals(tail1, tail2) && upperBoundsEqual
       case _ => false
-    }
-  }
-
-  def unionSubsetOf(subset: List[Type], superset: List[Type]): bool = {
-    subset match {
-      case List.Nil => true
-      case List.Cons(head, tail) =>
-        typeInList(head, superset) && unionSubsetOf(tail, superset)
     }
   }
 

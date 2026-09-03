@@ -242,11 +242,11 @@ Each step landed as its own commit and was measured with `sbt pnc/compile`:
 | C — patterns carry the scrutinee type                      |         553 |
 | A′ — alias-typed receivers (`opt.get()`, `list.reverse()`) |         502 |
 | D — constructors infer like calls                          |         423 |
-| E — variance-aware conversion, `never` default             |         388 |
+| E — variance-aware conversion, `never` default             |         391 |
 
-Of the 388, six mention a type variable and nine a parameter that defaulted
+Of the 391, six mention a type variable and nine a parameter that defaulted
 to `any`. The largest buckets are now `Symbol X not found` (135, of which 35
-are `this`, which the binder never defines) and operators (112).
+are `this`, which the binder never defines) and operators (115).
 
 Where the implementation departs from the decision above:
 
@@ -269,3 +269,9 @@ Where the implementation departs from the decision above:
 - The diagnostic for a generic method on a generic class is not written.
   No such method exists in the sources, so nothing measures it yet; it goes
   with the follow-up ADR on scoped ids.
+- Step E was first recorded as 388. That run measured a stale twin: the
+  step introduced a parameter named `to`, a Panther keyword, the transpile
+  failed to parse `Conversion.scala`, and the driver reported the last file's
+  error count — zero — and exited 0. With the parameter renamed and the twin
+  regenerated the count is 391; the three extra are `==` between class-typed
+  operands in the new classifier code, an operator gap, not an inference one.
