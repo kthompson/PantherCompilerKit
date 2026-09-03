@@ -35,7 +35,7 @@ object Hex {
     var curr = value
     while (curr > 0) {
       val digit = mod(curr, 16)
-      if (digit < 10) s = digit.toString() + s
+      if (digit < 10) s = string(digit) + s
       else s = string(char('A' + (digit - 10))) + s
       curr = curr / 16
     }

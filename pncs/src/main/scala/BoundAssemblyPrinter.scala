@@ -363,12 +363,12 @@ class BoundAssemblyPrinter(
 
   def printBoundLiteral(lit: BoundLiteral): unit = lit match {
     case BoundLiteral.Int(location, value) =>
-      writeWithColor(ColorPalette.Number, value.toString())
+      writeWithColor(ColorPalette.Number, string(value))
     case BoundLiteral.String(location, value) =>
       writeWithColor(ColorPalette.String, "\"" + value + "\"")
     case BoundLiteral.Bool(location, value) =>
-      writeWithColor(ColorPalette.Keyword, value.toString())
+      writeWithColor(ColorPalette.Keyword, string(value))
     case BoundLiteral.Char(location, value) =>
-      writeWithColor(ColorPalette.String, "'" + value.toString() + "'")
+      writeWithColor(ColorPalette.String, "'" + string(value) + "'")
   }
 }

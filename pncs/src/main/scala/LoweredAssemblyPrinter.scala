@@ -293,7 +293,7 @@ class LoweredAssemblyPrinter(
   def printIntegerLiteral(
       expr: LoweredExpression.Integer
   ): Unit = {
-    ast.writeWithColor(ColorPalette.Number, expr.value.toString())
+    ast.writeWithColor(ColorPalette.Number, string(expr.value))
   }
 
   def printCharacterLiteral(
@@ -338,7 +338,7 @@ class LoweredAssemblyPrinter(
   }
 
   def printBooleanLiteral(expr: LoweredExpression.Boolean): unit = {
-    ast.writeWithColor(ColorPalette.Keyword, expr.value.toString)
+    ast.writeWithColor(ColorPalette.Keyword, string(expr.value))
   }
 
   def printCast(expr: LoweredExpression.Cast): unit = {

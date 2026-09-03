@@ -49,7 +49,7 @@ object ListModule {
 
   def toString[T](list: List[T]): string = list match {
     case List.Nil              => "List()"
-    case List.Cons(head, tail) => _toString(head.toString, 0, tail)
+    case List.Cons(head, tail) => _toString(string(head), 0, tail)
   }
 
   def _toString[T](head: string, count: int, tail: List[T]): string = {
@@ -60,9 +60,9 @@ object ListModule {
         if (count == 4) {
           "List(" + head + ", ...)"
         } else if (head == "") {
-          _toString(h.toString, count + 1, t)
+          _toString(string(h), count + 1, t)
         } else {
-          _toString(head + ", " + h.toString, count + 1, t)
+          _toString(head + ", " + string(h), count + 1, t)
         }
     }
   }

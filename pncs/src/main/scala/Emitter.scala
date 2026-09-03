@@ -171,7 +171,7 @@ case class Emitter(
       case Option.Some(entry) =>
         methodTokens.get(entry) match {
           case Option.None =>
-            println(entry.toString())
+            println(string(entry))
             panic("unimplemented: emit")
           case Option.Some(value) => Option.Some(value)
         }

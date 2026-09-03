@@ -31,7 +31,7 @@ class Disassembler(chunk: Chunk, metadata: Metadata) {
       print("   | ")
     } else {
       val line = chunk.readLine(offset)
-      val lineStr = Pad.left(line.toString, 4, ' ')
+      val lineStr = Pad.left(string(line), 4, ' ')
       print(lineStr + " ")
     }
 

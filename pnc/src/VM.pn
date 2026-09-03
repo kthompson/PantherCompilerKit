@@ -349,7 +349,7 @@ class VM(
           case "int" => value // identity cast
           case "char" =>
             Value.Int(i) // int to char (keeping as int for simplicity)
-          case "string" => Value.String(i.toString())
+          case "string" => Value.String(string(i))
           case "bool"   => Value.Bool(i != 0)
           case "any"    => value // cast to any preserves the value
           case _ =>
@@ -569,11 +569,11 @@ class VM(
         val a = pop()
         a match {
           case Value.Bool(b) =>
-            push(Value.String(b.toString()))
+            push(Value.String(string(b)))
             InterpretResult.Continue
           case Value.Int(i) =>
             // TODO: may need native function here
-            push(Value.String(i.toString()))
+            push(Value.String(string(i)))
             InterpretResult.Continue
           case Value.String(s) =>
             push(Value.String(s))
