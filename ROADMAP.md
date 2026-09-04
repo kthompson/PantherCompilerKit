@@ -174,6 +174,9 @@ Ordered by what the counts say, not by what is interesting:
    keyword for it and the binder never defines it, so every enum or class
    method that matches on `this` fails. The lowerer and emitter already have
    a `This` node; only the binder is missing.
+   [ADR 0002](docs/architecture/adr/0002-binding-this.md) has the plan, and
+   records a latent off-by-one it uncovered: an instance method numbers its
+   declared parameters from 0, but the VM gives slot 0 to the receiver.
 2. **Operators on class types** — 118 `No operator`: 67 are `==` or `!=`,
    mostly on enum-typed operands such as `SymbolKind`, and 44 are `+` between
    a string and a class.
