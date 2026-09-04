@@ -189,6 +189,9 @@ class Symbol(
       case Either.Right(symbol) => symbol
     }
 
+  def tryDefineThis(location: TextLocation): Either[TextLocation, Symbol] =
+    tryDefine("this", location, SymbolKind.This, true)
+
   def tryDefineLocal(
       name: string,
       location: TextLocation,

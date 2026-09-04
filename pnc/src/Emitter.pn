@@ -183,12 +183,16 @@ class Emitter(
     value.list match {
       case List.Nil => ()
       case List.Cons(KeyValue(key, value), tail) =>
+        val methodMetadata = metadata.methods.methods(value.token)
         val context = EmitContext(
           chunk,
-          metadata.methods.methods(value.token),
+          methodMetadata,
           DictionaryModule.empty[Symbol, int](),
           getMethodParameterMap(
-            0,
+            // The VM reserves argument slot 0 for the receiver whenever
+            // hasThis, so declared parameters start at 1 there. Read the
+            // flag rather than recomputing it, so the two cannot disagree.
+            if (methodMetadata.hasThis) 1 else 0,
             key.members(),
             DictionaryModule.empty[Symbol, int]()
           )
@@ -713,8 +717,14 @@ class Emitter(
       expr: LoweredExpression.This,
       context: EmitContext
   ): unit = {
-    // Load the 'this' parameter, which is typically the first parameter (index 0)
-    chunk.emitOpcode(Opcode.Ldarg0, expr.location.startLine)
+    emitThis(expr.location, context)
+  }
+
+  /** The receiver occupies argument slot 0 of an instance method; declared
+    * parameters start at 1 (see getMethodParameterMap).
+    */
+  def emitThis(location: TextLocation, context: EmitContext): unit = {
+    chunk.emitOpcode(Opcode.Ldarg0, location.startLine)
   }
 
   def emitUnitExpression(
@@ -727,7 +737,9 @@ class Emitter(
       expr: LoweredExpression.Variable,
       context: EmitContext
   ): unit = {
-    if (expr.symbol.kind == SymbolKind.Parameter) {
+    if (expr.symbol.kind == SymbolKind.This) {
+      emitThis(expr.location, context)
+    } else if (expr.symbol.kind == SymbolKind.Parameter) {
       emitParameter(expr, context)
     } else if (expr.symbol.kind == SymbolKind.Local) {
       emitLocal(expr, context)
@@ -895,6 +907,10 @@ class Emitter(
       case SymbolKind.Method      => emitMethodMetadata(symbol, parentStatic)
       case SymbolKind.Constructor => emitMethodMetadata(symbol, parentStatic)
       case SymbolKind.Parameter   => emitParameterMetadata(symbol)
+
+      // the receiver is not a declared parameter; the VM accounts for it
+      // through MethodMetadata.hasThis
+      case SymbolKind.This =>
 
       case _: SymbolKind.TypeParameter => // TODO: emit type parameter metadata??
       case SymbolKind.Local => // TODO: emit local metadata?

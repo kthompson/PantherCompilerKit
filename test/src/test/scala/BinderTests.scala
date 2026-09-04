@@ -70,6 +70,7 @@ class BinderTests extends AnyFunSpec with Matchers {
       val comp = mkCompilation("class Foo()")
       val symbols = enumNonBuiltinSymbols(comp)
       assertSymbol(symbols, SymbolKind.Class, "Foo")
+      assertSymbol(symbols, SymbolKind.This, "this")
       assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
       assertProgramSymbol(symbols)
       assertMainSymbol(symbols)
@@ -80,6 +81,7 @@ class BinderTests extends AnyFunSpec with Matchers {
       val comp = mkCompilation("class Foo(x: int, y: int)")
       val symbols = enumNonBuiltinSymbols(comp)
       assertSymbol(symbols, SymbolKind.Class, "Foo")
+      assertSymbol(symbols, SymbolKind.This, "this")
       assertSymbol(symbols, SymbolKind.Field, "y")
       assertSymbol(symbols, SymbolKind.Field, "x")
       assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
@@ -101,6 +103,7 @@ class BinderTests extends AnyFunSpec with Matchers {
 
       val symbols = enumNonBuiltinSymbols(comp)
       assertSymbol(symbols, SymbolKind.Class, "Foo")
+      assertSymbol(symbols, SymbolKind.This, "this")
       assertSymbol(symbols, SymbolKind.Field, "z")
       assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
     }
@@ -116,6 +119,7 @@ class BinderTests extends AnyFunSpec with Matchers {
       assertSymbol(symbols, SymbolKind.Alias, "Foo")
       assertSymbol(symbols, SymbolKind.Class, "Bar")
       assertSymbol(symbols, SymbolKind.Class, "Baz")
+      assertSymbol(symbols, SymbolKind.This, "this")
 
       assertProgramSymbol(symbols)
       assertMainSymbol(symbols)
@@ -141,6 +145,7 @@ class BinderTests extends AnyFunSpec with Matchers {
       assertSymbol(symbols, SymbolKind.Field, "y")
       assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
       assertSymbol(symbols, SymbolKind.Parameter, "y")
+      assertSymbol(symbols, SymbolKind.This, "this")
 
       assertProgramSymbol(symbols)
       assertMainSymbol(symbols)
@@ -169,6 +174,7 @@ class BinderTests extends AnyFunSpec with Matchers {
       assertSymbol(symbols, SymbolKind.Parameter, "value")
 
       assertSymbol(symbols, SymbolKind.Class, "None")
+      assertSymbol(symbols, SymbolKind.This, "this")
 
       assertProgramSymbol(symbols)
       assertSymbol(symbols, SymbolKind.Field, "result")
@@ -257,6 +263,7 @@ class BinderTests extends AnyFunSpec with Matchers {
       val symbols = enumNonBuiltinSymbols(comp)
       assertSymbol(symbols, SymbolKind.Class, "Producer")
       assertSymbol(symbols, SymbolKind.TypeParameter(Variance.Covariant), "T")
+      assertSymbol(symbols, SymbolKind.This, "this")
       assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
       assertSymbol(symbols, SymbolKind.Class, "Consumer")
       assertSymbol(
@@ -264,9 +271,11 @@ class BinderTests extends AnyFunSpec with Matchers {
         SymbolKind.TypeParameter(Variance.Contravariant),
         "T"
       )
+      assertSymbol(symbols, SymbolKind.This, "this")
       assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
       assertSymbol(symbols, SymbolKind.Class, "Fixed")
       assertSymbol(symbols, SymbolKind.TypeParameter(Variance.Invariant), "T")
+      assertSymbol(symbols, SymbolKind.This, "this")
     }
 
     it("should not create named locals for discard patterns") {
@@ -290,6 +299,7 @@ class BinderTests extends AnyFunSpec with Matchers {
       assertSymbol(symbols, SymbolKind.Parameter, "value")
 
       assertSymbol(symbols, SymbolKind.Class, "None")
+      assertSymbol(symbols, SymbolKind.This, "this")
 
       assertProgramSymbol(symbols)
       assertSymbol(symbols, SymbolKind.Field, "result")
@@ -327,6 +337,7 @@ class BinderTests extends AnyFunSpec with Matchers {
       assertSymbol(symbols, SymbolKind.Parameter, "value")
 
       assertSymbol(symbols, SymbolKind.Class, "None")
+      assertSymbol(symbols, SymbolKind.This, "this")
 
       assertProgramSymbol(symbols)
       assertSymbol(symbols, SymbolKind.Field, "result")

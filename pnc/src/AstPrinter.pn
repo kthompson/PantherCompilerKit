@@ -773,6 +773,9 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
       case SymbolKind.Local =>
         writeColor(ColorPalette.Identifier)
         append("Local")
+      case SymbolKind.This =>
+        writeColor(ColorPalette.Keyword)
+        append("This")
     }
 
     append(ANSI.Clear)

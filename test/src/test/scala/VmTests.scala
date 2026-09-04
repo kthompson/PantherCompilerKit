@@ -248,23 +248,57 @@ class VmTests extends AnyFunSpec with Matchers {
       )
     }
 
-    //    it should "execute classes with args" in {
-    //      assertExecValueIntWithSetup(
-    //        "class Foo(x: int, y: int) {\n" +
-    //          " def add() = x + y\n" +
-    //          "}",
-    //        "new Foo(12, 13).add()",
-    //        25
-    //      )
-    //    }
+    // Blocked, both on defects that predate `this` and are unrelated to it:
     //
-    //    it should "access class fields via constructor" in {
-    //      assertExecValueIntWithSetup(
-    //        "class Foo(x: int, y: int)",
-    //        "new Foo(1, 2).x + new Foo(3,5).y",
-    //        6
-    //      )
-    //    }
+    //   class Foo(x: int, y: int) { def add() = x + y }   new Foo(12, 13).add()
+    //   class Foo(x: int, y: int)                         new Foo(1, 2).x
+    //
+    // The first needs an implicit field read to push a receiver: emitField
+    // emits Ldfld with nothing on the stack. The second needs a constructor
+    // body for a class with no template; its method address stays -1.
+
+    it("should pass arguments to an instance method") {
+      // the receiver takes argument slot 0, so declared parameters start at 1
+      assertExecValueIntWithSetup(
+        "class Foo() {\n" +
+          "  def bar(x: int): int = x + 1\n" +
+          "}",
+        "new Foo().bar(41)",
+        42
+      )
+    }
+
+    it("should pass several arguments to an instance method") {
+      assertExecValueIntWithSetup(
+        "class Foo() {\n" +
+          "  def bar(a: int, b: int, c: int): int = a * b + c\n" +
+          "}",
+        "new Foo().bar(6, 7, 9)",
+        51
+      )
+    }
+
+    it("should read a field through this") {
+      assertExecValueIntWithSetup(
+        "class Foo() {\n" +
+          "  var x = 42\n" +
+          "  def get(): int = this.x\n" +
+          "}",
+        "new Foo().get()",
+        42
+      )
+    }
+
+    it("should use this alongside a declared parameter") {
+      assertExecValueIntWithSetup(
+        "class Foo() {\n" +
+          "  var x = 40\n" +
+          "  def add(y: int): int = this.x + y\n" +
+          "}",
+        "new Foo().add(2)",
+        42
+      )
+    }
 
     it("should access class fields via field declaration") {
       assertExecValueIntWithSetup(

@@ -659,6 +659,38 @@ class Binder(
     }
   }
 
+  /** Define the receiver for an instance type.
+    *
+    * The symbol goes on the class or enum itself, not on each method, so that
+    * method bodies, blocks, field initialisers and class-body statements all
+    * reach the same symbol through the ordinary scope walk. Objects are static
+    * and get none, which leaves `this` inside an object a diagnostic.
+    *
+    * A generic class or enum is applied to its own parameters, so `this` inside
+    * `class Foo[T]` is `Foo<$0>` and not the uninstantiated `Foo`. Without
+    * that, a method returning `this` cannot satisfy its own declared return
+    * type of `Foo[T]`.
+    */
+  def defineThis(
+      symbol: Symbol,
+      generics: List[GenericTypeParameter]
+  ): unit = {
+    val typeArgs = exprBinder.genericsAsVariables(generics, 0)
+    val selfType = getSymbolType(symbol) match {
+      case Type.GenericClass(location, ns, name, _, classSymbol) =>
+        Type.Class(location, ns, name, typeArgs, classSymbol)
+      case Type.Alias(location, ns, name, _, value, aliasSymbol) =>
+        Type.Alias(location, ns, name, typeArgs, value, aliasSymbol)
+      case typ => typ
+    }
+
+    symbol.tryDefineThis(symbol.location) match {
+      case Either.Left(_) => ()
+      case Either.Right(thisSymbol) =>
+        setSymbolType(thisSymbol, selfType)
+    }
+  }
+
   def bindMethodBody(
       symbol: Symbol,
       args: List[GenericTypeParameter],
@@ -1320,6 +1352,7 @@ class Binder(
             symbol
           )
         setSymbolType(symbol, typ)
+        defineThis(symbol, genericParameters)
 
         val members = splitMembers(List.Nil, head.value.members)
         bindClassesObjectAndEnums(
@@ -1441,6 +1474,8 @@ class Binder(
               )
             )
 
+            defineThis(symbol, List.Nil)
+
             ctorsToBind = ctorsToBind.put(
               symbol,
               ConstructorParams(List.Nil, head.value.parameters)
@@ -1468,6 +1503,8 @@ class Binder(
               )
             }
             setSymbolType(symbol, typ)
+            defineThis(symbol, args)
+
             ctorsToBind = ctorsToBind.put(
               symbol,
               ConstructorParams(args, head.value.parameters)

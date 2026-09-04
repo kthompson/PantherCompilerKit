@@ -1,6 +1,6 @@
 # ADR 0002: Binding `this`
 
-**Status:** Proposed
+**Status:** Accepted — implemented 2026-09-03, see [Outcome](#outcome)
 **Date:** 2026-09-03
 **Primitives:** `binder`, `lowering-emit` (see [`primitives.yaml`](../primitives.yaml))
 **Roadmap:** [§1.3](../../../ROADMAP.md#13-burn-down-the-diagnostics)
@@ -184,3 +184,71 @@ for separately through `hasThis`.
 the nearest class at each use. Equivalent in effect, but it puts the rule in
 the expression binder instead of the symbol table, and every consumer
 downstream still needs a symbol to refer to.
+
+## Outcome
+
+Landed in two commits.
+
+| Step                                        | Diagnostics |
+| ------------------------------------------- | ----------: |
+| baseline                                     |         298 |
+| A + B + C — bind `this`, emit it, fix slots  |         271 |
+| on-demand member typing (see below)          |         282 |
+
+All 35 `Symbol this not found` are gone. 278 tests pass, up from 274.
+
+**The number went up at the end, and that is the right outcome.** Making
+`this` usable meant fixing `bindMemberForSymbolAndType`, which read a
+member's type with `tryGetSymbolType` and produced an untyped error
+expression when the member had not been typed yet. A member referenced from
+inside its own type — `this.x` in a method of the class that declares `x` —
+hits that case, and the lowerer panicked on the error expression rather than
+reporting anything. It now types the member on demand through
+`getSymbolType`.
+
+The 11 new diagnostics are all consequences of members that now resolve.
+`binder.anyType` has no type annotation, so every `toType == binder.anyType`
+in the classifier previously compared against an unknown and reported
+nothing; it now types as `Type.Any` and reports the `==`-between-enum-and-case
+gap that is already item 2 on the burn-down list. Fewer silent unknowns, more
+precise diagnostics against a gap that was already counted elsewhere.
+
+### What this uncovered but did not fix
+
+The two commented-out `VmTests` stayed commented. Both fail for defects that
+predate `this` and are independent of it, and the comment now names them:
+
+- **An implicit field read pushes no receiver.** `emitField` emits `Ldfld`
+  with nothing on the stack, so `x + y` inside a method fails at runtime
+  where `this.x + this.y` succeeds. The natural fix, now that `this` binds,
+  is for the binder to resolve a bare identifier that lands on a non-static
+  field into a member access on `this`.
+- **A class with no template gets no constructor body.** Its method address
+  stays -1 and the VM reads past the end of the chunk.
+
+Also newly reachable, because enum methods now bind where they previously
+failed on `this`: enum method emission does not work. `emitMemberAccess`
+panics on a receiver of kind `Class` (a case), and member lookup on a case
+type does not consult its enum. Both were unreachable before.
+
+### Deviations
+
+Steps A, B and C landed as one commit rather than three. They are
+interlocked: binding `this` without the emitter case panics, and the
+parameter-slot fix has no test that passes without a receiver to test it
+against.
+
+Step C reads `MethodMetadata.hasThis` rather than recomputing staticness.
+`Symbol.isStatic()` and the emitter's `parentStatic` disagree for a method
+declared directly in a namespace — the first says instance, the second
+static — and only `hasThis` is what the VM actually uses.
+
+The self type applies the type's own parameters for a generic enum as well
+as a generic class. Without it, `Chain[T].concat` returning `this` reported
+`Cannot convert from Chain to Chain<$0>`, because an uninstantiated enum
+alias carries `List.Nil` for its arguments.
+
+Typing a member on demand can recurse if two members refer to each other.
+The old code could not, because it gave up instead. Nothing in the sources
+or the tests triggers it, and the same exposure already exists wherever
+`getSymbolType` is called during binding.

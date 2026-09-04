@@ -1855,29 +1855,41 @@ class ExprBinder(
                 .toString()
             )
           case Option.Some(member) =>
+            // getSymbolType, not tryGetSymbolType: a member referenced from
+            // inside the same type may not be typed yet, and getSymbolType
+            // binds it on demand.
             binder.tryGetSymbolType(member) match {
               case Option.None =>
-                // TODO: i think  we should report an error here
-                Either.Left(
-                  "Symbol type not found for member: " + right.text +
-                    " for type: " + leftType.toString()
+                Either.Right(
+                  Tuple2(
+                    member,
+                    instantiateMemberType(
+                      binder.getSymbolType(member),
+                      leftType
+                    )
+                  )
                 )
               case Option.Some(typ) =>
-                // A member's type is written in terms of its class's type
-                // parameters; the receiver's arguments instantiate it. An
-                // enum is an alias, so its members go through the same path.
-                val substitutedType = leftType match {
-                  case Type.Class(_, _, _, typeArgs, _) =>
-                    Types.substitute(typ, typeArgs)
-                  case Type.Alias(_, _, _, typeArgs, _, _) =>
-                    Types.substitute(typ, typeArgs)
-                  case _ => typ
-                }
-                Either.Right(Tuple2(member, substitutedType))
+                Either.Right(
+                  Tuple2(member, instantiateMemberType(typ, leftType))
+                )
             }
         }
     }
   }
+
+  /** A member's type is written in terms of its class's type parameters; the
+    * receiver's arguments instantiate it. An enum is an alias, so its members
+    * go through the same path.
+    */
+  def instantiateMemberType(memberType: Type, receiverType: Type): Type =
+    receiverType match {
+      case Type.Class(_, _, _, typeArgs, _) =>
+        Types.substitute(memberType, typeArgs)
+      case Type.Alias(_, _, _, typeArgs, _, _) =>
+        Types.substitute(memberType, typeArgs)
+      case _ => memberType
+    }
 
   def resolveConstructorSymbol(
       name: NameSyntax,
