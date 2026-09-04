@@ -36,34 +36,35 @@ format, and args parser.
 sbt pnc/compile
 ```
 
-Runs to completion and reports **298 diagnostics** against the generated
+Runs to completion and reports **282 diagnostics** against the generated
 `.pn` sources. By message:
 
 | Count | Diagnostic                      |
 | ----: | ------------------------------- |
-|   118 | `No operator for operands`      |
-|    49 | `Cannot convert from A to B`    |
-|    40 | `Symbol X not found`            |
+|   138 | `No operator for operands`      |
+|    51 | `Cannot convert from A to B`    |
 |    39 | `Type X not defined`            |
 |    18 | `Invalid namespace`             |
-|    16 | `Symbol X not found for type T` |
+|    17 | `Symbol X not found for type T` |
 |    11 | argument-count mismatches       |
+|     5 | `Symbol X not found`            |
 |     2 | `Duplicate definition`          |
 
-**3 of the 298 mention an unsolved type variable** (`$0`, `$1`, …) — a
-generic parameter the binder gave up on. The largest buckets are now operators
-and conversions. Of the 40 bare `Symbol X not found`, 35 are `this`.
+**5 of the 282 mention an unsolved type variable** (`$0`, `$1`, …) — a
+generic parameter the binder gave up on. Name resolution is essentially
+done: the five remaining bare `Symbol X not found` are all `File` and `Path`
+from `using system.io`. What is left is operators and conversions.
 
 By file:
 
 | Count | File               |
 | ----: | ------------------ |
 |    29 | `Parser.pn`        |
-|    28 | `Emitter.pn`       |
+|    29 | `Emitter.pn`       |
+|    27 | `ExprBinder.pn`    |
 |    26 | `TypeInference.pn` |
-|    24 | `ExprBinder.pn`    |
-|    20 | `Binder.pn`        |
-|    18 | `Lowered.pn`       |
+|    22 | `Conversion.pn`    |
+|    18 | `Binder.pn`        |
 
 ### Nothing is ever written to disk
 
@@ -170,30 +171,31 @@ count that decision is made from.
 
 Ordered by what the counts say, not by what is interesting:
 
-1. **`this` is not bound** — 35 `Symbol this not found`. The lexer has no
-   keyword for it and the binder never defines it, so every enum or class
-   method that matches on `this` fails. The lowerer and emitter already have
-   a `This` node; only the binder is missing.
-   [ADR 0002](docs/architecture/adr/0002-binding-this.md) has the plan, and
-   records a latent off-by-one it uncovered: an instance method numbers its
-   declared parameters from 0, but the VM gives slot 0 to the receiver.
-2. **Operators on class types** — 118 `No operator`: 67 are `==` or `!=`,
-   mostly on enum-typed operands such as `SymbolKind`, and 44 are `+` between
-   a string and a class.
-3. **`if`/`else` does not form a union** — 11 `Cannot convert from
+1. **Operators on class types** — 138 `No operator`, now half the total. 85
+   are `==` or `!=`, mostly comparing an enum-typed value against one of its
+   own cases (`kind == SymbolKind.Field`, `conversion == Conversion.None`),
+   and 46 are `+` between a string and a class.
+2. **`if`/`else` does not form a union** — 11 `Cannot convert from
    Option.None to Option.Some<T>`. The else branch is checked against the
    then branch's type; only `match` produces a union.
-4. **Generic inference** (see §2). 3 diagnostics reference an unsolved type
+3. **Generic inference** (see §2). 5 diagnostics reference an unsolved type
    variable and 9 a parameter that defaulted to `any`.
-5. **Member lookup** — 16 `Symbol X not found for type T`: 12 are string and
+4. **Member lookup** — 17 `Symbol X not found for type T`: 12 are string and
    int builtins (`substring`, `compareTo`, `nonEmpty`, `endsWith`) that have
-   no VM support; 2 are `reverse` on a `List.Cons<T>`, where lookup on a case
-   type never consults its enum; 1 is a union receiver.
-6. **Namespace and import resolution** — 18 `Invalid namespace`, plus 5
-   `File`/`Path` from `using system.io`, which exists only in the Scala
+   no VM support, and the rest are lookups on a case type, which never
+   consults its enum.
+5. **Namespace and import resolution** — 18 `Invalid namespace`, plus the
+   five `File`/`Path` from `using system.io`, which exists only in the Scala
    runtime. The transpiler turns `import ns._` into `using ns`; the binder's
    handling of that has a known gap
    ([`Binder.scala:773`](pncs/src/main/scala/Binder.scala:773)).
+
+`this` is bound as of
+[ADR 0002](docs/architecture/adr/0002-binding-this.md), which removed all 35
+`Symbol this not found`. It also uncovered three defects in code that was
+previously unreachable, none of which show up as diagnostics: an implicit
+field read pushes no receiver, a class with no template gets no constructor
+body, and enum methods do not emit.
 
 Track the number after every change:
 
@@ -201,7 +203,7 @@ Track the number after every change:
 sbt pnc/compile
 ```
 
-**298 → 0.** Nothing else in this section matters until that number moves.
+**282 → 0.** Nothing else in this section matters until that number moves.
 
 Only the first 20 diagnostics are printed. To see them all, transpile first —
 `pnc/compile` does this implicitly, and the count depends on it — then run the
@@ -521,11 +523,11 @@ Sequenced so each step makes the next one measurable.
 
 **First — stop flying blind.** Done. The generated tree matches the
 transpiler (§1.1), the exit code is trustworthy (§1.2), and failures come back
-as diagnostics rather than exceptions (§4.2). The 298 counts every error the
+as diagnostics rather than exceptions (§4.2). The 282 counts every error the
 front end finds — none are discarded.
 
 **Second — generics.**
-§2.1 inference, §2.2 bounds. The 298 should fall
+§2.1 inference, §2.2 bounds. The 282 should fall
 sharply. If it does not, the assumption behind this roadmap was wrong and the
 plan should be rewritten around what the diagnostics actually say.
 
@@ -546,7 +548,7 @@ The three numbers worth putting on a wall:
 
 | Metric                            |         Now | Target | Command                                    |
 | --------------------------------- | ----------: | -----: | ------------------------------------------ |
-| Self-hosting diagnostics          |         298 |      0 | `sbt pnc/compile` (now fails, as it should) |
+| Self-hosting diagnostics          |         282 |      0 | `sbt pnc/compile` (now fails, as it should) |
 | Doc blocks that fail              | **0 / 200** |      0 | `sbt "doccheck/run docs/src/content/docs"` |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                   |
 | Samples that run in CI            |           0 |      6 | not yet built                              |

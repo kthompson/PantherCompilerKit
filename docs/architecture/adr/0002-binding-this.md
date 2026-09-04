@@ -187,13 +187,13 @@ downstream still needs a symbol to refer to.
 
 ## Outcome
 
-Landed in two commits.
+Landed as one commit.
 
-| Step                                        | Diagnostics |
-| ------------------------------------------- | ----------: |
-| baseline                                     |         298 |
-| A + B + C — bind `this`, emit it, fix slots  |         271 |
-| on-demand member typing (see below)          |         282 |
+| Step                                         | Diagnostics |
+| -------------------------------------------- | ----------: |
+| baseline                                      |         298 |
+| A + B + C — bind `this`, emit it, fix slots   |         271 |
+| on-demand member typing (see below)           |         282 |
 
 All 35 `Symbol this not found` are gone. 278 tests pass, up from 274.
 
@@ -233,10 +233,15 @@ type does not consult its enum. Both were unreachable before.
 
 ### Deviations
 
-Steps A, B and C landed as one commit rather than three. They are
-interlocked: binding `this` without the emitter case panics, and the
-parameter-slot fix has no test that passes without a receiver to test it
-against.
+Every step landed as one commit rather than four. They are interlocked:
+binding `this` without the emitter case panics, the parameter-slot fix has no
+test that passes without a receiver to test it against, and `this.x` panics
+the lowerer without the member-typing fix.
+
+Step D is partial. The two commented-out `VmTests` stayed commented, for the
+reasons above. In their place are four tests that do pass: two for the
+parameter slots, and two for `this` reading a field, one of them alongside a
+declared parameter.
 
 Step C reads `MethodMetadata.hasThis` rather than recomputing staticness.
 `Symbol.isStatic()` and the emitter's `parentStatic` disagree for a method
