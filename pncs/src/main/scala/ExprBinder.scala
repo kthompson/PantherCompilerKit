@@ -1167,6 +1167,17 @@ case class ExprBinder(
       argTypes
     )
 
+    // Discharge the callee's context bounds now that the type arguments are
+    // known. Nothing is stored on the call: `BoundExpression.Call` already
+    // carries the type arguments, so lowering can re-derive the goals from the
+    // callee's declared constraints.
+    binder.requireEvidence(
+      genericFunctionType.traits,
+      inferredTypeArgs,
+      location,
+      scope
+    )
+
     // Instantiate the generic function with inferred type arguments
     val instantiatedParameterTypes =
       Types.substituteList(parameterTypes, inferredTypeArgs)
@@ -1251,6 +1262,17 @@ case class ExprBinder(
         genericFunctionType.returnType, // The declared return type (may contain type vars)
         expectedType // The expected type from context
       )
+
+    // Discharge the callee's context bounds now that the type arguments are
+    // known. Nothing is stored on the call: `BoundExpression.Call` already
+    // carries the type arguments, so lowering can re-derive the goals from the
+    // callee's declared constraints.
+    binder.requireEvidence(
+      genericFunctionType.traits,
+      inferredTypeArgs,
+      location,
+      scope
+    )
 
     // Instantiate the generic function with inferred type arguments
     val instantiatedParameterTypes =
@@ -1342,7 +1364,7 @@ case class ExprBinder(
           args,
           scope
         )
-      case Option.Some(Type.GenericFunction(loc, generics, _, params, _)) =>
+      case Option.Some(Type.GenericFunction(loc, generics, traits, params, _)) =>
         val typeArgs =
           if (!explicitTypeArgs.isEmpty) explicitTypeArgs
           else {
@@ -1371,6 +1393,10 @@ case class ExprBinder(
                 )
             }
           }
+        // A constrained class resolves its evidence at the `new` site, which is
+        // where its type arguments are concrete (ADR 0005, decision B).
+        binder.requireEvidence(traits, typeArgs, location, scope)
+
         val instantiatedType =
           Type.Class(classLocation, ns, name, typeArgs, symbol)
         bindNewExpressionForSymbol(

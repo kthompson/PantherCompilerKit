@@ -615,6 +615,77 @@ class BinderTests extends AnyFunSpec with Matchers {
       givenHeads(comp) shouldBe Seq.empty
     }
 
+    val eqTrait = "trait Eq[T] { def equals(a: T, b: T): bool }\n"
+    val ordTrait = "trait Ord[T] { def compare(a: T, b: T): int }\n"
+    val eqInt = "given Eq[int] { def equals(a: int, b: int): bool = a == b }\n"
+    val same = "def same[K: Eq](a: K, b: K): bool = true\n"
+
+    it("should resolve evidence for a constrained call") {
+      mkCompilation(eqTrait + eqInt + same + "val r = same(1, 2)")
+    }
+
+    it("should report a constrained call with no matching given") {
+      val comp =
+        mkFailingCompilation(eqTrait + eqInt + same + "val r = same(true, false)")
+      diagnosticMessages(comp) should contain("No given instance for Eq<bool>")
+    }
+
+    it("should leave unconstrained generics alone") {
+      mkCompilation(eqTrait + eqInt + "def id[K](a: K): K = a\nval r = id(true)")
+    }
+
+    /** A constrained class resolves at the `new` site, where its type
+      * arguments are concrete (ADR 0005, decision B).
+      */
+    it("should resolve evidence for a constrained constructor") {
+      val setup = eqTrait + eqInt + "class Box[T: Eq](value: T)\n"
+      mkCompilation(setup + "val b = new Box[int](1)")
+
+      val comp = mkFailingCompilation(setup + "val b = new Box[bool](true)")
+      diagnosticMessages(comp) should contain("No given instance for Eq<bool>")
+    }
+
+    /** `Ord[Box[int]]` is proved by the conditional given, which then needs
+      * `Ord[int]` — the recursive evidence ADR 0005 describes.
+      */
+    it("should resolve a conditional given recursively") {
+      val boxOrd = ordTrait + "class Box[T](value: T)\n" +
+        "given [T: Ord] => Ord[Box[T]] {\n" +
+        "  def compare(a: Box[T], b: Box[T]): int = 0\n" +
+        "}\n" +
+        "def srt[K: Ord](a: K): int = 0\n"
+      val ordInt = "given Ord[int] { def compare(a: int, b: int): int = 0 }\n"
+
+      mkCompilation(boxOrd + ordInt + "val r = srt(new Box[int](1))")
+
+      // without Ord[int] the premise fails, and the inner goal is what is
+      // reported rather than the outer one
+      val comp =
+        mkFailingCompilation(boxOrd + "val r = srt(new Box[int](1))")
+      diagnosticMessages(comp) should contain("No given instance for Ord<int>")
+    }
+
+    it("should let an enclosing constraint discharge a call") {
+      mkCompilation(
+        eqTrait + eqInt + same +
+          "def outer[T: Eq](a: T, b: T): bool = same(a, b)"
+      )
+    }
+
+    /** The goal mentions a type variable, so there is no given to look for —
+      * but the enclosing generic declares no bound either, leaving nothing to
+      * forward.
+      */
+    it("should report a constrained call under an unconstrained parameter") {
+      val comp = mkFailingCompilation(
+        eqTrait + eqInt + same +
+          "def outer[T](a: T, b: T): bool = same(a, b)"
+      )
+      diagnosticMessages(comp) should contain(
+        "No evidence for Eq[T]; the enclosing declaration does not require it"
+      )
+    }
+
     /** Which declaration is reported as the duplicate follows binding order,
       * not source order, and traits bind before classes — so the class is the
       * one flagged here even though it is written second. That is pre-existing

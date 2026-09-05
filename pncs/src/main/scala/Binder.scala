@@ -41,6 +41,19 @@ enum FieldOptions {
   case ExpressionOnly(expression: Expression)
 }
 
+/** A resolved proof: which given was used, with what type arguments, and the
+  * evidence its own constraints needed.
+  *
+  * The tree is what ADR 0005's recursive evidence describes —
+  * `Eq[List[Symbol]]` holding a reference to `Eq[Symbol]`.
+  */
+case class Evidence(
+    symbol: Symbol,
+    head: Type,
+    typeArguments: List[Type],
+    dependencies: List[Evidence]
+)
+
 /** A `given` as the resolver needs it: what it proves, and what it needs first.
   *
   * `head` is the trait applied to its arguments — `Eq[int]`, or `Ord[List[$0]]`
@@ -1751,6 +1764,321 @@ case class Binder(
               bindGenericTypeParametersWithIndex(tail, scope, index + 1)
             )
         }
+    }
+  }
+
+  /** How deep a chain of conditional givens may go before the compiler calls it
+    * divergent. `Ord[Box[Box[int]]]` is depth 3; anything approaching this is a
+    * given whose premise is no smaller than its head.
+    */
+  val maxEvidenceDepth: int = 32
+
+  /** Discharges the constraints of a call to a constrained generic.
+    *
+    * The goals are the callee's context bounds with the call's type arguments
+    * substituted in, which is what makes storing constraints applied to their
+    * type variable pay off: `Eq[$0]` with `[int]` is `Eq[int]`, the goal
+    * directly.
+    */
+  def requireEvidence(
+      constraints: List[Type],
+      typeArgs: List[Type],
+      location: TextLocation,
+      scope: Scope
+  ): unit = {
+    constraints match {
+      case List.Nil => ()
+      case List.Cons(constraint, tail) =>
+        val goal = Types.substitute(constraint, typeArgs)
+        if (isGroundType(goal)) {
+          resolveEvidence(goal, location, 0)
+          ()
+        } else if (!hasEnclosingConstraint(goal, scope.current)) {
+          // A goal mentioning a type variable is discharged by the enclosing
+          // generic forwarding its own evidence (ADR 0005, decision B) — but
+          // only if the enclosing generic actually declared it. Without this
+          // check `def outer[T](a: T) = same(a, a)` would pass with nothing to
+          // forward.
+          diagnosticBag.reportUnconstrainedTypeParameter(
+            location,
+            renderGoal(goal, enclosingGenerics(scope.current))
+          )
+        }
+        requireEvidence(tail, typeArgs, location, scope)
+    }
+  }
+
+  /** The type parameters of the nearest enclosing generic declaration, so a
+    * diagnostic can say `Eq[T]` rather than leaking the internal `Eq<$0>`.
+    */
+  def enclosingGenerics(symbol: Symbol): List[GenericTypeParameter] = {
+    tryGetSymbolType(symbol) match {
+      case Option.Some(Type.GenericFunction(_, generics, _, _, _)) => generics
+      case _ =>
+        symbol.parent match {
+          case Option.None         => List.Nil
+          case Option.Some(parent) => enclosingGenerics(parent)
+        }
+    }
+  }
+
+  def renderGoal(typ: Type, generics: List[GenericTypeParameter]): string = {
+    typ match {
+      case Type.Variable(_, id) =>
+        genericNameAt(generics, id) match {
+          case Option.Some(name) => name
+          case Option.None       => typ.toString()
+        }
+      case Type.Class(_, _, name, args, _) =>
+        if (args.isEmpty) name
+        else name + "[" + renderGoalList(args, generics, "") + "]"
+      case _ => typ.toString()
+    }
+  }
+
+  def renderGoalList(
+      types: List[Type],
+      generics: List[GenericTypeParameter],
+      acc: string
+  ): string = {
+    types match {
+      case List.Nil => acc
+      case List.Cons(head, tail) =>
+        val separator = if (acc == "") "" else ", "
+        renderGoalList(tail, generics, acc + separator + renderGoal(head, generics))
+    }
+  }
+
+  def genericNameAt(
+      generics: List[GenericTypeParameter],
+      index: int
+  ): Option[string] = {
+    generics match {
+      case List.Nil => Option.None
+      case List.Cons(head, tail) =>
+        if (index == 0) Option.Some(head.name)
+        else if (index < 0) Option.None
+        else genericNameAt(tail, index - 1)
+    }
+  }
+
+  /** Whether some enclosing declaration already requires `goal`, and so will
+    * have evidence for it to pass down.
+    */
+  def hasEnclosingConstraint(goal: Type, symbol: Symbol): bool = {
+    val declared = tryGetSymbolType(symbol) match {
+      case Option.Some(Type.GenericFunction(_, _, traits, _, _)) => traits
+      case _                                                     => List.Nil
+    }
+
+    if (constraintListContains(declared, goal)) true
+    else
+      symbol.parent match {
+        case Option.None         => false
+        case Option.Some(parent) => hasEnclosingConstraint(goal, parent)
+      }
+  }
+
+  def constraintListContains(constraints: List[Type], goal: Type): bool = {
+    constraints match {
+      case List.Nil => false
+      case List.Cons(head, tail) =>
+        sameConstraint(head, goal) || constraintListContains(tail, goal)
+    }
+  }
+
+  /** Structural comparison that ignores source locations but, unlike
+    * `typesOverlap`, holds type variables to their index. `Eq[$0]` and `Eq[$1]`
+    * constrain different parameters and are not interchangeable.
+    */
+  def sameConstraint(left: Type, right: Type): bool = {
+    Tuple2(left, right) match {
+      case Tuple2(Type.Variable(_, leftId), Type.Variable(_, rightId)) =>
+        leftId == rightId
+      case Tuple2(
+            Type.Class(_, _, leftName, leftArgs, leftSymbol),
+            Type.Class(_, _, rightName, rightArgs, rightSymbol)
+          ) =>
+        leftSymbol == rightSymbol && leftName == rightName &&
+        sameConstraintList(leftArgs, rightArgs)
+      case _ => left == right
+    }
+  }
+
+  def sameConstraintList(left: List[Type], right: List[Type]): bool = {
+    Tuple2(left, right) match {
+      case Tuple2(List.Nil, List.Nil) => true
+      case Tuple2(List.Cons(l, lt), List.Cons(r, rt)) =>
+        sameConstraint(l, r) && sameConstraintList(lt, rt)
+      case _ => false
+    }
+  }
+
+  def isGroundType(typ: Type): bool = {
+    typ match {
+      case Type.Variable(_, _)         => false
+      case Type.Class(_, _, _, args, _) => isGroundTypeList(args)
+      case Type.Alias(_, _, _, args, _, _) => isGroundTypeList(args)
+      case Type.Union(_, cases)        => isGroundTypeList(cases)
+      case _                           => true
+    }
+  }
+
+  def isGroundTypeList(types: List[Type]): bool = {
+    types match {
+      case List.Nil              => true
+      case List.Cons(head, tail) => isGroundType(head) && isGroundTypeList(tail)
+    }
+  }
+
+  /** Finds the given that proves `goal`, and recursively the evidence its own
+    * constraints need. Reports and returns `None` when there is none.
+    *
+    * There is no ambiguity to resolve: coherence already rejected any two
+    * givens whose heads could unify, so the first match is the only match.
+    */
+  def resolveEvidence(
+      goal: Type,
+      location: TextLocation,
+      depth: int
+  ): Option[Evidence] = {
+    if (depth > maxEvidenceDepth) {
+      diagnosticBag.reportEvidenceTooDeep(location, goal.toString())
+      Option.None
+    } else {
+      matchAnyGiven(goal, givens) match {
+        case Option.None =>
+          diagnosticBag.reportNoGivenInstance(location, goal.toString())
+          Option.None
+        case Option.Some(KeyValue(candidate, typeArgs)) =>
+          resolveDependencies(
+            Types.substituteList(candidate.constraints, typeArgs),
+            location,
+            depth + 1,
+            List.Nil
+          ) match {
+            case Option.None => Option.None
+            case Option.Some(dependencies) =>
+              Option.Some(
+                Evidence(candidate.symbol, goal, typeArgs, dependencies)
+              )
+          }
+      }
+    }
+  }
+
+  def resolveDependencies(
+      goals: List[Type],
+      location: TextLocation,
+      depth: int,
+      acc: List[Evidence]
+  ): Option[List[Evidence]] = {
+    goals match {
+      case List.Nil => Option.Some(acc.reverse())
+      case List.Cons(goal, tail) =>
+        resolveEvidence(goal, location, depth) match {
+          case Option.None => Option.None
+          case Option.Some(evidence) =>
+            resolveDependencies(
+              tail,
+              location,
+              depth,
+              List.Cons(evidence, acc)
+            )
+        }
+    }
+  }
+
+  /** The first given whose head matches `goal`, with the type arguments that
+    * make it match.
+    */
+  def matchAnyGiven(
+      goal: Type,
+      candidates: List[BoundGiven]
+  ): Option[KeyValue[BoundGiven, List[Type]]] = {
+    candidates match {
+      case List.Nil => Option.None
+      case List.Cons(candidate, tail) =>
+        // annotated: the self-hosted compiler infers `Dictionary<any, any>`
+        // for an empty dictionary in argument position
+        val empty: Dictionary[int, Type] = DictionaryModule.empty()
+        matchType(candidate.head, goal, empty) match {
+          case Option.None => matchAnyGiven(goal, tail)
+          case Option.Some(bindings) =>
+            orderBindings(bindings, candidate.generics.length, 0) match {
+              case Option.None => matchAnyGiven(goal, tail)
+              case Option.Some(typeArgs) =>
+                Option.Some(KeyValue(candidate, typeArgs))
+            }
+        }
+    }
+  }
+
+  /** One-way match: `pattern` comes from a given's head and may contain type
+    * variables, `goal` is ground. Unlike `typesOverlap`, which only answers
+    * yes or no for the coherence check, this records what each variable had to
+    * be — a conditional given needs those bindings to instantiate its premise.
+    */
+  def matchType(
+      pattern: Type,
+      goal: Type,
+      bindings: Dictionary[int, Type]
+  ): Option[Dictionary[int, Type]] = {
+    Tuple2(pattern, goal) match {
+      case Tuple2(Type.Variable(_, id), _) =>
+        bindings.get(id) match {
+          case Option.None => Option.Some(bindings.put(id, goal))
+          case Option.Some(bound) =>
+            if (bound == goal) Option.Some(bindings) else Option.None
+        }
+      case Tuple2(
+            Type.Class(_, _, leftName, leftArgs, leftSymbol),
+            Type.Class(_, _, rightName, rightArgs, rightSymbol)
+          ) =>
+        if (leftSymbol == rightSymbol && leftName == rightName) {
+          matchTypeList(leftArgs, rightArgs, bindings)
+        } else Option.None
+      case _ =>
+        if (pattern == goal) Option.Some(bindings) else Option.None
+    }
+  }
+
+  def matchTypeList(
+      patterns: List[Type],
+      goals: List[Type],
+      bindings: Dictionary[int, Type]
+  ): Option[Dictionary[int, Type]] = {
+    Tuple2(patterns, goals) match {
+      case Tuple2(List.Nil, List.Nil) => Option.Some(bindings)
+      case Tuple2(List.Cons(pattern, patternTail), List.Cons(goal, goalTail)) =>
+        matchType(pattern, goal, bindings) match {
+          case Option.None => Option.None
+          case Option.Some(next) =>
+            matchTypeList(patternTail, goalTail, next)
+        }
+      case _ => Option.None
+    }
+  }
+
+  /** Turns the bindings into positional type arguments. `Option.None` when a
+    * type parameter never appeared in the head, which leaves nothing to
+    * instantiate it with.
+    */
+  def orderBindings(
+      bindings: Dictionary[int, Type],
+      count: int,
+      index: int
+  ): Option[List[Type]] = {
+    if (index >= count) Option.Some(List.Nil)
+    else {
+      bindings.get(index) match {
+        case Option.None => Option.None
+        case Option.Some(typ) =>
+          orderBindings(bindings, count, index + 1) match {
+            case Option.None       => Option.None
+            case Option.Some(rest) => Option.Some(List.Cons(typ, rest))
+          }
+      }
     }
   }
 

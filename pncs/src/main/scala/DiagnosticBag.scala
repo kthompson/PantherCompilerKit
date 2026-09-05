@@ -152,6 +152,32 @@ case class DiagnosticBag(settings: CompilerSettings) {
   def reportTraitNotInstantiable(location: TextLocation, name: string): unit =
     report(location, "Trait " + name + " cannot be instantiated")
 
+  /** A call to a constrained generic whose constraint nothing proves. */
+  def reportNoGivenInstance(location: TextLocation, goal: string): unit =
+    report(location, "No given instance for " + goal)
+
+  /** Calling a constrained generic from inside a generic that declares no
+    * matching bound. There is no given to find — the type is not known here —
+    * and nothing to forward either.
+    */
+  def reportUnconstrainedTypeParameter(
+      location: TextLocation,
+      goal: string
+  ): unit =
+    report(
+      location,
+      "No evidence for " + goal +
+        "; the enclosing declaration does not require it"
+    )
+
+  /** A chain of conditional givens that does not get smaller. */
+  def reportEvidenceTooDeep(location: TextLocation, goal: string): unit =
+    report(
+      location,
+      "Evidence for " + goal + " is too deeply nested; a given's premise may " +
+        "not be larger than what it proves"
+    )
+
   /** `given Foo[int]` where `Foo` is a class. A given proves a trait holds. */
   def reportGivenHeadNotATrait(location: TextLocation, name: string): unit =
     report(location, name + " is not a trait, so it cannot have a given")
