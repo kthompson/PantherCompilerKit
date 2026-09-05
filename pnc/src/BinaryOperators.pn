@@ -84,8 +84,44 @@ class BinaryOperators(binder: Binder) {
       right: Type,
       operator: BinaryOperatorKind
   ): Type = {
-    _checkBinary(binaryOps, left, right, operator)
+    _checkBinary(binaryOps, left, right, operator) match {
+      case Type.Error(message) =>
+        if (isEquality(operator) && referenceEqualityApplies(left, right))
+          binder.boolType
+        else Type.Error(message)
+      case result => result
+    }
   }
+
+  def isEquality(operator: BinaryOperatorKind): bool =
+    operator match {
+      case BinaryOperatorKind.Equals    => true
+      case BinaryOperatorKind.NotEquals => true
+      case _                            => false
+    }
+
+  /** `==` and `!=` between two reference types, which the table above cannot
+    * enumerate because the types are declared by the program. The rule is that
+    * one side has to widen to the other without a cast, so a case can be
+    * compared against its own enum (`kind == SymbolKind.Field`) and a type
+    * against itself, while unrelated types stay a diagnostic.
+    *
+    * Value types are excluded. Their comparisons come from the table, and what
+    * it rejects there — `string == char` — is a real mismatch, not a missing
+    * entry.
+    */
+  def referenceEqualityApplies(left: Type, right: Type): bool = {
+    if (isValueType(left) || isValueType(right)) false
+    else {
+      val classifier = binder.classifier
+      classifier.widensTo(left, right) || classifier.widensTo(right, left)
+    }
+  }
+
+  def isValueType(typ: Type): bool =
+    typ == binder.intType || typ == binder.boolType ||
+      typ == binder.charType || typ == binder.stringType ||
+      typ == binder.unitType
 
   def _checkBinary(
       ops: List[BinaryOperator],

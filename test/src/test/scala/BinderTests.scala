@@ -254,6 +254,57 @@ class BinderTests extends AnyFunSpec with Matchers {
       diagnosticMessages(comp) should contain("continue is not supported")
     }
 
+    // Equality on reference types. The operator table only covers the value
+    // types, so everything a program declares has to come from the conversion
+    // between the two operands.
+    it("should compare an enum against one of its own cases") {
+      mkCompilation(
+        "enum Color {\n" +
+          "  case Red\n" +
+          "  case Green\n" +
+          "}\n" +
+          "def isRed(c: Color): bool = c == Color.Red"
+      )
+    }
+
+    it("should compare a generic enum against a case with no arguments") {
+      mkCompilation(
+        "enum Option[T] {\n" +
+          "  case Some(value: T)\n" +
+          "  case None\n" +
+          "}\n" +
+          "def isEmpty(o: Option[int]): bool = o == Option.None"
+      )
+    }
+
+    it("should compare two values of the same class type") {
+      mkCompilation(
+        "class Box(v: int)\n" +
+          "def same(a: Box, b: Box): bool = a != b"
+      )
+    }
+
+    it("should reject comparing unrelated class types") {
+      val comp = mkFailingCompilation(
+        "class Box(v: int)\n" +
+          "class Bag(v: int)\n" +
+          "def same(a: Box, b: Bag): bool = a == b"
+      )
+      diagnosticMessages(comp) should contain(
+        "No operator '==' for operands Box and Bag"
+      )
+    }
+
+    // The value types keep the table's answer: what it rejects there is a real
+    // mismatch, not a missing entry.
+    it("should reject comparing a string against a char") {
+      val comp =
+        mkFailingCompilation("val s = \"a\"\nval c = 'a'\nval eq = s == c")
+      diagnosticMessages(comp) should contain(
+        "No operator '==' for operands string and char"
+      )
+    }
+
     it("should bind out as covariant and in as contravariant") {
       val comp = mkCompilation(
         "class Producer[out T]()\n" +
