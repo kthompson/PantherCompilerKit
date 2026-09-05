@@ -136,6 +136,19 @@ object TestHelpers {
     walk(comp.binder.givens)
   }
 
+  /** `kind:name` for each member of `symbol`, in definition order — which is
+    * the order the emitter turns into argument slots.
+    */
+  def memberSignature(symbol: Symbol): Seq[String] = {
+    def walk(members: List[Symbol]): Seq[String] =
+      members match {
+        case List.Nil => Seq.empty
+        case List.Cons(head, tail) =>
+          (head.kind.toString + ":" + head.name) +: walk(tail)
+      }
+    walk(symbol.members())
+  }
+
   def mkGivenMember(text: string): MemberSyntax.GivenDeclarationSyntax = {
     mkMember(text) match {
       case member: MemberSyntax.GivenDeclarationSyntax => member

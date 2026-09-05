@@ -213,7 +213,11 @@ case class Emitter(
     symbols match {
       case List.Nil => map
       case List.Cons(head, tail) =>
-        if (head.kind == SymbolKind.Parameter) {
+        // Evidence takes an argument slot like a declared parameter; it is a
+        // separate kind only so printers and arity checks can tell them apart.
+        if (
+          head.kind == SymbolKind.Parameter || head.kind == SymbolKind.Evidence
+        ) {
           val newMap = map.put(head, index)
           getMethodParameterMap(index + 1, tail, newMap)
         } else {
@@ -908,6 +912,7 @@ case class Emitter(
       case SymbolKind.Method      => emitMethodMetadata(symbol, parentStatic)
       case SymbolKind.Constructor => emitMethodMetadata(symbol, parentStatic)
       case SymbolKind.Parameter   => emitParameterMetadata(symbol)
+      case SymbolKind.Evidence    => emitParameterMetadata(symbol)
 
       // A trait has no runtime representation of its own: it declares
       // requirements, and the thing that reaches the VM is the evidence record

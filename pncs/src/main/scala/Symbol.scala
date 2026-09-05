@@ -138,6 +138,12 @@ case class Symbol(
       case Either.Right(symbol) => symbol
     }
 
+  def tryDefineEvidence(
+      name: string,
+      location: TextLocation
+  ): Either[TextLocation, Symbol] =
+    tryDefine(name, location, SymbolKind.Evidence, false)
+
   def tryDefineGiven(
       name: string,
       location: TextLocation

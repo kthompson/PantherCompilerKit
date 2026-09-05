@@ -686,6 +686,82 @@ class BinderTests extends AnyFunSpec with Matchers {
       )
     }
 
+    /** A context bound becomes a parameter appended after the declared ones, so
+      * every declared parameter keeps the argument slot it already had
+      * (ADR 0005, decision A).
+      */
+    it("should append an evidence parameter for a context bound") {
+      val comp = mkCompilation(eqTrait + "def same[K: Eq](a: K, b: K): bool = true")
+      val program = assertSome(comp.root.lookup("$Program"))
+      val same = assertSome(program.lookup("same"))
+
+      memberSignature(same) shouldBe Seq(
+        "TypeParameter(Invariant):K",
+        "Parameter:a",
+        "Parameter:b",
+        "Evidence:$ev$K$Eq"
+      )
+    }
+
+    /** Order is type-parameter declaration order. It has to be deterministic:
+      * stage 3 compares bytecode from two compilers, and a different parameter
+      * order is different bytecode.
+      */
+    it("should order evidence parameters by type parameter") {
+      val comp = mkCompilation(
+        eqTrait + ordTrait + "def f[K: Eq, V: Ord](a: K, b: V): bool = true"
+      )
+      val program = assertSome(comp.root.lookup("$Program"))
+      val f = assertSome(program.lookup("f"))
+
+      memberSignature(f) shouldBe Seq(
+        "TypeParameter(Invariant):K",
+        "TypeParameter(Invariant):V",
+        "Parameter:a",
+        "Parameter:b",
+        "Evidence:$ev$K$Eq",
+        "Evidence:$ev$V$Ord"
+      )
+    }
+
+    /** Decision B: the constructor is elaborated like any other method, and the
+      * class keeps what it received in a field so instance methods reach it
+      * through `this`.
+      */
+    it("should give a constrained class an evidence parameter and field") {
+      val comp = mkCompilation(eqTrait + "class Box[T: Eq](value: T)")
+      val box = assertSome(comp.root.lookup("Box"))
+
+      memberSignature(assertSome(box.lookup(".ctor"))) shouldBe Seq(
+        "Parameter:value",
+        "Evidence:$ev$T$Eq"
+      )
+      memberSignature(box) should contain("Field:$ev$T$Eq")
+    }
+
+    it("should not touch an unconstrained generic") {
+      val comp = mkCompilation("def id[K](a: K): K = a")
+      val program = assertSome(comp.root.lookup("$Program"))
+
+      memberSignature(assertSome(program.lookup("id"))) shouldBe Seq(
+        "TypeParameter(Invariant):K",
+        "Parameter:a"
+      )
+    }
+
+    /** The hazard ADR 0005 lists: there are six `reportArgumentCountMismatch`
+      * sites, and if evidence were visible to them every call to a constrained
+      * generic would report a mismatch. Keeping constraints in `traits` until
+      * after binding is what prevents it.
+      */
+    it("should count arity from the declared parameters only") {
+      mkCompilation(eqTrait + eqInt + same + "val r = same(1, 2)")
+
+      val comp =
+        mkFailingCompilation(eqTrait + eqInt + same + "val r = same(1)")
+      diagnosticMessages(comp) should contain("Expected 2 arguments, but got 1")
+    }
+
     /** Which declaration is reported as the duplicate follows binding order,
       * not source order, and traits bind before classes — so the class is the
       * one flagged here even though it is written second. That is pre-existing

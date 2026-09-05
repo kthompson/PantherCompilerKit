@@ -628,6 +628,22 @@ class Binder(
             val ctor = scope.enterSymbol(ctorSymbol)
             val params = bindParameters(ctorParams.parameters, ctor)
             val typParams = ctorParams.genericTypeParameters
+
+            // The constructor is elaborated like any other method; the field
+            // below is what makes the evidence reachable from instance methods
+            // through `this` (ADR 0005, decision B).
+            defineEvidenceParameters(
+              ctorParams.constraints,
+              typParams,
+              symbol.location,
+              ctor
+            )
+            defineEvidenceFields(
+              ctorParams.constraints,
+              typParams,
+              symbol.location,
+              scope
+            )
             val typ = if (typParams.isEmpty) {
               Type.Function(symbol.location, params, unitType)
             } else {
@@ -1020,6 +1036,15 @@ class Binder(
         }
 
         val parameters = bindParameters(value.parameters, methodScope)
+
+        // after the declared parameters, so they take the trailing slots
+        defineEvidenceParameters(
+          constraints,
+          genTypeParams,
+          methodLocation,
+          methodScope
+        )
+
         val expr = value.body match {
           case Option.None       => Option.None
           case Option.Some(body) => Option.Some(body.expression)
@@ -1764,6 +1789,92 @@ class Binder(
               bindGenericTypeParametersWithIndex(tail, scope, index + 1)
             )
         }
+    }
+  }
+
+  /** Turns each context bound into a parameter carrying its evidence.
+    *
+    * Defined after the declared parameters, so `symbol.members()` puts them
+    * last and both `getMethodParameterMap` and metadata emission give them the
+    * trailing argument slots. Appending rather than prepending is what keeps
+    * every declared parameter at the slot it already had — the VM reserves slot
+    * 0 for the receiver and numbers declared parameters from 1
+    * ([ADR 0005](../../../docs/architecture/adr/0005-evidence-representation.md),
+    * decision A).
+    *
+    * Order is type-parameter declaration order, which `bindGenericConstraints`
+    * already produced, and has to stay deterministic: stage 3 compares bytecode
+    * from two compilers, and a different order is different bytecode.
+    */
+  def defineEvidenceParameters(
+      constraints: List[Type],
+      generics: List[GenericTypeParameter],
+      location: TextLocation,
+      scope: Scope
+  ): List[Symbol] = {
+    constraints match {
+      case List.Nil => List.Nil
+      case List.Cons(constraint, tail) =>
+        // define before recursing: `symbol.members()` is in definition order,
+        // and that order is the argument slot order
+        val defined =
+          scope.defineEvidence(evidenceName(constraint, generics), location)
+        val rest = defineEvidenceParameters(tail, generics, location, scope)
+        defined match {
+          case Either.Left(_) => rest
+          case Either.Right(symbol) =>
+            setSymbolType(symbol, constraint)
+            List.Cons(symbol, rest)
+        }
+    }
+  }
+
+  /** The field half of decision B: a constrained class stores the evidence its
+    * constructor received, so instance methods reach it through `this` rather
+    * than resolving per call. The value is resolved once, at the `new` site,
+    * where the type arguments are concrete.
+    */
+  def defineEvidenceFields(
+      constraints: List[Type],
+      generics: List[GenericTypeParameter],
+      location: TextLocation,
+      scope: Scope
+  ): unit = {
+    constraints match {
+      case List.Nil => ()
+      case List.Cons(constraint, tail) =>
+        scope.defineField(
+          evidenceName(constraint, generics),
+          location,
+          true
+        ) match {
+          case Either.Left(_) =>
+          case Either.Right(symbol) =>
+            setSymbolType(symbol, constraint)
+        }
+        defineEvidenceFields(tail, generics, location, scope)
+    }
+  }
+
+  /** `$ev$K$Eq` for `[K: Eq]`. Derived from the declaration rather than
+    * numbered, so the name says which bound it carries.
+    */
+  def evidenceName(
+      constraint: Type,
+      generics: List[GenericTypeParameter]
+  ): string = {
+    constraint match {
+      case Type.Class(_, _, traitName, args, _) =>
+        val parameter = args match {
+          case List.Cons(Type.Variable(_, id), _) =>
+            genericNameAt(generics, id) match {
+              case Option.Some(name) => name
+              case Option.None       => string(id)
+            }
+          case _ => ""
+        }
+        "$ev$" + parameter + "$" + traitName
+      case _ => "$ev$" + constraint.toString()
     }
   }
 
