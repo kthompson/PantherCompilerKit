@@ -195,6 +195,20 @@ case class VM(
 
     // Handle string comparisons
     Tuple2(a, b) match {
+      // Reference identity, which is what
+      // [ADR 0003](../../../docs/architecture/adr/0003-equality-on-reference-types.md)
+      // says `==` between two reference types means. Only equality: there is
+      // no order on addresses to expose.
+      case Tuple2(Value.Ref(aType, aAddr), Value.Ref(bType, bAddr)) =>
+        // annotated: the self-hosted compiler does not widen the branches of
+        // an `if` to their common supertype
+        val result: Option[bool] =
+          if (op == Opcode.Ceq)
+            Option.Some(aType == bType && aAddr == bAddr)
+          else Option.None
+
+        pushBoolOrInvalidOp(result, opName)
+
       case Tuple2(Value.String(aStr), Value.String(bStr)) =>
         val result = op match {
           case Opcode.Ceq => Option.Some(aStr == bStr)
@@ -522,6 +536,12 @@ case class VM(
       case Opcode.Ldloc3 =>
         push(stack(localp + 3))
 
+      // The emitter has always emitted these for the fifth local onward; a
+      // method with that many is just newly reachable, from the temporaries
+      // lowering makes for a derived member's arguments.
+      case Opcode.Ldlocn =>
+        push(stack(localp + readI4()))
+
       // store locals
       case Opcode.Stloc0 =>
         stack(localp) = pop()
@@ -534,6 +554,10 @@ case class VM(
         InterpretResult.Continue
       case Opcode.Stloc3 =>
         stack(localp + 3) = pop()
+        InterpretResult.Continue
+      case Opcode.Stlocn =>
+        val index = readI4()
+        stack(localp + index) = pop()
         InterpretResult.Continue
 
       // binary ops

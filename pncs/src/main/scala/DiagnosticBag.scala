@@ -241,6 +241,37 @@ case class DiagnosticBag(settings: CompilerSettings) {
   def reportDeriveNotSupported(location: TextLocation, what: string): unit =
     report(location, "derive cannot be applied to " + what)
 
+  /** `[derive(Printable)]`. Derivation is a rule about what a trait means over
+    * a list of parameters, and there is no such rule for a trait the compiler
+    * has never seen.
+    */
+  def reportTraitNotDerivable(location: TextLocation, name: string): unit =
+    report(
+      location,
+      name + " cannot be derived; only Eq, Ord and Show can"
+    )
+
+  /** A generic type's derived given is conditional — `Eq[Box[T]]` given
+    * `Eq[T]` — and a conditional given cannot reach its own premise yet
+    * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+    */
+  def reportDeriveOnGenericType(location: TextLocation, name: string): unit =
+    report(location, "Cannot derive for " + name + ": it has type parameters")
+
+  /** Derivation needs evidence for every parameter type, and says which one is
+    * missing rather than reporting the type as a whole.
+    */
+  def reportNoEvidenceForDerivedField(
+      location: TextLocation,
+      field: string,
+      traitName: string
+  ): unit =
+    report(
+      location,
+      "Cannot derive " + traitName + ": no " + traitName +
+        " evidence for the type of " + field
+    )
+
   def reportNotABinaryOperator(location: TextLocation, op: string): unit =
     report(location, op + " is not a binary operator and cannot be declared")
 

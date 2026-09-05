@@ -1025,6 +1025,78 @@ class BinderTests extends AnyFunSpec with Matchers {
       )
     }
 
+    /** ADR 0004's derivation. The attribute declares a given for each trait it
+      * names, owned by the type's own declaration — which is what satisfies
+      * the ownership half of coherence for free.
+      */
+    it("should register a given for each derived trait") {
+      val comp = mkCompilation(
+        "[derive(Eq, Ord, Show)]\nclass Point(x: int, y: int)"
+      )
+      givenHeads(comp) shouldBe Seq("Eq<Point>", "Ord<Point>", "Show<Point>")
+    }
+
+    it("should give a derived given the trait's own members") {
+      val comp = mkCompilation("[derive(Ord)]\nclass Point(x: int, y: int)")
+
+      memberSignature(
+        assertSome(comp.root.lookup("$derived$Ord$Point"))
+      ) shouldBe Seq("Method:<", "Method:<=", "Method:>", "Method:>=")
+    }
+
+    /** Nothing is derived without the attribute, so `a == b` on a class with
+      * no `Eq` still means identity rather than a silent structural compare.
+      */
+    it("should derive nothing without the attribute") {
+      val comp = mkCompilation("class Point(x: int, y: int)")
+      givenHeads(comp) shouldBe Seq.empty
+    }
+
+    it("should reject deriving a trait that is not Eq, Ord or Show") {
+      val comp = mkFailingCompilation(
+        "trait Printable[T] { def print(a: T): string }\n" +
+          "[derive(Printable)]\nclass Point(x: int)"
+      )
+      diagnosticMessages(comp) should contain(
+        "Printable cannot be derived; only Eq, Ord and Show can"
+      )
+    }
+
+    /** A generic type's derived given is conditional — `Eq[Box[T]]` given
+      * `Eq[T]` — and a conditional given cannot reach its own premise yet.
+      */
+    it("should reject deriving for a generic type") {
+      val comp = mkFailingCompilation(
+        "[derive(Eq)]\nclass Box[T](value: T)"
+      )
+      diagnosticMessages(comp) should contain(
+        "Cannot derive for Box: it has type parameters"
+      )
+    }
+
+    /** Derivation needs evidence for every parameter type and names the one
+      * that lacks it, rather than reporting the type as a whole.
+      */
+    it("should reject deriving over a parameter with no evidence") {
+      val comp = mkFailingCompilation(
+        "class Inner(v: int)\n[derive(Eq)]\nclass Outer(inner: Inner)"
+      )
+      diagnosticMessages(comp) should contain(
+        "Cannot derive Eq: no Eq evidence for the type of inner"
+      )
+    }
+
+    /** A type whose parameter is another derived type composes: the inner
+      * given is registered before any body is built, so the outer one finds
+      * it.
+      */
+    it("should derive over a parameter that is itself derived") {
+      mkCompilation(
+        "[derive(Eq)]\nclass Inner(v: int)\n" +
+          "[derive(Eq)]\nclass Outer(inner: Inner)"
+      )
+    }
+
     /** A user given for a type the prelude has no given for is fine; one for a
       * type it does have collides, which is coherence doing its job.
       */

@@ -201,6 +201,100 @@ class VmTests extends AnyFunSpec with Matchers {
       assertExecValueBoolWithSetup(setup, "new Box(4) != new Box(5)", true)
     }
 
+    /** ADR 0004's derivation, end to end. `Eq` opens with reference identity
+      * and then compares parameter by parameter, so two separately
+      * constructed `Point(1, 2)` are equal where identity alone would say no.
+      */
+    it("should run a derived Eq") {
+      val setup = "[derive(Eq)]\nclass Point(x: int, y: int)"
+
+      assertExecValueBoolWithSetup(setup, "new Point(1, 2) == new Point(1, 2)", true)
+      assertExecValueBoolWithSetup(setup, "new Point(1, 2) == new Point(1, 3)", false)
+      assertExecValueBoolWithSetup(setup, "new Point(1, 2) == new Point(9, 2)", false)
+      assertExecValueBoolWithSetup(setup, "new Point(1, 2) != new Point(1, 3)", true)
+      assertExecValueBoolWithSetup(setup, "new Point(1, 2) != new Point(1, 2)", false)
+    }
+
+    /** Lexicographic over the parameters, in order: the first that differs
+      * decides, so `y` is only consulted when the two `x` agree.
+      */
+    it("should run a derived Ord") {
+      val setup = "[derive(Ord)]\nclass Point(x: int, y: int)"
+
+      assertExecValueBoolWithSetup(setup, "new Point(1, 2) < new Point(1, 3)", true)
+      assertExecValueBoolWithSetup(setup, "new Point(1, 3) < new Point(1, 2)", false)
+      assertExecValueBoolWithSetup(setup, "new Point(1, 9) < new Point(2, 0)", true)
+      assertExecValueBoolWithSetup(setup, "new Point(2, 2) < new Point(1, 3)", false)
+      assertExecValueBoolWithSetup(setup, "new Point(1, 2) <= new Point(1, 2)", true)
+      assertExecValueBoolWithSetup(setup, "new Point(1, 3) > new Point(1, 2)", true)
+      assertExecValueBoolWithSetup(setup, "new Point(1, 2) >= new Point(1, 2)", true)
+      assertExecValueBoolWithSetup(setup, "new Point(1, 2) >= new Point(1, 3)", false)
+    }
+
+    /** `"Name(" + show(p1) + ", " + … + ")"`, reached through a constrained
+      * generic — `Show` claims no token, and a contextual extension on a
+      * ground type is a gap ADR 0004 records.
+      */
+    it("should run a derived Show") {
+      val render = "def render[T: Show](v: T): string = v.show()\n"
+
+      assertExecValueStringWithSetup(
+        render + "[derive(Show)]\nclass Point(x: int, y: int)",
+        "render(new Point(1, 2))",
+        "Point(1, 2)"
+      )
+      assertExecValueStringWithSetup(
+        render + "[derive(Show)]\nclass Wrapper(name: string, on: bool)",
+        "render(new Wrapper(\"hi\", true))",
+        "Wrapper(hi, true)"
+      )
+      assertExecValueStringWithSetup(
+        render + "[derive(Show)]\nclass Unit1(x: int)",
+        "render(new Unit1(7))",
+        "Unit1(7)"
+      )
+    }
+
+    /** A derived type whose parameter is itself derived. The inner given is
+      * registered before any body is built, so the outer one finds it.
+      */
+    it("should run a derived Eq over a derived parameter") {
+      val setup =
+        "[derive(Eq)]\nclass Inner(v: int)\n" +
+          "[derive(Eq)]\nclass Outer(inner: Inner, tag: string)"
+
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Outer(new Inner(1), \"a\") == new Outer(new Inner(1), \"a\")",
+        true
+      )
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Outer(new Inner(1), \"a\") == new Outer(new Inner(2), \"a\")",
+        false
+      )
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Outer(new Inner(1), \"a\") == new Outer(new Inner(1), \"b\")",
+        false
+      )
+    }
+
+    /** Two classes with instance fields. A field's index is its offset within
+      * the object, so the second class's fields have to start at 0 again —
+      * numbered across types, they land outside the object and the next
+      * allocation zeroes them.
+      */
+    it("should keep two classes' fields apart") {
+      val setup = "class First(a: int, b: int)\nclass Second(c: int, d: int)"
+
+      assertExecValueIntWithSetup(
+        setup,
+        "new First(1, 2).a + new Second(3, 4).d",
+        5
+      )
+    }
+
     it("should compare strings lexicographically") {
       assertExecValueBool("\"apple\" < \"banana\"", true)
       assertExecValueBool("\"banana\" < \"apple\"", false)

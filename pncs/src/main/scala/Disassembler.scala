@@ -71,10 +71,26 @@ case class Disassembler(chunk: Chunk, metadata: Metadata) {
       i4Instruction(chunk, offset, name)
       //    } else if (opcode == Opcode.Ldargn) {
       //      i4Instruction(chunk, offset, name)
-      //    } else if (opcode == Opcode.Ldlocn) {
-      //      i4Instruction(chunk, offset, name)
-      //    } else if (opcode == Opcode.Stlocn) {
-      //      i4Instruction(chunk, offset, name)
+    } else if (opcode == Opcode.Ldlocn) {
+      i4Instruction(chunk, offset, name)
+    } else if (opcode == Opcode.Stlocn) {
+      i4Instruction(chunk, offset, name)
+    } else if (opcode == Opcode.Newarr) {
+      typeTokenInstruction(chunk, offset, name)
+    } else if (opcode == Opcode.Ldelem) {
+      simpleInstruction(name, offset)
+    } else if (opcode == Opcode.Stelem) {
+      simpleInstruction(name, offset)
+    } else if (opcode == Opcode.Ldlen) {
+      simpleInstruction(name, offset)
+    } else if (opcode == Opcode.ConvI4) {
+      simpleInstruction(name, offset)
+    } else if (opcode == Opcode.ConvStr) {
+      simpleInstruction(name, offset)
+    } else if (opcode == Opcode.ConvBool) {
+      simpleInstruction(name, offset)
+    } else if (opcode == Opcode.ConvChar) {
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Ldtrue) {
       simpleInstruction(name, offset)
     } else if (opcode == Opcode.Ldfalse) {

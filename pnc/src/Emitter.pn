@@ -1245,7 +1245,18 @@ class Emitter(
       metadata.addTypeDef(symbol.name, ns(symbol.ns()), flags)
     )
 
+    // An instance field's index is its offset within the object — `Ldfld`
+    // reads `heap(addr + index)` — so it restarts at every type. Left running
+    // across types, the second class's fields land outside its own allocation
+    // and `Newobj` for the object after it zeroes them.
+    //
+    // Saved and put back rather than just zeroed, because a nested type is
+    // walked in the middle of its parent's members and the parent's remaining
+    // fields have to carry on from where they were.
+    val enclosingFieldIndex = classFieldIndex
+    classFieldIndex = 0
     emitSymbolsMetadata(symbol.members(), isObject)
+    classFieldIndex = enclosingFieldIndex
   }
 
   def emitGivenMetadata(symbol: Symbol): unit = {

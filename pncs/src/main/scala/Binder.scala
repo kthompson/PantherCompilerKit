@@ -69,6 +69,23 @@ case class BoundGiven(
     location: TextLocation
 )
 
+/** A `derive` attribute that has been registered and is waiting for a body.
+  *
+  * The two halves happen in different passes because they need different
+  * things: registering needs only the type, so that coherence sees the given
+  * and evidence records can be laid out, while a body reads the constructor
+  * parameters' field types, which are not bound until later
+  * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+  */
+case class Derivation(
+    typeSymbol: Symbol,
+    typ: Type,
+    traitSymbol: Symbol,
+    givenSymbol: Symbol,
+    parameterNames: List[string],
+    location: TextLocation
+)
+
 case class ConstructorParams(
     genericTypeParameters: List[GenericTypeParameter],
     constraints: List[Type],
@@ -390,6 +407,9 @@ case class Binder(
 
   /** numbers the anonymous given symbols, in source order */
   var givenCount: int = 0
+
+  /** every `[derive(…)]` that registered a given, in reverse source order */
+  var derivations: List[Derivation] = List.Nil
 
   /** The trait that claims each operator token, keyed by `SyntaxKind`.
     *
@@ -719,6 +739,12 @@ case class Binder(
 
     // TODO: this method still needs to register the field assignments as ctor statements
     bindConstructorSignatures(ctorsToBind.list)
+
+    // Derived bodies read the types of the fields the constructor parameters
+    // became, so they cannot be built until those fields are typed. The givens
+    // themselves were registered while their types were bound, which is what
+    // let coherence and the evidence-record layout see them.
+    buildDerivedBodies(derivations)
 
     // then bind all functions & fields without type annotations
     bindTypingMembers()
@@ -2035,6 +2061,153 @@ case class Binder(
             )
             addStatementsToBind(symbol, members.globalStatements)
         }
+
+        registerDerivations(symbol, head.value.derives, head.value.parameters)
+    }
+  }
+
+  /** Turns each trait a `derive` attribute names into a registered given with
+    * declared-but-empty members. The bodies come later, in
+    * `buildDerivedBodies`.
+    */
+  def registerDerivations(
+      typeSymbol: Symbol,
+      derives: Option[DeriveAttributeSyntax],
+      parameters: List[ParameterSyntax]
+  ): unit = {
+    derives match {
+      case Option.None => ()
+      case Option.Some(attribute) =>
+        registerDerivationList(
+          typeSymbol,
+          attribute.traits,
+          parameterNames(parameters)
+        )
+    }
+  }
+
+  def registerDerivationList(
+      typeSymbol: Symbol,
+      traits: List[DerivedTraitSyntax],
+      names: List[string]
+  ): unit = {
+    traits match {
+      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        registerDerivation(typeSymbol, head.name, names)
+        registerDerivationList(typeSymbol, tail, names)
+    }
+  }
+
+  def parameterNames(parameters: List[ParameterSyntax]): List[string] = {
+    parameters match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        List.Cons(head.identifier.text, parameterNames(tail))
+    }
+  }
+
+  /** Only the prelude's three traits can be derived: derivation is a rule
+    * about what each of them means over a list of parameters, and there is no
+    * such rule for a trait the compiler has never seen.
+    */
+  def derivableTrait(name: string): Option[Symbol] = {
+    if (name == "Eq") Option.Some(eqSymbol)
+    else if (name == "Ord") Option.Some(ordSymbol)
+    else if (name == "Show") Option.Some(showSymbol)
+    else Option.None
+  }
+
+  def registerDerivation(
+      typeSymbol: Symbol,
+      name: SyntaxToken,
+      names: List[string]
+  ): unit = {
+    derivableTrait(name.text) match {
+      case Option.None =>
+        diagnosticBag.reportTraitNotDerivable(name.location, name.text)
+      case Option.Some(traitSymbol) =>
+        tryGetSymbolType(typeSymbol) match {
+          case Option.Some(Type.Class(loc, ns, typeName, List.Nil, symbol)) =>
+            val typ: Type = Type.Class(loc, ns, typeName, List.Nil, symbol)
+            declareDerivedGiven(typeSymbol, typ, traitSymbol, names, name)
+          case _ =>
+            // A generic type's derived given is conditional — `Eq[Box[T]]`
+            // given `Eq[T]` — and a conditional given cannot reach its own
+            // premise yet (ADR 0004).
+            diagnosticBag.reportDeriveOnGenericType(
+              name.location,
+              typeSymbol.name
+            )
+        }
+    }
+  }
+
+  def declareDerivedGiven(
+      typeSymbol: Symbol,
+      typ: Type,
+      traitSymbol: Symbol,
+      names: List[string],
+      name: SyntaxToken
+  ): unit = {
+    val givenName = "$derived$" + traitSymbol.name + "$" + typeSymbol.name
+    pantherNamespace.tryDefineGiven(givenName, name.location) match {
+      case Either.Left(existing) =>
+        diagnosticBag.reportDuplicateDefinition(
+          givenName,
+          existing,
+          name.location
+        )
+      case Either.Right(givenSymbol) =>
+        val head: Type =
+          Type.Class(
+            name.location,
+            List.Nil,
+            traitSymbol.name,
+            ListModule.one(typ),
+            traitSymbol
+          )
+        setSymbolType(givenSymbol, head)
+        declareDerivedMembers(traitSymbol, givenSymbol, typ)
+        registerGiven(
+          BoundGiven(givenSymbol, head, List.Nil, List.Nil, name.location)
+        )
+        derivations = List.Cons(
+          Derivation(
+            typeSymbol,
+            typ,
+            traitSymbol,
+            givenSymbol,
+            names,
+            name.location
+          ),
+          derivations
+        )
+    }
+  }
+
+  /** The members a derived given has to supply, which are the trait's own —
+    * declared in the same order, because that order is the evidence record's
+    * layout.
+    */
+  def declareDerivedMembers(
+      traitSymbol: Symbol,
+      givenSymbol: Symbol,
+      typ: Type
+  ): unit = {
+    if (traitSymbol == eqSymbol) {
+      builtinBinaryMember(givenSymbol, "==", typ, boolType)
+      builtinBinaryMember(givenSymbol, "!=", typ, boolType)
+      ()
+    } else if (traitSymbol == ordSymbol) {
+      builtinBinaryMember(givenSymbol, "<", typ, boolType)
+      builtinBinaryMember(givenSymbol, "<=", typ, boolType)
+      builtinBinaryMember(givenSymbol, ">", typ, boolType)
+      builtinBinaryMember(givenSymbol, ">=", typ, boolType)
+      ()
+    } else {
+      builtinUnaryMember(givenSymbol, "show", typ, stringType)
+      ()
     }
   }
 
@@ -2635,6 +2808,398 @@ case class Binder(
       case List.Cons(head, tail) =>
         if (head == target) index
         else indexOfSymbol(tail, target, index + 1)
+    }
+  }
+
+  // ── Derivation ──────────────────────────────────────────────────────────
+  //
+  // What each trait means over a type's constructor parameters, in declaration
+  // order ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)):
+  //
+  //   Eq    reference identity first, then parameter by parameter
+  //   Ord   lexicographic over the parameters, in order
+  //   Show  "Name(" + show(p1) + ", " + … + ")"
+  //
+  // Constructor parameters only. A `var` in the class body does not
+  // participate, which is not a detail: `Symbol._children` is such a field, it
+  // points back at parents, and a derived `Eq` that walked it would not
+  // terminate.
+
+  def buildDerivedBodies(remaining: List[Derivation]): unit = {
+    remaining match {
+      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        buildDerivedBody(head)
+        buildDerivedBodies(tail)
+    }
+  }
+
+  def buildDerivedBody(derivation: Derivation): unit = {
+    val fields = derivedFields(derivation.typeSymbol, derivation.parameterNames)
+
+    if (derivation.traitSymbol == eqSymbol) {
+      buildDerivedEq(derivation, fields)
+    } else if (derivation.traitSymbol == ordSymbol) {
+      buildDerivedOrd(derivation, fields)
+    } else {
+      buildDerivedShow(derivation, fields)
+    }
+  }
+
+  /** The fields the constructor parameters became, in declaration order. */
+  def derivedFields(
+      typeSymbol: Symbol,
+      names: List[string]
+  ): List[Symbol] = {
+    names match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        val rest = derivedFields(typeSymbol, tail)
+        typeSymbol.lookupMember(head) match {
+          case Option.Some(field) => List.Cons(field, rest)
+          case Option.None        => rest
+        }
+    }
+  }
+
+  def derivedMemberOf(givenSymbol: Symbol, name: string): Symbol = {
+    givenSymbol.lookupMember(name) match {
+      case Option.Some(member) => member
+      case Option.None =>
+        panic("buildDerivedBody: " + givenSymbol.name + " has no " + name)
+    }
+  }
+
+  def filterParameters(symbols: List[Symbol]): List[Symbol] = {
+    symbols match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        if (head.kind == SymbolKind.Parameter)
+          List.Cons(head, filterParameters(tail))
+        else filterParameters(tail)
+    }
+  }
+
+  /** The two operands of a derived binary member, which
+    * `builtinBinaryMember` defined as `a` and `b`.
+    */
+  def derivedOperands(member: Symbol): Tuple2[Symbol, Symbol] = {
+    filterParameters(member.members()) match {
+      case List.Cons(a, List.Cons(b, _)) => Tuple2(a, b)
+      case _ => panic("buildDerivedBody: " + member.name + " is not binary")
+    }
+  }
+
+  def derivedVariable(symbol: Symbol, typ: Type): BoundExpression =
+    BoundExpression.Variable(noLoc, symbol, Option.Some(typ))
+
+  /** `receiver.field` */
+  def derivedFieldAccess(receiver: Symbol, field: Symbol): BoundExpression =
+    BoundExpression.MemberAccess(
+      noLoc,
+      BoundLeftHandSide.Variable(noLoc, receiver),
+      field,
+      List.Nil,
+      getSymbolType(field)
+    )
+
+  def derivedCall(
+      member: Symbol,
+      arguments: List[BoundExpression],
+      result: Type
+  ): BoundExpression =
+    BoundExpression.Call(noLoc, Option.None, member, List.Nil, arguments, result)
+
+  def derivedCall2(
+      member: Symbol,
+      left: BoundExpression,
+      right: BoundExpression,
+      result: Type
+  ): BoundExpression =
+    derivedCall(member, List.Cons(left, ListModule.one(right)), result)
+
+  /** The member of the given that proves `traitSymbol[typ]`.
+    *
+    * Derivation requires evidence for every parameter type and names the one
+    * that lacks it. There is no recursion guard to add: the derived given is
+    * registered before any body is built, so a type whose parameter is itself
+    * — `Eq[Symbol]` needing `Eq[Symbol]` — finds the given it is inside.
+    */
+  def derivedEvidence(
+      traitSymbol: Symbol,
+      field: Symbol,
+      memberName: string
+  ): Option[Symbol] = {
+    val goal: Type =
+      Type.Class(
+        noLoc,
+        List.Nil,
+        traitSymbol.name,
+        ListModule.one(getSymbolType(field)),
+        traitSymbol
+      )
+
+    findGivenMember(goal, memberName) match {
+      case Option.Some(member) => Option.Some(member)
+      case Option.None =>
+        diagnosticBag.reportNoEvidenceForDerivedField(
+          field.location,
+          field.name,
+          traitSymbol.name
+        )
+        Option.None
+    }
+  }
+
+  def buildDerivedEq(derivation: Derivation, fields: List[Symbol]): unit = {
+    val equals = derivedMemberOf(derivation.givenSymbol, "==")
+    val notEquals = derivedMemberOf(derivation.givenSymbol, "!=")
+
+    derivedOperands(equals) match {
+      case Tuple2(a, b) =>
+        // Reference identity first, and it is part of the shape rather than an
+        // optimisation: a `Symbol` holds a `TextLocation`, which holds the
+        // whole text of a file, and a purely structural `Eq[Symbol]` would
+        // compare two files on every dictionary lookup (ADR 0004).
+        val identity: BoundExpression =
+          BoundExpression.Binary(
+            noLoc,
+            derivedVariable(a, derivation.typ),
+            BinaryOperatorKind.Equals,
+            derivedVariable(b, derivation.typ),
+            boolType
+          )
+
+        functionBodies = functionBodies.put(
+          equals,
+          BoundExpression.If(
+            noLoc,
+            identity,
+            BoundExpression.Boolean(noLoc, true),
+            Option.Some(derivedEqChain(fields, a, b)),
+            boolType
+          )
+        )
+    }
+
+    derivedOperands(notEquals) match {
+      case Tuple2(a, b) =>
+        functionBodies = functionBodies.put(
+          notEquals,
+          BoundExpression.Unary(
+            noLoc,
+            UnaryOperatorKind.LogicalNegation,
+            derivedCall2(
+              equals,
+              derivedVariable(a, derivation.typ),
+              derivedVariable(b, derivation.typ),
+              boolType
+            ),
+            boolType
+          )
+        )
+    }
+  }
+
+  /** `a.p1 == b.p1 && a.p2 == b.p2 && …`, and `true` for a type with no
+    * constructor parameters — two of those are equal whenever they exist.
+    */
+  def derivedEqChain(
+      fields: List[Symbol],
+      a: Symbol,
+      b: Symbol
+  ): BoundExpression = {
+    fields match {
+      case List.Nil => BoundExpression.Boolean(noLoc, true)
+      case List.Cons(field, tail) =>
+        val comparison = derivedFieldEquals(field, a, b)
+        if (tail.isEmpty) comparison
+        else
+          BoundExpression.Binary(
+            noLoc,
+            comparison,
+            BinaryOperatorKind.LogicalAnd,
+            derivedEqChain(tail, a, b),
+            boolType
+          )
+    }
+  }
+
+  def derivedFieldEquals(
+      field: Symbol,
+      a: Symbol,
+      b: Symbol
+  ): BoundExpression = {
+    derivedEvidence(eqSymbol, field, "==") match {
+      case Option.None => BoundExpression.Boolean(noLoc, false)
+      case Option.Some(member) =>
+        derivedCall2(
+          member,
+          derivedFieldAccess(a, field),
+          derivedFieldAccess(b, field),
+          boolType
+        )
+    }
+  }
+
+  def buildDerivedOrd(derivation: Derivation, fields: List[Symbol]): unit = {
+    val lessThan = derivedMemberOf(derivation.givenSymbol, "<")
+
+    derivedOperands(lessThan) match {
+      case Tuple2(a, b) =>
+        functionBodies =
+          functionBodies.put(lessThan, derivedOrdChain(fields, a, b))
+    }
+
+    // The other three are the one comparison read differently, which is also
+    // what keeps them consistent with it.
+    derivedOrdDerived(derivation, lessThan, "<=", true, true)
+    derivedOrdDerived(derivation, lessThan, ">", true, false)
+    derivedOrdDerived(derivation, lessThan, ">=", false, true)
+  }
+
+  /** `<=` is `!(b < a)`, `>` is `b < a`, `>=` is `!(a < b)`. `swapped` says
+    * which way round the operands go, `negated` whether the result is flipped.
+    */
+  def derivedOrdDerived(
+      derivation: Derivation,
+      lessThan: Symbol,
+      name: string,
+      swapped: bool,
+      negated: bool
+  ): unit = {
+    val member = derivedMemberOf(derivation.givenSymbol, name)
+
+    derivedOperands(member) match {
+      case Tuple2(a, b) =>
+        val left = derivedVariable(a, derivation.typ)
+        val right = derivedVariable(b, derivation.typ)
+        val call =
+          if (swapped) derivedCall2(lessThan, right, left, boolType)
+          else derivedCall2(lessThan, left, right, boolType)
+
+        val body: BoundExpression =
+          if (negated)
+            BoundExpression.Unary(
+              noLoc,
+              UnaryOperatorKind.LogicalNegation,
+              call,
+              boolType
+            )
+          else call
+
+        functionBodies = functionBodies.put(member, body)
+    }
+  }
+
+  /** Lexicographic: the first parameter that differs decides, and a type with
+    * no parameters is never less than another.
+    */
+  def derivedOrdChain(
+      fields: List[Symbol],
+      a: Symbol,
+      b: Symbol
+  ): BoundExpression = {
+    fields match {
+      case List.Nil => BoundExpression.Boolean(noLoc, false)
+      case List.Cons(field, tail) =>
+        val aBeforeB = derivedFieldLessThan(field, a, b)
+        if (tail.isEmpty) aBeforeB
+        else
+          BoundExpression.If(
+            noLoc,
+            aBeforeB,
+            BoundExpression.Boolean(noLoc, true),
+            Option.Some(
+              BoundExpression.If(
+                noLoc,
+                derivedFieldLessThan(field, b, a),
+                BoundExpression.Boolean(noLoc, false),
+                Option.Some(derivedOrdChain(tail, a, b)),
+                boolType
+              )
+            ),
+            boolType
+          )
+    }
+  }
+
+  def derivedFieldLessThan(
+      field: Symbol,
+      a: Symbol,
+      b: Symbol
+  ): BoundExpression = {
+    derivedEvidence(ordSymbol, field, "<") match {
+      case Option.None => BoundExpression.Boolean(noLoc, false)
+      case Option.Some(member) =>
+        derivedCall2(
+          member,
+          derivedFieldAccess(a, field),
+          derivedFieldAccess(b, field),
+          boolType
+        )
+    }
+  }
+
+  def buildDerivedShow(derivation: Derivation, fields: List[Symbol]): unit = {
+    val show = derivedMemberOf(derivation.givenSymbol, "show")
+
+    filterParameters(show.members()) match {
+      case List.Cons(value, _) =>
+        val opening: BoundExpression =
+          BoundExpression.String(noLoc, derivation.typeSymbol.name + "(")
+        val body = derivedConcat(
+          derivedShowChain(fields, value, opening, true),
+          BoundExpression.String(noLoc, ")")
+        )
+        functionBodies = functionBodies.put(show, body)
+      case List.Nil => panic("buildDerivedShow: show has no parameter")
+    }
+  }
+
+  def derivedConcat(
+      left: BoundExpression,
+      right: BoundExpression
+  ): BoundExpression =
+    BoundExpression.Binary(
+      noLoc,
+      left,
+      BinaryOperatorKind.Plus,
+      right,
+      stringType
+    )
+
+  def derivedShowChain(
+      fields: List[Symbol],
+      value: Symbol,
+      acc: BoundExpression,
+      first: bool
+  ): BoundExpression = {
+    fields match {
+      case List.Nil => acc
+      case List.Cons(field, tail) =>
+        val separated =
+          if (first) acc
+          else derivedConcat(acc, BoundExpression.String(noLoc, ", "))
+
+        derivedShowChain(
+          tail,
+          value,
+          derivedConcat(separated, derivedFieldShow(field, value)),
+          false
+        )
+    }
+  }
+
+  def derivedFieldShow(field: Symbol, value: Symbol): BoundExpression = {
+    derivedEvidence(showSymbol, field, "show") match {
+      case Option.None => BoundExpression.String(noLoc, "")
+      case Option.Some(member) =>
+        derivedCall(
+          member,
+          ListModule.one(derivedFieldAccess(value, field)),
+          stringType
+        )
     }
   }
 

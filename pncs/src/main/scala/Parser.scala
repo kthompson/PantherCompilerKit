@@ -1031,10 +1031,15 @@ case class Parser(
     } else if (
       isTerminatingLine(inGroup, left) && (SyntaxFacts.isUnaryOperator(
         kind
-      ) || kind == SyntaxKind.OpenParenToken)
+      ) || kind == SyntaxKind.OpenParenToken ||
+        kind == SyntaxKind.OpenBracketToken)
     ) {
       // if we are on a new line and the current token is a unary operator
       // then we should treat it as a prefix expression
+      //
+      // `[` is here for the same reason: a member's body can end in an
+      // expression and the next member can be `[derive(…)]`, so a bracket on
+      // a new line has to end the expression rather than continue it.
       left
     } else {
       val expr =
