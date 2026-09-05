@@ -460,12 +460,83 @@ class BinderTests extends AnyFunSpec with Matchers {
       )
     }
 
+    /** A context bound is stored applied to the type variable it constrains, so
+      * `[K: Eq]` becomes `Eq<$0>`. That is what makes `Types.substitute` turn
+      * it into the resolution goal once `K` is known.
+      */
+    it("should bind a context bound on a function") {
+      val comp = mkCompilation(
+        "trait Eq[T] { def equals(a: T, b: T): bool }\n" +
+          "def same[K: Eq](a: K, b: K): bool = true"
+      )
+      val program = assertSome(comp.root.lookup("$Program"))
+      val same = assertSome(program.lookup("same"))
+
+      assertSymbolType(comp, same, "<K>(a: $0, b: $0) -> bool where Eq<$0>")
+    }
+
+    /** A constrained class carries its constraint on `.ctor`, not on the class
+      * type: the constructor is elaborated like any other method and the `new`
+      * site is where the type arguments are concrete (ADR 0005, decision B).
+      */
+    it("should bind a context bound on a class constructor") {
+      val comp = mkCompilation(
+        "trait Eq[T] { def equals(a: T, b: T): bool }\n" +
+          "class Box[K: Eq](value: K)"
+      )
+      val box = assertSome(comp.root.lookup("Box"))
+      assertSymbolType(comp, box, "Box<K>")
+
+      val ctor = assertSome(box.lookup(".ctor"))
+      assertSymbolType(comp, ctor, "<K>(value: $0) -> unit where Eq<$0>")
+    }
+
+    it("should leave unconstrained parameters alone") {
+      val comp = mkCompilation(
+        "trait Eq[T] { def equals(a: T, b: T): bool }\n" +
+          "def f[K: Eq, V](a: K, b: V): bool = true"
+      )
+      val program = assertSome(comp.root.lookup("$Program"))
+      val f = assertSome(program.lookup("f"))
+
+      // one constraint, on $0, with nothing recorded for V
+      assertSymbolType(comp, f, "<K, V>(a: $0, b: $1) -> bool where Eq<$0>")
+    }
+
+    it("should reject a context bound that is not a trait") {
+      val comp = mkFailingCompilation(
+        "class Foo()\ndef f[K: Foo](a: K): bool = true"
+      )
+      diagnosticMessages(comp) should contain(
+        "Foo is not a trait and cannot be a context bound"
+      )
+    }
+
+    it("should reject a context bound whose trait takes no type parameter") {
+      val comp = mkFailingCompilation(
+        "trait Show { def show(): string }\ndef f[K: Show](a: K): bool = true"
+      )
+      diagnosticMessages(comp) should contain(
+        "Trait Show takes 0 type parameters; a context bound requires exactly 1"
+      )
+    }
+
+    it("should reject a context bound naming an unknown type") {
+      val comp = mkFailingCompilation("def f[K: Nope](a: K): bool = true")
+      diagnosticMessages(comp) should contain("Type Nope not defined")
+    }
+
+    /** Which declaration is reported as the duplicate follows binding order,
+      * not source order, and traits bind before classes — so the class is the
+      * one flagged here even though it is written second. That is pre-existing
+      * behaviour between classes, objects and enums; traits just join it.
+      */
     it("should report a trait colliding with a class") {
       val comp = mkFailingCompilation(
         "trait Show { def show(): string }\nclass Show()"
       )
       diagnosticMessages(comp) should contain(
-        "Duplicate definition of Show at :1:7"
+        "Duplicate definition of Show at :2:8"
       )
     }
   }

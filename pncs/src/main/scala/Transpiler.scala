@@ -214,6 +214,12 @@ case class Transpiler(
       case _ =>
     }
     transpileToken(parameter.identifier, context)
+    parameter.bounds match {
+      case Option.Some(bounds) =>
+        transpileToken(bounds.token, context)
+        transpileName(bounds.name, context)
+      case Option.None =>
+    }
   }
 
   def transpileEnumCases(

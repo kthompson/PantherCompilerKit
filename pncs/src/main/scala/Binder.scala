@@ -24,6 +24,8 @@ enum BindingMember {
 enum TypingMember {
   case Method(
       genericParameters: List[GenericTypeParameter],
+      // context bounds, as trait types applied to the parameter they constrain
+      constraints: List[Type],
       parameters: List[BoundParameter],
       returnType: Option[Type],
       expression: Option[Expression],
@@ -40,6 +42,7 @@ enum FieldOptions {
 
 case class ConstructorParams(
     genericTypeParameters: List[GenericTypeParameter],
+    constraints: List[Type],
     parameters: List[ParameterSyntax]
 )
 
@@ -589,10 +592,14 @@ case class Binder(
             val typ = if (typParams.isEmpty) {
               Type.Function(symbol.location, params, unitType)
             } else {
+              // A constrained class carries its constraints on `.ctor`: the
+              // constructor is elaborated like any other method, and the `new`
+              // site is where the type arguments are concrete
+              // (ADR 0005, decision B).
               Type.GenericFunction(
                 symbol.location,
                 typParams,
-                List.Nil,
+                ctorParams.constraints,
                 params,
                 unitType
               )
@@ -623,6 +630,7 @@ case class Binder(
     member match {
       case TypingMember.Method(
             genTypeParams,
+            constraints,
             parameters,
             returnType,
             expression,
@@ -631,6 +639,7 @@ case class Binder(
         bindMethodBody(
           symbol,
           genTypeParams,
+          constraints,
           parameters,
           returnType,
           expression,
@@ -696,6 +705,7 @@ case class Binder(
   def bindMethodBody(
       symbol: Symbol,
       args: List[GenericTypeParameter],
+      constraints: List[Type],
       parameters: List[BoundParameter],
       returnType: Option[Type],
       expression: Option[Expression],
@@ -732,7 +742,7 @@ case class Binder(
               Type.GenericFunction(
                 symbol.location,
                 args,
-                List.Nil,
+                constraints,
                 parameters,
                 ret
               )
@@ -746,7 +756,7 @@ case class Binder(
           Type.GenericFunction(
             symbol.location,
             args,
-            List.Nil,
+            constraints,
             parameters,
             value
           )
@@ -962,6 +972,14 @@ case class Binder(
             bindGenericTypeParameters(value.parameters.items, methodScope)
         }
 
+        // Second pass over the same list: the parameters have to be defined
+        // and indexed before a bound can be applied to one.
+        val constraints: List[Type] = value.genericParameters match {
+          case Option.None => List.Nil
+          case Option.Some(value) =>
+            bindGenericConstraints(value.parameters.items, methodScope)
+        }
+
         val parameters = bindParameters(value.parameters, methodScope)
         val expr = value.body match {
           case Option.None       => Option.None
@@ -977,7 +995,7 @@ case class Binder(
               Type.GenericFunction(
                 symbol.location,
                 genTypeParams,
-                List.Nil,
+                constraints,
                 parameters,
                 returnType
               )
@@ -990,6 +1008,7 @@ case class Binder(
           symbol,
           TypingMember.Method(
             genTypeParams,
+            constraints,
             parameters,
             returnType,
             expr,
@@ -1296,10 +1315,14 @@ case class Binder(
       traits: List[Namespaced[MemberSyntax.TraitDeclarationSyntax]],
       scope: Scope
   ): unit = {
+    // Traits first: a context bound on a class resolves its trait while the
+    // class is being bound, so the trait has to already have a symbol. Traits
+    // themselves name nothing at this stage — their members are deferred like
+    // any other type's.
+    bindTraits(traits, scope)
     bindObjects(objects, scope)
     bindClasses(classes, scope)
     bindEnums(enums, scope)
-    bindTraits(traits, scope)
   }
 
   def bindTraits(
@@ -1502,7 +1525,11 @@ case class Binder(
                 )
                 ctorsToBind = ctorsToBind.put(
                   caseSymbol,
-                  ConstructorParams(genericTypeParameters, value.parameters)
+                  ConstructorParams(
+                    genericTypeParameters,
+                    List.Nil,
+                    value.parameters
+                  )
                 )
             }
 
@@ -1563,7 +1590,7 @@ case class Binder(
 
             ctorsToBind = ctorsToBind.put(
               symbol,
-              ConstructorParams(List.Nil, head.value.parameters)
+              ConstructorParams(List.Nil, List.Nil, head.value.parameters)
             )
           case Option.Some(value) =>
             val args = bindGenericTypeParameters(
@@ -1590,9 +1617,14 @@ case class Binder(
             setSymbolType(symbol, typ)
             defineThis(symbol, args)
 
+            val constraints: List[Type] = bindGenericConstraints(
+              value.parameters.items,
+              scope.enterSymbol(symbol)
+            )
+
             ctorsToBind = ctorsToBind.put(
               symbol,
-              ConstructorParams(args, head.value.parameters)
+              ConstructorParams(args, constraints, head.value.parameters)
             )
         }
 
@@ -1689,6 +1721,134 @@ case class Binder(
     }
   }
 
+  /** The context bounds of a generic parameter list, as constraint types.
+    *
+    * `[K: Eq, V]` yields `Eq[$0]`, where `$0` is the type variable standing for
+    * `K`. Applying the trait to the variable rather than recording the pair
+    * separately is what lets `Types.substitute` do the work later: substituting
+    * `int` for `$0` turns the constraint into `Eq[int]`, which is exactly the
+    * goal evidence resolution has to satisfy
+    * ([ADR 0005](../../../docs/architecture/adr/0005-evidence-representation.md),
+    * decision E).
+    *
+    * Run this after `bindGenericTypeParameters`, which is what defines the
+    * parameters and fixes their indices.
+    */
+  def bindGenericConstraints(
+      value: List[GenericParameterSyntax],
+      scope: Scope
+  ): List[Type] = bindGenericConstraintsWithIndex(value, scope, 0)
+
+  def bindGenericConstraintsWithIndex(
+      value: List[GenericParameterSyntax],
+      scope: Scope,
+      index: int
+  ): List[Type] = {
+    value match {
+      case List.Nil => List.Nil
+      case List.Cons(
+            GenericParameterSyntax(_, identifier, bounds),
+            tail
+          ) =>
+        val rest = bindGenericConstraintsWithIndex(tail, scope, index + 1)
+        bounds match {
+          case Option.None => rest
+          case Option.Some(GenericBoundsSyntax(_, name)) =>
+            bindContextBound(name, identifier.location, index, scope) match {
+              case Option.None            => rest
+              case Option.Some(constraint) => List.Cons(constraint, rest)
+            }
+        }
+    }
+  }
+
+  /** Resolves the trait named by one context bound and applies it to the
+    * constrained parameter. Returns `Option.None` when the bound is unusable,
+    * having reported why; the declaration still binds, just without that
+    * constraint.
+    */
+  def bindContextBound(
+      name: NameSyntax,
+      parameterLocation: TextLocation,
+      index: int,
+      scope: Scope
+  ): Option[Type] = {
+    val location = AstUtils.locationOfName(name)
+    lookupContextBound(name, scope) match {
+      case Option.None => Option.None
+      case Option.Some(symbol) =>
+        if (symbol.kind != SymbolKind.Trait) {
+          diagnosticBag.reportContextBoundNotATrait(location, symbol.name)
+          Option.None
+        } else {
+          val variable = Type.Variable(parameterLocation, index)
+          tryGetSymbolType(symbol) match {
+            case Option.Some(
+                  Type.GenericClass(loc, ns, traitName, args, traitSymbol)
+                ) =>
+              if (args.length == 1) {
+                Option.Some(
+                  Type.Class(
+                    loc,
+                    ns,
+                    traitName,
+                    List.Cons(variable, List.Nil),
+                    traitSymbol
+                  )
+                )
+              } else {
+                diagnosticBag.reportContextBoundArity(
+                  location,
+                  traitName,
+                  args.length
+                )
+                Option.None
+              }
+            case _ =>
+              // A trait with no type parameters. `K: Show` would mean
+              // `Show[K]`, and there is no slot for `K`.
+              diagnosticBag.reportContextBoundArity(location, symbol.name, 0)
+              Option.None
+          }
+        }
+    }
+  }
+
+  def lookupContextBound(name: NameSyntax, scope: Scope): Option[Symbol] = {
+    name match {
+      case NameSyntax.SimpleName(simple) =>
+        lookupContextBoundSimpleName(simple, scope)
+      case NameSyntax.QualifiedName(left, _, right) =>
+        lookupContextBoundSimpleName(right, bindNameToScope(left, scope))
+    }
+  }
+
+  def lookupContextBoundSimpleName(
+      name: SimpleNameSyntax,
+      scope: Scope
+  ): Option[Symbol] = {
+    name match {
+      case SimpleNameSyntax.IdentifierNameSyntax(identifier) =>
+        scope.lookup(identifier.text) match {
+          case Option.None =>
+            diagnosticBag.reportTypeNotDefined(
+              identifier.location,
+              identifier.text
+            )
+            Option.None
+          case symbol => symbol
+        }
+      case _ =>
+        // `K: Eq[int]` and the alias forms. The constrained parameter is the
+        // only argument a context bound can take, so it is never written.
+        diagnosticBag.reportContextBoundNotATrait(
+          AstUtils.locationOfSimpleName(name),
+          "the bound"
+        )
+        Option.None
+    }
+  }
+
   def bindObjects(
       objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
       parentScope: Scope
@@ -1750,7 +1910,10 @@ case class Binder(
         // Register this object for static constructor creation if it has initialization statements or fields
         if (allStatements.length > 0 || members.fields.length > 0) {
           ctorsToBind =
-            ctorsToBind.put(symbol, ConstructorParams(List.Nil, List.Nil))
+            ctorsToBind.put(
+              symbol,
+              ConstructorParams(List.Nil, List.Nil, List.Nil)
+            )
         }
     }
   }

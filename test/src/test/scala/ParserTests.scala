@@ -325,6 +325,30 @@ class ParserTests extends AnyFunSpec with Matchers {
       assertNone(typeParam.variance)
     }
 
+    it("should parse a context bound on a function") {
+      val fn = mkFunctionMember("def same[K: Eq](a: K, b: K): bool = true")
+      val generics = assertSome(fn.genericParameters)
+      val typeParam = assertSingle(generics.parameters.items)
+
+      assertTokenText("K", typeParam.identifier)
+      val bounds = assertSome(typeParam.bounds)
+      assertTokenKind(SyntaxKind.ColonToken, bounds.token)
+      assertName("Eq", bounds.name)
+    }
+
+    it("should parse context bounds on some but not all parameters") {
+      val fn = mkFunctionMember("def f[K: Eq, V](a: K, b: V): bool = true")
+      val generics = assertSome(fn.genericParameters)
+
+      val k = assertIndex(0, generics.parameters.items)
+      assertTokenText("K", k.identifier)
+      assertName("Eq", assertSome(k.bounds).name)
+
+      val v = assertIndex(1, generics.parameters.items)
+      assertTokenText("V", v.identifier)
+      assertNone(v.bounds)
+    }
+
     /** A requirement is a `def` with no body. `FunctionDeclarationSyntax`
       * already models the body as optional, so a trait member needs no separate
       * syntax.

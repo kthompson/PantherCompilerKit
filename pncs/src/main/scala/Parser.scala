@@ -421,8 +421,22 @@ case class Parser(
       Option.None
     }
     val identifier = acceptKind(SyntaxKind.IdentifierToken)
-    // TODO: bounds support
-    new GenericParameterSyntax(variance, identifier, Option.None)
+    new GenericParameterSyntax(variance, identifier, parseGenericBounds())
+  }
+
+  /** A context bound: the `Eq` of `[K: Eq]`, meaning the declaration requires
+    * evidence satisfying `Eq[K]`. One bound per parameter — a parameter needing
+    * two capabilities is not expressible yet
+    * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+    */
+  def parseGenericBounds(): Option[GenericBoundsSyntax] = {
+    debugPrint("parseGenericBounds")
+    if (currentKind() == SyntaxKind.ColonToken) {
+      val colon = accept()
+      Option.Some(new GenericBoundsSyntax(colon, parseName(false)))
+    } else {
+      Option.None
+    }
   }
 
   def parseClassDeclaration(): MemberSyntax = {

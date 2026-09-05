@@ -176,10 +176,14 @@ enum Type {
 
       case Type.GenericFunction(_, generics, traits, parameters, returnType) =>
         val paramStr = _params("", parameters)
+        // Context bounds print as a `where` clause. They are stored applied to
+        // the type variable they constrain, so `[K: Eq]` shows as `Eq<$0>`.
+        val whereStr =
+          if (traits.isEmpty) "" else " where " + _args("", ", ", traits)
         "<" + _genArgs(
           "",
           generics
-        ) + ">" + "(" + paramStr + ") -> " + returnType.toString
+        ) + ">" + "(" + paramStr + ") -> " + returnType.toString + whereStr
 
 //      case Type.Generic(_, name, variance, upperBound) =>
 //        val varianceStr = variance match {

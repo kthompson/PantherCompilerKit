@@ -152,6 +152,26 @@ case class DiagnosticBag(settings: CompilerSettings) {
   def reportTraitNotInstantiable(location: TextLocation, name: string): unit =
     report(location, "Trait " + name + " cannot be instantiated")
 
+  /** `[K: Foo]` where `Foo` is a class or object. A context bound asks for
+    * evidence, and only a trait can be evidenced.
+    */
+  def reportContextBoundNotATrait(location: TextLocation, name: string): unit =
+    report(location, name + " is not a trait and cannot be a context bound")
+
+  /** `[K: Eq]` means `Eq[K]`, so the trait has to have exactly one type
+    * parameter for `K` to fill.
+    */
+  def reportContextBoundArity(
+      location: TextLocation,
+      name: string,
+      found: int
+  ): unit =
+    report(
+      location,
+      "Trait " + name + " takes " + string(found) +
+        " type parameters; a context bound requires exactly 1"
+    )
+
   def reportInvalidOperator(location: TextLocation, op: string): unit =
     report(location, "Invalid operator: " + op)
 
