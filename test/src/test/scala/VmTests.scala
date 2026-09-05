@@ -313,6 +313,93 @@ class VmTests extends AnyFunSpec with Matchers {
       )
     }
 
+    /** An enum's derived members match the cases first, then their parameters
+      * (ADR 0004). Two different cases are never equal, and the `is` test for
+      * `b` is nested rather than `&&`-ed because `&&` evaluates both sides and
+      * the field reads are only safe once the case is known.
+      */
+    val shape = "[derive(Eq, Ord, Show)]\n" +
+      "enum Shape {\n  case Circle(r: int)\n  case Rect(w: int, h: int)\n}\n"
+
+    it("should run a derived Eq over an enum") {
+      assertExecValueBoolWithSetup(
+        shape,
+        "Shape.Circle(1) == Shape.Circle(1)",
+        true
+      )
+      assertExecValueBoolWithSetup(
+        shape,
+        "Shape.Circle(1) == Shape.Circle(2)",
+        false
+      )
+      assertExecValueBoolWithSetup(
+        shape,
+        "Shape.Rect(1, 2) == Shape.Rect(1, 2)",
+        true
+      )
+      assertExecValueBoolWithSetup(
+        shape,
+        "Shape.Rect(1, 2) == Shape.Rect(1, 3)",
+        false
+      )
+      // different cases, whatever the parameters
+      assertExecValueBoolWithSetup(
+        shape,
+        "Shape.Circle(1) == Shape.Rect(1, 2)",
+        false
+      )
+      assertExecValueBoolWithSetup(
+        shape,
+        "Shape.Circle(1) != Shape.Rect(1, 2)",
+        true
+      )
+    }
+
+    /** Case order decides before any parameter does, so every `Circle` sorts
+      * before every `Rect` regardless of what they hold.
+      */
+    it("should run a derived Ord over an enum") {
+      assertExecValueBoolWithSetup(
+        shape,
+        "Shape.Circle(9) < Shape.Rect(1, 1)",
+        true
+      )
+      assertExecValueBoolWithSetup(
+        shape,
+        "Shape.Rect(1, 1) < Shape.Circle(9)",
+        false
+      )
+      // within a case, lexicographic over the parameters
+      assertExecValueBoolWithSetup(
+        shape,
+        "Shape.Circle(1) < Shape.Circle(2)",
+        true
+      )
+      assertExecValueBoolWithSetup(
+        shape,
+        "Shape.Rect(1, 1) < Shape.Rect(1, 2)",
+        true
+      )
+      assertExecValueBoolWithSetup(
+        shape,
+        "Shape.Rect(2, 1) < Shape.Rect(1, 9)",
+        false
+      )
+      assertExecValueBoolWithSetup(
+        shape,
+        "Shape.Circle(1) >= Shape.Circle(1)",
+        true
+      )
+    }
+
+    /** An enum prints as its case rather than as itself: `Circle(7)`, not
+      * `Shape(7)`.
+      */
+    it("should run a derived Show over an enum") {
+      assertExecValueStringWithSetup(shape, "Shape.Circle(7).show()", "Circle(7)")
+      assertExecValueStringWithSetup(shape, "Shape.Rect(1, 2).show()", "Rect(1, 2)")
+    }
+
     /** Two classes with instance fields. A field's index is its offset within
       * the object, so the second class's fields have to start at 0 again —
       * numbered across types, they land outside the object and the next

@@ -83,7 +83,22 @@ class Derivation(
     traitSymbol: Symbol,
     givenSymbol: Symbol,
     parameterNames: List[string],
+    cases: List[DerivedCase],
     location: TextLocation
+)
+
+/** One case of an enum being derived for, in declaration order.
+  *
+  * A class's derivation has no cases and reads `parameterNames`; an enum's has
+  * a case per alternative and no parameters of its own. The order is the
+  * enum's own, which is what `Ord` compares by before it looks at any
+  * parameter
+  * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+  */
+class DerivedCase(
+    symbol: Symbol,
+    typ: Type,
+    parameterNames: List[string]
 )
 
 class ConstructorParams(
@@ -1836,11 +1851,15 @@ class Binder(
       case Either.Right(symbol) =>
         // bind generic type parameters
         val enumScope = scope.enterSymbol(symbol)
-        val genericParameters = head.value.genericParameters match {
-          case Option.None => List.Nil
-          case Option.Some(value) =>
-            bindGenericTypeParameters(value.parameters.items, enumScope)
-        }
+        // annotated: the self-hosted compiler does not widen the branches of a
+        // `match` to their common supertype, so without this the list types as
+        // `List.Nil | List<GenericTypeParameter>` and `.isEmpty` is not found
+        val genericParameters: List[GenericTypeParameter] =
+          head.value.genericParameters match {
+            case Option.None => List.Nil
+            case Option.Some(value) =>
+              bindGenericTypeParameters(value.parameters.items, enumScope)
+          }
 
         val cases = ListModule.fromArray(head.value.cases)
         val caseTypes =
@@ -1873,20 +1892,76 @@ class Binder(
 
         addMembersToBind(symbol, members.functions, members.fields, List.Nil)
         addStatementsToBind(symbol, members.globalStatements)
-        rejectEnumDerivation(head.value.derives)
+
+        registerEnumDerivations(
+          symbol,
+          head.value.derives,
+          derivedCases(symbol, cases),
+          !genericParameters.isEmpty
+        )
     }
   }
 
-  /** An enum's derived members have to match the cases first and only then
-    * their parameters, which is a shape the class rule does not cover. The
-    * attribute parses on an enum so that the syntax is one thing rather than
-    * two; reporting is better than deriving nothing quietly.
+  /** Each enum case paired with its parameter names, in declaration order.
+    *
+    * Read from the syntax rather than from the alias's union, which
+    * `bindEnumCases` accumulates in reverse — and the order is what `Ord`
+    * compares by, so it has to be the source's.
     */
-  def rejectEnumDerivation(derives: Option[DeriveAttributeSyntax]): unit = {
+  def derivedCases(
+      enumSymbol: Symbol,
+      cases: List[EnumCaseSyntax]
+  ): List[DerivedCase] = {
+    cases match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        val rest = derivedCases(enumSymbol, tail)
+        enumSymbol.lookupMember(head.identifier.text) match {
+          case Option.None => rest
+          case Option.Some(caseSymbol) =>
+            val names: List[string] = head.parameters match {
+              case Option.None        => List.Nil
+              case Option.Some(value) => parameterNames(value.parameters)
+            }
+
+            tryGetSymbolType(caseSymbol) match {
+              case Option.Some(typ) =>
+                List.Cons(DerivedCase(caseSymbol, typ, names), rest)
+              case Option.None => rest
+            }
+        }
+    }
+  }
+
+  def registerEnumDerivations(
+      enumSymbol: Symbol,
+      derives: Option[DeriveAttributeSyntax],
+      cases: List[DerivedCase],
+      isGeneric: bool
+  ): unit = {
     derives match {
       case Option.None => ()
       case Option.Some(attribute) =>
-        diagnosticBag.reportDeriveOnEnum(attribute.deriveToken.location)
+        registerEnumDerivationList(
+          enumSymbol,
+          attribute.traits,
+          cases,
+          isGeneric
+        )
+    }
+  }
+
+  def registerEnumDerivationList(
+      enumSymbol: Symbol,
+      traits: List[DerivedTraitSyntax],
+      cases: List[DerivedCase],
+      isGeneric: bool
+  ): unit = {
+    traits match {
+      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        registerEnumDerivation(enumSymbol, head.name, cases, isGeneric)
+        registerEnumDerivationList(enumSymbol, tail, cases, isGeneric)
     }
   }
 
@@ -1946,6 +2021,11 @@ class Binder(
                     value.parameters
                   )
                 )
+                // ...and a constructor body, or the constructor never gets an
+                // address and calling it lands on offset -1. The same fix
+                // `bindClass` needed: there are no statements to run, but the
+                // parameter stores the emitter adds have to go somewhere.
+                addStatementsToBind(caseSymbol, List.Nil)
             }
 
             bindEnumCases(
@@ -2144,7 +2224,14 @@ class Binder(
         tryGetSymbolType(typeSymbol) match {
           case Option.Some(Type.Class(loc, ns, typeName, List.Nil, symbol)) =>
             val typ: Type = Type.Class(loc, ns, typeName, List.Nil, symbol)
-            declareDerivedGiven(typeSymbol, typ, traitSymbol, names, name)
+            declareDerivedGiven(
+              typeSymbol,
+              typ,
+              traitSymbol,
+              names,
+              List.Nil,
+              name
+            )
           case _ =>
             // A generic type's derived given is conditional — `Eq[Box[T]]`
             // given `Eq[T]` — and a conditional given cannot reach its own
@@ -2157,11 +2244,51 @@ class Binder(
     }
   }
 
+  /** The enum half of `registerDerivation`.
+    *
+    * Separate because an enum's type says less than a class's: its alias
+    * carries `List.Nil` for its arguments whether or not it is generic, so
+    * whether it has type parameters has to be passed in rather than read back
+    * off the type.
+    */
+  def registerEnumDerivation(
+      typeSymbol: Symbol,
+      name: SyntaxToken,
+      cases: List[DerivedCase],
+      isGeneric: bool
+  ): unit = {
+    derivableTrait(name.text) match {
+      case Option.None =>
+        diagnosticBag.reportTraitNotDerivable(name.location, name.text)
+      case Option.Some(traitSymbol) =>
+        if (isGeneric) {
+          diagnosticBag.reportDeriveOnGenericType(
+            name.location,
+            typeSymbol.name
+          )
+        } else {
+          tryGetSymbolType(typeSymbol) match {
+            case Option.None => ()
+            case Option.Some(typ) =>
+              declareDerivedGiven(
+                typeSymbol,
+                typ,
+                traitSymbol,
+                List.Nil,
+                cases,
+                name
+              )
+          }
+        }
+    }
+  }
+
   def declareDerivedGiven(
       typeSymbol: Symbol,
       typ: Type,
       traitSymbol: Symbol,
       names: List[string],
+      cases: List[DerivedCase],
       name: SyntaxToken
   ): unit = {
     val givenName = "$derived$" + traitSymbol.name + "$" + typeSymbol.name
@@ -2193,6 +2320,7 @@ class Binder(
             traitSymbol,
             givenSymbol,
             names,
+            cases,
             name.location
           ),
           derivations
@@ -2990,7 +3118,7 @@ class Binder(
             noLoc,
             identity,
             BoundExpression.Boolean(noLoc, true),
-            Option.Some(derivedEqChain(fields, a, b)),
+            Option.Some(derivedEqStructural(derivation, fields, a, b)),
             boolType
           )
         )
@@ -3014,6 +3142,61 @@ class Binder(
         )
     }
   }
+
+  /** Everything after the reference-identity test: for a class, its parameters
+    * compared in order; for an enum, the cases matched first.
+    */
+  def derivedEqStructural(
+      derivation: Derivation,
+      fields: List[Symbol],
+      a: Symbol,
+      b: Symbol
+  ): BoundExpression = {
+    if (derivation.cases.isEmpty) derivedEqChain(fields, a, b)
+    else derivedEqCaseChain(derivation.cases, derivation.typ, a, b)
+  }
+
+  /** `if (a is C) (if (b is C) …fields… else false) else …the next case…`.
+    *
+    * Nested rather than `(b is C) && …fields…` because `&&` evaluates both
+    * sides: the field reads are only safe once `b` is known to be that case.
+    * Two values of different cases fall through to `false`.
+    */
+  def derivedEqCaseChain(
+      cases: List[DerivedCase],
+      enumType: Type,
+      a: Symbol,
+      b: Symbol
+  ): BoundExpression = {
+    cases match {
+      case List.Nil => BoundExpression.Boolean(noLoc, false)
+      case List.Cons(head, tail) =>
+        BoundExpression.If(
+          noLoc,
+          derivedIs(a, head.typ, enumType),
+          BoundExpression.If(
+            noLoc,
+            derivedIs(b, head.typ, enumType),
+            derivedEqChain(derivedCaseFields(head), a, b),
+            Option.Some(BoundExpression.Boolean(noLoc, false)),
+            boolType
+          ),
+          Option.Some(derivedEqCaseChain(tail, enumType, a, b)),
+          boolType
+        )
+    }
+  }
+
+  def derivedCaseFields(derivedCase: DerivedCase): List[Symbol] =
+    derivedFields(derivedCase.symbol, derivedCase.parameterNames)
+
+  /** `value is caseType`, where `value` still has the enum's type. */
+  def derivedIs(
+      value: Symbol,
+      caseType: Type,
+      valueType: Type
+  ): BoundExpression =
+    BoundExpression.Is(noLoc, derivedVariable(value, valueType), caseType)
 
   /** `a.p1 == b.p1 && a.p2 == b.p2 && …`, and `true` for a type with no
     * constructor parameters — two of those are equal whenever they exist.
@@ -3061,8 +3244,10 @@ class Binder(
 
     derivedOperands(lessThan) match {
       case Tuple2(a, b) =>
-        functionBodies =
-          functionBodies.put(lessThan, derivedOrdChain(fields, a, b))
+        functionBodies = functionBodies.put(
+          lessThan,
+          derivedOrdStructural(derivation, fields, a, b)
+        )
     }
 
     // The other three are the one comparison read differently, which is also
@@ -3103,6 +3288,95 @@ class Binder(
           else call
 
         functionBodies = functionBodies.put(member, body)
+    }
+  }
+
+  /** For a class, lexicographic over its parameters; for an enum, the case
+    * order decides first and the parameters only break a tie within a case.
+    */
+  def derivedOrdStructural(
+      derivation: Derivation,
+      fields: List[Symbol],
+      a: Symbol,
+      b: Symbol
+  ): BoundExpression = {
+    if (derivation.cases.isEmpty) derivedOrdChain(fields, a, b)
+    else derivedOrdCaseChain(derivation.cases, List.Nil, derivation.typ, a, b)
+  }
+
+  /** `a < b` over an enum, case order first.
+    *
+    * Once `a` is known to be a case and `b` is not, the answer is whether `b`
+    * comes later, and `earlier` — the cases already stepped past — is what
+    * decides that. There is no ordinal to compare: a `Value.Ref` carries its
+    * type token but no opcode exposes it, so the comparison is spelled out as
+    * `is` tests.
+    */
+  def derivedOrdCaseChain(
+      cases: List[DerivedCase],
+      earlier: List[DerivedCase],
+      enumType: Type,
+      a: Symbol,
+      b: Symbol
+  ): BoundExpression = {
+    cases match {
+      case List.Nil => BoundExpression.Boolean(noLoc, false)
+      case List.Cons(head, tail) =>
+        BoundExpression.If(
+          noLoc,
+          derivedIs(a, head.typ, enumType),
+          BoundExpression.If(
+            noLoc,
+            derivedIs(b, head.typ, enumType),
+            derivedOrdChain(derivedCaseFields(head), a, b),
+            Option.Some(derivedIsNoneOf(earlier, b, enumType)),
+            boolType
+          ),
+          Option.Some(
+            derivedOrdCaseChain(
+              tail,
+              // order does not matter here, only membership
+              List.Cons(head, earlier),
+              enumType,
+              a,
+              b
+            )
+          ),
+          boolType
+        )
+    }
+  }
+
+  /** `!(value is C0) && !(value is C1) && …`, and `true` for no cases.
+    *
+    * `&&` is safe here where it is not in the equality chain: an `is` test can
+    * be evaluated whatever the value turns out to be.
+    */
+  def derivedIsNoneOf(
+      cases: List[DerivedCase],
+      value: Symbol,
+      enumType: Type
+  ): BoundExpression = {
+    cases match {
+      case List.Nil => BoundExpression.Boolean(noLoc, true)
+      case List.Cons(head, tail) =>
+        val notThis: BoundExpression =
+          BoundExpression.Unary(
+            noLoc,
+            UnaryOperatorKind.LogicalNegation,
+            derivedIs(value, head.typ, enumType),
+            boolType
+          )
+
+        if (tail.isEmpty) notThis
+        else
+          BoundExpression.Binary(
+            noLoc,
+            notThis,
+            BinaryOperatorKind.LogicalAnd,
+            derivedIsNoneOf(tail, value, enumType),
+            boolType
+          )
     }
   }
 
@@ -3160,14 +3434,49 @@ class Binder(
 
     filterParameters(show.members()) match {
       case List.Cons(value, _) =>
-        val opening: BoundExpression =
-          BoundExpression.String(noLoc, derivation.typeSymbol.name + "(")
-        val body = derivedConcat(
-          derivedShowChain(fields, value, opening, true),
-          BoundExpression.String(noLoc, ")")
-        )
+        val body =
+          if (derivation.cases.isEmpty)
+            derivedShowOne(derivation.typeSymbol.name, fields, value)
+          else derivedShowCaseChain(derivation.cases, derivation.typ, value)
+
         functionBodies = functionBodies.put(show, body)
       case List.Nil => panic("buildDerivedShow: show has no parameter")
+    }
+  }
+
+  /** `"Name(" + show(p1) + ", " + … + ")"` for one set of parameters. */
+  def derivedShowOne(
+      name: string,
+      fields: List[Symbol],
+      value: Symbol
+  ): BoundExpression = {
+    val opening: BoundExpression = BoundExpression.String(noLoc, name + "(")
+
+    derivedConcat(
+      derivedShowChain(fields, value, opening, true),
+      BoundExpression.String(noLoc, ")")
+    )
+  }
+
+  /** An enum prints as its case rather than as itself: `Some(1)`, not
+    * `Option(1)`. The final `else` is unreachable — a value of the enum is
+    * always one of its cases — and is there because an `if` needs one.
+    */
+  def derivedShowCaseChain(
+      cases: List[DerivedCase],
+      enumType: Type,
+      value: Symbol
+  ): BoundExpression = {
+    cases match {
+      case List.Nil => BoundExpression.String(noLoc, "")
+      case List.Cons(head, tail) =>
+        BoundExpression.If(
+          noLoc,
+          derivedIs(value, head.typ, enumType),
+          derivedShowOne(head.symbol.name, derivedCaseFields(head), value),
+          Option.Some(derivedShowCaseChain(tail, enumType, value)),
+          stringType
+        )
     }
   }
 
@@ -3351,6 +3660,48 @@ class Binder(
       case Option.None                        => Option.None
       case Option.Some(KeyValue(candidate, _)) =>
         evidenceFields.get(candidate.symbol)
+    }
+  }
+
+  /** `typ`, followed by the enum it is a case of, if it is one.
+    *
+    * `Shape.Circle(1)` has the case's type, but evidence is declared for the
+    * enum — one `Eq[Shape]`, not one per case — so resolution has to look past
+    * the case. Widening rather than narrowing: a case type is always usable
+    * where its enum is.
+    */
+  def evidenceTypes(typ: Type): List[Type] = {
+    enclosingEnumType(typ) match {
+      case Option.None         => ListModule.one(typ)
+      case Option.Some(enumTyp) => List.Cons(typ, ListModule.one(enumTyp))
+    }
+  }
+
+  def enclosingEnumType(typ: Type): Option[Type] = {
+    getTypeSymbol(typ) match {
+      case Option.None => Option.None
+      case Option.Some(symbol) =>
+        symbol.parent match {
+          case Option.None => Option.None
+          case Option.Some(parent) =>
+            if (parent.kind == SymbolKind.Alias) tryGetSymbolType(parent)
+            else Option.None
+        }
+    }
+  }
+
+  /** The first of `types` for which a given supplies `memberName`. */
+  def findGivenExtensionForAny(
+      types: List[Type],
+      memberName: string
+  ): Option[Symbol] = {
+    types match {
+      case List.Nil => Option.None
+      case List.Cons(head, tail) =>
+        findGivenExtension(head, memberName) match {
+          case Option.Some(member) => Option.Some(member)
+          case Option.None => findGivenExtensionForAny(tail, memberName)
+        }
     }
   }
 

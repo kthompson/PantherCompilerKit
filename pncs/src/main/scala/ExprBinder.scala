@@ -913,34 +913,52 @@ case class ExprBinder(
     val name = node.operator.text
     val location = node.operator.location
 
-    binder.operatorGoal(node.operator.kind, leftType) match {
-      case Option.None => Option.None
-      case Option.Some(goal) =>
-        binder.findEvidenceMember(leftType, name, scope.current) match {
-          case Option.Some(KeyValue(evidence, member)) =>
-            bindOperatorCall(
-              location,
-              member,
-              left,
-              right,
-              scope,
-              Option.Some(evidence)
-            )
-          case Option.None =>
-            if (!binder.isGroundType(goal)) Option.None
-            else
-              binder.findGivenMember(goal, name) match {
-                case Option.None => Option.None
-                case Option.Some(member) =>
-                  bindOperatorCall(
-                    location,
-                    member,
-                    left,
-                    right,
-                    scope,
-                    Option.None
-                  )
-              }
+    binder.findEvidenceMember(leftType, name, scope.current) match {
+      case Option.Some(KeyValue(evidence, member)) =>
+        bindOperatorCall(
+          location,
+          member,
+          left,
+          right,
+          scope,
+          Option.Some(evidence)
+        )
+      case Option.None =>
+        findOperatorGivenMember(
+          binder.evidenceTypes(leftType),
+          node.operator.kind,
+          name
+        ) match {
+          case Option.None => Option.None
+          case Option.Some(member) =>
+            bindOperatorCall(location, member, left, right, scope, Option.None)
+        }
+    }
+  }
+
+  /** The given's member for the first of `types` a trait claiming this token
+    * has evidence for. `types` widens a case type to its enum, so
+    * `Shape.Circle(1) < Shape.Rect(1, 1)` finds the enum's `Ord`.
+    */
+  def findOperatorGivenMember(
+      types: List[Type],
+      tokenKind: int,
+      name: string
+  ): Option[Symbol] = {
+    types match {
+      case List.Nil => Option.None
+      case List.Cons(head, tail) =>
+        val found: Option[Symbol] =
+          binder.operatorGoal(tokenKind, head) match {
+            case Option.None => Option.None
+            case Option.Some(goal) =>
+              if (!binder.isGroundType(goal)) Option.None
+              else binder.findGivenMember(goal, name)
+          }
+
+        found match {
+          case Option.Some(_) => found
+          case Option.None    => findOperatorGivenMember(tail, tokenKind, name)
         }
     }
   }
@@ -2221,7 +2239,10 @@ case class ExprBinder(
             // supply it as a contextual extension. Reached only after the
             // ordinary lookup has failed, which is what makes a member the
             // type declares itself always win (ADR 0004).
-            binder.findGivenExtension(leftType, right.text) match {
+            binder.findGivenExtensionForAny(
+              binder.evidenceTypes(leftType),
+              right.text
+            ) match {
               case Option.Some(member) =>
                 Either.Right(Tuple2(member, binder.getSymbolType(member)))
               case Option.None =>

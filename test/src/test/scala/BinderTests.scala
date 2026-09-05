@@ -1086,15 +1086,44 @@ class BinderTests extends AnyFunSpec with Matchers {
       )
     }
 
-    /** An enum's derived members have to match the cases first, which the rule
-      * over constructor parameters does not describe. Reported rather than
-      * quietly deriving nothing.
+    /** An enum derives the same three traits a class does. Its cases are
+      * matched first, then their parameters (ADR 0004).
       */
-    it("should reject deriving for an enum") {
+    val shape = "[derive(Eq, Ord, Show)]\n" +
+      "enum Shape {\n  case Circle(r: int)\n  case Rect(w: int, h: int)\n}\n"
+
+    it("should register a given for each trait an enum derives") {
+      val comp = mkCompilation(shape)
+      givenHeads(comp) shouldBe Seq("Eq<Shape>", "Ord<Shape>", "Show<Shape>")
+    }
+
+    it("should reject deriving for a generic enum") {
       val comp = mkFailingCompilation(
-        "[derive(Eq)]\nenum Color { case Red()\ncase Green() }"
+        "[derive(Eq)]\nenum Opt[T] {\n  case Has(value: T)\n}"
       )
-      diagnosticMessages(comp) should contain("Cannot derive for an enum yet")
+      diagnosticMessages(comp) should contain(
+        "Cannot derive for Opt: it has type parameters"
+      )
+    }
+
+    it("should reject deriving a trait an enum has no rule for") {
+      val comp = mkFailingCompilation(
+        "trait Printable[T] { def print(a: T): string }\n" +
+          "[derive(Printable)]\nenum Shape {\n  case Circle(r: int)\n}"
+      )
+      diagnosticMessages(comp) should contain(
+        "Printable cannot be derived; only Eq, Ord and Show can"
+      )
+    }
+
+    /** A case's type is not the enum's, and evidence is declared for the enum —
+      * one `Eq[Shape]`, not one per case — so resolution has to look past the
+      * case to find it.
+      */
+    it("should resolve an enum's evidence from a case type") {
+      mkCompilation(shape + "val r = Shape.Circle(1) == Shape.Circle(1)")
+      mkCompilation(shape + "val r = Shape.Circle(1) < Shape.Rect(1, 1)")
+      mkCompilation(shape + "val r = Shape.Circle(1).show()")
     }
 
     /** A type whose parameter is another derived type composes: the inner
