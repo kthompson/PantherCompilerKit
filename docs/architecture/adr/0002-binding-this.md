@@ -226,6 +226,17 @@ predate `this` and are independent of it, and the comment now names them:
 - **A class with no template gets no constructor body.** Its method address
   stays -1 and the VM reads past the end of the chunk.
 
+**Both fixed in `edb7333`**, along with three more on the same path that this
+section did not reach because the two above stopped execution first: a
+constructor never stored its parameters into their fields, `Newobj` pushed the
+receiver above the arguments rather than beneath them, and a constructor
+returned unit instead of the object. The receiver defect is the one that bears
+on this ADR — `this` at argument slot 0 held whenever a constructor had no
+parameters, and step C's parameter numbering was correct all along; it was
+`Newobj` that put the receiver in the wrong place as soon as there was an
+argument to be above. The `VmTests` cases named above are now tests rather than
+a comment, and the fix took self-hosting diagnostics from 204 to 195.
+
 Also newly reachable, because enum methods now bind where they previously
 failed on `this`: enum method emission does not work. `emitMemberAccess`
 panics on a receiver of kind `Class` (a case), and member lookup on a case

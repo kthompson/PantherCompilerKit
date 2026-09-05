@@ -1,6 +1,6 @@
 # ADR 0005: Evidence representation
 
-**Status:** Proposed
+**Status:** Accepted — implemented 2026-09-05, see [Outcome](#outcome)
 **Date:** 2026-09-04
 **Primitives:** `binder`, `lowering-emit`, `vm-runtime`, `metadata-format` (see
 [`primitives.yaml`](../primitives.yaml))
@@ -261,3 +261,108 @@ model.
 **Evidence as a field only, not a parameter.** Would cover constrained classes
 and nothing else — `def contains[T: Eq](…)` has no object to hang a field on.
 The parameter rule subsumes it.
+
+## Outcome
+
+Implemented in `e592929` (elaboration), `b9fe632` (member resolution), `880a99a`
+(the opcode) and `8ccbd87` (records and dispatch), with `edb7333` clearing the
+constructor prerequisite. A constrained generic function and a constrained
+generic class both run.
+
+### Decisions that held
+
+**A — a context bound is a hidden parameter.** Appended after the declared ones,
+ordered by type-parameter declaration order. Appending mattered for the reason
+given: declared parameters kept their slots and `getMethodParameterMap` needed no
+rework. The determinism requirement earned its keep — the first version defined
+the tail before the head, which put `$ev$V$Ord` ahead of `$ev$K$Eq` and would
+have been a bytecode-ordering bug of exactly the kind stage 3 exists to catch.
+
+**B — a constrained class stores its evidence in a field.** The constructor is
+elaborated like any other method and the `new` site resolves, because that is
+where the type arguments are concrete.
+
+**D — `Calli` is the one new opcode.** Two lines, as predicted, reusing
+`methodCall`. Popping the token before the call leaves the frame exactly as
+`Call` leaves it.
+
+**E — constraints live in `Type.GenericFunction.traits`.** The field had been
+carrying `List.Nil` at every construction site since it was introduced. Storing a
+constraint *applied* to its type variable — `Eq[$0]` rather than a `(K, Eq)`
+pair — turned out to be the load-bearing detail: `Types.substitute` already
+walked `traits`, so instantiating `K` as `int` produced `Eq[int]`, the resolution
+goal, with no new machinery. It also let the emitter re-derive the goals from the
+callee's constraints and the call's type arguments, so nothing had to be stored
+on `BoundExpression.Call`.
+
+**The arity hazard.** Real, and avoided as designed. `same(1)` on a `[K: Eq]`
+function still reports 2 expected rather than 3, because the six
+`reportArgumentCountMismatch` sites read `parameters` and constraints never leave
+`traits`. A test pins it.
+
+**`getMethodParameterMap` filters on `SymbolKind.Parameter`.** Resolved with
+`SymbolKind.Evidence`, exactly the mirror of `This` this ADR predicted: `This`
+had to be skipped so it would not add a spurious row, evidence needed the slot
+while staying distinguishable.
+
+### C — the record is an int array, not a synthesized type
+
+The decision says a given compiles to a record whose fields are its members'
+method tokens. It is an `Array[int]`, one slot per trait member, indexed by the
+member's position in the trait.
+
+The reason is `Newobj`: it allocates and then *runs a constructor*. A record with
+named fields would need a synthesized type **and a synthesized constructor with a
+body** for every given, which is a large amount of emitter machinery for a value
+that never escapes the compiler. An array needs neither, uses only opcodes that
+already existed, and keeps one shape however many members a trait has. Both sides
+index the same way, so the reading side never needs to know which given a record
+came from.
+
+What this gives up is the dependency slot. A record holds method tokens and
+nothing else, so it cannot hold a reference to another record — which is exactly
+the recursive evidence this ADR describes when it says `Eq[List[Symbol]]` holds a
+reference to `Eq[Symbol]`.
+
+**The consequence: a conditional given cannot use its premise.**
+`given [T: Ord] => Ord[Box[T]]` declares, registers, participates in the
+coherence check, and resolves at a call site — including recursively, so
+`Ord[Box[int]]` finds `Ord[int]` behind it at bind time. But the premise never
+becomes evidence inside the given's own body, because `defineEvidenceParameters`
+runs for methods and constructors and not for givens, and there would be nowhere
+to pass it from if it did. A conditional given whose body does not use its
+premise runs correctly; one that writes `a.value.compare(b.value)` reports the
+member as not found. Closing this needs two things together: an evidence
+parameter on the given's members, and a record shape that can carry a reference
+to another record. `Array[any]` would carry both tokens and references, which is
+the smaller of the two changes.
+
+### F — elaboration happens during binding, not lowering
+
+The decision puts the parameter-list rewrite in lowering so that everything
+type-directed sees the declared signature. The evidence symbols are instead
+defined while binding the method, in `bindMethod` and `bindConstructorSignatures`.
+
+The property F was protecting is still held, by E rather than by sequencing: the
+declared signature in `Type.GenericFunction.parameters` is never rewritten, so
+type-directed code and arity diagnostics see exactly what the user wrote.
+Lowering turned out to be the wrong place regardless — it lowers bodies, not
+signatures, and the emitter reads parameters from `symbol.members()`, which only
+binding populates.
+
+### G — monomorphization
+
+Untouched and still available. Nothing specializes, so `Calli` runs on every
+constrained call, which is the sequencing this ADR asked for: the opcode is
+exercised from the first test rather than added as something nothing reaches.
+
+### The prerequisite was real
+
+This ADR's implementation order put ADR 0002's constructor holes first, on the
+grounds that evidence on a constructor that does not run changes nothing
+observable. That was right, and the holes were worse than recorded: constructors
+never stored their parameters, `Newobj` pushed the receiver above the arguments,
+constructors returned unit instead of the object, a bare field read emitted
+`Ldfld` with an empty stack, and constructor signatures were being overwritten
+with a nullary one. The last of those accounted for nine self-hosting
+diagnostics. Constrained classes could not have worked until they were fixed.

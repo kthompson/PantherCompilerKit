@@ -1,6 +1,6 @@
 # ADR 0004: Traits, given evidence, and contextual extensions
 
-**Status:** Proposed
+**Status:** Accepted — implemented 2026-09-05, see [Outcome](#outcome)
 **Date:** 2026-09-04
 **Primitives:** `parser`, `binder`, `lowering-emit` (see
 [`primitives.yaml`](../primitives.yaml))
@@ -670,3 +670,58 @@ Givens are globally coherent — one per (trait, type) — but resolved through
 ordinary lexical scope, so the restriction can be lifted later without rebuilding
 resolution. The representation evidence takes at runtime is decided in
 [ADR 0005](0005-evidence-representation.md).
+
+## Outcome
+
+Built across seven commits, `fd388ce`..`8ccbd87`, with the constructor
+prerequisite in `edb7333`. Traits, givens, context bounds, resolution and
+contextual extensions all work; a constrained generic function and a constrained
+generic class both run on the VM. Tests went 284 → 336 and self-hosting
+diagnostics 204 → 195, though the drop belongs to the constructor fix rather than
+to this design.
+
+### What differs from the decision above
+
+**Traits bind before classes, and givens bind after everything.** Not stated
+here, but forced: a context bound on a class resolves its trait while the class
+is being bound, and a given's head like `Eq[Box[int]]` names both a trait and a
+type. The visible consequence is that a trait and a class sharing a name report
+the *class* as the duplicate even though it is written second. Which declaration
+gets flagged has always followed binding order rather than source order; traits
+and givens just joined that order.
+
+**Given symbols are numbered, not named after their head.** `$given$0`,
+`$given$1`, in source order. This ADR argues a given needs no name because there
+is one per pair, which is right about the *language* but leaves the compiler
+needing something to key a symbol on. The head type is not known until the
+given's own type parameters are in scope, so it is not available at definition
+time. Source order keeps the numbering deterministic for stage 3.
+
+**Contextual extensions only fire for a type parameter.** `a.equals(b)` resolves
+through evidence when `a: T` and `T` is a type parameter, which is the case this
+ADR motivates. It does not fire for a ground type: `1.equals(2)` with a visible
+`given Eq[int]` still reports the member as not found, because `int` has a symbol
+and the ordinary member lookup owns that path. Extending it means deciding what
+happens when a real member and an evidence member share a name — a shadowing
+question the type-parameter case does not raise, since a type parameter has no
+members at all.
+
+### What is not built
+
+- **Derivation.** `[derive(Eq, Ord, Show)]` does not parse. The 133 case classes
+  still have no instances, so the equality problem that motivated this ADR is not
+  yet solved in the sources — only the mechanism it needs.
+- **Operator declarations.** `operator ==` does not parse, so no trait member
+  binds a token. [ADR 0003](0003-equality-on-reference-types.md)'s fallback is
+  still what gives `==` a meaning on reference types.
+- **Associated members.** `T.empty` does not resolve.
+- **A conditional given cannot use its premise.** `given [T: Ord] => Ord[Box[T]]`
+  declares, registers, takes part in the coherence check, and resolves at a call
+  site — including recursively, so `Ord[Box[int]]` finds `Ord[int]` behind it.
+  But the premise never becomes evidence inside the given's own body: a body that
+  writes `a.value.compare(b.value)` reports the member as not found. A
+  conditional given whose body does not use its premise runs correctly. Closing
+  this needs the record to carry its dependencies, which is
+  [ADR 0005](0005-evidence-representation.md)'s side of the gap.
+- **The orphan rule and named exceptions**, both deferred above and still
+  deferred.
