@@ -292,11 +292,78 @@ class Emitter(
           emitEvidenceRecords(binder.givens, context)
         }
 
+        val isConstructor = symbol.kind == SymbolKind.Constructor
+        if (isConstructor) {
+          emitConstructorFieldStores(symbol, context)
+        }
+
         emitBlock(value, context)
+
+        if (isConstructor) {
+          // A constructor's result is the object. `methodReturn` writes the
+          // returned value to argsp, which is the receiver's slot, so loading
+          // `this` here is what leaves the new object on the caller's stack.
+          chunk.emitOpcode(Opcode.Ldarg0, symbol.location.endLine)
+        }
+
         chunk.emitOpcode(Opcode.Ret, symbol.location.endLine)
 
         context.method.address = context.startAddress
         true
+    }
+  }
+
+  /** Stores each constructor parameter into the field of the same name.
+    *
+    * Constructor parameters become accessible fields, but nothing was writing
+    * them, so every field backed by one read as uninitialised. Evidence
+    * parameters go through the same path, which is what puts a constrained
+    * class's evidence into the field its instance methods read.
+    */
+  def emitConstructorFieldStores(ctor: Symbol, context: EmitContext): unit = {
+    ctor.parent match {
+      case Option.None => ()
+      case Option.Some(owner) =>
+        emitParameterFieldStores(ctor.members(), owner, context)
+    }
+  }
+
+  def emitParameterFieldStores(
+      members: List[Symbol],
+      owner: Symbol,
+      context: EmitContext
+  ): unit = {
+    members match {
+      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        if (
+          head.kind == SymbolKind.Parameter || head.kind == SymbolKind.Evidence
+        ) {
+          emitParameterFieldStore(head, owner, context)
+        }
+        emitParameterFieldStores(tail, owner, context)
+    }
+  }
+
+  def emitParameterFieldStore(
+      parameter: Symbol,
+      owner: Symbol,
+      context: EmitContext
+  ): unit = {
+    owner.lookupMember(parameter.name) match {
+      case Option.None => ()
+      case Option.Some(field) =>
+        if (field.kind == SymbolKind.Field) {
+          fieldTokens.get(field) match {
+            case Option.None => ()
+            case Option.Some(fieldToken) =>
+              val line = parameter.location.startLine
+              chunk.emitOpcode(Opcode.Ldarg0, line)
+              emitLoadArgument(context.getParamIndex(parameter), line)
+              chunk.emitOpcode(Opcode.Stfld, line)
+              chunk.emitI4(fieldToken.token, line)
+          }
+        }
     }
   }
 
@@ -975,6 +1042,12 @@ class Emitter(
       case Option.None =>
         panic("emitField: no field token for " + expr.symbol.name)
       case Option.Some(token) =>
+        // A bare `x` naming an instance field is `this.x`, and `Ldfld` needs
+        // the receiver on the stack. Nothing put it there, because the name
+        // carried no receiver to lower.
+        if (!expr.symbol.isStatic()) {
+          chunk.emitOpcode(Opcode.Ldarg0, expr.location.startLine)
+        }
         val op = if (expr.symbol.isStatic()) Opcode.Ldsfld else Opcode.Ldfld
         chunk.emitOpcode(op, expr.location.startLine)
         chunk.emitI4(token.token, expr.location.startLine)

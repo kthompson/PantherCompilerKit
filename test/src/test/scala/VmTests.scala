@@ -107,6 +107,21 @@ class VmTests extends AnyFunSpec with Matchers {
       assertExecValueBoolWithSetup(setup, "bigger(2, 9)", false)
     }
 
+    /** The class half of evidence passing: the constructor stores its evidence
+      * in a field, and an instance method reads it back out to dispatch.
+      */
+    it("should call a trait member through evidence held by a class") {
+      val setup =
+        "trait Eq[T] { def equals(a: T, b: T): bool }\n" +
+          "given Eq[int] { def equals(a: int, b: int): bool = a == b }\n" +
+          "class Box[T: Eq](value: T) {\n" +
+          "  def matches(other: T): bool = value.equals(other)\n" +
+          "}"
+
+      assertExecValueBoolWithSetup(setup, "new Box[int](7).matches(7)", true)
+      assertExecValueBoolWithSetup(setup, "new Box[int](7).matches(8)", false)
+    }
+
     it("should compare strings lexicographically") {
       assertExecValueBool("\"apple\" < \"banana\"", true)
       assertExecValueBool("\"banana\" < \"apple\"", false)
@@ -312,14 +327,50 @@ class VmTests extends AnyFunSpec with Matchers {
       )
     }
 
-    // Blocked, both on defects that predate `this` and are unrelated to it:
-    //
-    //   class Foo(x: int, y: int) { def add() = x + y }   new Foo(12, 13).add()
-    //   class Foo(x: int, y: int)                         new Foo(1, 2).x
-    //
-    // The first needs an implicit field read to push a receiver: emitField
-    // emits Ldfld with nothing on the stack. The second needs a constructor
-    // body for a class with no template; its method address stays -1.
+    /** Constructor parameters become fields, and the constructor stores them.
+      * Reading one back is the smallest check that it does.
+      */
+    it("should store constructor parameters into fields") {
+      assertExecValueIntWithSetup("class Foo(x: int)", "new Foo(7).x", 7)
+      assertExecValueIntWithSetup(
+        "class Foo(x: int, y: int)",
+        "new Foo(1, 2).y",
+        2
+      )
+    }
+
+    /** A bare `x` inside an instance method is `this.x`, which needs the
+      * receiver pushed before `Ldfld` — the name itself carries none.
+      */
+    it("should read a constructor parameter field with no explicit receiver") {
+      assertExecValueIntWithSetup(
+        "class Foo(x: int, y: int) {\n" +
+          "  def add(): int = x + y\n" +
+          "}",
+        "new Foo(12, 13).add()",
+        25
+      )
+    }
+
+    it("should read a constructor parameter field through this") {
+      assertExecValueIntWithSetup(
+        "class Foo(x: int, y: int) {\n" +
+          "  def add(): int = this.x + this.y\n" +
+          "}",
+        "new Foo(12, 13).add()",
+        25
+      )
+    }
+
+    it("should construct a generic class") {
+      assertExecValueIntWithSetup(
+        "class Box[T](value: T) {\n" +
+          "  def get(): T = value\n" +
+          "}",
+        "new Box[int](7).get()",
+        7
+      )
+    }
 
     it("should pass arguments to an instance method") {
       // the receiver takes argument slot 0, so declared parameters start at 1

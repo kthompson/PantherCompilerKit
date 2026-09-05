@@ -154,6 +154,19 @@ case class VM(
     stack(sp)
   }
 
+  /** Slides the top `numArgs` values up by one and drops `value` underneath
+    * them.
+    */
+  def insertBelowArguments(value: Value, numArgs: int): unit = {
+    var index = sp
+    while (index > sp - numArgs) {
+      stack(index) = stack(index - 1)
+      index = index - 1
+    }
+    stack(sp - numArgs) = value
+    sp = sp + 1
+  }
+
   def runtimeError(msg: string): InterpretResult = {
     if (settings.enableTracing) {
       panic("Runtime error: " + msg)
@@ -741,8 +754,16 @@ case class VM(
           heap(objAddr + i) = Value.Uninitialized
         }
 
-        // push the object reference onto the stack
-        push(Value.Ref(typeDef, objAddr))
+        // The receiver goes *beneath* the constructor's arguments, so `this`
+        // sits at argument slot 0 exactly as it does for every other instance
+        // call and `getMethodParameterMap` can number declared parameters from
+        // 1 either way. Pushing it on top would put it after the arguments,
+        // and the constructor's own return — which writes to argsp — would
+        // then overwrite the first argument instead of yielding the object.
+        insertBelowArguments(
+          Value.Ref(typeDef, objAddr),
+          metadata.getMethodParameterCount(token)
+        )
 
         // call the constructor
         methodCall(token, ip)

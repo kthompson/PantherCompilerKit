@@ -598,10 +598,19 @@ class Binder(
             BoundExpression.Unit(noLoc)
           )
         )
-        setSymbolType(
-          ctor,
-          Type.Function(symbol.location, List.Nil, unitType)
-        )
+        // Only type a constructor that has none. `bindConstructorSignatures`
+        // has already given every class constructor its parameters and
+        // constraints, and overwriting that with a nullary signature loses
+        // them.
+        tryGetSymbolType(ctor) match {
+          case Option.Some(_) => ()
+          case Option.None =>
+            setSymbolType(
+              ctor,
+              Type.Function(symbol.location, List.Nil, unitType)
+            )
+            ()
+        }
 
       case Option.Some(value) =>
         val statements =
@@ -1726,6 +1735,11 @@ class Binder(
               List.Nil,
               head.value.parameters
             )
+            // ...and a constructor body, or the constructor never gets an
+            // address and calling it lands on offset -1. There are no
+            // statements to run, but the parameter stores the emitter adds
+            // have to go somewhere.
+            addStatementsToBind(symbol, List.Nil)
           case Option.Some(template) =>
             val members = splitMembers(List.Nil, template.members)
             bindClassesObjectAndEnums(
@@ -1847,16 +1861,27 @@ class Binder(
     members match {
       case List.Nil => Option.None
       case List.Cons(head, tail) =>
+        // Evidence reaches a body two ways: as its own parameter, or as the
+        // field a constrained class stores its constructor's evidence in. The
+        // test is on the type rather than the kind, so both are found — what
+        // makes a symbol evidence is that it holds a trait applied to a type,
+        // not which slot it arrived in.
+        //
         // annotated: the self-hosted compiler does not widen the branches of
         // an `if` to their common supertype
         val found: Option[KeyValue[Symbol, Symbol]] =
-          if (head.kind != SymbolKind.Evidence) Option.None
+          if (
+            head.kind != SymbolKind.Evidence && head.kind != SymbolKind.Field
+          ) Option.None
           else
             tryGetSymbolType(head) match {
               case Option.Some(
                     Type.Class(_, _, _, List.Cons(arg, List.Nil), traitSymbol)
                   ) =>
-                if (sameConstraint(arg, leftType)) {
+                if (
+                  traitSymbol.kind == SymbolKind.Trait &&
+                  sameConstraint(arg, leftType)
+                ) {
                   traitSymbol.lookupMember(memberName) match {
                     case Option.None => Option.None
                     case Option.Some(member) =>

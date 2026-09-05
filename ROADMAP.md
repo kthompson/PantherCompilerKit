@@ -27,7 +27,7 @@ reproduces the measurement. Re-run them rather than trusting the number.
 sbt pncs/compile && sbt test/test
 ```
 
-Green: 331 tests across the lexer, parser, binder, type checker, VM, metadata
+Green: 336 tests across the lexer, parser, binder, type checker, VM, metadata
 format, and args parser.
 
 ### The self-hosted compiler does not
@@ -36,7 +36,7 @@ format, and args parser.
 sbt pnc/compile
 ```
 
-Runs to completion and reports **204 diagnostics** against the generated
+Runs to completion and reports **195 diagnostics** against the generated
 `.pn` sources. By message:
 
 | Count | Diagnostic                      |
@@ -46,11 +46,11 @@ Runs to completion and reports **204 diagnostics** against the generated
 |    39 | `Type X not defined`            |
 |    18 | `Invalid namespace`             |
 |    17 | `Symbol X not found for type T` |
-|    14 | argument-count mismatches       |
+|     5 | argument-count mismatches       |
 |     5 | `Symbol X not found`            |
 |     2 | `Duplicate definition`          |
 
-**2 of the 204 mention an unsolved type variable** (`$0`, `$1`, …) — a
+**2 of the 195 mention an unsolved type variable** (`$0`, `$1`, …) — a
 generic parameter the binder gave up on. Name resolution is essentially
 done: the five remaining bare `Symbol X not found` are all `File` and `Path`
 from `using system.io`. What is left is operators and conversions.
@@ -59,14 +59,14 @@ By file:
 
 | Count | File                        |
 | ----: | --------------------------- |
-|    29 | `Parser.pn`                 |
+|    26 | `Parser.pn`                 |
 |    25 | `TypeInference.pn`          |
 |    17 | `ExprBinder.pn`             |
 |    15 | `Emitter.pn`                |
 |    14 | `Lowered.pn`                |
-|    14 | `Binder.pn`                 |
-|    12 | `VM.pn`                     |
-|    11 | `LoweredAssemblyPrinter.pn` |
+|    13 | `Binder.pn`                 |
+|    11 | `VM.pn`                     |
+|    10 | `LoweredAssemblyPrinter.pn` |
 
 ### Nothing is ever written to disk
 
@@ -235,7 +235,7 @@ Track the number after every change:
 sbt pnc/compile
 ```
 
-**204 → 0.** Nothing else in this section matters until that number moves.
+**195 → 0.** Nothing else in this section matters until that number moves.
 
 Only the first 20 diagnostics are printed. To see them all, transpile first —
 `pnc/compile` does this implicitly, and the count depends on it — then run the
@@ -545,7 +545,7 @@ Things that do not belong to one goal but block several.
   blocks in §4.1.
 - **No lexer support for exponents or shifts**
   ([`Lexer.scala:243`](pncs/src/main/scala/Lexer.scala:243)).
-- **Test coverage is stage-shaped, not feature-shaped.** 331 tests, but
+- **Test coverage is stage-shaped, not feature-shaped.** 336 tests, but
   `MetadataTests` has 2 and there is no end-to-end test that takes source all
   the way to output. §3.4 is the fix.
 
@@ -557,11 +557,11 @@ Sequenced so each step makes the next one measurable.
 
 **First — stop flying blind.** Done. The generated tree matches the
 transpiler (§1.1), the exit code is trustworthy (§1.2), and failures come back
-as diagnostics rather than exceptions (§4.2). The 204 counts every error the
+as diagnostics rather than exceptions (§4.2). The 195 counts every error the
 front end finds — none are discarded.
 
 **Second — generics.** This was the plan, and the measurement has overtaken it.
-Only 13 of the 204 are generics: 2 mention a type variable, 11 a parameter that
+Only 13 of the 195 are generics: 2 mention a type variable, 11 a parameter that
 defaulted to `any`. §2.1 and §2.2 are still worth doing, but they cannot make
 the number fall sharply, because the number is not made of generics.
 
@@ -588,7 +588,7 @@ The three numbers worth putting on a wall:
 
 | Metric                            |         Now | Target | Command                                     |
 | --------------------------------- | ----------: | -----: | ------------------------------------------- |
-| Self-hosting diagnostics          |         204 |      0 | `sbt pnc/compile` (now fails, as it should)  |
+| Self-hosting diagnostics          |         195 |      0 | `sbt pnc/compile` (now fails, as it should)  |
 | Doc blocks that fail              | **0 / 201** |      0 | `sbt "doccheck/run docs/src/content/docs"`  |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                    |
 | Samples that run in CI            |           0 |      6 | not yet built                               |
