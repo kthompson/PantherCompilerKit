@@ -255,6 +255,29 @@ case class GenericParametersSyntax(
 
 case class SeparatedSyntaxList[T](items: List[T], separators: List[SyntaxToken])
 
+/** One trait named inside a `derive` attribute, with the comma that follows
+  * it, if any — the same shape `ParameterSyntax` uses for its list.
+  */
+case class DerivedTraitSyntax(
+    name: SyntaxToken,
+    commaToken: Option[SyntaxToken]
+)
+
+/** `[derive(Eq, Ord, Show)]` ahead of a class or enum.
+  *
+  * Derivation is opt-in: a type with no attribute gets no evidence, so `a ==
+  * b` on it is a diagnostic rather than a silent identity comparison
+  * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+  */
+case class DeriveAttributeSyntax(
+    openBracketToken: SyntaxToken,
+    deriveToken: SyntaxToken,
+    openParenToken: SyntaxToken,
+    traits: List[DerivedTraitSyntax],
+    closeParenToken: SyntaxToken,
+    closeBracketToken: SyntaxToken
+)
+
 enum MemberSyntax {
   case ObjectDeclarationSyntax(
       objectKeyword: SyntaxToken,
@@ -262,6 +285,7 @@ enum MemberSyntax {
       template: TemplateSyntax
   )
   case ClassDeclarationSyntax(
+      derives: Option[DeriveAttributeSyntax],
       caseKeyword: Option[SyntaxToken],
       classKeyword: SyntaxToken,
       identifier: SyntaxToken,
@@ -309,6 +333,7 @@ enum MemberSyntax {
   )
   case GlobalStatementSyntax(statement: StatementSyntax)
   case EnumDeclarationSyntax(
+      derives: Option[DeriveAttributeSyntax],
       enumKeyword: SyntaxToken,
       identifier: SyntaxToken,
       genericParameters: Option[GenericParametersSyntax],

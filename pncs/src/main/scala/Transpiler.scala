@@ -157,6 +157,7 @@ case class Transpiler(
       decl: MemberSyntax.EnumDeclarationSyntax,
       context: TranspilerContext
   ): unit = {
+    transpileDeriveAttribute(decl.derives, context)
     transpileToken(decl.enumKeyword, context)
     transpileToken(decl.identifier, context)
     transpileGenericParameters(decl.genericParameters, context)
@@ -323,6 +324,7 @@ case class Transpiler(
       case Option.Some(value) => transpileTrivia(value.leading, context)
       case _                  =>
     }
+    transpileDeriveAttribute(decl.derives, context)
     transpileToken(decl.classKeyword, context)
     transpileToken(decl.identifier, context)
     transpileGenericParameters(decl.genericParameters, context)
@@ -330,6 +332,43 @@ case class Transpiler(
     transpileParameters(decl.parameters, context)
     transpileToken(decl.closeParenToken, context)
     transpileOptionalTemplate(decl.template, context)
+  }
+
+  /** Always `Option.None` today: the transpiler reads Scala, and Scala has no
+    * `derive` attribute to read. ADR 0004 has the transpiler *supplying* one
+    * for every `case class`, which is a separate step — this is only here so
+    * that a `.pn` source round-trips.
+    */
+  def transpileDeriveAttribute(
+      derives: Option[DeriveAttributeSyntax],
+      context: TranspilerContext
+  ): unit = {
+    derives match {
+      case Option.None => ()
+      case Option.Some(attribute) =>
+        transpileToken(attribute.openBracketToken, context)
+        transpileToken(attribute.deriveToken, context)
+        transpileToken(attribute.openParenToken, context)
+        transpileDerivedTraits(attribute.traits, context)
+        transpileToken(attribute.closeParenToken, context)
+        transpileToken(attribute.closeBracketToken, context)
+    }
+  }
+
+  def transpileDerivedTraits(
+      traits: List[DerivedTraitSyntax],
+      context: TranspilerContext
+  ): unit = {
+    traits match {
+      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        transpileToken(head.name, context)
+        head.commaToken match {
+          case Option.None        => ()
+          case Option.Some(comma) => transpileToken(comma, context)
+        }
+        transpileDerivedTraits(tail, context)
+    }
   }
 
   def transpileGlobalStatement(

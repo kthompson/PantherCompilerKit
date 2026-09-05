@@ -460,5 +460,40 @@ class ParserTests extends AnyFunSpec with Matchers {
         "~ is not a binary operator and cannot be declared"
       )
     }
+
+    /** `[derive(…)]` is unambiguous at member position: no expression in the
+      * language starts with `[` (ADR 0004).
+      */
+    it("should parse a derive attribute on a class") {
+      val decl = mkClassMember("[derive(Eq, Ord, Show)]\nclass Point(x: int, y: int)")
+      val attribute = assertSome(decl.derives)
+
+      assertTokenKind(SyntaxKind.OpenBracketToken, attribute.openBracketToken)
+      assertTokenText("derive", attribute.deriveToken)
+      derivedNames(attribute) shouldBe Seq("Eq", "Ord", "Show")
+    }
+
+    it("should parse a derive attribute on an enum") {
+      val decl = mkEnumMember(
+        "[derive(Eq)]\nenum Color { case Red()\ncase Green() }"
+      )
+      derivedNames(assertSome(decl.derives)) shouldBe Seq("Eq")
+    }
+
+    it("should parse a class with no derive attribute") {
+      assertNone(mkClassMember("class Point(x: int, y: int)").derives)
+    }
+
+    it("should reject derive on a declaration with no parameters") {
+      val tree = mkSyntaxTree("[derive(Eq)]\ndef f(): int = 1")
+      treeDiagnosticMessages(tree) should contain(
+        "derive cannot be applied to a function"
+      )
+    }
+
+    it("should reject an attribute that is not derive") {
+      val tree = mkSyntaxTree("[trace(Eq)]\nclass Point(x: int)")
+      treeDiagnosticMessages(tree) should contain("trace is not an attribute")
+    }
   }
 }

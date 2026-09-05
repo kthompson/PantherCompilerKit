@@ -131,6 +131,23 @@ object TestHelpers {
     }
   }
 
+  def mkEnumMember(text: string): MemberSyntax.EnumDeclarationSyntax = {
+    mkMember(text) match {
+      case member: MemberSyntax.EnumDeclarationSyntax => member
+      case _ => throw new AssertionError("Expected enum declaration")
+    }
+  }
+
+  /** The traits a `derive` attribute names, in source order. */
+  def derivedNames(attribute: DeriveAttributeSyntax): Seq[String] = {
+    def walk(traits: List[DerivedTraitSyntax]): Seq[String] =
+      traits match {
+        case List.Nil              => Seq.empty
+        case List.Cons(head, tail) => head.name.text +: walk(tail)
+      }
+    walk(attribute.traits)
+  }
+
   def assertFunctionMember(
       member: MemberSyntax
   ): MemberSyntax.FunctionDeclarationSyntax = {

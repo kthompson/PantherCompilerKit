@@ -82,7 +82,31 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
     printToken(node.closeBrace)
   }
 
+  def printDeriveAttribute(node: Option[DeriveAttributeSyntax]): unit = {
+    node match {
+      case Option.None => ()
+      case Option.Some(attribute) =>
+        printToken(attribute.openBracketToken)
+        printTokenWithColor(attribute.deriveToken, ColorPalette.Keyword)
+        printToken(attribute.openParenToken)
+        printDerivedTraits(attribute.traits)
+        printToken(attribute.closeParenToken)
+        printToken(attribute.closeBracketToken)
+    }
+  }
+
+  def printDerivedTraits(traits: List[DerivedTraitSyntax]): unit = {
+    traits match {
+      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        printTokenWithColor(head.name, ColorPalette.Identifier)
+        printOptionalToken(head.commaToken)
+        printDerivedTraits(tail)
+    }
+  }
+
   def printClassDeclaration(node: MemberSyntax.ClassDeclarationSyntax): unit = {
+    printDeriveAttribute(node.derives)
     printTokenWithColor(node.classKeyword, ColorPalette.Keyword)
     printTokenWithColor(node.identifier, ColorPalette.Identifier)
     node.genericParameters match {

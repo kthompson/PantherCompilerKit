@@ -481,7 +481,73 @@ class Parser(
     }
   }
 
-  def parseClassDeclaration(): MemberSyntax = {
+  /** `[derive(Eq, Ord, Show)]`, when the member starts with one.
+    *
+    * Unambiguous at member position: no expression in the language starts
+    * with `[` — generic arguments and indexing are both postfix — so a
+    * bracket here can only open an attribute.
+    */
+  def parseDeriveAttribute(): Option[DeriveAttributeSyntax] = {
+    if (currentKind() != SyntaxKind.OpenBracketToken) Option.None
+    else {
+      debugPrint("parseDeriveAttribute")
+      val openBracket = accept()
+      val derive = acceptKind(SyntaxKind.IdentifierToken)
+
+      // `derive` is the only attribute there is, and it is contextual like
+      // `operator`: reserving it would take a name the sources use.
+      if (derive.text != "derive") {
+        diagnostics.reportUnknownAttribute(derive.location, derive.text)
+      } else ()
+
+      val openParen = acceptKind(SyntaxKind.OpenParenToken)
+      val traits = parseDerivedTraits()
+      val closeParen = acceptKind(SyntaxKind.CloseParenToken)
+      val closeBracket = acceptKind(SyntaxKind.CloseBracketToken)
+
+      Option.Some(
+        new DeriveAttributeSyntax(
+          openBracket,
+          derive,
+          openParen,
+          traits,
+          closeParen,
+          closeBracket
+        )
+      )
+    }
+  }
+
+  def parseDerivedTraits(): List[DerivedTraitSyntax] = {
+    var traits: List[DerivedTraitSyntax] = List.Nil
+    var more = true
+
+    while (
+      more &&
+      currentKind() != SyntaxKind.CloseParenToken &&
+      currentKind() != SyntaxKind.EndOfInputToken
+    ) {
+      val name = acceptKind(SyntaxKind.IdentifierToken)
+      // annotated: the self-hosted compiler does not widen the branches of an
+      // `if` to their common supertype
+      val comma: Option[SyntaxToken] =
+        if (currentKind() == SyntaxKind.CommaToken) {
+          Option.Some(accept())
+        } else {
+          // the last name in the list; anything else is the caller's `)`
+          more = false
+          Option.None
+        }
+
+      traits = List.Cons(new DerivedTraitSyntax(name, comma), traits)
+    }
+
+    ListModule.reverse(traits)
+  }
+
+  def parseClassDeclaration(
+      derives: Option[DeriveAttributeSyntax]
+  ): MemberSyntax = {
     debugPrint("parseClassDeclaration")
 
     val caseKeyword = if (currentKind() == SyntaxKind.CaseKeyword) {
@@ -502,6 +568,7 @@ class Parser(
     }
 
     new ClassDeclarationSyntax(
+      derives,
       caseKeyword,
       keyword,
       identifier,
@@ -1272,7 +1339,9 @@ class Parser(
     )
   }
 
-  def parseEnumDeclaration(): MemberSyntax = {
+  def parseEnumDeclaration(
+      derives: Option[DeriveAttributeSyntax]
+  ): MemberSyntax = {
     debugPrint("parseEnumDeclaration")
 
     val enumKeyword = accept()
@@ -1284,6 +1353,7 @@ class Parser(
     val close = acceptKind(SyntaxKind.CloseBraceToken)
 
     new EnumDeclarationSyntax(
+      derives,
       enumKeyword,
       identifier,
       typeParams,
@@ -1397,28 +1467,59 @@ class Parser(
 
   def parseMember(topLevelStatement: bool): MemberSyntax = {
     debugPrint("parseMember")
+
+    // Only a class or an enum can be derived for, so an attribute on anything
+    // else is reported where the member is parsed rather than here — the
+    // attribute has already been consumed by then and the member is what the
+    // reader has to change.
+    val derives = parseDeriveAttribute()
+
     val kind = currentKind()
     if (kind == SyntaxKind.ObjectKeyword) {
+      rejectDerives(derives, "an object")
       parseObjectDeclaration()
     } else if (
       kind == SyntaxKind.CaseKeyword && scala ||
       kind == SyntaxKind.ClassKeyword
     ) {
-      parseClassDeclaration()
+      parseClassDeclaration(derives)
     } else if (kind == SyntaxKind.DefKeyword) {
+      rejectDerives(derives, "a function")
       parseFunctionDeclaration()
     } else if (kind == SyntaxKind.EnumKeyword) {
-      parseEnumDeclaration()
+      parseEnumDeclaration(derives)
     } else if (kind == SyntaxKind.TraitKeyword) {
+      rejectDerives(derives, "a trait")
       parseTraitDeclaration()
     } else if (kind == SyntaxKind.GivenKeyword) {
+      rejectDerives(derives, "a given")
       parseGivenDeclaration()
     } else if (isOperatorDeclaration()) {
+      rejectDerives(derives, "an operator")
       parseOperatorDeclaration()
     } else if (kind == SyntaxKind.ValKeyword || kind == SyntaxKind.VarKeyword) {
+      rejectDerives(derives, "a variable")
       parseVariableDeclaration()
     } else {
+      rejectDerives(derives, "a statement")
       parseGlobalStatement()
+    }
+  }
+
+  /** A `derive` attribute belongs on a class or an enum: those are the only
+    * declarations with constructor parameters to derive over.
+    */
+  def rejectDerives(
+      derives: Option[DeriveAttributeSyntax],
+      what: string
+  ): unit = {
+    derives match {
+      case Option.None => ()
+      case Option.Some(attribute) =>
+        diagnostics.reportDeriveNotSupported(
+          attribute.deriveToken.location,
+          what
+        )
     }
   }
 

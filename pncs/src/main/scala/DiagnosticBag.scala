@@ -230,6 +230,17 @@ case class DiagnosticBag(settings: CompilerSettings) {
     * from a library
     * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
     */
+  /** `[trace(…)]`. `derive` is the only attribute the language has. */
+  def reportUnknownAttribute(location: TextLocation, name: string): unit =
+    report(location, name + " is not an attribute")
+
+  /** `[derive(Eq)] def f() = 1`. Derivation is over constructor parameters, so
+    * only a class or an enum has anything to derive
+    * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+    */
+  def reportDeriveNotSupported(location: TextLocation, what: string): unit =
+    report(location, "derive cannot be applied to " + what)
+
   def reportNotABinaryOperator(location: TextLocation, op: string): unit =
     report(location, op + " is not a binary operator and cannot be declared")
 
