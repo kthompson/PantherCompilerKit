@@ -27,7 +27,7 @@ reproduces the measurement. Re-run them rather than trusting the number.
 sbt pncs/compile && sbt test/test
 ```
 
-Green: 300 tests across the lexer, parser, binder, type checker, VM, metadata
+Green: 309 tests across the lexer, parser, binder, type checker, VM, metadata
 format, and args parser.
 
 ### The self-hosted compiler does not
@@ -545,7 +545,7 @@ Things that do not belong to one goal but block several.
   blocks in §4.1.
 - **No lexer support for exponents or shifts**
   ([`Lexer.scala:243`](pncs/src/main/scala/Lexer.scala:243)).
-- **Test coverage is stage-shaped, not feature-shaped.** 300 tests, but
+- **Test coverage is stage-shaped, not feature-shaped.** 309 tests, but
   `MetadataTests` has 2 and there is no end-to-end test that takes source all
   the way to output. §3.4 is the fix.
 

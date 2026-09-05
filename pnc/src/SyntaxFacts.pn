@@ -60,6 +60,7 @@ object SyntaxFacts {
     else if (kind == SyntaxKind.FunctionBody) "FunctionBody"
     else if (kind == SyntaxKind.FunctionDeclaration) "FunctionDeclaration"
     else if (kind == SyntaxKind.GenericName) "GenericName"
+    else if (kind == SyntaxKind.GivenDeclaration) "GivenDeclaration"
     else if (kind == SyntaxKind.GivenKeyword) "GivenKeyword"
     else if (kind == SyntaxKind.GlobalStatement) "GlobalStatement"
     else if (kind == SyntaxKind.GreaterThanEqualsToken) "GreaterThanEqualsToken"

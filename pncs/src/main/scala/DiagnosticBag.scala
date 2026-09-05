@@ -152,6 +152,33 @@ case class DiagnosticBag(settings: CompilerSettings) {
   def reportTraitNotInstantiable(location: TextLocation, name: string): unit =
     report(location, "Trait " + name + " cannot be instantiated")
 
+  /** `given Foo[int]` where `Foo` is a class. A given proves a trait holds. */
+  def reportGivenHeadNotATrait(location: TextLocation, name: string): unit =
+    report(location, name + " is not a trait, so it cannot have a given")
+
+  /** `given Eq { … }` — the trait is not applied to anything, so the
+    * declaration does not say which type it is evidence for.
+    */
+  def reportGivenHeadMissingArguments(
+      location: TextLocation,
+      name: string
+  ): unit =
+    report(location, "Given for " + name + " needs type arguments")
+
+  /** Global coherence: at most one given per `(trait, type)` pair in the whole
+    * program. Overlap is unification, so `Ord[List[T]]` collides with
+    * `Ord[List[int]]`.
+    */
+  def reportOverlappingGiven(
+      location: TextLocation,
+      head: string,
+      existing: TextLocation
+  ): unit =
+    report(
+      location,
+      "Given for " + head + " overlaps the one at " + existing.toString()
+    )
+
   /** `[K: Foo]` where `Foo` is a class or object. A context bound asks for
     * evidence, and only a trait can be evidenced.
     */

@@ -124,6 +124,25 @@ object TestHelpers {
     }
   }
 
+  /** The heads of every registered given, in source order. `binder.givens`
+    * accumulates in reverse, so this flips it back.
+    */
+  def givenHeads(comp: Compilation): Seq[String] = {
+    def walk(givens: List[BoundGiven]): Seq[String] =
+      givens match {
+        case List.Nil              => Seq.empty
+        case List.Cons(head, tail) => walk(tail) :+ head.head.toString()
+      }
+    walk(comp.binder.givens)
+  }
+
+  def mkGivenMember(text: string): MemberSyntax.GivenDeclarationSyntax = {
+    mkMember(text) match {
+      case member: MemberSyntax.GivenDeclarationSyntax => member
+      case _ => throw new AssertionError("Expected given declaration")
+    }
+  }
+
   def mkTraitMember(text: string): MemberSyntax.TraitDeclarationSyntax = {
     mkMember(text) match {
       case member: MemberSyntax.TraitDeclarationSyntax => member

@@ -7,6 +7,12 @@ enum SymbolKind {
     * instantiated and is the only thing a context bound or a `given` may name.
     */
   case Trait
+
+  /** Evidence that a type satisfies a trait. Distinct from `Class` so that
+    * metadata emission and `getMethodParameterMap` can tell evidence apart from
+    * an ordinary type — the lesson from `This` below.
+    */
+  case Given
   case Alias
 
   case TypeParameter(variance: Variance)

@@ -53,6 +53,7 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
       case value: ClassDeclarationSyntax    => printClassDeclaration(value)
       case value: FunctionDeclarationSyntax => printFunctionDeclaration(value)
       case value: TraitDeclarationSyntax    => printTraitDeclaration(value)
+      case value: GivenDeclarationSyntax    => printGivenDeclaration(value)
       case value: GlobalStatementSyntax     => printGlobalStatement(value)
       case value: VariableDeclaration =>
         panic("VariableDeclaration not implemented")
@@ -101,6 +102,20 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
       case Option.None        => ()
       case Option.Some(value) => printGenericParameters(value)
     }
+    printTemplate(node.template)
+  }
+
+  def printGivenDeclaration(node: MemberSyntax.GivenDeclarationSyntax): unit = {
+    printTokenWithColor(node.givenKeyword, ColorPalette.Keyword)
+    node.genericParameters match {
+      case Option.None        => ()
+      case Option.Some(value) => printGenericParameters(value)
+    }
+    node.arrowToken match {
+      case Option.None        => ()
+      case Option.Some(value) => printTokenWithColor(value, ColorPalette.Keyword)
+    }
+    printName(node.name)
     printTemplate(node.template)
   }
 
@@ -763,6 +778,9 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
       case SymbolKind.Trait =>
         writeColor(ColorPalette.Keyword)
         append("Trait")
+      case SymbolKind.Given =>
+        writeColor(ColorPalette.Keyword)
+        append("Given")
       case SymbolKind.Alias =>
         writeColor(ColorPalette.Keyword)
         append("Alias")

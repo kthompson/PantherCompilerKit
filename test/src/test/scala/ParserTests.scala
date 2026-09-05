@@ -325,6 +325,34 @@ class ParserTests extends AnyFunSpec with Matchers {
       assertNone(typeParam.variance)
     }
 
+    it("should parse an unconditional given") {
+      val decl = mkGivenMember(
+        "given Eq[int] { def equals(a: int, b: int): bool = a == b }"
+      )
+      assertTokenKind(SyntaxKind.GivenKeyword, decl.givenKeyword)
+      assertName("Eq[int]", decl.name)
+
+      // nothing to bind, so no parameter list and no arrow
+      assertNone(decl.genericParameters)
+      assertNone(decl.arrowToken)
+    }
+
+    it("should parse a conditional given") {
+      val decl = mkGivenMember(
+        "given [T: Ord] => Ord[Box[T]] { def compare(a: Box[T], b: Box[T]): int = 0 }"
+      )
+      val generics = assertSome(decl.genericParameters)
+      val typeParam = assertSingle(generics.parameters.items)
+      assertTokenText("T", typeParam.identifier)
+      assertName("Ord", assertSome(typeParam.bounds).name)
+
+      assertTokenKind(
+        SyntaxKind.EqualsGreaterThanToken,
+        assertSome(decl.arrowToken)
+      )
+      assertName("Ord[Box[T]]", decl.name)
+    }
+
     it("should parse a context bound on a function") {
       val fn = mkFunctionMember("def same[K: Eq](a: K, b: K): bool = true")
       val generics = assertSome(fn.genericParameters)

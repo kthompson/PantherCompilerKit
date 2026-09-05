@@ -133,6 +133,7 @@ object SyntaxKind {
   val ObjectDeclaration = 132
   val GlobalStatement = 133
   val TraitDeclaration = 134
+  val GivenDeclaration = 135
 
   // Top level items
   val UsingDirective = 140

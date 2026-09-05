@@ -144,6 +144,8 @@ case class Transpiler(
         transpileEnumDeclaration(value, context)
       case value: TraitDeclarationSyntax =>
         transpileTraitDeclaration(value, context)
+      case value: GivenDeclarationSyntax =>
+        transpileGivenDeclaration(value, context)
       case value: VariableDeclaration =>
         transpileVariableDeclaration(value, context)
       case value: GlobalStatementSyntax =>
@@ -272,6 +274,25 @@ case class Transpiler(
     transpileToken(decl.traitKeyword, context)
     transpileToken(decl.identifier, context)
     transpileGenericParameters(decl.genericParameters, context)
+    transpileTemplate(decl.template, context)
+  }
+
+  /** Panther and Scala 3.6 spell a given the same way, but this compiler builds
+    * on Scala 3.3, whose `given` syntax differs. Nothing in the transpiled
+    * sources declares one yet, so this walks the tokens and the mismatch stays
+    * theoretical until the first given is written in `pncs`.
+    */
+  def transpileGivenDeclaration(
+      decl: MemberSyntax.GivenDeclarationSyntax,
+      context: TranspilerContext
+  ): unit = {
+    transpileToken(decl.givenKeyword, context)
+    transpileGenericParameters(decl.genericParameters, context)
+    decl.arrowToken match {
+      case Option.Some(arrow) => transpileToken(arrow, context)
+      case Option.None        =>
+    }
+    transpileName(decl.name, context)
     transpileTemplate(decl.template, context)
   }
 

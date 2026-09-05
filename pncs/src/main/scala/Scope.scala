@@ -40,6 +40,12 @@ case class Scope(current: Symbol, imports: List[Symbol]) {
   ): Either[TextLocation, Symbol] =
     current.tryDefineTrait(name, location)
 
+  def defineGiven(
+      name: string,
+      location: TextLocation
+  ): Either[TextLocation, Symbol] =
+    current.tryDefineGiven(name, location)
+
   def defineTypeParameter(
       name: string,
       location: TextLocation,

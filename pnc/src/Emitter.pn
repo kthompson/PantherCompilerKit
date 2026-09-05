@@ -914,6 +914,11 @@ class Emitter(
       // members as bodiless methods.
       case SymbolKind.Trait =>
 
+      // A given's runtime form is the evidence record, which ADR 0005 defines
+      // and nothing builds yet. Emitting it as an ordinary type would give it a
+      // TypeDef and a constructor it never gets called through.
+      case SymbolKind.Given =>
+
       // the receiver is not a declared parameter; the VM accounts for it
       // through MethodMetadata.hasThis
       case SymbolKind.This =>

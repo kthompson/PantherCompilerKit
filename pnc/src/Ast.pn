@@ -292,6 +292,21 @@ enum MemberSyntax {
       genericParameters: Option[GenericParametersSyntax],
       template: TemplateSyntax
   )
+  /** `given Eq[int] { … }`, or with a premise,
+    * `given [T: Ord] => Ord[List[T]] { … }`.
+    *
+    * The type parameters and the `=>` travel together: a given with nothing to
+    * bind has neither. There is no name — under global coherence there is one
+    * given per `(trait, type)` pair, so a name would have nothing to select
+    * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+    */
+  case GivenDeclarationSyntax(
+      givenKeyword: SyntaxToken,
+      genericParameters: Option[GenericParametersSyntax],
+      arrowToken: Option[SyntaxToken],
+      name: NameSyntax,
+      template: TemplateSyntax
+  )
   case GlobalStatementSyntax(statement: StatementSyntax)
   case EnumDeclarationSyntax(
       enumKeyword: SyntaxToken,
@@ -356,6 +371,10 @@ object AstUtils {
         )
       case member: MemberSyntax.TraitDeclarationSyntax =>
         member.traitKeyword.location.merge(
+          member.template.closeBrace.location
+        )
+      case member: MemberSyntax.GivenDeclarationSyntax =>
+        member.givenKeyword.location.merge(
           member.template.closeBrace.location
         )
       case member: MemberSyntax.VariableDeclaration =>

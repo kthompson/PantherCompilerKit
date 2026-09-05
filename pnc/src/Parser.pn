@@ -365,6 +365,34 @@ class Parser(
     )
   }
 
+  /** `given Eq[int] { … }` and `given [T: Ord] => Ord[List[T]] { … }`.
+    *
+    * The bracketed parameter list, when present, is the premise, and `=>`
+    * separates it from the trait head. There is no ambiguity to resolve: an
+    * unconditional given starts with the trait's identifier, a conditional one
+    * with `[`.
+    */
+  def parseGivenDeclaration(): MemberSyntax = {
+    debugPrint("parseGivenDeclaration")
+    val keyword = acceptKind(SyntaxKind.GivenKeyword)
+    val typeParams = parseGenericTypeParameters()
+    val arrow = typeParams match {
+      case Option.None => Option.None
+      case Option.Some(_) =>
+        Option.Some(acceptKind(SyntaxKind.EqualsGreaterThanToken))
+    }
+    val name = parseName(false)
+    val template = parseTemplate()
+
+    new MemberSyntax.GivenDeclarationSyntax(
+      keyword,
+      typeParams,
+      arrow,
+      name,
+      template
+    )
+  }
+
   def parseGenericTypeParameters(): Option[GenericParametersSyntax] = {
     debugPrint("parseGenericTypeParameters")
 
@@ -1314,6 +1342,8 @@ class Parser(
       parseEnumDeclaration()
     } else if (kind == SyntaxKind.TraitKeyword) {
       parseTraitDeclaration()
+    } else if (kind == SyntaxKind.GivenKeyword) {
+      parseGivenDeclaration()
     } else if (kind == SyntaxKind.ValKeyword || kind == SyntaxKind.VarKeyword) {
       parseVariableDeclaration()
     } else {

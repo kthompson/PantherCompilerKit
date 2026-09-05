@@ -526,6 +526,95 @@ class BinderTests extends AnyFunSpec with Matchers {
       diagnosticMessages(comp) should contain("Type Nope not defined")
     }
 
+    it("should register a given globally") {
+      val comp = mkCompilation(
+        "trait Eq[T] { def equals(a: T, b: T): bool }\n" +
+          "given Eq[int] { def equals(a: int, b: int): bool = a == b }\n" +
+          "given Eq[string] { def equals(a: string, b: string): bool = a == b }"
+      )
+      givenHeads(comp) shouldBe Seq("Eq<int>", "Eq<string>")
+    }
+
+    /** A conditional given records its head applied to its own type variable,
+      * so `given [T: Ord] => Ord[Box[T]]` registers as `Ord<Box<$0>>`.
+      */
+    it("should register a conditional given") {
+      val comp = mkCompilation(
+        "trait Ord[T] { def compare(a: T, b: T): int }\n" +
+          "class Box[T](value: T)\n" +
+          "given [T: Ord] => Ord[Box[T]] {\n" +
+          "  def compare(a: Box[T], b: Box[T]): int = 0\n" +
+          "}"
+      )
+      givenHeads(comp) shouldBe Seq("Ord<Box<$0>>")
+    }
+
+    it("should reject a second given for the same pair") {
+      val comp = mkFailingCompilation(
+        "trait Eq[T] { def equals(a: T, b: T): bool }\n" +
+          "given Eq[int] { def equals(a: int, b: int): bool = a == b }\n" +
+          "given Eq[int] { def equals(a: int, b: int): bool = false }"
+      )
+      diagnosticMessages(comp) should contain(
+        "Given for Eq<int> overlaps the one at :2:8"
+      )
+      // only the first survives
+      givenHeads(comp) shouldBe Seq("Eq<int>")
+    }
+
+    /** Overlap is unification, not equality: `Ord[Box[T]]` and `Ord[Box[int]]`
+      * are two givens for one pair as soon as `T` can be `int`. Comparing type
+      * arguments structurally would let this pair through.
+      */
+    it("should reject a concrete given overlapping a conditional one") {
+      val comp = mkFailingCompilation(
+        "trait Ord[T] { def compare(a: T, b: T): int }\n" +
+          "class Box[T](value: T)\n" +
+          "given [T: Ord] => Ord[Box[T]] {\n" +
+          "  def compare(a: Box[T], b: Box[T]): int = 0\n" +
+          "}\n" +
+          "given Ord[Box[int]] {\n" +
+          "  def compare(a: Box[int], b: Box[int]): int = 0\n" +
+          "}"
+      )
+      diagnosticMessages(comp) should contain(
+        "Given for Ord<Box<int>> overlaps the one at :3:20"
+      )
+    }
+
+    it("should allow givens whose heads cannot unify") {
+      val comp = mkCompilation(
+        "trait Ord[T] { def compare(a: T, b: T): int }\n" +
+          "class Box[T](value: T)\n" +
+          "class Bag[T](value: T)\n" +
+          "given [T: Ord] => Ord[Box[T]] {\n" +
+          "  def compare(a: Box[T], b: Box[T]): int = 0\n" +
+          "}\n" +
+          "given Ord[Bag[int]] {\n" +
+          "  def compare(a: Bag[int], b: Bag[int]): int = 0\n" +
+          "}"
+      )
+      givenHeads(comp) shouldBe Seq("Ord<Box<$0>>", "Ord<Bag<int>>")
+    }
+
+    it("should reject a given whose head is not a trait") {
+      val comp = mkFailingCompilation("class Foo()\ngiven Foo[int] { }")
+      diagnosticMessages(comp) should contain(
+        "Foo is not a trait, so it cannot have a given"
+      )
+      givenHeads(comp) shouldBe Seq.empty
+    }
+
+    it("should reject a given whose head has no type arguments") {
+      val comp = mkFailingCompilation(
+        "trait Eq[T] { def equals(a: T, b: T): bool }\ngiven Eq { }"
+      )
+      diagnosticMessages(comp) should contain(
+        "Given for Eq needs type arguments"
+      )
+      givenHeads(comp) shouldBe Seq.empty
+    }
+
     /** Which declaration is reported as the duplicate follows binding order,
       * not source order, and traits bind before classes — so the class is the
       * one flagged here even though it is written second. That is pre-existing

@@ -6,6 +6,7 @@ case class Members(
     functions: List[MemberSyntax.FunctionDeclarationSyntax],
     enums: List[Namespaced[MemberSyntax.EnumDeclarationSyntax]],
     traits: List[Namespaced[MemberSyntax.TraitDeclarationSyntax]],
+    givens: List[Namespaced[MemberSyntax.GivenDeclarationSyntax]],
     fields: List[MemberSyntax.VariableDeclaration],
 
     // top level variable declarations are converted to top level assignments so that we can maintain the order
@@ -39,6 +40,21 @@ enum FieldOptions {
   case TypeOnly(fieldType: Type)
   case ExpressionOnly(expression: Expression)
 }
+
+/** A `given` as the resolver needs it: what it proves, and what it needs first.
+  *
+  * `head` is the trait applied to its arguments — `Eq[int]`, or `Ord[List[$0]]`
+  * for a conditional given, where `$0` is the given's own type parameter.
+  * `constraints` are that given's context bounds, the premises of the
+  * implication.
+  */
+case class BoundGiven(
+    symbol: Symbol,
+    head: Type,
+    generics: List[GenericTypeParameter],
+    constraints: List[Type],
+    location: TextLocation
+)
 
 case class ConstructorParams(
     genericTypeParameters: List[GenericTypeParameter],
@@ -353,6 +369,15 @@ case class Binder(
   /** static constructors to call on runtime initialization */
   var staticCtors: List[Symbol] = List.Nil
 
+  /** every `given` in the program, in reverse source order. Global rather than
+    * per-scope: coherence is a whole-program rule, so a given declared anywhere
+    * is a candidate everywhere.
+    */
+  var givens: List[BoundGiven] = List.Nil
+
+  /** numbers the anonymous given symbols, in source order */
+  var givenCount: int = 0
+
   val classifier = new ConversionClassifier(this)
   val exprBinder: ExprBinder =
     new ExprBinder(rootSymbol, this, classifier, diagnosticBag)
@@ -406,6 +431,7 @@ case class Binder(
       members.objects,
       members.enums,
       members.traits,
+      members.givens,
       rootScope
     )
 
@@ -1313,6 +1339,7 @@ case class Binder(
       objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
       enums: List[Namespaced[MemberSyntax.EnumDeclarationSyntax]],
       traits: List[Namespaced[MemberSyntax.TraitDeclarationSyntax]],
+      givens: List[Namespaced[MemberSyntax.GivenDeclarationSyntax]],
       scope: Scope
   ): unit = {
     // Traits first: a context bound on a class resolves its trait while the
@@ -1323,6 +1350,9 @@ case class Binder(
     bindObjects(objects, scope)
     bindClasses(classes, scope)
     bindEnums(enums, scope)
+    // Givens last: a head like `Eq[Box[int]]` names both a trait and a type,
+    // so everything else has to be defined first.
+    bindGivens(givens, scope)
   }
 
   def bindTraits(
@@ -1394,6 +1424,7 @@ case class Binder(
           members.objects,
           members.enums,
           members.traits,
+          members.givens,
           scope.enterSymbol(symbol)
         )
         addMembersToBind(
@@ -1467,6 +1498,7 @@ case class Binder(
           members.objects,
           members.enums,
           members.traits,
+          members.givens,
           enumScope
         )
 
@@ -1644,6 +1676,7 @@ case class Binder(
               members.objects,
               members.enums,
               members.traits,
+              members.givens,
               scope.enterSymbol(symbol)
             )
             addMembersToBind(
@@ -1718,6 +1751,175 @@ case class Binder(
               bindGenericTypeParametersWithIndex(tail, scope, index + 1)
             )
         }
+    }
+  }
+
+  def bindGivens(
+      givens: List[Namespaced[MemberSyntax.GivenDeclarationSyntax]],
+      scope: Scope
+  ): unit = {
+    givens match {
+      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        bindGiven(head, scope)
+        bindGivens(tail, scope)
+    }
+  }
+
+  /** Binds one `given` and registers it.
+    *
+    * The symbol is named after its position rather than its head: a given has
+    * no user-visible name, and the head type is not known until the given's own
+    * type parameters are in scope. Numbering follows source order, so it stays
+    * deterministic for stage 3.
+    */
+  def bindGiven(
+      head: Namespaced[MemberSyntax.GivenDeclarationSyntax],
+      scope: Scope
+  ): unit = {
+    val location = AstUtils.locationOfName(head.value.name)
+    val name = "$given$" + string(givenCount)
+    givenCount = givenCount + 1
+
+    scope.defineGiven(name, location) match {
+      case Either.Left(existing) =>
+        diagnosticBag.reportDuplicateDefinition(name, existing, location)
+      case Either.Right(symbol) =>
+        val givenScope = scope.enterSymbol(symbol)
+
+        val generics: List[GenericTypeParameter] =
+          head.value.genericParameters match {
+            case Option.None => List.Nil
+            case Option.Some(value) =>
+              bindGenericTypeParameters(value.parameters.items, givenScope)
+          }
+        val constraints: List[Type] = head.value.genericParameters match {
+          case Option.None => List.Nil
+          case Option.Some(value) =>
+            bindGenericConstraints(value.parameters.items, givenScope)
+        }
+
+        val headType = bindTypeName(head.value.name, givenScope)
+        setSymbolType(symbol, headType)
+
+        checkGivenHead(headType, location) match {
+          case false =>
+          case true =>
+            registerGiven(
+              BoundGiven(symbol, headType, generics, constraints, location)
+            )
+        }
+
+        val members = splitMembers(List.Nil, head.value.template.members)
+        bindClassesObjectAndEnums(
+          members.classes,
+          members.objects,
+          members.enums,
+          members.traits,
+          members.givens,
+          givenScope
+        )
+        addMembersToBind(
+          symbol,
+          members.functions,
+          members.fields,
+          List.Nil
+        )
+    }
+  }
+
+  /** A given's head has to name a trait applied to arguments. `given Foo[int]`
+    * where `Foo` is a class proves nothing.
+    */
+  def checkGivenHead(headType: Type, location: TextLocation): bool = {
+    headType match {
+      case Type.Error(_) =>
+        // already reported by bindTypeName
+        false
+      case Type.Class(_, _, name, args, symbol) =>
+        if (symbol.kind != SymbolKind.Trait) {
+          diagnosticBag.reportGivenHeadNotATrait(location, name)
+          false
+        } else if (args.isEmpty) {
+          diagnosticBag.reportGivenHeadMissingArguments(location, name)
+          false
+        } else true
+      // A generic trait named without arguments stays uninstantiated, so
+      // `given Eq { … }` lands here rather than in the `args.isEmpty` branch.
+      case Type.GenericClass(_, _, name, _, symbol) =>
+        if (symbol.kind != SymbolKind.Trait) {
+          diagnosticBag.reportGivenHeadNotATrait(location, name)
+        } else {
+          diagnosticBag.reportGivenHeadMissingArguments(location, name)
+        }
+        false
+      case _ =>
+        diagnosticBag.reportGivenHeadNotATrait(location, headType.toString())
+        false
+    }
+  }
+
+  /** Registration is global even though declaration is lexical: under global
+    * coherence a given in a sibling namespace is still the only candidate, so
+    * it has to be reachable. The declaration site is kept on `BoundGiven` but
+    * does not limit visibility yet — restricting it is what relaxing to true
+    * lexical scoping would turn on
+    * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+    */
+  def registerGiven(candidate: BoundGiven): unit = {
+    findOverlappingGiven(candidate, givens) match {
+      case Option.Some(existing) =>
+        diagnosticBag.reportOverlappingGiven(
+          candidate.location,
+          candidate.head.toString(),
+          existing.location
+        )
+      case Option.None =>
+        givens = List.Cons(candidate, givens)
+    }
+  }
+
+  def findOverlappingGiven(
+      candidate: BoundGiven,
+      existing: List[BoundGiven]
+  ): Option[BoundGiven] = {
+    existing match {
+      case List.Nil => Option.None
+      case List.Cons(head, tail) =>
+        if (typesOverlap(candidate.head, head.head)) Option.Some(head)
+        else findOverlappingGiven(candidate, tail)
+    }
+  }
+
+  /** Whether two given heads could ever denote the same instance.
+    *
+    * Overlap is unification, not equality: `Ord[List[T]]` and `Ord[List[int]]`
+    * are two givens for one pair the moment `T` can be `int`, and comparing
+    * arguments structurally would let exactly that pair through. A
+    * `Type.Variable` therefore matches anything — which is sound in the
+    * rejecting direction and is all the coherence rule needs, since there is no
+    * specificity contest to win.
+    */
+  def typesOverlap(left: Type, right: Type): bool = {
+    Tuple2(left, right) match {
+      case Tuple2(Type.Variable(_, _), _) => true
+      case Tuple2(_, Type.Variable(_, _)) => true
+      case Tuple2(
+            Type.Class(_, _, leftName, leftArgs, leftSymbol),
+            Type.Class(_, _, rightName, rightArgs, rightSymbol)
+          ) =>
+        leftSymbol == rightSymbol && leftName == rightName &&
+        typeListsOverlap(leftArgs, rightArgs)
+      case _ => left == right
+    }
+  }
+
+  def typeListsOverlap(left: List[Type], right: List[Type]): bool = {
+    Tuple2(left, right) match {
+      case Tuple2(List.Nil, List.Nil) => true
+      case Tuple2(List.Cons(l, lt), List.Cons(r, rt)) =>
+        typesOverlap(l, r) && typeListsOverlap(lt, rt)
+      case _ => false
     }
   }
 
@@ -1885,6 +2087,7 @@ case class Binder(
           members.objects,
           members.enums,
           members.traits,
+          members.givens,
           scope.enterSymbol(symbol)
         )
         setSymbolType(
@@ -2078,6 +2281,7 @@ case class Binder(
       List.Nil,
       List.Nil,
       List.Nil,
+      List.Nil,
       List.Nil
     )
   }
@@ -2087,6 +2291,7 @@ case class Binder(
       ns,
       List.Nil,
       members,
+      List.Nil,
       List.Nil,
       List.Nil,
       List.Nil,
@@ -2136,6 +2341,7 @@ case class Binder(
       classes: List[Namespaced[MemberSyntax.ClassDeclarationSyntax]],
       enums: List[Namespaced[MemberSyntax.EnumDeclarationSyntax]],
       traits: List[Namespaced[MemberSyntax.TraitDeclarationSyntax]],
+      givens: List[Namespaced[MemberSyntax.GivenDeclarationSyntax]],
       fields: List[MemberSyntax.VariableDeclaration],
       functions: List[MemberSyntax.FunctionDeclarationSyntax],
       globalStatements: List[MemberSyntax.GlobalStatementSyntax]
@@ -2150,6 +2356,7 @@ case class Binder(
               functions,
               enums,
               traits,
+              givens,
               fields,
               globalStatements
             )
@@ -2165,6 +2372,7 @@ case class Binder(
               classes,
               enums,
               traits,
+              givens,
               fields,
               functions,
               globalStatements
@@ -2182,6 +2390,7 @@ case class Binder(
           classes,
           enums,
           traits,
+          givens,
           fields,
           functions,
           globalStatements
@@ -2204,6 +2413,7 @@ case class Binder(
           rest.functions,
           rest.enums,
           rest.traits,
+          rest.givens,
           rest.fields,
           rest.globalStatements
         )
@@ -2214,6 +2424,7 @@ case class Binder(
           rest.functions,
           rest.enums,
           rest.traits,
+          rest.givens,
           rest.fields,
           rest.globalStatements
         )
@@ -2224,6 +2435,7 @@ case class Binder(
           List.Cons(member, rest.functions),
           rest.enums,
           rest.traits,
+          rest.givens,
           rest.fields,
           rest.globalStatements
         )
@@ -2234,6 +2446,7 @@ case class Binder(
           rest.functions,
           List.Cons(Namespaced(ns, member), rest.enums),
           rest.traits,
+          rest.givens,
           rest.fields,
           rest.globalStatements
         )
@@ -2244,6 +2457,18 @@ case class Binder(
           rest.functions,
           rest.enums,
           List.Cons(Namespaced(ns, member), rest.traits),
+          rest.givens,
+          rest.fields,
+          rest.globalStatements
+        )
+      case member: MemberSyntax.GivenDeclarationSyntax =>
+        Members(
+          rest.objects,
+          rest.classes,
+          rest.functions,
+          rest.enums,
+          rest.traits,
+          List.Cons(Namespaced(ns, member), rest.givens),
           rest.fields,
           rest.globalStatements
         )
@@ -2254,6 +2479,7 @@ case class Binder(
           rest.functions,
           rest.enums,
           rest.traits,
+          rest.givens,
           rest.fields,
           List.Cons(member, rest.globalStatements)
         )
@@ -2278,6 +2504,7 @@ case class Binder(
           rest.functions,
           rest.enums,
           rest.traits,
+          rest.givens,
           List.Cons(variable, rest.fields),
           List.Cons(statement, rest.globalStatements)
         )
