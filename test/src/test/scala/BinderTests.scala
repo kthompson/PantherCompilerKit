@@ -1086,6 +1086,17 @@ class BinderTests extends AnyFunSpec with Matchers {
       )
     }
 
+    /** An enum's derived members have to match the cases first, which the rule
+      * over constructor parameters does not describe. Reported rather than
+      * quietly deriving nothing.
+      */
+    it("should reject deriving for an enum") {
+      val comp = mkFailingCompilation(
+        "[derive(Eq)]\nenum Color { case Red()\ncase Green() }"
+      )
+      diagnosticMessages(comp) should contain("Cannot derive for an enum yet")
+    }
+
     /** A type whose parameter is another derived type composes: the inner
       * given is registered before any body is built, so the outer one finds
       * it.

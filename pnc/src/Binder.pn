@@ -1873,6 +1873,20 @@ class Binder(
 
         addMembersToBind(symbol, members.functions, members.fields, List.Nil)
         addStatementsToBind(symbol, members.globalStatements)
+        rejectEnumDerivation(head.value.derives)
+    }
+  }
+
+  /** An enum's derived members have to match the cases first and only then
+    * their parameters, which is a shape the class rule does not cover. The
+    * attribute parses on an enum so that the syntax is one thing rather than
+    * two; reporting is better than deriving nothing quietly.
+    */
+  def rejectEnumDerivation(derives: Option[DeriveAttributeSyntax]): unit = {
+    derives match {
+      case Option.None => ()
+      case Option.Some(attribute) =>
+        diagnosticBag.reportDeriveOnEnum(attribute.deriveToken.location)
     }
   }
 

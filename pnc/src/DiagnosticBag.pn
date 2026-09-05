@@ -258,6 +258,13 @@ class DiagnosticBag(settings: CompilerSettings) {
   def reportDeriveOnGenericType(location: TextLocation, name: string): unit =
     report(location, "Cannot derive for " + name + ": it has type parameters")
 
+  /** An enum's derived members have to match the cases first and only then
+    * their parameters, which is not what the rule over constructor parameters
+    * describes.
+    */
+  def reportDeriveOnEnum(location: TextLocation): unit =
+    report(location, "Cannot derive for an enum yet")
+
   /** Derivation needs evidence for every parameter type, and says which one is
     * missing rather than reporting the type as a whole.
     */

@@ -725,3 +725,124 @@ members at all.
   [ADR 0005](0005-evidence-representation.md)'s side of the gap.
 - **The orphan rule and named exceptions**, both deferred above and still
   deferred.
+
+## Outcome, second pass
+
+Four more commits, `cb38784`..`b96878e`. Operators, the prelude's traits and
+derivation are all built; three of the five items above are closed. Tests went
+336 → 380 and self-hosting diagnostics stayed at 195, which is the expected
+shape — none of this is what the transpiled sources are failing on.
+
+### Operators
+
+`operator ==(a: T, b: T): bool` inside a trait binds the token to that trait,
+and `a == b` resolves through the applicable evidence when the builtin table has
+no row for the operands. Both rules hold: only a token `SyntaxFacts` already
+produces may be declared, and a second trait claiming a taken token is a
+diagnostic.
+
+**`operator` is a contextual keyword, not a reserved one.** It cannot be
+reserved: the compiler's own sources use `operator` as an identifier 71 times —
+`BinaryOperator.operator`, `node.operator` — and `pncs` has to compile its
+transpiled twin. Three tokens settle it without ambiguity, because no member or
+statement position in those sources begins with `operator` followed by an
+operator token. `derive` is contextual for the same reason.
+
+**Resolution has two paths, and they are not interchangeable.** Inside a
+constrained generic the operands have a type parameter's type, and the evidence
+is a symbol the enclosing declaration holds, so the call goes through the record.
+On a ground type the given is known while binding and its members are static, so
+it compiles to an ordinary call. The same split now governs contextual
+extensions.
+
+**Evidence is tried before [ADR 0003](0003-equality-on-reference-types.md)'s
+identity rule, not after** — this ADR says evidence replaces it, and trying
+evidence first is the incremental form of that. Identity used to be folded into
+the operator-table lookup, where it would have answered before evidence was ever
+consulted. Nothing that compiled before stops compiling: a type with no `Eq`
+still compares by identity.
+
+### The prelude
+
+`Eq`, `Ord` and `Show` are synthesized in `Binder`, alongside the builtins that
+were already there, with eleven givens: `Eq` and `Show` for `int`, `string`,
+`bool` and `char`, `Ord` for all but `bool`. There is no `Ord[bool]` because the
+builtin operator table has no `<` on `bool`, so that body would have to be
+spelled out and `false < true` is not a question the sources ask.
+
+**The given bodies are bound expressions rather than parsed source**, which is
+the point: the check parsed source would go through is the one that sends
+`a == b` back looking for evidence. `Eq` and `Ord` are the operator the table
+already has a row for; `Show` is the conversion function the language already
+has.
+
+Prelude givens are named after what they prove — `$given$Eq$int` — rather than
+numbered, so the user's `$given$0` stays the first one they wrote.
+
+**A user trait may no longer be called `Eq`, `Ord` or `Show`, and may not claim
+a comparison token.** That is coherence working rather than a regression, but it
+is a visible cost: several tests had to be renamed.
+
+### Derivation
+
+`[derive(Eq, Ord, Show)]` parses ahead of a class or an enum and synthesizes a
+given for each trait it names, over the constructor parameters in declaration
+order, exactly as the table above specifies. Registration and body-building are
+separate passes: registering needs only the type and has to happen while the type
+binds, so that coherence sees the given and the evidence records can be laid out,
+while a body reads the types of the fields the constructor parameters became,
+which are not bound until later. Splitting them is also what makes a derived type
+whose parameter is itself derived work.
+
+Deviations from the decision above:
+
+- **Only `Eq`, `Ord` and `Show` can be derived.** Derivation is a rule about what
+  a trait means over a list of parameters, and there is no such rule for a trait
+  the compiler has never seen. This ADR implies it by listing exactly three; it
+  is now enforced.
+- **Only non-generic types.** `[derive(Eq)] class Box[T](value: T)` is a
+  diagnostic, because its derived given is conditional and a conditional given
+  still cannot reach its premise.
+- **Enums are not derived.** The cases would have to match first, which needs a
+  bound `match` with patterns rather than the expression shapes a class needs.
+  `[derive(Eq)] enum Color` parses and is reported, rather than quietly
+  deriving nothing.
+- **The transpiler does not supply the attribute.** `case class` still
+  transpiles to a plain class, so the 133 case classes remain without instances.
+  Turning that on is a separate step and will move the diagnostic count.
+
+**Contextual extensions now fire for a ground type**, closing the gap the first
+pass recorded. The open question there was what happens when a real member and an
+evidence member share a name; ordinary lookup answers it, because the extension is
+only reached once the type's own members have failed. Without this a derived
+`Show` could only be reached through a helper generic.
+
+### Three defects this uncovered
+
+All predate the work and were reachable only once derived members existed:
+
+- **An instance field's index is its offset within the object, but the emitter
+  numbered fields with a counter that ran across every type.** `string.length`
+  and `Array.length` took 0 and 1, so a user class's fields landed outside its
+  own allocation and the next `Newobj` zeroed them. Only visible with two objects
+  of a class with two or more fields, which nothing had.
+- **`Ceq` on two references panicked in the VM.**
+  [ADR 0003](0003-equality-on-reference-types.md) says `==` between reference
+  types is identity and the emitter has always emitted `Ceq` for it; the VM only
+  ever handled ints, bools and strings.
+- **`Stlocn` and `Ldlocn` were unimplemented.** The emitter has always emitted
+  them for the fifth local onward, and derived members are the first methods with
+  that many.
+
+`Dictionary`'s remaining recursive walks are now loops, for the reason `_remove`
+already was: the new binder methods pushed the symbol table past the stack limit
+again, this time in `_get`.
+
+### Still not built
+
+- **Associated members.** `T.empty` does not resolve.
+- **A conditional given cannot use its premise**, which is also what blocks
+  derivation for generic types.
+- **Enum derivation.**
+- **The transpiler's `[derive(…)]` for `case class`.**
+- **The orphan rule and named exceptions.**
