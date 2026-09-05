@@ -408,5 +408,65 @@ class BinderTests extends AnyFunSpec with Matchers {
       }
       foundPatternVariable shouldBe true
     }
+
+    /** A trait gets neither `this` nor `.ctor`, unlike the class tests above.
+      * That absence is the point: there is nothing to construct and no
+      * receiver, because evidence for a trait comes from a `given`.
+      */
+    it("should bind traits") {
+      val comp = mkCompilation("trait Show { def show(): string }")
+      val symbols = enumNonBuiltinSymbols(comp)
+
+      assertSymbol(symbols, SymbolKind.Trait, "Show")
+      assertSymbol(symbols, SymbolKind.Method, "show")
+
+      assertProgramSymbol(symbols)
+      assertMainSymbol(symbols)
+      assertNoSymbols(symbols)
+    }
+
+    it("should bind generic traits") {
+      val comp = mkCompilation("trait Eq[T] { def equals(a: T, b: T): bool }")
+      val symbols = enumNonBuiltinSymbols(comp)
+
+      val eq = assertSymbol(symbols, SymbolKind.Trait, "Eq")
+      assertSymbolType(comp, eq, "Eq<T>")
+
+      assertSymbol(symbols, SymbolKind.TypeParameter(Variance.Invariant), "T")
+      assertSymbol(symbols, SymbolKind.Method, "equals")
+      assertSymbol(symbols, SymbolKind.Parameter, "a")
+      assertSymbol(symbols, SymbolKind.Parameter, "b")
+
+      assertProgramSymbol(symbols)
+      assertMainSymbol(symbols)
+      assertNoSymbols(symbols)
+    }
+
+    it("should reject instantiating a trait") {
+      val comp = mkFailingCompilation(
+        "trait Show { def show(): string }\nval x = new Show()"
+      )
+      diagnosticMessages(comp) should contain(
+        "Trait Show cannot be instantiated"
+      )
+    }
+
+    it("should reject instantiating a generic trait") {
+      val comp = mkFailingCompilation(
+        "trait Eq[T] { def equals(a: T, b: T): bool }\nval x = new Eq[int]()"
+      )
+      diagnosticMessages(comp) should contain(
+        "Trait Eq cannot be instantiated"
+      )
+    }
+
+    it("should report a trait colliding with a class") {
+      val comp = mkFailingCompilation(
+        "trait Show { def show(): string }\nclass Show()"
+      )
+      diagnosticMessages(comp) should contain(
+        "Duplicate definition of Show at :1:7"
+      )
+    }
   }
 }

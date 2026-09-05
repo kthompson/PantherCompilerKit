@@ -2,6 +2,11 @@ enum SymbolKind {
   case Namespace
   case Object
   case Class
+
+  /** A declared capability. Distinct from `Class` because a trait is never
+    * instantiated and is the only thing a context bound or a `given` may name.
+    */
+  case Trait
   case Alias
 
   case TypeParameter(variance: Variance)

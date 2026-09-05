@@ -142,6 +142,8 @@ class Transpiler(
         transpileFunctionDeclaration(value, context)
       case value: EnumDeclarationSyntax =>
         transpileEnumDeclaration(value, context)
+      case value: TraitDeclarationSyntax =>
+        transpileTraitDeclaration(value, context)
       case value: VariableDeclaration =>
         transpileVariableDeclaration(value, context)
       case value: GlobalStatementSyntax =>
@@ -251,6 +253,19 @@ class Transpiler(
   ): unit = {
     transpileToken(decl.objectKeyword, context)
     transpileToken(decl.identifier, context)
+    transpileTemplate(decl.template, context)
+  }
+
+  /** Scala and Panther spell a trait the same way, so this is a straight token
+    * walk with no rewriting.
+    */
+  def transpileTraitDeclaration(
+      decl: MemberSyntax.TraitDeclarationSyntax,
+      context: TranspilerContext
+  ): unit = {
+    transpileToken(decl.traitKeyword, context)
+    transpileToken(decl.identifier, context)
+    transpileGenericParameters(decl.genericParameters, context)
     transpileTemplate(decl.template, context)
   }
 

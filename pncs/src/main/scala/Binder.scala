@@ -5,6 +5,7 @@ case class Members(
     classes: List[Namespaced[MemberSyntax.ClassDeclarationSyntax]],
     functions: List[MemberSyntax.FunctionDeclarationSyntax],
     enums: List[Namespaced[MemberSyntax.EnumDeclarationSyntax]],
+    traits: List[Namespaced[MemberSyntax.TraitDeclarationSyntax]],
     fields: List[MemberSyntax.VariableDeclaration],
 
     // top level variable declarations are converted to top level assignments so that we can maintain the order
@@ -401,6 +402,7 @@ case class Binder(
       members.classes,
       members.objects,
       members.enums,
+      members.traits,
       rootScope
     )
 
@@ -1291,11 +1293,93 @@ case class Binder(
       classes: List[Namespaced[MemberSyntax.ClassDeclarationSyntax]],
       objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
       enums: List[Namespaced[MemberSyntax.EnumDeclarationSyntax]],
+      traits: List[Namespaced[MemberSyntax.TraitDeclarationSyntax]],
       scope: Scope
   ): unit = {
     bindObjects(objects, scope)
     bindClasses(classes, scope)
     bindEnums(enums, scope)
+    bindTraits(traits, scope)
+  }
+
+  def bindTraits(
+      traits: List[Namespaced[MemberSyntax.TraitDeclarationSyntax]],
+      scope: Scope
+  ): unit = {
+    traits match {
+      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        bindTrait(head, scope)
+        bindTraits(tail, scope)
+    }
+  }
+
+  /** Binds a trait the way `bindClass` binds a class, minus everything to do
+    * with construction: no `.ctor` is registered and no `this` is defined,
+    * because a trait is never instantiated. Its members are bound so that the
+    * requirements a `given` has to satisfy have symbols and types.
+    */
+  def bindTrait(
+      head: Namespaced[MemberSyntax.TraitDeclarationSyntax],
+      scope: Scope
+  ): unit = {
+    val name = head.value.identifier.text
+    scope.defineTrait(name, head.value.identifier.location) match {
+      case Either.Left(location) =>
+        diagnosticBag.reportDuplicateDefinition(
+          name,
+          location,
+          head.value.identifier.location
+        )
+      case Either.Right(symbol) =>
+        // The annotations are load-bearing for the self-hosted compiler: it
+        // does not yet widen the branches of a `match` or `if` to their common
+        // supertype, so without them `args` types as
+        // `List.Nil | List<GenericTypeParameter>` and `.isEmpty` is not found.
+        val args: List[GenericTypeParameter] =
+          head.value.genericParameters match {
+            case Option.None => List.Nil
+            case Option.Some(value) =>
+              bindGenericTypeParameters(
+                value.parameters.items,
+                scope.enterSymbol(symbol)
+              )
+          }
+
+        val typ: Type = if (args.isEmpty) {
+          Type.Class(
+            symbol.location,
+            symbol.ns(),
+            symbol.name,
+            List.Nil,
+            symbol
+          )
+        } else {
+          Type.GenericClass(
+            symbol.location,
+            symbol.ns(),
+            symbol.name,
+            args,
+            symbol
+          )
+        }
+        setSymbolType(symbol, typ)
+
+        val members = splitMembers(List.Nil, head.value.template.members)
+        bindClassesObjectAndEnums(
+          members.classes,
+          members.objects,
+          members.enums,
+          members.traits,
+          scope.enterSymbol(symbol)
+        )
+        addMembersToBind(
+          symbol,
+          members.functions,
+          members.fields,
+          List.Nil
+        )
+    }
   }
 
   def bindEnums(
@@ -1359,6 +1443,7 @@ case class Binder(
           members.classes,
           members.objects,
           members.enums,
+          members.traits,
           enumScope
         )
 
@@ -1526,6 +1611,7 @@ case class Binder(
               members.classes,
               members.objects,
               members.enums,
+              members.traits,
               scope.enterSymbol(symbol)
             )
             addMembersToBind(
@@ -1638,6 +1724,7 @@ case class Binder(
           members.classes,
           members.objects,
           members.enums,
+          members.traits,
           scope.enterSymbol(symbol)
         )
         setSymbolType(
@@ -1827,6 +1914,7 @@ case class Binder(
       List.Nil,
       List.Nil,
       List.Nil,
+      List.Nil,
       List.Nil
     )
   }
@@ -1836,6 +1924,7 @@ case class Binder(
       ns,
       List.Nil,
       members,
+      List.Nil,
       List.Nil,
       List.Nil,
       List.Nil,
@@ -1883,6 +1972,7 @@ case class Binder(
       objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
       classes: List[Namespaced[MemberSyntax.ClassDeclarationSyntax]],
       enums: List[Namespaced[MemberSyntax.EnumDeclarationSyntax]],
+      traits: List[Namespaced[MemberSyntax.TraitDeclarationSyntax]],
       fields: List[MemberSyntax.VariableDeclaration],
       functions: List[MemberSyntax.FunctionDeclarationSyntax],
       globalStatements: List[MemberSyntax.GlobalStatementSyntax]
@@ -1896,6 +1986,7 @@ case class Binder(
               classes,
               functions,
               enums,
+              traits,
               fields,
               globalStatements
             )
@@ -1910,6 +2001,7 @@ case class Binder(
               objects,
               classes,
               enums,
+              traits,
               fields,
               functions,
               globalStatements
@@ -1926,6 +2018,7 @@ case class Binder(
           objects,
           classes,
           enums,
+          traits,
           fields,
           functions,
           globalStatements
@@ -1947,6 +2040,7 @@ case class Binder(
           rest.classes,
           rest.functions,
           rest.enums,
+          rest.traits,
           rest.fields,
           rest.globalStatements
         )
@@ -1956,6 +2050,7 @@ case class Binder(
           List.Cons(Namespaced(ns, member), rest.classes),
           rest.functions,
           rest.enums,
+          rest.traits,
           rest.fields,
           rest.globalStatements
         )
@@ -1965,6 +2060,7 @@ case class Binder(
           rest.classes,
           List.Cons(member, rest.functions),
           rest.enums,
+          rest.traits,
           rest.fields,
           rest.globalStatements
         )
@@ -1974,6 +2070,17 @@ case class Binder(
           rest.classes,
           rest.functions,
           List.Cons(Namespaced(ns, member), rest.enums),
+          rest.traits,
+          rest.fields,
+          rest.globalStatements
+        )
+      case member: MemberSyntax.TraitDeclarationSyntax =>
+        Members(
+          rest.objects,
+          rest.classes,
+          rest.functions,
+          rest.enums,
+          List.Cons(Namespaced(ns, member), rest.traits),
           rest.fields,
           rest.globalStatements
         )
@@ -1983,6 +2090,7 @@ case class Binder(
           rest.classes,
           rest.functions,
           rest.enums,
+          rest.traits,
           rest.fields,
           List.Cons(member, rest.globalStatements)
         )
@@ -2006,6 +2114,7 @@ case class Binder(
           rest.classes,
           rest.functions,
           rest.enums,
+          rest.traits,
           List.Cons(variable, rest.fields),
           List.Cons(statement, rest.globalStatements)
         )

@@ -2387,6 +2387,19 @@ case class ExprBinder(
   ): Result[BoundExpression.Error, BoundLeftHandSide] =
     bindNew(node, Option.None, scope)
 
+  def reportTraitNotInstantiable(
+      node: Expression.New,
+      name: string
+  ): Result[BoundExpression.Error, BoundLeftHandSide] = {
+    diagnosticBag.reportTraitNotInstantiable(
+      AstUtils.locationOfName(node.name),
+      name
+    )
+    Result.Error(
+      BoundExpression.Error("Trait " + name + " cannot be instantiated")
+    )
+  }
+
   def bindNew(
       node: Expression.New,
       expectedType: Option[Type],
@@ -2431,6 +2444,8 @@ case class ExprBinder(
                 )
               )
           }
+        } else if (symbol.kind == SymbolKind.Trait) {
+          reportTraitNotInstantiable(node, name)
         } else {
           findConstructor(symbol) match {
             case Option.None =>
@@ -2466,37 +2481,40 @@ case class ExprBinder(
           }
         }
       case Type.GenericClass(_, ns, name, _, symbol) =>
-        findConstructor(symbol) match {
-          case Option.None =>
-            diagnosticBag.reportSymbolNotFound(
-              AstUtils.locationOfName(node.name),
-              name
-            )
-            Result.Error(
-              BoundExpression.Error(
-                "Cannot find constructor for generic class: " + name
+        if (symbol.kind == SymbolKind.Trait) {
+          reportTraitNotInstantiable(node, name)
+        } else
+          findConstructor(symbol) match {
+            case Option.None =>
+              diagnosticBag.reportSymbolNotFound(
+                AstUtils.locationOfName(node.name),
+                name
               )
-            )
-          case Option.Some(ctor) =>
-            val args = bindExpressions(
-              fromExpressionList(node.arguments.expressions),
-              scope
-            )
-            val location = AstUtils.locationOfExpression(node)
+              Result.Error(
+                BoundExpression.Error(
+                  "Cannot find constructor for generic class: " + name
+                )
+              )
+            case Option.Some(ctor) =>
+              val args = bindExpressions(
+                fromExpressionList(node.arguments.expressions),
+                scope
+              )
+              val location = AstUtils.locationOfExpression(node)
 
-            bindGenericConstructor(
-              location,
-              ctor,
-              location,
-              ns,
-              name,
-              symbol,
-              List.Nil,
-              args,
-              expectedType,
-              scope
-            )
-        }
+              bindGenericConstructor(
+                location,
+                ctor,
+                location,
+                ns,
+                name,
+                symbol,
+                List.Nil,
+                args,
+                expectedType,
+                scope
+              )
+          }
       case _ =>
         println(node.closeParen.location.toString())
         panic("expected named type, got " + instantiationType)

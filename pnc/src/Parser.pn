@@ -340,6 +340,31 @@ class Parser(
     new ObjectDeclarationSyntax(objectKeyword, identifier, template)
   }
 
+  /** `trait Eq[T] { def equals(a: T, b: T): bool }`
+    *
+    * A trait takes no constructor parameters and its template is mandatory: an
+    * empty capability is a class, not a trait. Members parse through the
+    * ordinary member path, so a `def` with no body — which
+    * `FunctionDeclarationSyntax` already allows — is how a requirement is
+    * spelled.
+    */
+  def parseTraitDeclaration(): MemberSyntax = {
+    debugPrint("parseTraitDeclaration")
+    val keyword = acceptKind(SyntaxKind.TraitKeyword)
+    val identifier = acceptKind(SyntaxKind.IdentifierToken)
+    val typeParams = parseGenericTypeParameters()
+    val template = parseTemplate()
+
+    // Qualified: the self-hosted compiler does not resolve a bare enum case
+    // name in a `new` position.
+    new MemberSyntax.TraitDeclarationSyntax(
+      keyword,
+      identifier,
+      typeParams,
+      template
+    )
+  }
+
   def parseGenericTypeParameters(): Option[GenericParametersSyntax] = {
     debugPrint("parseGenericTypeParameters")
 
@@ -1273,6 +1298,8 @@ class Parser(
       parseFunctionDeclaration()
     } else if (kind == SyntaxKind.EnumKeyword) {
       parseEnumDeclaration()
+    } else if (kind == SyntaxKind.TraitKeyword) {
+      parseTraitDeclaration()
     } else if (kind == SyntaxKind.ValKeyword || kind == SyntaxKind.VarKeyword) {
       parseVariableDeclaration()
     } else {

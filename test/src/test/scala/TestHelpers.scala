@@ -124,6 +124,13 @@ object TestHelpers {
     }
   }
 
+  def mkTraitMember(text: string): MemberSyntax.TraitDeclarationSyntax = {
+    mkMember(text) match {
+      case member: MemberSyntax.TraitDeclarationSyntax => member
+      case _ => throw new AssertionError("Expected trait declaration")
+    }
+  }
+
   def mkMember(text: string): MemberSyntax = {
     val tree = mkSyntaxTree(text)
     assertSingle(tree.root.members)

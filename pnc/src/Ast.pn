@@ -281,6 +281,17 @@ enum MemberSyntax {
       typeAnnotation: Option[TypeAnnotationSyntax],
       body: Option[FunctionBodySyntax]
   )
+  /** A trait declares a capability: a name, its type parameters, and the
+    * members an instance has to supply. It has no constructor parameters
+    * because a trait is never instantiated — evidence for it comes from a
+    * `given` ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+    */
+  case TraitDeclarationSyntax(
+      traitKeyword: SyntaxToken,
+      identifier: SyntaxToken,
+      genericParameters: Option[GenericParametersSyntax],
+      template: TemplateSyntax
+  )
   case GlobalStatementSyntax(statement: StatementSyntax)
   case EnumDeclarationSyntax(
       enumKeyword: SyntaxToken,
@@ -342,6 +353,10 @@ object AstUtils {
       case member: MemberSyntax.EnumDeclarationSyntax =>
         member.enumKeyword.location.merge(
           member.closeBraceToken.location
+        )
+      case member: MemberSyntax.TraitDeclarationSyntax =>
+        member.traitKeyword.location.merge(
+          member.template.closeBrace.location
         )
       case member: MemberSyntax.VariableDeclaration =>
         member.valOrVarKeyword.location.merge(

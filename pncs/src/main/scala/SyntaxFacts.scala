@@ -60,6 +60,7 @@ object SyntaxFacts {
     else if (kind == SyntaxKind.FunctionBody) "FunctionBody"
     else if (kind == SyntaxKind.FunctionDeclaration) "FunctionDeclaration"
     else if (kind == SyntaxKind.GenericName) "GenericName"
+    else if (kind == SyntaxKind.GivenKeyword) "GivenKeyword"
     else if (kind == SyntaxKind.GlobalStatement) "GlobalStatement"
     else if (kind == SyntaxKind.GreaterThanEqualsToken) "GreaterThanEqualsToken"
     else if (kind == SyntaxKind.GreaterThanToken) "GreaterThanToken"
@@ -110,6 +111,8 @@ object SyntaxFacts {
     else if (kind == SyntaxKind.Template) "Template"
     else if (kind == SyntaxKind.TildeToken) "TildeToken"
     else if (kind == SyntaxKind.ToKeyword) "ToKeyword"
+    else if (kind == SyntaxKind.TraitDeclaration) "TraitDeclaration"
+    else if (kind == SyntaxKind.TraitKeyword) "TraitKeyword"
     else if (kind == SyntaxKind.TrueKeyword) "TrueKeyword"
     else if (kind == SyntaxKind.TypeAnnotation) "TypeAnnotation"
     else if (kind == SyntaxKind.TypeArgumentList) "TypeArgumentList"
@@ -141,6 +144,7 @@ object SyntaxFacts {
     else if (span == "enum") SyntaxKind.EnumKeyword
     else if (span == "false") SyntaxKind.FalseKeyword
     else if (span == "for") SyntaxKind.ForKeyword
+    else if (span == "given") SyntaxKind.GivenKeyword
     else if (span == "if") SyntaxKind.IfKeyword
     else if (span == "implicit") SyntaxKind.ImplicitKeyword
     else if (span == "import") SyntaxKind.ImportKeyword
@@ -154,6 +158,7 @@ object SyntaxFacts {
     else if (span == "new") SyntaxKind.NewKeyword
     else if (span == "static") SyntaxKind.StaticKeyword
     else if (span == "to") SyntaxKind.ToKeyword
+    else if (span == "trait") SyntaxKind.TraitKeyword
     else if (span == "true") SyntaxKind.TrueKeyword
     else if (span == "using") SyntaxKind.UsingKeyword
     else if (span == "val") SyntaxKind.ValKeyword

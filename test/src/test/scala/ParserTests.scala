@@ -305,5 +305,41 @@ class ParserTests extends AnyFunSpec with Matchers {
       val expr = assertSome(block.block.expression)
       assertNumberExpr(1, expr)
     }
+
+    it("should parse traits with no type parameters") {
+      val decl = mkTraitMember("trait Show { def show(): string }")
+      assertTokenKind(SyntaxKind.TraitKeyword, decl.traitKeyword)
+      assertTokenText("Show", decl.identifier)
+      assertNone(decl.genericParameters)
+      assertTokenKind(SyntaxKind.OpenBraceToken, decl.template.openBrace)
+      assertTokenKind(SyntaxKind.CloseBraceToken, decl.template.closeBrace)
+    }
+
+    it("should parse traits with type parameters") {
+      val decl = mkTraitMember("trait Eq[T] { def equals(a: T, b: T): bool }")
+      assertTokenText("Eq", decl.identifier)
+
+      val generics = assertSome(decl.genericParameters)
+      val typeParam = assertSingle(generics.parameters.items)
+      assertTokenText("T", typeParam.identifier)
+      assertNone(typeParam.variance)
+    }
+
+    /** A requirement is a `def` with no body. `FunctionDeclarationSyntax`
+      * already models the body as optional, so a trait member needs no separate
+      * syntax.
+      */
+    it("should parse trait members as bodiless functions") {
+      val decl = mkTraitMember("trait Eq[T] { def equals(a: T, b: T): bool }")
+      val member = assertSingle(decl.template.members)
+      val method = member match {
+        case method: MemberSyntax.FunctionDeclarationSyntax => method
+        case _ => throw new AssertionError("expected a function declaration")
+      }
+
+      assertTokenText("equals", method.identifier)
+      assertNone(method.body)
+      assertName("bool", assertSome(method.typeAnnotation).typ)
+    }
   }
 }

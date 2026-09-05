@@ -126,6 +126,18 @@ case class Symbol(
       case Either.Right(symbol) => symbol
     }
 
+  def tryDefineTrait(
+      name: string,
+      location: TextLocation
+  ): Either[TextLocation, Symbol] =
+    tryDefine(name, location, SymbolKind.Trait, false)
+
+  def defineTrait(name: string, location: TextLocation): Symbol =
+    tryDefineTrait(name, location) match {
+      case Either.Left(_)       => panic("Symbol " + name + " already exists!")
+      case Either.Right(symbol) => symbol
+    }
+
   def tryDefineTypeParameter(
       name: string,
       location: TextLocation,

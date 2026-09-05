@@ -145,6 +145,13 @@ case class DiagnosticBag(settings: CompilerSettings) {
   def reportTypeNotDefined(location: TextLocation, name: string): unit =
     report(location, "Type " + name + " not defined")
 
+  /** A trait declares a capability, so there is nothing to construct. Without
+    * this the `new` path falls through to "not found", which is misleading
+    * because the name did resolve.
+    */
+  def reportTraitNotInstantiable(location: TextLocation, name: string): unit =
+    report(location, "Trait " + name + " cannot be instantiated")
+
   def reportInvalidOperator(location: TextLocation, op: string): unit =
     report(location, "Invalid operator: " + op)
 

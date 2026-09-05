@@ -908,6 +908,12 @@ class Emitter(
       case SymbolKind.Constructor => emitMethodMetadata(symbol, parentStatic)
       case SymbolKind.Parameter   => emitParameterMetadata(symbol)
 
+      // A trait has no runtime representation of its own: it declares
+      // requirements, and the thing that reaches the VM is the evidence record
+      // a `given` compiles to. Emitting a TypeDef here would emit its abstract
+      // members as bodiless methods.
+      case SymbolKind.Trait =>
+
       // the receiver is not a declared parameter; the VM accounts for it
       // through MethodMetadata.hasThis
       case SymbolKind.This =>
