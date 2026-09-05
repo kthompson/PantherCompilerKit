@@ -53,6 +53,60 @@ class VmTests extends AnyFunSpec with Matchers {
       assertExecValueBool("false || false", false)
     }
 
+    /** Evidence passing end to end: `$runtimeInit` builds a record of method
+      * tokens for the given, the call site pushes it after the declared
+      * arguments, and `a.equals(b)` inside the constrained function reads the
+      * member's slot out of it and dispatches with `Calli`.
+      */
+    it("should call a trait member through evidence") {
+      val setup =
+        "trait Eq[T] { def equals(a: T, b: T): bool }\n" +
+          "given Eq[int] { def equals(a: int, b: int): bool = a == b }\n" +
+          "def same[T: Eq](a: T, b: T): bool = a.equals(b)"
+
+      assertExecValueBoolWithSetup(setup, "same(3, 3)", true)
+      assertExecValueBoolWithSetup(setup, "same(3, 4)", false)
+    }
+
+    /** Two givens for the same trait: the call site has to select the record
+      * that matches the type argument, not whichever was declared first.
+      */
+    it("should select evidence by type argument") {
+      val setup =
+        "trait Eq[T] { def equals(a: T, b: T): bool }\n" +
+          "given Eq[int] { def equals(a: int, b: int): bool = a == b }\n" +
+          "given Eq[string] { def equals(a: string, b: string): bool = a == b }\n" +
+          "def same[T: Eq](a: T, b: T): bool = a.equals(b)"
+
+      assertExecValueBoolWithSetup(setup, "same(1, 1)", true)
+      assertExecValueBoolWithSetup(setup, "same(1, 2)", false)
+      assertExecValueBoolWithSetup(setup, "same(\"ab\", \"ab\")", true)
+      assertExecValueBoolWithSetup(setup, "same(\"ab\", \"cd\")", false)
+    }
+
+    /** A record has one slot per trait member, so calling the second member
+      * has to read slot 1. Getting the layout wrong would silently call the
+      * other method, which is why both are exercised.
+      */
+    it("should index the right member of a multi-member trait") {
+      val setup =
+        "trait Ord[T] {\n" +
+          "  def lt(a: T, b: T): bool\n" +
+          "  def gt(a: T, b: T): bool\n" +
+          "}\n" +
+          "given Ord[int] {\n" +
+          "  def lt(a: int, b: int): bool = a < b\n" +
+          "  def gt(a: int, b: int): bool = a > b\n" +
+          "}\n" +
+          "def smaller[T: Ord](a: T, b: T): bool = a.lt(b)\n" +
+          "def bigger[T: Ord](a: T, b: T): bool = a.gt(b)"
+
+      assertExecValueBoolWithSetup(setup, "smaller(2, 9)", true)
+      assertExecValueBoolWithSetup(setup, "smaller(9, 2)", false)
+      assertExecValueBoolWithSetup(setup, "bigger(9, 2)", true)
+      assertExecValueBoolWithSetup(setup, "bigger(2, 9)", false)
+    }
+
     it("should compare strings lexicographically") {
       assertExecValueBool("\"apple\" < \"banana\"", true)
       assertExecValueBool("\"banana\" < \"apple\"", false)

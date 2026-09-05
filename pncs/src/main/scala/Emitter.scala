@@ -246,7 +246,9 @@ case class Emitter(
         case Option.Some(value) =>
           metadata.methods.methods(value.token).methodSig = sigId
       }
-    } else if (symbol.kind == SymbolKind.Parameter) {
+    } else if (
+      symbol.kind == SymbolKind.Parameter || symbol.kind == SymbolKind.Evidence
+    ) {
       paramTokens.get(symbol) match {
         case Option.None => panic("unimplemented: buildSignature")
         case Option.Some(value) =>
@@ -284,11 +286,112 @@ case class Emitter(
     assembly.functionBodies.get(symbol) match {
       case Option.None => false
       case Option.Some(value) =>
+        // Evidence records first: they are method tokens, so this is the
+        // earliest point they can be built, and everything that reads one runs
+        // after `$runtimeInit`.
+        if (isRuntimeInit(symbol)) {
+          emitEvidenceRecords(binder.givens, context)
+        }
+
         emitBlock(value, context)
         chunk.emitOpcode(Opcode.Ret, symbol.location.endLine)
 
         context.method.address = context.startAddress
         true
+    }
+  }
+
+  def isRuntimeInit(symbol: Symbol): bool = {
+    binder.runtimeInit match {
+      case Option.Some(init) => init == symbol
+      case Option.None       => false
+    }
+  }
+
+  /** Fills each given's static field with an `Array[int]` of its members'
+    * method tokens, laid out in the trait's declaration order so the reading
+    * side can index it without knowing which given it came from.
+    */
+  def emitEvidenceRecords(
+      givens: List[BoundGiven],
+      context: EmitContext
+  ): unit = {
+    givens match {
+      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        emitEvidenceRecord(head, context)
+        emitEvidenceRecords(tail, context)
+    }
+  }
+
+  def emitEvidenceRecord(candidate: BoundGiven, context: EmitContext): unit = {
+    binder.evidenceFields.get(candidate.symbol) match {
+      case Option.None => ()
+      case Option.Some(field) =>
+        fieldTokens.get(field) match {
+          case Option.None => ()
+          case Option.Some(fieldToken) =>
+            val members = evidenceTraitMembers(candidate)
+            val line = candidate.location.startLine
+
+            chunk.emitOpcode(Opcode.LdcI4, line)
+            chunk.emitI4(members.length, line)
+            chunk.emitOpcode(Opcode.Newarr, line)
+            chunk.emitI4(intTypeToken(), line)
+
+            emitEvidenceSlots(candidate, members, 0, line)
+
+            chunk.emitOpcode(Opcode.Stsfld, line)
+            chunk.emitI4(fieldToken.token, line)
+        }
+    }
+  }
+
+  def evidenceTraitMembers(candidate: BoundGiven): List[Symbol] = {
+    binder.getTypeSymbol(candidate.head) match {
+      case Option.None            => List.Nil
+      case Option.Some(traitSymbol) => binder.traitMembers(traitSymbol)
+    }
+  }
+
+  /** One slot per trait member. `Stelem` pops the array too, so the reference
+    * is duplicated before each store and the original is left on the stack for
+    * the `Stsfld` that follows.
+    */
+  def emitEvidenceSlots(
+      candidate: BoundGiven,
+      members: List[Symbol],
+      index: int,
+      line: int
+  ): unit = {
+    members match {
+      case List.Nil => ()
+      case List.Cons(member, tail) =>
+        candidate.symbol.lookupMember(member.name) match {
+          case Option.None =>
+            // The given does not implement this member. Binding reports the
+            // gap; leaving the slot uninitialised keeps the layout right.
+            ()
+          case Option.Some(implementation) =>
+            methodTokens.get(implementation) match {
+              case Option.None => ()
+              case Option.Some(methodToken) =>
+                chunk.emitOpcode(Opcode.Dup, line)
+                chunk.emitOpcode(Opcode.LdcI4, line)
+                chunk.emitI4(index, line)
+                chunk.emitOpcode(Opcode.LdcI4, line)
+                chunk.emitI4(methodToken.token, line)
+                chunk.emitOpcode(Opcode.Stelem, line)
+            }
+        }
+        emitEvidenceSlots(candidate, tail, index + 1, line)
+    }
+  }
+
+  def intTypeToken(): int = {
+    typeTokens.get(binder.intSymbol) match {
+      case Option.Some(token) => token.token
+      case Option.None        => panic("intTypeToken: int is not registered")
     }
   }
 
@@ -310,11 +413,8 @@ case class Emitter(
         emitBooleanLiteral(value, context)
       case value: LoweredExpression.Call =>
         emitCallExpression(value, context)
-      // Emitting this needs the evidence record and `Calli`, which is the next
-      // step of ADR 0005. Binding produces the node today; nothing in the
-      // transpiled sources or the tests reaches emission with one.
       case value: LoweredExpression.EvidenceCall =>
-        panic("unimplemented: emitEvidenceCall")
+        emitEvidenceCall(value, context)
       case value: LoweredExpression.Cast =>
         emitCastExpression(value, context)
       case value: LoweredExpression.Character =>
@@ -510,6 +610,95 @@ case class Emitter(
   ): unit =
     emitLoadBool(expr.value, expr.location.startLine)
 
+  /** Pushes one evidence record per constraint the callee declares. */
+  def emitEvidenceArguments(
+      expr: LoweredExpression.Call,
+      line: int
+  ): unit = {
+    binder.tryGetSymbolType(expr.method) match {
+      case Option.Some(Type.GenericFunction(_, _, traits, _, _)) =>
+        emitEvidenceForConstraints(traits, expr.genericArguments, line)
+      case _ => ()
+    }
+  }
+
+  def emitEvidenceForConstraints(
+      constraints: List[Type],
+      typeArgs: List[Type],
+      line: int
+  ): unit = {
+    constraints match {
+      case List.Nil => ()
+      case List.Cons(constraint, tail) =>
+        val goal = Types.substitute(constraint, typeArgs)
+        binder.findEvidenceRecord(goal) match {
+          case Option.None =>
+            // Binding already reported this; emitting nothing would misalign
+            // the frame, so fail loudly rather than produce a bad call.
+            panic("emitEvidenceArguments: no evidence for " + goal.toString())
+          case Option.Some(field) =>
+            fieldTokens.get(field) match {
+              case Option.None =>
+                panic("emitEvidenceArguments: no field token for evidence")
+              case Option.Some(token) =>
+                chunk.emitOpcode(Opcode.Ldsfld, line)
+                chunk.emitI4(token.token, line)
+            }
+        }
+        emitEvidenceForConstraints(tail, typeArgs, line)
+    }
+  }
+
+  /** `equals(a, b)` through evidence: the arguments are already in order with
+    * the receiver first, then the record is loaded, the member's slot read, and
+    * `Calli` dispatches on the token that comes back.
+    */
+  def emitEvidenceCall(
+      expr: LoweredExpression.EvidenceCall,
+      context: EmitContext
+  ): unit = {
+    emitExpressions(expr.arguments, context)
+
+    val line = expr.location.startLine
+    emitEvidenceValue(expr.evidence, context, line)
+
+    val index = binder.getTypeSymbol(binder.getSymbolType(expr.evidence)) match {
+      case Option.Some(traitSymbol) =>
+        binder.indexOfSymbol(binder.traitMembers(traitSymbol), expr.member, 0)
+      case Option.None => -1
+    }
+
+    if (index < 0) {
+      panic("emitEvidenceCall: " + expr.member.name + " is not a trait member")
+    } else {
+      chunk.emitOpcode(Opcode.LdcI4, line)
+      chunk.emitI4(index, line)
+      chunk.emitOpcode(Opcode.Ldelem, line)
+      chunk.emitOpcode(Opcode.Calli, line)
+    }
+  }
+
+  /** Evidence reaches a method either as its own parameter or, in an instance
+    * method of a constrained class, as a field on the receiver.
+    */
+  def emitEvidenceValue(
+      evidence: Symbol,
+      context: EmitContext,
+      line: int
+  ): unit = {
+    if (evidence.kind == SymbolKind.Field) {
+      chunk.emitOpcode(Opcode.Ldarg0, line)
+      fieldTokens.get(evidence) match {
+        case Option.None => panic("emitEvidenceValue: no field token")
+        case Option.Some(token) =>
+          chunk.emitOpcode(Opcode.Ldfld, line)
+          chunk.emitI4(token.token, line)
+      }
+    } else {
+      emitLoadArgument(context.getParamIndex(evidence), line)
+    }
+  }
+
   def emitCallExpression(
       expr: LoweredExpression.Call,
       context: EmitContext
@@ -543,6 +732,12 @@ case class Emitter(
         panic("emitCallExpression: unknown extern " + expr.method.name)
       }
     } else {
+      // Evidence arrives after the declared arguments, so it is pushed here,
+      // once the arguments are on the stack (ADR 0005, decision A). The goals
+      // are re-derived rather than carried on the node: the callee's
+      // constraints and this call's type arguments are both already known.
+      emitEvidenceArguments(expr, startLine)
+
       // Regular method call
       methodTokens.get(expr.method) match {
         case Option.None =>
@@ -680,6 +875,19 @@ case class Emitter(
   ): unit = {
     emitExpressions(expr.arguments, context)
 
+    // A constrained class receives its evidence as a constructor argument, so
+    // the `new` site pushes it just as a call site does — this is where its
+    // type arguments are concrete (ADR 0005, decision B).
+    binder.tryGetSymbolType(expr.constructor) match {
+      case Option.Some(Type.GenericFunction(_, _, traits, _, _)) =>
+        emitEvidenceForConstraints(
+          traits,
+          expr.genericArguments,
+          expr.location.startLine
+        )
+      case _ => ()
+    }
+
     // Get the constructor token and emit the newobj opcode
     methodTokens.get(expr.constructor) match {
       case Option.None =>
@@ -777,13 +985,15 @@ case class Emitter(
   def emitParameter(
       expr: LoweredExpression.Variable,
       context: EmitContext
-  ): unit = {
-    val index = context.getParamIndex(expr.symbol)
+  ): unit =
+    emitLoadArgument(context.getParamIndex(expr.symbol), expr.location.startLine)
+
+  def emitLoadArgument(index: int, line: int): unit = {
     if (index < 4) {
-      chunk.emitOpcode(Opcode.Ldarg0 + index, expr.location.startLine)
+      chunk.emitOpcode(Opcode.Ldarg0 + index, line)
     } else {
-      chunk.emitOpcode(Opcode.Ldargn, expr.location.startLine)
-      chunk.emitI4(index, expr.location.startLine)
+      chunk.emitOpcode(Opcode.Ldargn, line)
+      chunk.emitI4(index, line)
     }
   }
 
@@ -925,10 +1135,11 @@ case class Emitter(
       // members as bodiless methods.
       case SymbolKind.Trait =>
 
-      // A given's runtime form is the evidence record, which ADR 0005 defines
-      // and nothing builds yet. Emitting it as an ordinary type would give it a
-      // TypeDef and a constructor it never gets called through.
-      case SymbolKind.Given =>
+      // A given is a singleton, so its members are static: they are called
+      // through the tokens stored in its evidence record, never on an
+      // instance. It still needs a TypeDef so those methods land inside a type
+      // rather than being attributed to whichever one preceded them.
+      case SymbolKind.Given => emitGivenMetadata(symbol)
 
       // the receiver is not a declared parameter; the VM accounts for it
       // through MethodMetadata.hasThis
@@ -963,6 +1174,14 @@ case class Emitter(
     )
 
     emitSymbolsMetadata(symbol.members(), isObject)
+  }
+
+  def emitGivenMetadata(symbol: Symbol): unit = {
+    typeTokens = typeTokens.put(
+      symbol,
+      metadata.addTypeDef(symbol.name, ns(symbol.ns()), MetadataFlags.Static)
+    )
+    emitSymbolsMetadata(symbol.members(), true)
   }
 
   def emitFieldMetadata(symbol: Symbol, isStatic: bool): unit = {

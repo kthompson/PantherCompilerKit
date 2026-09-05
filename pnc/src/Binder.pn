@@ -391,6 +391,18 @@ class Binder(
   /** numbers the anonymous given symbols, in source order */
   var givenCount: int = 0
 
+  /** The static field holding each given's evidence record, keyed by the
+    * given's symbol. Defined once the program object exists, and filled in by
+    * the emitter, which is the first place method tokens are known.
+    */
+  var evidenceFields: Dictionary[Symbol, Symbol] =
+    DictionaryModule.empty[Symbol, Symbol]()
+
+  /** `$runtimeInit`, so the emitter can recognise the method it has to append
+    * the evidence-record construction to.
+    */
+  var runtimeInit: Option[Symbol] = Option.None
+
   val classifier = new ConversionClassifier(this)
   val exprBinder: ExprBinder =
     new ExprBinder(rootSymbol, this, classifier, diagnosticBag)
@@ -450,6 +462,12 @@ class Binder(
 
     val program = getProgramSymbol(rootSymbol)
     val init = getRuntimeInit(program)
+    runtimeInit = Option.Some(init)
+
+    // The evidence records live on the program object, which makes them static
+    // and so reachable from anywhere. They cannot be defined while binding the
+    // givens themselves: the program object does not exist yet.
+    defineEvidenceRecords(givens, program)
 
     // bind global statements, fields, and functions
     addMembersToBind(program, members.functions, members.fields, List.Nil)
@@ -2257,6 +2275,67 @@ class Binder(
     }
   }
 
+  /** An evidence record is an `Array[int]` of method tokens, one slot per trait
+    * member, indexed by the member's position in the trait.
+    *
+    * ADR 0005 calls it a record of method tokens; an int array is that on this
+    * VM without synthesizing a type and a constructor for every given. A slot
+    * per member — rather than one field per member with the record skipped —
+    * is what keeps the shape the same for a trait with any number of members.
+    */
+  def defineEvidenceRecords(
+      remaining: List[BoundGiven],
+      program: Symbol
+  ): unit = {
+    remaining match {
+      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        program.tryDefineField(head.symbol.name, head.location, true) match {
+          case Either.Left(_) =>
+          case Either.Right(field) =>
+            field.extern = false
+            setSymbolType(field, evidenceRecordType)
+            evidenceFields = evidenceFields.put(head.symbol, field)
+        }
+        defineEvidenceRecords(tail, program)
+    }
+  }
+
+  val evidenceRecordType: Type =
+    Type.Class(
+      noLoc,
+      List.Nil,
+      "Array",
+      ListModule.one(intType),
+      arraySymbol
+    )
+
+  /** A trait's callable members, in declaration order. That order is the
+    * evidence record's layout, so it has to be the same on both sides — the
+    * given that fills a slot and the call that reads it.
+    */
+  def traitMembers(traitSymbol: Symbol): List[Symbol] =
+    filterMethods(traitSymbol.members())
+
+  def filterMethods(symbols: List[Symbol]): List[Symbol] = {
+    symbols match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        if (head.kind == SymbolKind.Method)
+          List.Cons(head, filterMethods(tail))
+        else filterMethods(tail)
+    }
+  }
+
+  def indexOfSymbol(symbols: List[Symbol], target: Symbol, index: int): int = {
+    symbols match {
+      case List.Nil => -1
+      case List.Cons(head, tail) =>
+        if (head == target) index
+        else indexOfSymbol(tail, target, index + 1)
+    }
+  }
+
   def bindGivens(
       givens: List[Namespaced[MemberSyntax.GivenDeclarationSyntax]],
       scope: Scope
@@ -2379,6 +2458,18 @@ class Binder(
         )
       case Option.None =>
         givens = List.Cons(candidate, givens)
+    }
+  }
+
+  /** The static field holding the evidence record that proves `goal`, if a
+    * given does. Used by the emitter, which needs the field rather than the
+    * proof tree, and reports nothing — binding already did.
+    */
+  def findEvidenceRecord(goal: Type): Option[Symbol] = {
+    matchAnyGiven(goal, givens) match {
+      case Option.None                        => Option.None
+      case Option.Some(KeyValue(candidate, _)) =>
+        evidenceFields.get(candidate.symbol)
     }
   }
 
