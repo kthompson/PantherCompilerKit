@@ -3381,6 +3381,48 @@ case class Binder(
     }
   }
 
+  /** The member a given supplies as a contextual extension on `leftType`.
+    *
+    * The ground-type half of ADR 0004's member resolution: intrinsic members
+    * first, then applicable contextual extensions. Where `findEvidenceMember`
+    * answers for a type parameter — whose evidence an enclosing declaration
+    * holds — this answers for a type the givens name directly, so
+    * `value.show()` works on a `Point` and not only inside `[T: Show]`.
+    *
+    * Only reached once an ordinary lookup has failed, which is what settles
+    * the shadowing question: a member a type declares itself always wins.
+    */
+  def findGivenExtension(
+      leftType: Type,
+      memberName: string
+  ): Option[Symbol] = scanGivenExtensions(leftType, memberName, givens)
+
+  def scanGivenExtensions(
+      leftType: Type,
+      memberName: string,
+      candidates: List[BoundGiven]
+  ): Option[Symbol] = {
+    candidates match {
+      case List.Nil => Option.None
+      case List.Cons(candidate, tail) =>
+        val found: Option[Symbol] = candidate.head match {
+          case Type.Class(_, _, _, List.Cons(arg, List.Nil), traitSymbol) =>
+            if (
+              traitSymbol.kind == SymbolKind.Trait &&
+              sameConstraint(arg, leftType)
+            ) candidate.symbol.lookupMember(memberName)
+            else Option.None
+          case _ => Option.None
+        }
+
+        found match {
+          case Option.Some(_) => found
+          case Option.None =>
+            scanGivenExtensions(leftType, memberName, tail)
+        }
+    }
+  }
+
   def findOverlappingGiven(
       candidate: BoundGiven,
       existing: List[BoundGiven]

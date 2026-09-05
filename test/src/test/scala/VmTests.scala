@@ -255,6 +255,39 @@ class VmTests extends AnyFunSpec with Matchers {
       )
     }
 
+    /** A contextual extension on a ground type. The given is known while
+      * binding and its members are static, so `.show()` is an ordinary call —
+      * reached only because `Point` has no `show` of its own.
+      */
+    it("should run show on a ground type") {
+      assertExecValueStringWithSetup(
+        "[derive(Show)]\nclass Point(x: int, y: int)",
+        "new Point(1, 2).show()",
+        "Point(1, 2)"
+      )
+      assertExecValueStringWithSetup(
+        "class Point(x: int, y: int)\n" +
+          "given Show[Point] {\n" +
+          "  def show(value: Point): string = \"p\" + string(value.x)\n" +
+          "}",
+        "new Point(1, 2).show()",
+        "p1"
+      )
+    }
+
+    /** A member the type declares itself wins: the extension is only reached
+      * after an ordinary lookup has failed.
+      */
+    it("should prefer an intrinsic member over an extension") {
+      assertExecValueStringWithSetup(
+        "[derive(Show)]\nclass Point(x: int, y: int) {\n" +
+          "  def show(): string = \"mine\"\n" +
+          "}",
+        "new Point(1, 2).show()",
+        "mine"
+      )
+    }
+
     /** A derived type whose parameter is itself derived. The inner given is
       * registered before any body is built, so the outer one finds it.
       */
