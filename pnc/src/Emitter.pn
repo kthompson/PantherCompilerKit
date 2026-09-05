@@ -289,6 +289,7 @@ class Emitter(
         // earliest point they can be built, and everything that reads one runs
         // after `$runtimeInit`.
         if (isRuntimeInit(symbol)) {
+          emitEnumSingletons(binder.enumSingletons, context)
           emitEvidenceRecords(binder.givens, context)
         }
 
@@ -378,6 +379,53 @@ class Emitter(
     * method tokens, laid out in the trait's declaration order so the reading
     * side can index it without knowing which given it came from.
     */
+  /** Builds each parameterless enum case once and parks it in its static
+    * field.
+    *
+    * `Color.Red` names a value rather than making one, so every mention has to
+    * be the same object — otherwise reference identity, which is what `==`
+    * falls back to without evidence, would call two `Color.Red` different.
+    */
+  def emitEnumSingletons(cases: List[Symbol], context: EmitContext): unit = {
+    cases match {
+      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        emitEnumSingleton(head)
+        emitEnumSingletons(tail, context)
+    }
+  }
+
+  def emitEnumSingleton(caseSymbol: Symbol): unit = {
+    val line = caseSymbol.location.startLine
+
+    binder.singletonFields.get(caseSymbol) match {
+      case Option.None => ()
+      case Option.Some(field) =>
+        fieldTokens.get(field) match {
+          case Option.None =>
+            panic("emitEnumSingleton: no field token for " + caseSymbol.name)
+          case Option.Some(fieldToken) =>
+            caseSymbol.lookupMember(".ctor") match {
+              case Option.None =>
+                panic("emitEnumSingleton: no .ctor for " + caseSymbol.name)
+              case Option.Some(ctor) =>
+                methodTokens.get(ctor) match {
+                  case Option.None =>
+                    panic(
+                      "emitEnumSingleton: no method token for " +
+                        caseSymbol.name
+                    )
+                  case Option.Some(ctorToken) =>
+                    chunk.emitOpcode(Opcode.Newobj, line)
+                    chunk.emitI4(ctorToken.token, line)
+                    chunk.emitOpcode(Opcode.Stsfld, line)
+                    chunk.emitI4(fieldToken.token, line)
+                }
+            }
+        }
+    }
+  }
+
   def emitEvidenceRecords(
       givens: List[BoundGiven],
       context: EmitContext
@@ -930,10 +978,29 @@ class Emitter(
               .qualifiedName()
           )
       }
+    } else if (isEnumSingleton(expr.symbol)) {
+      // `Color.Red` names the one instance `$runtimeInit` built, so the
+      // receiver is not emitted at all — the case's name is the whole
+      // expression.
+      binder.singletonFields.get(expr.symbol) match {
+        case Option.Some(field) =>
+          fieldTokens.get(field) match {
+            case Option.Some(token) =>
+              chunk.emitOpcode(Opcode.Ldsfld, expr.location.startLine)
+              chunk.emitI4(token.token, expr.location.startLine)
+            case Option.None =>
+              panic("emitMemberAccess: no field token for " + expr.symbol.name)
+          }
+        case Option.None =>
+          panic("emitMemberAccess: no singleton for " + expr.symbol.name)
+      }
     } else {
       panic("emitMemberAccess: unsupported symbol kind " + expr.symbol.kind)
     }
   }
+
+  def isEnumSingleton(symbol: Symbol): bool =
+    !binder.singletonFields.get(symbol).isEmpty()
 
   def emitNewExpression(
       expr: LoweredExpression.New,

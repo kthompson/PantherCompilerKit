@@ -426,6 +426,19 @@ case class Binder(
   /** every `[derive(…)]` that registered a given, in reverse source order */
   var derivations: List[Derivation] = List.Nil
 
+  /** Enum cases with no parameters, in reverse source order.
+    *
+    * Each is one value rather than a constructor, so each gets a static field
+    * built once in `$runtimeInit` — the same shape the evidence records use.
+    */
+  var enumSingletons: List[Symbol] = List.Nil
+
+  /** The static field holding each parameterless case's single instance, keyed
+    * by the case's symbol. Defined once the program object exists.
+    */
+  var singletonFields: Dictionary[Symbol, Symbol] =
+    DictionaryModule.empty[Symbol, Symbol]()
+
   /** The trait that claims each operator token, keyed by `SyntaxKind`.
     *
     * A token may be claimed by at most one trait, so that `a == b` resolves to
@@ -741,6 +754,7 @@ case class Binder(
     // and so reachable from anywhere. They cannot be defined while binding the
     // givens themselves: the program object does not exist yet.
     defineEvidenceRecords(givens, program)
+    defineEnumSingletons(enumSingletons, program)
 
     // bind global statements, fields, and functions
     addMembersToBind(program, members.functions, members.fields, List.Nil)
@@ -2006,6 +2020,21 @@ case class Binder(
             setSymbolType(caseSymbol, typ)
             enumCase.parameters match {
               case Option.None =>
+                // A case with no parameters is one value, not a constructor
+                // the program calls: `Color.Red` names a thing rather than
+                // making one. It still needs a `.ctor`, because a singleton is
+                // built the same way anything else is — once, in
+                // `$runtimeInit`.
+                //
+                // No generic parameters even for a generic enum: one `None` is
+                // shared by every `Option[T]`, which is the same reason it is
+                // a singleton at all.
+                ctorsToBind = ctorsToBind.put(
+                  caseSymbol,
+                  ConstructorParams(List.Nil, List.Nil, List.Nil)
+                )
+                addStatementsToBind(caseSymbol, List.Nil)
+                enumSingletons = List.Cons(caseSymbol, enumSingletons)
               case Option.Some(value) =>
                 addMembersToBind(
                   caseSymbol,
@@ -2916,6 +2945,37 @@ case class Binder(
         }
         defineEvidenceRecords(tail, program)
     }
+  }
+
+  /** One static field per parameterless enum case, on the program object so it
+    * is reachable from anywhere. Same placement as the evidence records, and
+    * for the same reason: the program object does not exist while the enum is
+    * being bound.
+    */
+  def defineEnumSingletons(
+      remaining: List[Symbol],
+      program: Symbol
+  ): unit = {
+    remaining match {
+      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        program.tryDefineField(singletonName(head), head.location, true) match {
+          case Either.Left(_) =>
+          case Either.Right(field) =>
+            field.extern = false
+            setSymbolType(field, getSymbolType(head))
+            singletonFields = singletonFields.put(head, field)
+        }
+        defineEnumSingletons(tail, program)
+    }
+  }
+
+  def singletonName(caseSymbol: Symbol): string = {
+    val enumName = caseSymbol.parent match {
+      case Option.Some(parent) => parent.name
+      case Option.None         => ""
+    }
+    "$case$" + enumName + "$" + caseSymbol.name
   }
 
   val evidenceRecordType: Type =

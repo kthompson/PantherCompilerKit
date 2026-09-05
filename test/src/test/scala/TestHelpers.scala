@@ -529,15 +529,23 @@ object TestHelpers {
       symbol.name.startsWith("$given$Ord$") ||
       symbol.name.startsWith("$given$Show$")
 
-  /** The symbol chain with everything the prelude put there removed.
+  /** A static field the binder synthesizes on `$Program`: an evidence record
+    * or an enum case's singleton. Both are placement details rather than
+    * anything the source declared.
+    */
+  private def isSynthesizedField(symbol: Symbol): Boolean =
+    symbol.name.startsWith("$case$")
+
+  /** The symbol chain with everything the prelude and the binder put there
+    * removed.
     *
     * Skipping it rather than asserting past it is what keeps a test about
     * `val x = 12` from having to be updated whenever the prelude gains a
     * given. The prelude has its own tests for what it defines.
     *
     * The root's own members are matched by name; below the root only the
-    * evidence-record fields on `$Program` are, so a source that declares a
-    * method named `mod` still shows up.
+    * synthesized fields on `$Program` are, so a source that declares a method
+    * named `mod` still shows up.
     */
   def enumNonBuiltinSymbols(
       compilation: Compilation
@@ -553,7 +561,7 @@ object TestHelpers {
         case List.Nil => Chain.Empty()
         case List.Cons(head, tail) =>
           val skip =
-            isPreludeGiven(head) ||
+            isPreludeGiven(head) || isSynthesizedField(head) ||
               (atRoot && preludeRootNames.contains(head.name))
 
           if (skip) chainOfList(tail, atRoot)

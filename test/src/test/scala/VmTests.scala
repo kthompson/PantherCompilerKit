@@ -400,6 +400,34 @@ class VmTests extends AnyFunSpec with Matchers {
       assertExecValueStringWithSetup(shape, "Shape.Rect(1, 2).show()", "Rect(1, 2)")
     }
 
+    /** A case with no parameters is one value, not a constructor: every
+      * mention of `Color.Red` is the same object, built once in
+      * `$runtimeInit`. Without that, reference identity — which is what `==`
+      * falls back to with no evidence — would call two of them different.
+      */
+    val color = "enum Color {\n  case Red\n  case Green\n  case Blue\n}\n"
+
+    it("should make a parameterless enum case a single value") {
+      val setup = color +
+        "val a: Color = Color.Red\n" +
+        "val b: Color = Color.Red\n" +
+        "val c: Color = Color.Green\n"
+
+      assertExecValueBoolWithSetup(setup, "a == b", true)
+      assertExecValueBoolWithSetup(setup, "a == c", false)
+    }
+
+    it("should derive over an enum whose cases take no parameters") {
+      val setup = "[derive(Eq, Ord, Show)]\n" + color
+
+      assertExecValueBoolWithSetup(setup, "Color.Red == Color.Red", true)
+      assertExecValueBoolWithSetup(setup, "Color.Red == Color.Green", false)
+      assertExecValueBoolWithSetup(setup, "Color.Red < Color.Green", true)
+      assertExecValueBoolWithSetup(setup, "Color.Blue < Color.Red", false)
+      assertExecValueBoolWithSetup(setup, "Color.Green >= Color.Green", true)
+      assertExecValueStringWithSetup(setup, "Color.Green.show()", "Green()")
+    }
+
     /** Two classes with instance fields. A field's index is its offset within
       * the object, so the second class's fields have to start at 0 again —
       * numbered across types, they land outside the object and the next

@@ -180,8 +180,12 @@ class BinderTests extends AnyFunSpec with Matchers {
       )
       val symbols = enumNonBuiltinSymbols(comp)
       assertSymbol(symbols, SymbolKind.Alias, "Foo")
+      // a case with no parameters still gets a constructor: it is built once,
+      // in `$runtimeInit`, and every mention names that one value
       assertSymbol(symbols, SymbolKind.Class, "Bar")
+      assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
       assertSymbol(symbols, SymbolKind.Class, "Baz")
+      assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
       assertSymbol(symbols, SymbolKind.This, "this")
 
       assertProgramSymbol(symbols)
@@ -237,6 +241,7 @@ class BinderTests extends AnyFunSpec with Matchers {
       assertSymbol(symbols, SymbolKind.Parameter, "value")
 
       assertSymbol(symbols, SymbolKind.Class, "None")
+      assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
       assertSymbol(symbols, SymbolKind.This, "this")
 
       assertProgramSymbol(symbols)
@@ -413,6 +418,7 @@ class BinderTests extends AnyFunSpec with Matchers {
       assertSymbol(symbols, SymbolKind.Parameter, "value")
 
       assertSymbol(symbols, SymbolKind.Class, "None")
+      assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
       assertSymbol(symbols, SymbolKind.This, "this")
 
       assertProgramSymbol(symbols)
@@ -451,6 +457,7 @@ class BinderTests extends AnyFunSpec with Matchers {
       assertSymbol(symbols, SymbolKind.Parameter, "value")
 
       assertSymbol(symbols, SymbolKind.Class, "None")
+      assertSymbol(symbols, SymbolKind.Constructor, ".ctor")
       assertSymbol(symbols, SymbolKind.This, "this")
 
       assertProgramSymbol(symbols)
@@ -1084,6 +1091,23 @@ class BinderTests extends AnyFunSpec with Matchers {
       diagnosticMessages(comp) should contain(
         "Cannot derive Eq: no Eq evidence for the type of inner"
       )
+    }
+
+    /** A parameterless case is one value, so it gets a static field on the
+      * program object — the same placement the evidence records use, and for
+      * the same reason: it is built once, in `$runtimeInit`.
+      */
+    it("should give each parameterless enum case a singleton field") {
+      val comp = mkCompilation(
+        "enum Color {\n  case Red\n  case Green\n}\n" +
+          "enum Shape {\n  case Circle(r: int)\n}"
+      )
+      val program = assertSome(comp.root.lookup("$Program"))
+
+      memberSignature(program) should contain("Field:$case$Color$Red")
+      memberSignature(program) should contain("Field:$case$Color$Green")
+      // a case with parameters is constructed at each use, not shared
+      memberSignature(program) should not contain "Field:$case$Shape$Circle"
     }
 
     /** An enum derives the same three traits a class does. Its cases are
