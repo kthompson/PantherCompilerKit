@@ -38,16 +38,36 @@ class Dictionary[K, V](list: List[KeyValue[K, V]]) {
   def remove(key: K): Dictionary[K, V] =
     new Dictionary[K, V](_remove(key, list))
 
+  /** Iterative on purpose.
+    *
+    * The natural shape — `List.Cons(kv, _remove(key, tail))` — recurses inside
+    * a constructor argument, so its depth is the size of the dictionary, and
+    * `put` calls it on every insert. An accumulator version is no better here:
+    * these methods are not final, so neither Scala nor the VM turns the tail
+    * call into a jump. The symbol table gets large enough while compiling the
+    * compiler's own sources to overflow the stack either way.
+    */
   def _remove(key: K, list: List[KeyValue[K, V]]): List[KeyValue[K, V]] = {
-    list match {
-      case List.Nil => list
-      case List.Cons(kv, tail) =>
-        if (kv.key == key) {
-          tail
-        } else {
-          List.Cons(kv, _remove(key, tail))
-        }
+    var acc: List[KeyValue[K, V]] = List.Nil
+    var rest = list
+    var removed = false
+
+    while (!rest.isEmpty) {
+      rest match {
+        case List.Nil => rest = List.Nil
+        case List.Cons(kv, next) =>
+          // guarded so only the first match goes, matching the recursive
+          // version this replaced
+          if (!removed && kv.key == key) {
+            removed = true
+          } else {
+            acc = List.Cons(kv, acc)
+          }
+          rest = next
+      }
     }
+
+    acc.reverse()
   }
 
   def contains(key: K): bool = {
