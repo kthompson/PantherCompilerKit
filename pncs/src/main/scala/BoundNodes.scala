@@ -38,6 +38,7 @@ enum BoundStatement {
 enum BoundLeftHandSide {
   case ArrayCreation(expression: BoundExpression.ArrayCreation)
   case Call(expression: BoundExpression.Call)
+  case EvidenceCall(expression: BoundExpression.EvidenceCall)
   case Index(expression: BoundExpression.Index)
   case MemberAccess(expression: BoundExpression.MemberAccess)
   case New(expression: BoundExpression.New)
@@ -89,6 +90,21 @@ enum BoundExpression {
   )
   case Block(statements: List[BoundStatement], expression: BoundExpression)
   case Boolean(location: TextLocation, value: bool)
+  /** A trait member called through evidence.
+    *
+    * Distinct from `Call` because the dispatch target is not a token in the
+    * instruction stream but a field of the evidence, and because the receiver
+    * is not a receiver: `a.equals(b)` calls `equals(a, b)`, so the value on the
+    * left of the dot is the first argument. `arguments` already has it
+    * prepended.
+    */
+  case EvidenceCall(
+      location: TextLocation,
+      evidence: Symbol,
+      member: Symbol,
+      arguments: List[BoundExpression],
+      resultType: Type
+  )
   case Call(
       location: TextLocation,
       receiver: Option[BoundLeftHandSide],

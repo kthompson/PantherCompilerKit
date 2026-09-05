@@ -219,6 +219,8 @@ class LoweredAssemblyPrinter(
         printCast(expr)
       case expr: LoweredExpression.Call =>
         printCall(expr)
+      case expr: LoweredExpression.EvidenceCall =>
+        printEvidenceCall(expr)
       case expr: LoweredExpression.Character =>
         printCharacterLiteral(expr)
       case expr: LoweredExpression.Integer =>
@@ -300,6 +302,18 @@ class LoweredAssemblyPrinter(
       expr: LoweredExpression.Character
   ): Unit = {
     ast.writeWithColor(ColorPalette.String, "'" + expr.value + "'")
+  }
+
+  /** `$ev$K$Eq.equals(a, b)` — the evidence is shown because it is the
+    * dispatch target, not a receiver.
+    */
+  def printEvidenceCall(call: LoweredExpression.EvidenceCall): unit = {
+    ast.append(call.evidence.name)
+    ast.writeWithColor(ColorPalette.Punctuation, ".")
+    ast.append(call.member.name)
+    ast.writeWithColor(ColorPalette.Punctuation, "(")
+    printExpressions(call.arguments.uncons())
+    ast.writeWithColor(ColorPalette.Punctuation, ")")
   }
 
   def printCall(call: LoweredExpression.Call): unit = {

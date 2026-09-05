@@ -309,6 +309,11 @@ class Emitter(
         emitBooleanLiteral(value, context)
       case value: LoweredExpression.Call =>
         emitCallExpression(value, context)
+      // Emitting this needs the evidence record and `Calli`, which is the next
+      // step of ADR 0005. Binding produces the node today; nothing in the
+      // transpiled sources or the tests reaches emission with one.
+      case value: LoweredExpression.EvidenceCall =>
+        panic("unimplemented: emitEvidenceCall")
       case value: LoweredExpression.Cast =>
         emitCastExpression(value, context)
       case value: LoweredExpression.Character =>

@@ -503,6 +503,7 @@ object AstUtils {
     value match {
       case BoundLeftHandSide.ArrayCreation(expr)   => expr.location
       case BoundLeftHandSide.Call(expr)            => expr.location
+      case BoundLeftHandSide.EvidenceCall(expr)    => expr.location
       case BoundLeftHandSide.Index(expr)           => expr.location
       case BoundLeftHandSide.MemberAccess(expr)    => expr.location
       case BoundLeftHandSide.New(expr)             => expr.location
@@ -521,6 +522,7 @@ object AstUtils {
         locationOfBoundExpression(expression)
       case BoundExpression.Boolean(location, _)          => location
       case BoundExpression.Call(location, _, _, _, _, _) => location
+      case BoundExpression.EvidenceCall(location, _, _, _, _) => location
       case BoundExpression.Cast(location, expression, _) => location
       case BoundExpression.Character(location, _)        => location
       case BoundExpression.For(location, _, _, _, _)     => location

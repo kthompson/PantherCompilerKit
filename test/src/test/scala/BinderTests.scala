@@ -762,6 +762,53 @@ class BinderTests extends AnyFunSpec with Matchers {
       diagnosticMessages(comp) should contain("Expected 2 arguments, but got 1")
     }
 
+    /** ADR 0004's contextual extensions. `equals` does not become a member of
+      * `T` — a type parameter has no members at all — it is resolved through
+      * the applicable `Eq[T]` evidence, which is an ordinary symbol in scope.
+      */
+    it("should resolve a trait member through evidence in scope") {
+      mkCompilation(
+        eqTrait + eqInt + "def same[T: Eq](a: T, b: T): bool = a.equals(b)"
+      )
+    }
+
+    it("should resolve a trait member and then the call to it") {
+      mkCompilation(
+        eqTrait + eqInt +
+          "def same[T: Eq](a: T, b: T): bool = a.equals(b)\n" +
+          "val r = same(1, 2)"
+      )
+    }
+
+    it("should reject a trait member with no evidence in scope") {
+      val comp = mkFailingCompilation(
+        eqTrait + eqInt + "def same[T](a: T, b: T): bool = a.equals(b)"
+      )
+      diagnosticMessages(comp) should contain(
+        "Symbol equals not found for type $0"
+      )
+    }
+
+    it("should reject a member no evidence in scope supplies") {
+      val comp = mkFailingCompilation(
+        eqTrait + eqInt + "def same[T: Eq](a: T, b: T): bool = a.compare(b)"
+      )
+      diagnosticMessages(comp) should contain(
+        "Symbol compare not found for type $0"
+      )
+    }
+
+    /** `a.equals(b)` calls `equals(a, b)`: the trait declares both operands as
+      * parameters, so the value left of the dot is the first argument. The
+      * count reported is what the user has to write, not the elaborated one.
+      */
+    it("should count evidence call arity without the receiver") {
+      val comp = mkFailingCompilation(
+        eqTrait + eqInt + "def same[T: Eq](a: T, b: T): bool = a.equals(b, b)"
+      )
+      diagnosticMessages(comp) should contain("Expected 1 arguments, but got 2")
+    }
+
     /** Which declaration is reported as the duplicate follows binding order,
       * not source order, and traits bind before classes — so the class is the
       * one flagged here even though it is written second. That is pre-existing

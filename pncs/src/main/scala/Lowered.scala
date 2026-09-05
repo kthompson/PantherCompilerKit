@@ -126,6 +126,18 @@ enum LoweredExpression {
       arguments: Chain[LoweredExpression],
       resultType: Type
   )
+  /** A trait member called through evidence. The emitter loads the evidence,
+    * loads the member's token from it, and issues `Calli`; `arguments` already
+    * has the receiver prepended, because a trait declares both operands as
+    * parameters.
+    */
+  case EvidenceCall(
+      location: TextLocation,
+      evidence: Symbol,
+      member: Symbol,
+      arguments: Chain[LoweredExpression],
+      resultType: Type
+  )
   case Character(location: TextLocation, value: char)
   case Integer(location: TextLocation, value: int)
   case MemberAccess(
@@ -163,6 +175,7 @@ enum LoweredExpression {
       case expr: LoweredExpression.BinaryExpression => expr.location
       case expr: LoweredExpression.Boolean          => expr.location
       case expr: LoweredExpression.Call             => expr.location
+      case expr: LoweredExpression.EvidenceCall     => expr.location
       case expr: LoweredExpression.Cast             => expr.location
       case expr: LoweredExpression.Character        => expr.location
       case expr: LoweredExpression.Integer          => expr.location
@@ -293,6 +306,8 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
         lowerBooleanLiteral(expr, context)
       case expr: BoundExpression.Call =>
         lowerCallExpression(expr, context)
+      case expr: BoundExpression.EvidenceCall =>
+        lowerEvidenceCall(expr, context)
       case expr: BoundExpression.Cast =>
         lowerCastExpression(expr, context)
       case expr: BoundExpression.Character =>
@@ -377,6 +392,8 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       case BoundLeftHandSide.ArrayCreation(expression) =>
         panic("unimplemented: lowerAssignment")
       case BoundLeftHandSide.Call(expression) =>
+        panic("unimplemented: lowerAssignment")
+      case BoundLeftHandSide.EvidenceCall(expression) =>
         panic("unimplemented: lowerAssignment")
       case BoundLeftHandSide.Index(expression) =>
         lowerIndexAssignment(expression, block)
@@ -536,6 +553,51 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       Chain.Empty(),
       context.statements
     )
+  }
+
+  def lowerEvidenceCall(
+      expr: BoundExpression.EvidenceCall,
+      context: LoweredBlock
+  ): LoweredBlock = {
+    checkUnusedExpr(context)
+    // annotated: an empty chain in argument position infers `Chain<any>`
+    val empty: Chain[LoweredExpression] = Chain.Empty()
+    lowerEvidenceCallArguments(
+      expr,
+      expr.arguments,
+      empty,
+      context.statements
+    )
+  }
+
+  def lowerEvidenceCallArguments(
+      call: BoundExpression.EvidenceCall,
+      arguments: List[BoundExpression],
+      loweredArguments: Chain[LoweredExpression],
+      statements: Chain[LoweredStatement]
+  ): LoweredBlock = {
+    arguments match {
+      case List.Nil =>
+        LoweredBlock(
+          statements,
+          LoweredExpression.EvidenceCall(
+            call.location,
+            call.evidence,
+            call.member,
+            loweredArguments,
+            call.resultType
+          )
+        )
+      case List.Cons(head, tail) =>
+        val block =
+          lowerExpression(head, LoweredBlock(statements, LoweredExpression.Unit))
+        lowerEvidenceCallArguments(
+          call,
+          tail,
+          loweredArguments.append(block.expression),
+          block.statements
+        )
+    }
   }
 
   def lowerCallExpressionArguments(
@@ -920,6 +982,8 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       case BoundLeftHandSide.ArrayCreation(expression) =>
         panic("unimplemented: lowerLeftHandSide")
       case BoundLeftHandSide.Call(expression) =>
+        panic("unimplemented: lowerLeftHandSide")
+      case BoundLeftHandSide.EvidenceCall(expression) =>
         panic("unimplemented: lowerLeftHandSide")
       case BoundLeftHandSide.Index(expression) =>
         panic("unimplemented: lowerLeftHandSide")

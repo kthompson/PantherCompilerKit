@@ -352,6 +352,10 @@ class ExprBinder(
           "Cannot bind call expression because of type errors"
         )
       )
+    } else if (isTraitMemberAccess(function)) {
+      // Same interception as the infer path: a body with a declared return type
+      // arrives here instead.
+      bindEvidenceCall(function, args, scope)
     } else {
       functionType match {
         case func: Type.Function =>
@@ -936,6 +940,8 @@ class ExprBinder(
           "Cannot bind call expression because of type errors"
         )
       )
+    } else if (isTraitMemberAccess(function)) {
+      bindEvidenceCall(function, args, scope)
     } else
       functionType match {
         case func: Type.Function =>
@@ -1751,6 +1757,8 @@ class ExprBinder(
         binder.getType(expression)
       case BoundLeftHandSide.Call(expression) =>
         binder.getType(expression)
+      case BoundLeftHandSide.EvidenceCall(expression) =>
+        binder.getType(expression)
       case BoundLeftHandSide.Index(expression) =>
         binder.getType(expression)
       case BoundLeftHandSide.MemberAccess(expression) =>
@@ -1768,6 +1776,8 @@ class ExprBinder(
       case BoundLeftHandSide.ArrayCreation(expression) =>
         expression
       case BoundLeftHandSide.Call(expression) =>
+        expression
+      case BoundLeftHandSide.EvidenceCall(expression) =>
         expression
       case BoundLeftHandSide.MemberAccess(expression) =>
         expression
@@ -1809,7 +1819,7 @@ class ExprBinder(
                 val typeArguments =
                   binder.bindTypeArgumentList(typeArgumentlist.arguments, scope)
 
-                bindMemberForSymbolAndType(leftType, right) match {
+                bindMemberForSymbolAndType(leftType, right, scope) match {
                   case Either.Left(message) =>
                     Result.Error(BoundExpression.Error(message))
                   case Either.Right(Tuple2(member, typ)) =>
@@ -1834,7 +1844,7 @@ class ExprBinder(
               case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) =>
                 panic("unimplemented: inferMemberAccess")
               case SimpleNameSyntax.IdentifierNameSyntax(right) =>
-                bindMemberForSymbolAndType(leftType, right) match {
+                bindMemberForSymbolAndType(leftType, right, scope) match {
                   case Either.Left(message) =>
                     Result.Error(BoundExpression.Error(message))
                   case Either.Right(Tuple2(member, typ)) =>
@@ -1853,21 +1863,125 @@ class ExprBinder(
     }
   }
 
+  /** Whether a call's target is a trait member reached through evidence rather
+    * than an ordinary method. Only `bindMemberForSymbolAndType` produces one,
+    * and only where the receiver's type has no members of its own.
+    */
+  def isTraitMemberAccess(function: BoundLeftHandSide): bool = {
+    function match {
+      case BoundLeftHandSide.MemberAccess(access) =>
+        access.member.parent match {
+          case Option.Some(owner) => owner.kind == SymbolKind.Trait
+          case Option.None        => false
+        }
+      case _ => false
+    }
+  }
+
+  /** `a.equals(b)` where `equals` came from evidence becomes `equals(a, b)`:
+    * the trait declares both operands as parameters, so the value on the left
+    * of the dot is the first argument, not a receiver.
+    */
+  def bindEvidenceCall(
+      function: BoundLeftHandSide,
+      args: List[BoundExpression],
+      scope: Scope
+  ): Result[BoundExpression.Error, BoundLeftHandSide] = {
+    function match {
+      case BoundLeftHandSide.MemberAccess(access) =>
+        val receiver = convertLHSToExpression(access.receiver)
+        val receiverType = binder.getType(receiver)
+        val location = access.location
+
+        binder.findEvidenceMember(
+          receiverType,
+          access.member.name,
+          scope.current
+        ) match {
+          case Option.None =>
+            diagnosticBag.reportSymbolNotFoundForType(
+              location,
+              receiverType,
+              access.member.name
+            )
+            Result.Error(
+              BoundExpression.Error(
+                "No evidence supplies " + access.member.name
+              )
+            )
+          case Option.Some(KeyValue(evidence, member)) =>
+            // annotated: a bare `List.Cons` types as the case, not the enum
+            val allArgs: List[BoundExpression] = List.Cons(receiver, args)
+            binder.tryGetSymbolType(member) match {
+              case Option.Some(Type.Function(_, parameters, returnType)) =>
+                if (parameters.length != allArgs.length) {
+                  diagnosticBag.reportArgumentCountMismatch(
+                    location,
+                    // the receiver is one of them, so report what the user
+                    // has to write rather than the elaborated count
+                    parameters.length - 1,
+                    args.length
+                  )
+                  Result.Error(
+                    BoundExpression.Error(
+                      "Argument count mismatch calling " + member.name
+                    )
+                  )
+                } else {
+                  Result.Success(
+                    BoundLeftHandSide.EvidenceCall(
+                      BoundExpression.EvidenceCall(
+                        location,
+                        evidence,
+                        member,
+                        bindArgumentsToTypes(
+                          getParameterTypes(parameters),
+                          allArgs,
+                          scope
+                        ),
+                        returnType
+                      )
+                    )
+                  )
+                }
+              case _ =>
+                diagnosticBag.reportNotCallable(location)
+                Result.Error(
+                  BoundExpression.Error(
+                    "Trait member " + member.name + " is not callable"
+                  )
+                )
+            }
+        }
+      case _ =>
+        Result.Error(BoundExpression.Error("Expected a trait member access"))
+    }
+  }
+
   def bindMemberForSymbolAndType(
       leftType: Type,
-      right: SyntaxToken
+      right: SyntaxToken,
+      scope: Scope
   ): Either[string, Tuple2[Symbol, Type]] = {
     binder.getTypeSymbol(leftType) match {
       case Option.None =>
-        diagnosticBag.reportSymbolNotFoundForType(
-          right.location,
-          leftType,
-          right.text
-        )
-        Either.Left(
-          "Symbol not found for type: " + leftType
-            .toString() + " for member: " + right.text
-        )
+        // A type parameter has no members of its own, so an ordinary lookup was
+        // never going to succeed. Evidence in scope may still supply the name
+        // as a contextual extension (ADR 0004).
+        binder.findEvidenceMember(leftType, right.text, scope.current) match {
+          case Option.Some(KeyValue(_, member)) =>
+            Either.Right(Tuple2(member, binder.getSymbolType(member)))
+          case Option.None =>
+            diagnosticBag.reportSymbolNotFoundForType(
+              right.location,
+              leftType,
+              right.text
+            )
+            Either.Left(
+              "Symbol not found for type: " + leftType
+                .toString() + " for member: " + right.text
+            )
+        }
       case Option.Some(symbol) =>
         symbol.lookupMember(right.text) match {
           case Option.None =>

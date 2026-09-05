@@ -70,6 +70,7 @@ class BoundAssemblyPrinter(
       case expr: BoundExpression.Block         => printBlock(expr)
       case expr: BoundExpression.Boolean       => printBooleanLiteral(expr)
       case expr: BoundExpression.Call          => printCallExpression(expr)
+      case expr: BoundExpression.EvidenceCall  => printEvidenceCall(expr)
       case expr: BoundExpression.Cast          => printCastExpression(expr)
       case expr: BoundExpression.Character     => printCharacterLiteral(expr)
       case expr: BoundExpression.For           => printForExpression(expr)
@@ -121,6 +122,8 @@ class BoundAssemblyPrinter(
     lhs match {
       case BoundLeftHandSide.ArrayCreation(expression) =>
         printArrayCreation(expression)
+      case BoundLeftHandSide.EvidenceCall(expression) =>
+        printEvidenceCall(expression)
       case BoundLeftHandSide.Index(expression) =>
         printIndexExpression(expression)
       case BoundLeftHandSide.MemberAccess(memberAccess) =>
@@ -176,6 +179,18 @@ class BoundAssemblyPrinter(
     printExpressions(expr.arguments)
     writeWithColor(ColorPalette.Punctuation, ")")
   }
+  /** Printed as `$ev$K$Eq.equals(a, b)` so the evidence the call dispatches
+    * through is visible, unlike an ordinary call where the target is the name.
+    */
+  def printEvidenceCall(expr: BoundExpression.EvidenceCall): unit = {
+    writeWithColor(ColorPalette.Identifier, expr.evidence.name)
+    writeWithColor(ColorPalette.Punctuation, ".")
+    writeWithColor(ColorPalette.Identifier, expr.member.name)
+    writeWithColor(ColorPalette.Punctuation, "(")
+    printExpressions(expr.arguments)
+    writeWithColor(ColorPalette.Punctuation, ")")
+  }
+
   def printCastExpression(expr: BoundExpression.Cast): unit = {
     ast._printType(expr.targetType, true)
     writeWithColor(ColorPalette.Punctuation, "(")

@@ -843,6 +843,7 @@ class Binder(
       case _: BoundExpression.While      => unitType
 
       case expr: BoundExpression.ArrayCreation => expr.resultType
+      case expr: BoundExpression.EvidenceCall  => expr.resultType
       case expr: BoundExpression.Binary        => expr.resultType
       case expr: BoundExpression.Block         => getType(expr.expression)
       case expr: BoundExpression.Call          => expr.resultType
@@ -1788,6 +1789,69 @@ class Binder(
               generic,
               bindGenericTypeParametersWithIndex(tail, scope, index + 1)
             )
+        }
+    }
+  }
+
+  /** Finds evidence in scope that supplies `memberName` for `leftType`.
+    *
+    * This is the contextual extension rule from ADR 0004: inside
+    * `def same[T: Eq](a: T, b: T)`, `a.equals(b)` resolves `equals` through the
+    * applicable `Eq[T]` evidence. The method does not become a member of `T` —
+    * `T` has no members at all — so this only fires where an ordinary lookup
+    * could never have succeeded.
+    *
+    * Evidence is an ordinary symbol in a scope, so this is the same upward walk
+    * every other name uses, which is the practical argument ADR 0004 gives for
+    * the lexical mechanism.
+    */
+  def findEvidenceMember(
+      leftType: Type,
+      memberName: string,
+      symbol: Symbol
+  ): Option[KeyValue[Symbol, Symbol]] = {
+    scanEvidenceMembers(leftType, memberName, symbol.members()) match {
+      case Option.Some(found) => Option.Some(found)
+      case Option.None =>
+        symbol.parent match {
+          case Option.None         => Option.None
+          case Option.Some(parent) =>
+            findEvidenceMember(leftType, memberName, parent)
+        }
+    }
+  }
+
+  def scanEvidenceMembers(
+      leftType: Type,
+      memberName: string,
+      members: List[Symbol]
+  ): Option[KeyValue[Symbol, Symbol]] = {
+    members match {
+      case List.Nil => Option.None
+      case List.Cons(head, tail) =>
+        // annotated: the self-hosted compiler does not widen the branches of
+        // an `if` to their common supertype
+        val found: Option[KeyValue[Symbol, Symbol]] =
+          if (head.kind != SymbolKind.Evidence) Option.None
+          else
+            tryGetSymbolType(head) match {
+              case Option.Some(
+                    Type.Class(_, _, _, List.Cons(arg, List.Nil), traitSymbol)
+                  ) =>
+                if (sameConstraint(arg, leftType)) {
+                  traitSymbol.lookupMember(memberName) match {
+                    case Option.None => Option.None
+                    case Option.Some(member) =>
+                      Option.Some(KeyValue(head, member))
+                  }
+                } else Option.None
+              case _ => Option.None
+            }
+
+        found match {
+          case Option.Some(_) => found
+          case Option.None =>
+            scanEvidenceMembers(leftType, memberName, tail)
         }
     }
   }
