@@ -48,6 +48,13 @@ class BinaryOperators(binder: Binder) {
 
   equalityOp(binder.stringType, BinaryOperatorKind.Equals)
   equalityOp(binder.stringType, BinaryOperatorKind.NotEquals)
+  // Ordering is lexicographic. The VM compares Value.String directly for Clt
+  // and Cgt, and the emitter builds <= and >= from those two, so all four
+  // work end to end.
+  equalityOp(binder.stringType, BinaryOperatorKind.LessThan)
+  equalityOp(binder.stringType, BinaryOperatorKind.LessThanOrEqual)
+  equalityOp(binder.stringType, BinaryOperatorKind.GreaterThan)
+  equalityOp(binder.stringType, BinaryOperatorKind.GreaterThanOrEqual)
   binaryOp(
     binder.stringType,
     binder.stringType,

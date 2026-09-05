@@ -53,6 +53,16 @@ class VmTests extends AnyFunSpec with Matchers {
       assertExecValueBool("false || false", false)
     }
 
+    it("should compare strings lexicographically") {
+      assertExecValueBool("\"apple\" < \"banana\"", true)
+      assertExecValueBool("\"banana\" < \"apple\"", false)
+      assertExecValueBool("\"apple\" <= \"apple\"", true)
+      assertExecValueBool("\"banana\" > \"apple\"", true)
+      assertExecValueBool("\"apple\" > \"banana\"", false)
+      assertExecValueBool("\"apple\" >= \"apple\"", true)
+      assertExecValueBool("\"apple\" >= \"banana\"", false)
+    }
+
     it("should handle binary precedence correctly") {
       assertExecValueInt("1 + 2 * 3", 7) // 1 + (2 * 3)
       assertExecValueInt("2 * 3 + 1", 7) // (2 * 3) + 1
