@@ -393,5 +393,72 @@ class ParserTests extends AnyFunSpec with Matchers {
       assertNone(method.body)
       assertName("bool", assertSome(method.typeAnnotation).typ)
     }
+
+    /** An operator declaration is a function declaration whose name is the
+      * operator's own text. What makes it an operator is the token a trait
+      * claims, not a different kind of syntax (ADR 0004).
+      */
+    it("should parse an operator declaration in a trait") {
+      val decl = mkTraitMember(
+        "trait Eq[T] { operator ==(a: T, b: T): bool }"
+      )
+      val method = assertFunctionMember(assertSingle(decl.template.members))
+
+      assertTokenText("operator", method.defKeyword)
+      assertTokenKind(SyntaxKind.EqualsEqualsToken, method.identifier)
+      assertTokenText("==", method.identifier)
+      assertNone(method.body)
+      assertName("bool", assertSome(method.typeAnnotation).typ)
+    }
+
+    it("should parse an operator implementation in a given") {
+      val decl = mkGivenMember(
+        "given Eq[int] { operator ==(a: int, b: int): bool = a == b }"
+      )
+      val method = assertFunctionMember(assertSingle(decl.template.members))
+
+      assertTokenText("==", method.identifier)
+      assertSome(method.body)
+    }
+
+    it("should parse every comparison operator a trait can declare") {
+      val decl = mkTraitMember(
+        "trait Ord[T] { operator <(a: T, b: T): bool\n" +
+          "operator <=(a: T, b: T): bool\n" +
+          "operator >(a: T, b: T): bool\n" +
+          "operator >=(a: T, b: T): bool }"
+      )
+      val names = decl.template.members match {
+        case members =>
+          def walk(items: List[MemberSyntax]): Seq[String] =
+            items match {
+              case List.Nil => Seq.empty
+              case List.Cons(head, tail) =>
+                assertFunctionMember(head).identifier.text +: walk(tail)
+            }
+          walk(members)
+      }
+
+      names shouldBe Seq("<", "<=", ">", ">=")
+    }
+
+    /** `operator` stays an identifier everywhere else. It cannot be reserved:
+      * the compiler's own sources use it as a field and parameter name, and
+      * `pncs` has to compile its transpiled twin.
+      */
+    it("should keep operator usable as an identifier") {
+      val decl = mkClassMember(
+        "class BinaryOperator(operator: int)"
+      )
+      val parameter = assertSingle(decl.parameters)
+      assertTokenText("operator", parameter.identifier)
+    }
+
+    it("should reject a token that is not a binary operator") {
+      val tree = mkSyntaxTree("trait Weird[T] { operator ~(a: T, b: T): bool }")
+      treeDiagnosticMessages(tree) should contain(
+        "~ is not a binary operator and cannot be declared"
+      )
+    }
   }
 }

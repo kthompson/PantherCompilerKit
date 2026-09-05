@@ -124,6 +124,36 @@ object TestHelpers {
     }
   }
 
+  def mkClassMember(text: string): MemberSyntax.ClassDeclarationSyntax = {
+    mkMember(text) match {
+      case member: MemberSyntax.ClassDeclarationSyntax => member
+      case _ => throw new AssertionError("Expected class declaration")
+    }
+  }
+
+  def assertFunctionMember(
+      member: MemberSyntax
+  ): MemberSyntax.FunctionDeclarationSyntax = {
+    member match {
+      case member: MemberSyntax.FunctionDeclarationSyntax => member
+      case _ => throw new AssertionError("Expected function declaration")
+    }
+  }
+
+  /** Diagnostics the parser reported, without binding. A parse-time report has
+    * nowhere else to surface: `mkFailingCompilation` would bind first and bury
+    * it under whatever the malformed declaration then fails to type.
+    */
+  def treeDiagnosticMessages(tree: SyntaxTree): Seq[String] = {
+    def walk(diagnostics: Diagnostics): Seq[String] =
+      diagnostics match {
+        case Diagnostics.Empty => Seq.empty
+        case Diagnostics.Node(left, head, right) =>
+          walk(left) ++ Seq(head.message) ++ walk(right)
+      }
+    walk(tree.diagnostics)
+  }
+
   /** The heads of every registered given, in source order. `binder.givens`
     * accumulates in reverse, so this flips it back.
     */

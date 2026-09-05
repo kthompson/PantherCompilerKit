@@ -88,6 +88,20 @@ class Parser(
     else _tokens(_position)
   }
 
+  /** The token `offset` places ahead, clamped to the end of input.
+    *
+    * Reads the array directly rather than going through `next()`, which is
+    * correct here because the only tokens `next()` drops are annotations and
+    * `override`, and neither can appear in the lookahead this is used for.
+    */
+  def peek(offset: int): SyntaxToken = {
+    val len = _tokens.length
+    val index = _position + offset
+
+    if (index >= len) _tokens(len - 1)
+    else _tokens(index)
+  }
+
   def currentPrecedence(): int = {
     val kind = currentKind()
     // Assignment only. EqualsEqualsToken belongs to the equality branch
@@ -1203,6 +1217,61 @@ class Parser(
     )
   }
 
+  /** Whether the member starting here is `operator ==(a: T, b: T): bool`.
+    *
+    * `operator` is a contextual keyword, not a reserved one. It cannot be
+    * reserved: the compiler's own sources use `operator` as an identifier 71
+    * times — `BinaryOperator.operator`, `node.operator` — and `pncs` has to
+    * compile its own transpiled twin. Three tokens settle it without
+    * ambiguity, because no member or statement position in those sources
+    * begins with `operator` followed by an operator token.
+    */
+  def isOperatorDeclaration(): bool =
+    current().kind == SyntaxKind.IdentifierToken &&
+      current().text == "operator" &&
+      SyntaxFacts.isOperatorKind(peek(1).kind) &&
+      peek(2).kind == SyntaxKind.OpenParenToken
+
+  /** `operator ==(a: T, b: T): bool` inside a trait or a given.
+    *
+    * The result is an ordinary `FunctionDeclarationSyntax` whose name is the
+    * operator's own text, so the member binds, types and emits like any other
+    * — what makes it an operator is which token a trait claims, not a
+    * different kind of declaration
+    * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+    */
+  def parseOperatorDeclaration(): MemberSyntax = {
+    debugPrint("parseOperatorDeclaration")
+    val operatorKeyword = accept()
+    val identifier = accept()
+
+    // Only a token the language already has may be declared. `operator ~`
+    // reaches here because `~` is an operator token, but nothing parses `a ~ b`
+    // as a binary expression, so a trait claiming it could never be reached.
+    if (!SyntaxFacts.isBinaryOperator(identifier.kind)) {
+      diagnostics.reportNotABinaryOperator(identifier.location, identifier.text)
+    } else ()
+
+    val openParenToken = acceptKind(SyntaxKind.OpenParenToken)
+    val parameters = parseParameterList()
+    val closeParenToken = acceptKind(SyntaxKind.CloseParenToken)
+    val typeAnnotation = parseOptionalTypeAnnotation()
+    val body = parseFunctionBody()
+
+    // Qualified: the self-hosted compiler does not resolve a bare enum case
+    // name in a `new` position.
+    new MemberSyntax.FunctionDeclarationSyntax(
+      operatorKeyword,
+      identifier,
+      Option.None,
+      openParenToken,
+      parameters,
+      closeParenToken,
+      typeAnnotation,
+      body
+    )
+  }
+
   def parseEnumDeclaration(): MemberSyntax = {
     debugPrint("parseEnumDeclaration")
 
@@ -1344,6 +1413,8 @@ class Parser(
       parseTraitDeclaration()
     } else if (kind == SyntaxKind.GivenKeyword) {
       parseGivenDeclaration()
+    } else if (isOperatorDeclaration()) {
+      parseOperatorDeclaration()
     } else if (kind == SyntaxKind.ValKeyword || kind == SyntaxKind.VarKeyword) {
       parseVariableDeclaration()
     } else {

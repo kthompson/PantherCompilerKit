@@ -822,5 +822,134 @@ class BinderTests extends AnyFunSpec with Matchers {
         "Duplicate definition of Show at :2:8"
       )
     }
+
+    /** An operator member is an ordinary method whose name is the token's own
+      * text, so it needs nothing from the binder that `def` did not already
+      * have (ADR 0004).
+      */
+    it("should bind a trait operator as a method named after its token") {
+      val comp = mkCompilation("trait Eq[T] { operator ==(a: T, b: T): bool }")
+      val eq = assertSome(comp.root.lookup("Eq"))
+
+      memberSignature(eq) should contain("Method:==")
+    }
+
+    it("should claim an operator token for its trait") {
+      val comp = mkCompilation("trait Eq[T] { operator ==(a: T, b: T): bool }")
+      val eq = assertSome(comp.root.lookup("Eq"))
+
+      assertSome(
+        comp.binder.operatorTraits.get(SyntaxKind.EqualsEqualsToken)
+      ) shouldBe eq
+    }
+
+    /** ADR 0004: a token may be claimed by at most one trait, or `a == b`
+      * would need overload resolution across traits.
+      */
+    it("should reject a second trait claiming the same token") {
+      val comp = mkFailingCompilation(
+        "trait Eq[T] { operator ==(a: T, b: T): bool }\n" +
+          "trait Same[T] { operator ==(a: T, b: T): bool }"
+      )
+      diagnosticMessages(comp) should contain(
+        "Operator == is already declared by Eq"
+      )
+    }
+
+    it("should let one trait claim several tokens") {
+      val comp = mkCompilation(
+        "trait Ord[T] { operator <(a: T, b: T): bool\n" +
+          "operator >(a: T, b: T): bool }"
+      )
+      val ord = assertSome(comp.root.lookup("Ord"))
+
+      assertSome(
+        comp.binder.operatorTraits.get(SyntaxKind.LessThanToken)
+      ) shouldBe ord
+      assertSome(
+        comp.binder.operatorTraits.get(SyntaxKind.GreaterThanToken)
+      ) shouldBe ord
+    }
+
+    /** A given supplies the implementation for a token its trait already owns,
+      * so it claims nothing of its own — otherwise the second given for a
+      * trait would collide with the first.
+      */
+    it("should not let a given claim a token") {
+      mkCompilation(
+        "trait Eq[T] { operator ==(a: T, b: T): bool }\n" +
+          "given Eq[int] { operator ==(a: int, b: int): bool = a == b }\n" +
+          "given Eq[bool] { operator ==(a: bool, b: bool): bool = a == b }"
+      )
+    }
+
+    it("should bind a given's operator implementation") {
+      val comp = mkCompilation(
+        "trait Eq[T] { operator ==(a: T, b: T): bool }\n" +
+          "given Eq[int] { operator ==(a: int, b: int): bool = a == b }"
+      )
+      givenHeads(comp) shouldBe Seq("Eq<int>")
+
+      val given0 = assertSome(comp.root.lookup("$given$0"))
+      memberSignature(given0) should contain("Method:==")
+    }
+
+    val eqOp = "trait Eq[T] { operator ==(a: T, b: T): bool }\n"
+    val eqOpInt =
+      "given Eq[int] { operator ==(a: int, b: int): bool = a == b }\n"
+
+    it("should resolve == on a type parameter through its context bound") {
+      mkCompilation(eqOp + eqOpInt + "def same[T: Eq](a: T, b: T): bool = a == b")
+    }
+
+    /** No context bound, so nothing holds evidence for `T`. What the source is
+      * missing is the operator, so that is what is reported — the reader has
+      * not asked for evidence and should not be told about it.
+      *
+      * `<` rather than `==`: ADR 0003's identity rule accepts `==` between two
+      * unconstrained type parameters, which predates this change and is left
+      * as it is here.
+      */
+    it("should reject an operator on an unconstrained type parameter") {
+      val ordOp = "trait Ord[T] { operator <(a: T, b: T): bool }\n"
+      val comp = mkFailingCompilation(
+        ordOp + "def lt[T](a: T, b: T): bool = a < b"
+      )
+      diagnosticMessages(comp) should contain(
+        "No operator '<' for operands $0 and $0"
+      )
+    }
+
+    it("should resolve == on a ground type through its given") {
+      mkCompilation(
+        eqOp + "class Box(value: int)\n" +
+          "given Eq[Box] { operator ==(a: Box, b: Box): bool = a.value == b.value }\n" +
+          "val r = new Box(1) == new Box(1)"
+      )
+    }
+
+    /** ADR 0003's reference-identity rule is now the last resort rather than
+      * part of the table lookup. A class with no `Eq` evidence still compares
+      * by identity, so nothing that worked before this change stops working.
+      */
+    it("should still compare reference types by identity with no evidence") {
+      mkCompilation(
+        "class Box(value: int)\nval r = new Box(1) == new Box(1)"
+      )
+    }
+
+    /** That evidence wins over identity where both could answer is settled by
+      * `VmTests`: two separately constructed `Box(4)` compare equal, which the
+      * identity rule would call false.
+      */
+    it("should reject == on a ground type with no given") {
+      val comp = mkFailingCompilation(
+        eqOp + "class Box(value: int)\n" +
+          "val r = new Box(1) == 1"
+      )
+      diagnosticMessages(comp) should contain(
+        "No operator '==' for operands Box and int"
+      )
+    }
   }
 }

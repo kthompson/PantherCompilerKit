@@ -837,16 +837,44 @@ class ExprBinder(
             val op = bindBinaryOperator(node.operator)
             operators.checkBinary(leftType, rightType, op) match {
               case Type.Error(_) =>
-                diagnosticBag.reportNoOperatorForOperands(
-                  node.operator.location,
-                  node.operator.text,
+                // The builtin table has no row, so evidence is the fallback:
+                // `a == b` is valid exactly when `Eq[typeof(a)]` is available
+                // ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+                //
+                // Evidence is tried before ADR 0003's reference-identity rule,
+                // not after. A type that declares how it compares must compare
+                // that way; identity is what is left when nothing says
+                // otherwise.
+                bindOperatorThroughEvidence(
+                  node,
+                  left,
+                  right,
                   leftType,
-                  rightType
-                )
-                BoundExpression.Error(
-                  "No operator for operands: " + node.operator.text + " for types: " +
-                    leftType.toString() + " and " + rightType.toString()
-                )
+                  scope
+                ) match {
+                  case Option.Some(bound) => bound
+                  case Option.None =>
+                    if (operators.referenceEquality(leftType, rightType, op)) {
+                      BoundExpression.Binary(
+                        node.operator.location,
+                        left,
+                        op,
+                        right,
+                        binder.boolType
+                      )
+                    } else {
+                      diagnosticBag.reportNoOperatorForOperands(
+                        node.operator.location,
+                        node.operator.text,
+                        leftType,
+                        rightType
+                      )
+                      BoundExpression.Error(
+                        "No operator for operands: " + node.operator.text + " for types: " +
+                          leftType.toString() + " and " + rightType.toString()
+                      )
+                    }
+                }
               case resultType =>
                 BoundExpression.Binary(
                   node.operator.location,
@@ -857,6 +885,114 @@ class ExprBinder(
                 )
             }
         }
+    }
+  }
+
+  /** `a == b` resolved through the trait that claims `==`.
+    *
+    * Two ways the evidence can be reached, and they are not interchangeable:
+    *
+    *   - inside `def same[T: Eq](a: T, b: T)` the operands have a type
+    *     parameter's type, and the evidence is a symbol the enclosing
+    *     declaration holds — a parameter or a field — so the call has to go
+    *     through the record, which is what `EvidenceCall` emits;
+    *   - on a ground type the given is known here, and its members are static,
+    *     so an ordinary call to the member is what it compiles to.
+    *
+    * Returns `None` when nothing proves the goal, leaving the caller to report
+    * the operator as missing — which is the better message, because from the
+    * source's point of view what is missing is the operator, not the evidence.
+    */
+  def bindOperatorThroughEvidence(
+      node: Expression.Binary,
+      left: BoundExpression,
+      right: BoundExpression,
+      leftType: Type,
+      scope: Scope
+  ): Option[BoundExpression] = {
+    val name = node.operator.text
+    val location = node.operator.location
+
+    binder.operatorGoal(node.operator.kind, leftType) match {
+      case Option.None => Option.None
+      case Option.Some(goal) =>
+        binder.findEvidenceMember(leftType, name, scope.current) match {
+          case Option.Some(KeyValue(evidence, member)) =>
+            bindOperatorCall(
+              location,
+              member,
+              left,
+              right,
+              scope,
+              Option.Some(evidence)
+            )
+          case Option.None =>
+            if (!binder.isGroundType(goal)) Option.None
+            else
+              binder.findGivenMember(goal, name) match {
+                case Option.None => Option.None
+                case Option.Some(member) =>
+                  bindOperatorCall(
+                    location,
+                    member,
+                    left,
+                    right,
+                    scope,
+                    Option.None
+                  )
+              }
+        }
+    }
+  }
+
+  /** Binds the two operands against the operator member's declared parameters.
+    *
+    * `evidence` decides the node: `Some` for a record the caller has to load,
+    * `None` for a static call on the given itself.
+    */
+  def bindOperatorCall(
+      location: TextLocation,
+      member: Symbol,
+      left: BoundExpression,
+      right: BoundExpression,
+      scope: Scope,
+      evidence: Option[Symbol]
+  ): Option[BoundExpression] = {
+    binder.tryGetSymbolType(member) match {
+      case Option.Some(Type.Function(_, parameters, returnType)) =>
+        if (parameters.length != 2) Option.None
+        else {
+          // annotated: a bare `List.Cons` types as the case, not the enum
+          val operands: List[BoundExpression] =
+            List.Cons(left, ListModule.one(right))
+          val arguments =
+            bindArgumentsToTypes(getParameterTypes(parameters), operands, scope)
+
+          evidence match {
+            case Option.Some(symbol) =>
+              Option.Some(
+                BoundExpression.EvidenceCall(
+                  location,
+                  symbol,
+                  member,
+                  arguments,
+                  returnType
+                )
+              )
+            case Option.None =>
+              Option.Some(
+                BoundExpression.Call(
+                  location,
+                  Option.None,
+                  member,
+                  List.Nil,
+                  arguments,
+                  returnType
+                )
+              )
+          }
+        }
+      case _ => Option.None
     }
   }
 

@@ -225,6 +225,26 @@ case class DiagnosticBag(settings: CompilerSettings) {
         " type parameters; a context bound requires exactly 1"
     )
 
+  /** `operator ~(…)`. Only a token the language already parses as a binary
+    * operator may be declared — new syntax comes from a language change, not
+    * from a library
+    * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+    */
+  def reportNotABinaryOperator(location: TextLocation, op: string): unit =
+    report(location, op + " is not a binary operator and cannot be declared")
+
+  /** A token belongs to one trait. Without that rule `a == b` would need
+    * overload resolution across traits, and the point of the design is that a
+    * use site resolves to one piece of evidence
+    * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+    */
+  def reportOperatorAlreadyClaimed(
+      location: TextLocation,
+      op: string,
+      owner: string
+  ): unit =
+    report(location, "Operator " + op + " is already declared by " + owner)
+
   def reportInvalidOperator(location: TextLocation, op: string): unit =
     report(location, "Invalid operator: " + op)
 

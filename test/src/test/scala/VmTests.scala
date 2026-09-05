@@ -122,6 +122,67 @@ class VmTests extends AnyFunSpec with Matchers {
       assertExecValueBoolWithSetup(setup, "new Box[int](7).matches(8)", false)
     }
 
+    /** ADR 0004's operator declarations. `a == b` inside a constrained generic
+      * has no row in the builtin table, so it resolves to the member of `Eq`
+      * that claims `==` and dispatches through the record.
+      */
+    it("should run == through evidence for a type parameter") {
+      val setup =
+        "trait Eq[T] { operator ==(a: T, b: T): bool }\n" +
+          "given Eq[int] { operator ==(a: int, b: int): bool = a == b }\n" +
+          "def same[T: Eq](a: T, b: T): bool = a == b"
+
+      assertExecValueBoolWithSetup(setup, "same(3, 3)", true)
+      assertExecValueBoolWithSetup(setup, "same(3, 4)", false)
+    }
+
+    /** On a ground type the given is known while binding, and its members are
+      * static, so this compiles to an ordinary call rather than a record read.
+      * Both paths have to produce the same answer.
+      */
+    it("should run == through a given for a ground type") {
+      val setup =
+        "trait Eq[T] { operator ==(a: T, b: T): bool }\n" +
+          "class Box(value: int)\n" +
+          "given Eq[Box] {\n" +
+          "  operator ==(a: Box, b: Box): bool = a.value == b.value\n" +
+          "}"
+
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Box(4) == new Box(4)",
+        true
+      )
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Box(4) == new Box(5)",
+        false
+      )
+    }
+
+    /** One trait, several tokens. Each has to reach its own member, which is
+      * the record-layout question again — with `<` and `>` a swap is visible
+      * rather than silent.
+      */
+    it("should run each declared comparison operator") {
+      val setup =
+        "trait Ord[T] {\n" +
+          "  operator <(a: T, b: T): bool\n" +
+          "  operator >(a: T, b: T): bool\n" +
+          "}\n" +
+          "given Ord[int] {\n" +
+          "  operator <(a: int, b: int): bool = a < b\n" +
+          "  operator >(a: int, b: int): bool = a > b\n" +
+          "}\n" +
+          "def lt[T: Ord](a: T, b: T): bool = a < b\n" +
+          "def gt[T: Ord](a: T, b: T): bool = a > b"
+
+      assertExecValueBoolWithSetup(setup, "lt(2, 9)", true)
+      assertExecValueBoolWithSetup(setup, "lt(9, 2)", false)
+      assertExecValueBoolWithSetup(setup, "gt(9, 2)", true)
+      assertExecValueBoolWithSetup(setup, "gt(2, 9)", false)
+    }
+
     it("should compare strings lexicographically") {
       assertExecValueBool("\"apple\" < \"banana\"", true)
       assertExecValueBool("\"banana\" < \"apple\"", false)

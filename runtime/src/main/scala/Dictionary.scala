@@ -26,13 +26,23 @@ case class Dictionary[K, V](list: List[KeyValue[K, V]]) {
 
   def get(key: K): Option[V] = _get(key, list)
 
+  /** Iterative for the reason `_remove` is: depth is the size of the
+    * dictionary, and this is the hottest method on it.
+    */
   def _get(key: K, input: List[KeyValue[K, V]]): Option[V] = {
-    input match {
-      case List.Nil => Option.None
-      case List.Cons(KeyValue(k, v), tail) =>
-        if (k == key) Option.Some(v)
-        else _get(key, tail)
+    var rest = input
+    var found: Option[V] = Option.None
+
+    while (found.isEmpty() && !rest.isEmpty) {
+      rest match {
+        case List.Nil => rest = List.Nil
+        case List.Cons(KeyValue(k, v), tail) =>
+          if (k == key) found = Option.Some(v) else ()
+          rest = tail
+      }
     }
+
+    found
   }
 
   def remove(key: K): Dictionary[K, V] =
@@ -46,6 +56,9 @@ case class Dictionary[K, V](list: List[KeyValue[K, V]]) {
     * these methods are not final, so neither Scala nor the VM turns the tail
     * call into a jump. The symbol table gets large enough while compiling the
     * compiler's own sources to overflow the stack either way.
+    *
+    * Every walk over `list` in this class is written this way, for the same
+    * reason.
     */
   def _remove(key: K, list: List[KeyValue[K, V]]): List[KeyValue[K, V]] = {
     var acc: List[KeyValue[K, V]] = List.Nil
@@ -70,31 +83,42 @@ case class Dictionary[K, V](list: List[KeyValue[K, V]]) {
     acc.reverse()
   }
 
-  def contains(key: K): bool = {
-    list match {
-      case List.Nil => false
-      case List.Cons(KeyValue(k, _), tail) =>
-        if (k == key) true
-        else Dictionary(tail).contains(key)
-    }
-  }
+  def contains(key: K): bool = !get(key).isEmpty()
 
   def keys(): List[K] = _keys(List.Nil, list)
 
   def _keys(acc: List[K], pairs: List[KeyValue[K, V]]): List[K] = {
-    pairs match {
-      case List.Nil                        => acc
-      case List.Cons(KeyValue(k, _), tail) => _keys(List.Cons(k, acc), tail)
+    var result = acc
+    var rest = pairs
+
+    while (!rest.isEmpty) {
+      rest match {
+        case List.Nil => rest = List.Nil
+        case List.Cons(KeyValue(k, _), tail) =>
+          result = List.Cons(k, result)
+          rest = tail
+      }
     }
+
+    result
   }
 
   def values(): List[V] = _values(List.Nil, list)
 
   def _values(acc: List[V], pairs: List[KeyValue[K, V]]): List[V] = {
-    pairs match {
-      case List.Nil                        => acc
-      case List.Cons(KeyValue(_, v), tail) => _values(List.Cons(v, acc), tail)
+    var result = acc
+    var rest = pairs
+
+    while (!rest.isEmpty) {
+      rest match {
+        case List.Nil => rest = List.Nil
+        case List.Cons(KeyValue(_, v), tail) =>
+          result = List.Cons(v, result)
+          rest = tail
+      }
     }
+
+    result
   }
 }
 

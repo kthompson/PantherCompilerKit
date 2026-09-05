@@ -391,6 +391,18 @@ case class Binder(
   /** numbers the anonymous given symbols, in source order */
   var givenCount: int = 0
 
+  /** The trait that claims each operator token, keyed by `SyntaxKind`.
+    *
+    * A token may be claimed by at most one trait, so that `a == b` resolves to
+    * one piece of evidence rather than needing overload resolution across
+    * traits ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+    *
+    * Keyed by token kind rather than by text: a kind has exactly one spelling,
+    * while `SyntaxFacts.getBinaryOperatorText` gives `&&` for both `LogicalAnd`
+    * and `BitwiseAnd`.
+    */
+  var operatorTraits: Dictionary[int, Symbol] = DictionaryModule.empty()
+
   /** The static field holding each given's evidence record, keyed by the
     * given's symbol. Defined once the program object exists, and filled in by
     * the emitter, which is the first place method tokens are known.
@@ -1499,6 +1511,45 @@ case class Binder(
           members.fields,
           List.Nil
         )
+        claimOperators(symbol, members.functions)
+    }
+  }
+
+  /** Records which trait implements each operator token it declares.
+    *
+    * Read from the syntax rather than from the bound members because the
+    * members are deferred — `addMembersToBind` queues them — and a use site
+    * needs the claim before any body binds. Only a trait claims: a `given`
+    * supplies the implementation for a token its trait already owns.
+    */
+  def claimOperators(
+      traitSymbol: Symbol,
+      functions: List[MemberSyntax.FunctionDeclarationSyntax]
+  ): unit = {
+    functions match {
+      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        if (SyntaxFacts.isBinaryOperator(head.identifier.kind)) {
+          claimOperator(traitSymbol, head.identifier)
+        } else ()
+        claimOperators(traitSymbol, tail)
+    }
+  }
+
+  def claimOperator(traitSymbol: Symbol, token: SyntaxToken): unit = {
+    operatorTraits.get(token.kind) match {
+      case Option.Some(owner) =>
+        // The same trait declaring a token twice is a duplicate member, which
+        // the symbol table reports on its own.
+        if (owner != traitSymbol) {
+          diagnosticBag.reportOperatorAlreadyClaimed(
+            token.location,
+            token.text,
+            owner.name
+          )
+        } else ()
+      case Option.None =>
+        operatorTraits = operatorTraits.put(token.kind, traitSymbol)
     }
   }
 
@@ -2495,6 +2546,47 @@ case class Binder(
       case Option.None                        => Option.None
       case Option.Some(KeyValue(candidate, _)) =>
         evidenceFields.get(candidate.symbol)
+    }
+  }
+
+  /** The trait that claims `tokenKind`, applied to `operandType`.
+    *
+    * This is the goal a use site of that operator has to prove: `a == b` on
+    * `Box` needs `Eq[Box]`. Returns `None` when no trait claims the token,
+    * which is the ordinary case — the builtin operator table answers for the
+    * value types and nothing needs evidence.
+    */
+  def operatorGoal(tokenKind: int, operandType: Type): Option[Type] = {
+    operatorTraits.get(tokenKind) match {
+      case Option.None => Option.None
+      case Option.Some(traitSymbol) =>
+        tryGetSymbolType(traitSymbol) match {
+          case Option.Some(
+                Type.GenericClass(loc, ns, traitName, args, symbol)
+              ) =>
+            if (args.length == 1) {
+              Option.Some(
+                Type.Class(loc, ns, traitName, ListModule.one(operandType), symbol)
+              )
+            } else Option.None
+          case _ => Option.None
+        }
+    }
+  }
+
+  /** The member of the given that proves `goal`, by name.
+    *
+    * The ground half of operator resolution: where `findEvidenceMember` finds
+    * evidence held by an enclosing declaration, this finds the given itself.
+    * A given is a singleton whose members are static, so the caller can emit an
+    * ordinary call rather than going through the evidence record — the record
+    * exists to defer a choice, and here there is nothing left to defer.
+    */
+  def findGivenMember(goal: Type, memberName: string): Option[Symbol] = {
+    matchAnyGiven(goal, givens) match {
+      case Option.None => Option.None
+      case Option.Some(KeyValue(candidate, _)) =>
+        candidate.symbol.lookupMember(memberName)
     }
   }
 
