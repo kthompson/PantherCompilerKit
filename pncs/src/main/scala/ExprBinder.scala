@@ -945,6 +945,17 @@ case class ExprBinder(
     }
   }
 
+  /** Whether the right operand widens to the operator member's second
+    * parameter.
+    */
+  def operandFits(right: BoundExpression, parameters: List[BoundParameter]): bool = {
+    parameters match {
+      case List.Cons(_, List.Cons(second, _)) =>
+        conversionClassifier.widensTo(binder.getType(right), second.typ)
+      case _ => false
+    }
+  }
+
   /** Binds the two operands against the operator member's declared parameters.
     *
     * `evidence` decides the node: `Some` for a record the caller has to load,
@@ -960,7 +971,12 @@ case class ExprBinder(
   ): Option[BoundExpression] = {
     binder.tryGetSymbolType(member) match {
       case Option.Some(Type.Function(_, parameters, returnType)) =>
-        if (parameters.length != 2) Option.None
+        // The goal was built from the left operand alone, so the right one is
+        // still unchecked. Rejecting here rather than binding the arguments
+        // and letting the conversion fail keeps `"a" == 'c'` reported as a
+        // missing operator, which is what the source is actually missing.
+        if (parameters.length != 2 || !operandFits(right, parameters))
+          Option.None
         else {
           // annotated: a bare `List.Cons` types as the case, not the enum
           val operands: List[BoundExpression] =

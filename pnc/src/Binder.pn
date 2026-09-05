@@ -415,9 +415,235 @@ class Binder(
     */
   var runtimeInit: Option[Symbol] = Option.None
 
+  // ── The prelude's traits ────────────────────────────────────────────────
+  //
+  // `Eq`, `Ord` and `Show`, with givens for the value types, owned by the
+  // prelude alongside the builtins above and therefore found by any scope walk
+  // ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+  //
+  // Declared here rather than in a source file because there is no source the
+  // compiler always reads: a test snippet, a doc block and `pnc/src` are each
+  // just the trees they are handed.
+  //
+  // These have to come after `functionBodies`, `givens` and `operatorTraits`
+  // are declared — a class body initialises in order, and every one of the
+  // three is written to below.
+
+  /** The trait parameter `T` as it appears inside a trait's own members. */
+  val variableT: Type = Type.Variable(noLoc, 0)
+
+  val eqSymbol: Symbol = builtinTrait("Eq")
+  builtinBinaryMember(eqSymbol, "==", variableT, boolType)
+  builtinBinaryMember(eqSymbol, "!=", variableT, boolType)
+  claimBuiltinOperator(SyntaxKind.EqualsEqualsToken, eqSymbol)
+  claimBuiltinOperator(SyntaxKind.BangEqualsToken, eqSymbol)
+
+  val ordSymbol: Symbol = builtinTrait("Ord")
+  builtinBinaryMember(ordSymbol, "<", variableT, boolType)
+  builtinBinaryMember(ordSymbol, "<=", variableT, boolType)
+  builtinBinaryMember(ordSymbol, ">", variableT, boolType)
+  builtinBinaryMember(ordSymbol, ">=", variableT, boolType)
+  claimBuiltinOperator(SyntaxKind.LessThanToken, ordSymbol)
+  claimBuiltinOperator(SyntaxKind.LessThanEqualsToken, ordSymbol)
+  claimBuiltinOperator(SyntaxKind.GreaterThanToken, ordSymbol)
+  claimBuiltinOperator(SyntaxKind.GreaterThanEqualsToken, ordSymbol)
+
+  /** `Show` claims no token. `show` stays an ordinary contextual extension
+    * reached as `value.show()` — ADR 0004 is explicit that a trait member name
+    * never implicitly creates an operator.
+    */
+  val showSymbol: Symbol = builtinTrait("Show")
+  builtinUnaryMember(showSymbol, "show", variableT, stringType)
+
+  builtinEqGiven(intType, "int")
+  builtinEqGiven(stringType, "string")
+  builtinEqGiven(boolType, "bool")
+  builtinEqGiven(charType, "char")
+
+  // No `Ord[bool]`. The other three get their comparisons straight from the
+  // builtin operator table, which has no rows for `<` on `bool`, so the
+  // bodies would have to be spelled out — and `false < true` is not a
+  // question the sources ask.
+  builtinOrdGiven(intType, "int")
+  builtinOrdGiven(stringType, "string")
+  builtinOrdGiven(charType, "char")
+
+  builtinShowGiven(intType, "int")
+  builtinShowGiven(stringType, "string")
+  builtinShowGiven(boolType, "bool")
+  builtinShowGiven(charType, "char")
+
   val classifier = new ConversionClassifier(this)
   val exprBinder: ExprBinder =
     new ExprBinder(rootSymbol, this, classifier, diagnosticBag)
+
+  /** A prelude trait: one invariant type parameter, no members yet. */
+  def builtinTrait(name: string): Symbol = {
+    val symbol = pantherNamespace.defineTrait(name, noLoc)
+    symbol.defineTypeParameter("T", noLoc, Variance.Invariant)
+    setSymbolType(
+      symbol,
+      Type.GenericClass(noLoc, List.Nil, name, ListModule.one(T), symbol)
+    )
+    symbol
+  }
+
+  def claimBuiltinOperator(tokenKind: int, traitSymbol: Symbol): unit = {
+    operatorTraits = operatorTraits.put(tokenKind, traitSymbol)
+  }
+
+  /** `name(a: operand, b: operand): result`, with no body — a requirement. */
+  def builtinBinaryMember(
+      owner: Symbol,
+      name: string,
+      operand: Type,
+      result: Type
+  ): Symbol = {
+    val symbol = owner.defineMethod(name, noLoc)
+    val a = param(symbol, "a", operand)
+    val b = param(symbol, "b", operand)
+    setSymbolType(
+      symbol,
+      Type.Function(
+        noLoc,
+        List.Cons(
+          BoundParameter(a, operand),
+          ListModule.one(BoundParameter(b, operand))
+        ),
+        result
+      )
+    )
+    symbol
+  }
+
+  /** `name(value: operand): result`, with no body. */
+  def builtinUnaryMember(
+      owner: Symbol,
+      name: string,
+      operand: Type,
+      result: Type
+  ): Symbol = {
+    val symbol = owner.defineMethod(name, noLoc)
+    val value = param(symbol, "value", operand)
+    setSymbolType(
+      symbol,
+      Type.Function(noLoc, ListModule.one(BoundParameter(value, operand)), result)
+    )
+    symbol
+  }
+
+  /** Registers a prelude given and returns its symbol.
+    *
+    * Named after what it proves rather than numbered. `bindGiven` numbers the
+    * givens it binds so that the numbering is deterministic across compilers;
+    * a prelude given is already deterministic, and a name keeps the user's
+    * `$given$0` the first one they wrote.
+    */
+  def builtinGiven(traitSymbol: Symbol, typ: Type, typeName: string): Symbol = {
+    val name = "$given$" + traitSymbol.name + "$" + typeName
+    val symbol = pantherNamespace.tryDefineGiven(name, noLoc) match {
+      case Either.Left(_)       => panic("prelude given " + name + " exists")
+      case Either.Right(symbol) => symbol
+    }
+    val head =
+      Type.Class(
+        noLoc,
+        List.Nil,
+        traitSymbol.name,
+        ListModule.one(typ),
+        traitSymbol
+      )
+    setSymbolType(symbol, head)
+    registerGiven(BoundGiven(symbol, head, List.Nil, List.Nil, noLoc))
+    symbol
+  }
+
+  /** A prelude given's member, whose body is the operator the builtin table
+    * already has a row for: `Eq[int].==` is `a == b` on two ints.
+    *
+    * The body is a bound expression rather than parsed source, so it skips
+    * type checking — which is the point, since the check it would go through
+    * is the one that sends `a == b` back here looking for evidence.
+    */
+  def builtinBinaryBody(
+      owner: Symbol,
+      name: string,
+      operand: Type,
+      operator: BinaryOperatorKind,
+      result: Type
+  ): unit = {
+    val symbol = builtinBinaryMember(owner, name, operand, result)
+    symbol.members() match {
+      case List.Cons(a, List.Cons(b, _)) =>
+        functionBodies = functionBodies.put(
+          symbol,
+          BoundExpression.Binary(
+            noLoc,
+            BoundExpression.Variable(noLoc, a, Option.Some(operand)),
+            operator,
+            BoundExpression.Variable(noLoc, b, Option.Some(operand)),
+            result
+          )
+        )
+      case _ => panic("builtinBinaryBody: " + name + " has no parameters")
+    }
+  }
+
+  def builtinEqGiven(typ: Type, typeName: string): unit = {
+    val symbol = builtinGiven(eqSymbol, typ, typeName)
+    builtinBinaryBody(symbol, "==", typ, BinaryOperatorKind.Equals, boolType)
+    builtinBinaryBody(symbol, "!=", typ, BinaryOperatorKind.NotEquals, boolType)
+  }
+
+  def builtinOrdGiven(typ: Type, typeName: string): unit = {
+    val symbol = builtinGiven(ordSymbol, typ, typeName)
+    builtinBinaryBody(symbol, "<", typ, BinaryOperatorKind.LessThan, boolType)
+    builtinBinaryBody(
+      symbol,
+      "<=",
+      typ,
+      BinaryOperatorKind.LessThanOrEqual,
+      boolType
+    )
+    builtinBinaryBody(symbol, ">", typ, BinaryOperatorKind.GreaterThan, boolType)
+    builtinBinaryBody(
+      symbol,
+      ">=",
+      typ,
+      BinaryOperatorKind.GreaterThanOrEqual,
+      boolType
+    )
+  }
+
+  /** `Show[T].show` is the conversion function the language already has.
+    * `string(value)` is an extern call the emitter turns into `ConvStr`.
+    */
+  def builtinShowGiven(typ: Type, typeName: string): unit = {
+    val symbol = builtinGiven(showSymbol, typ, typeName)
+    val member = builtinUnaryMember(symbol, "show", typ, stringType)
+    val conversion = stringSymbol.lookupMember("apply") match {
+      case Option.Some(apply) => apply
+      case Option.None => panic("builtinShowGiven: string has no conversion")
+    }
+
+    member.members() match {
+      case List.Cons(value, _) =>
+        functionBodies = functionBodies.put(
+          member,
+          BoundExpression.Call(
+            noLoc,
+            Option.None,
+            conversion,
+            List.Nil,
+            ListModule.one(
+              BoundExpression.Variable(noLoc, value, Option.Some(typ))
+            ),
+            stringType
+          )
+        )
+      case List.Nil => panic("builtinShowGiven: show has no parameter")
+    }
+  }
 
   def conversionMethod(symbol: Symbol, returnType: Type): unit = {
     val apply = method(symbol, "apply")

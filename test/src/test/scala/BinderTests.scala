@@ -41,10 +41,73 @@ class BinderTests extends AnyFunSpec with Matchers {
       assertSymbol(symbols, SymbolKind.Method, "mod")
       assertSymbol(symbols, SymbolKind.Parameter, "a")
       assertSymbol(symbols, SymbolKind.Parameter, "b")
-      assertSymbol(symbols, SymbolKind.Object, "$Program")
-      assertSymbol(symbols, SymbolKind.Method, "$runtimeInit")
-      assertSymbol(symbols, SymbolKind.Method, "main")
-      assertNoSymbols(symbols)
+      // the prelude's traits and givens follow; they have their own test
+    }
+
+    /** The prelude's traits and givens (ADR 0004). Asserted against the root's
+      * own members rather than the flattened symbol chain, because lowering
+      * adds a temporary local inside every `Show` given — `show` is a call —
+      * and that is an artifact of lowering, not part of the declaration.
+      */
+    it("should create the prelude traits and givens") {
+      val comp = mkCompilation("")
+
+      memberSignature(assertSome(comp.root.lookup("Eq"))) shouldBe Seq(
+        "TypeParameter(Invariant):T",
+        "Method:==",
+        "Method:!="
+      )
+      memberSignature(assertSome(comp.root.lookup("Ord"))) shouldBe Seq(
+        "TypeParameter(Invariant):T",
+        "Method:<",
+        "Method:<=",
+        "Method:>",
+        "Method:>="
+      )
+      memberSignature(assertSome(comp.root.lookup("Show"))) shouldBe Seq(
+        "TypeParameter(Invariant):T",
+        "Method:show"
+      )
+
+      // no Ord[bool]: the builtin operator table has no `<` on bool
+      preludeGivenHeads(comp) shouldBe Seq(
+        "Eq<int>",
+        "Eq<string>",
+        "Eq<bool>",
+        "Eq<char>",
+        "Ord<int>",
+        "Ord<string>",
+        "Ord<char>",
+        "Show<int>",
+        "Show<string>",
+        "Show<bool>",
+        "Show<char>"
+      )
+
+      memberSignature(
+        assertSome(comp.root.lookup("$given$Eq$int"))
+      ) shouldBe Seq("Method:==", "Method:!=")
+    }
+
+    /** Only `Eq` and `Ord` claim tokens. `Show` declares no operator, so
+      * `show` stays an ordinary contextual extension (ADR 0004).
+      */
+    it("should claim the comparison tokens for the prelude traits") {
+      val comp = mkCompilation("")
+      val eq = assertSome(comp.root.lookup("Eq"))
+      val ord = assertSome(comp.root.lookup("Ord"))
+
+      def owner(kind: Int): Symbol =
+        assertSome(comp.binder.operatorTraits.get(kind))
+
+      owner(SyntaxKind.EqualsEqualsToken) shouldBe eq
+      owner(SyntaxKind.BangEqualsToken) shouldBe eq
+      owner(SyntaxKind.LessThanToken) shouldBe ord
+      owner(SyntaxKind.LessThanEqualsToken) shouldBe ord
+      owner(SyntaxKind.GreaterThanToken) shouldBe ord
+      owner(SyntaxKind.GreaterThanEqualsToken) shouldBe ord
+
+      comp.binder.operatorTraits.get(SyntaxKind.PlusToken) shouldBe Option.None
     }
 
     it("should bind top level fields") {
@@ -414,10 +477,10 @@ class BinderTests extends AnyFunSpec with Matchers {
       * receiver, because evidence for a trait comes from a `given`.
       */
     it("should bind traits") {
-      val comp = mkCompilation("trait Show { def show(): string }")
+      val comp = mkCompilation("trait Display { def show(): string }")
       val symbols = enumNonBuiltinSymbols(comp)
 
-      assertSymbol(symbols, SymbolKind.Trait, "Show")
+      assertSymbol(symbols, SymbolKind.Trait, "Display")
       assertSymbol(symbols, SymbolKind.Method, "show")
 
       assertProgramSymbol(symbols)
@@ -426,11 +489,11 @@ class BinderTests extends AnyFunSpec with Matchers {
     }
 
     it("should bind generic traits") {
-      val comp = mkCompilation("trait Eq[T] { def equals(a: T, b: T): bool }")
+      val comp = mkCompilation("trait Eqv[T] { def equals(a: T, b: T): bool }")
       val symbols = enumNonBuiltinSymbols(comp)
 
-      val eq = assertSymbol(symbols, SymbolKind.Trait, "Eq")
-      assertSymbolType(comp, eq, "Eq<T>")
+      val eq = assertSymbol(symbols, SymbolKind.Trait, "Eqv")
+      assertSymbolType(comp, eq, "Eqv<T>")
 
       assertSymbol(symbols, SymbolKind.TypeParameter(Variance.Invariant), "T")
       assertSymbol(symbols, SymbolKind.Method, "equals")
@@ -444,35 +507,35 @@ class BinderTests extends AnyFunSpec with Matchers {
 
     it("should reject instantiating a trait") {
       val comp = mkFailingCompilation(
-        "trait Show { def show(): string }\nval x = new Show()"
+        "trait Display { def show(): string }\nval x = new Display()"
       )
       diagnosticMessages(comp) should contain(
-        "Trait Show cannot be instantiated"
+        "Trait Display cannot be instantiated"
       )
     }
 
     it("should reject instantiating a generic trait") {
       val comp = mkFailingCompilation(
-        "trait Eq[T] { def equals(a: T, b: T): bool }\nval x = new Eq[int]()"
+        "trait Eqv[T] { def equals(a: T, b: T): bool }\nval x = new Eqv[int]()"
       )
       diagnosticMessages(comp) should contain(
-        "Trait Eq cannot be instantiated"
+        "Trait Eqv cannot be instantiated"
       )
     }
 
     /** A context bound is stored applied to the type variable it constrains, so
-      * `[K: Eq]` becomes `Eq<$0>`. That is what makes `Types.substitute` turn
+      * `[K: Eqv]` becomes `Eqv<$0>`. That is what makes `Types.substitute` turn
       * it into the resolution goal once `K` is known.
       */
     it("should bind a context bound on a function") {
       val comp = mkCompilation(
-        "trait Eq[T] { def equals(a: T, b: T): bool }\n" +
-          "def same[K: Eq](a: K, b: K): bool = true"
+        "trait Eqv[T] { def equals(a: T, b: T): bool }\n" +
+          "def same[K: Eqv](a: K, b: K): bool = true"
       )
       val program = assertSome(comp.root.lookup("$Program"))
       val same = assertSome(program.lookup("same"))
 
-      assertSymbolType(comp, same, "<K>(a: $0, b: $0) -> bool where Eq<$0>")
+      assertSymbolType(comp, same, "<K>(a: $0, b: $0) -> bool where Eqv<$0>")
     }
 
     /** A constrained class carries its constraint on `.ctor`, not on the class
@@ -481,26 +544,26 @@ class BinderTests extends AnyFunSpec with Matchers {
       */
     it("should bind a context bound on a class constructor") {
       val comp = mkCompilation(
-        "trait Eq[T] { def equals(a: T, b: T): bool }\n" +
-          "class Box[K: Eq](value: K)"
+        "trait Eqv[T] { def equals(a: T, b: T): bool }\n" +
+          "class Box[K: Eqv](value: K)"
       )
       val box = assertSome(comp.root.lookup("Box"))
       assertSymbolType(comp, box, "Box<K>")
 
       val ctor = assertSome(box.lookup(".ctor"))
-      assertSymbolType(comp, ctor, "<K>(value: $0) -> unit where Eq<$0>")
+      assertSymbolType(comp, ctor, "<K>(value: $0) -> unit where Eqv<$0>")
     }
 
     it("should leave unconstrained parameters alone") {
       val comp = mkCompilation(
-        "trait Eq[T] { def equals(a: T, b: T): bool }\n" +
-          "def f[K: Eq, V](a: K, b: V): bool = true"
+        "trait Eqv[T] { def equals(a: T, b: T): bool }\n" +
+          "def f[K: Eqv, V](a: K, b: V): bool = true"
       )
       val program = assertSome(comp.root.lookup("$Program"))
       val f = assertSome(program.lookup("f"))
 
       // one constraint, on $0, with nothing recorded for V
-      assertSymbolType(comp, f, "<K, V>(a: $0, b: $1) -> bool where Eq<$0>")
+      assertSymbolType(comp, f, "<K, V>(a: $0, b: $1) -> bool where Eqv<$0>")
     }
 
     it("should reject a context bound that is not a trait") {
@@ -514,10 +577,10 @@ class BinderTests extends AnyFunSpec with Matchers {
 
     it("should reject a context bound whose trait takes no type parameter") {
       val comp = mkFailingCompilation(
-        "trait Show { def show(): string }\ndef f[K: Show](a: K): bool = true"
+        "trait Display { def show(): string }\ndef f[K: Display](a: K): bool = true"
       )
       diagnosticMessages(comp) should contain(
-        "Trait Show takes 0 type parameters; a context bound requires exactly 1"
+        "Trait Display takes 0 type parameters; a context bound requires exactly 1"
       )
     }
 
@@ -528,73 +591,73 @@ class BinderTests extends AnyFunSpec with Matchers {
 
     it("should register a given globally") {
       val comp = mkCompilation(
-        "trait Eq[T] { def equals(a: T, b: T): bool }\n" +
-          "given Eq[int] { def equals(a: int, b: int): bool = a == b }\n" +
-          "given Eq[string] { def equals(a: string, b: string): bool = a == b }"
+        "trait Eqv[T] { def equals(a: T, b: T): bool }\n" +
+          "given Eqv[int] { def equals(a: int, b: int): bool = a == b }\n" +
+          "given Eqv[string] { def equals(a: string, b: string): bool = a == b }"
       )
-      givenHeads(comp) shouldBe Seq("Eq<int>", "Eq<string>")
+      givenHeads(comp) shouldBe Seq("Eqv<int>", "Eqv<string>")
     }
 
     /** A conditional given records its head applied to its own type variable,
-      * so `given [T: Ord] => Ord[Box[T]]` registers as `Ord<Box<$0>>`.
+      * so `given [T: Ranked] => Ranked[Box[T]]` registers as `Ranked<Box<$0>>`.
       */
     it("should register a conditional given") {
       val comp = mkCompilation(
-        "trait Ord[T] { def compare(a: T, b: T): int }\n" +
+        "trait Ranked[T] { def compare(a: T, b: T): int }\n" +
           "class Box[T](value: T)\n" +
-          "given [T: Ord] => Ord[Box[T]] {\n" +
+          "given [T: Ranked] => Ranked[Box[T]] {\n" +
           "  def compare(a: Box[T], b: Box[T]): int = 0\n" +
           "}"
       )
-      givenHeads(comp) shouldBe Seq("Ord<Box<$0>>")
+      givenHeads(comp) shouldBe Seq("Ranked<Box<$0>>")
     }
 
     it("should reject a second given for the same pair") {
       val comp = mkFailingCompilation(
-        "trait Eq[T] { def equals(a: T, b: T): bool }\n" +
-          "given Eq[int] { def equals(a: int, b: int): bool = a == b }\n" +
-          "given Eq[int] { def equals(a: int, b: int): bool = false }"
+        "trait Eqv[T] { def equals(a: T, b: T): bool }\n" +
+          "given Eqv[int] { def equals(a: int, b: int): bool = a == b }\n" +
+          "given Eqv[int] { def equals(a: int, b: int): bool = false }"
       )
       diagnosticMessages(comp) should contain(
-        "Given for Eq<int> overlaps the one at :2:8"
+        "Given for Eqv<int> overlaps the one at :2:8"
       )
       // only the first survives
-      givenHeads(comp) shouldBe Seq("Eq<int>")
+      givenHeads(comp) shouldBe Seq("Eqv<int>")
     }
 
-    /** Overlap is unification, not equality: `Ord[Box[T]]` and `Ord[Box[int]]`
+    /** Overlap is unification, not equality: `Ranked[Box[T]]` and `Ranked[Box[int]]`
       * are two givens for one pair as soon as `T` can be `int`. Comparing type
       * arguments structurally would let this pair through.
       */
     it("should reject a concrete given overlapping a conditional one") {
       val comp = mkFailingCompilation(
-        "trait Ord[T] { def compare(a: T, b: T): int }\n" +
+        "trait Ranked[T] { def compare(a: T, b: T): int }\n" +
           "class Box[T](value: T)\n" +
-          "given [T: Ord] => Ord[Box[T]] {\n" +
+          "given [T: Ranked] => Ranked[Box[T]] {\n" +
           "  def compare(a: Box[T], b: Box[T]): int = 0\n" +
           "}\n" +
-          "given Ord[Box[int]] {\n" +
+          "given Ranked[Box[int]] {\n" +
           "  def compare(a: Box[int], b: Box[int]): int = 0\n" +
           "}"
       )
       diagnosticMessages(comp) should contain(
-        "Given for Ord<Box<int>> overlaps the one at :3:20"
+        "Given for Ranked<Box<int>> overlaps the one at :3:23"
       )
     }
 
     it("should allow givens whose heads cannot unify") {
       val comp = mkCompilation(
-        "trait Ord[T] { def compare(a: T, b: T): int }\n" +
+        "trait Ranked[T] { def compare(a: T, b: T): int }\n" +
           "class Box[T](value: T)\n" +
           "class Bag[T](value: T)\n" +
-          "given [T: Ord] => Ord[Box[T]] {\n" +
+          "given [T: Ranked] => Ranked[Box[T]] {\n" +
           "  def compare(a: Box[T], b: Box[T]): int = 0\n" +
           "}\n" +
-          "given Ord[Bag[int]] {\n" +
+          "given Ranked[Bag[int]] {\n" +
           "  def compare(a: Bag[int], b: Bag[int]): int = 0\n" +
           "}"
       )
-      givenHeads(comp) shouldBe Seq("Ord<Box<$0>>", "Ord<Bag<int>>")
+      givenHeads(comp) shouldBe Seq("Ranked<Box<$0>>", "Ranked<Bag<int>>")
     }
 
     it("should reject a given whose head is not a trait") {
@@ -607,18 +670,18 @@ class BinderTests extends AnyFunSpec with Matchers {
 
     it("should reject a given whose head has no type arguments") {
       val comp = mkFailingCompilation(
-        "trait Eq[T] { def equals(a: T, b: T): bool }\ngiven Eq { }"
+        "trait Eqv[T] { def equals(a: T, b: T): bool }\ngiven Eqv { }"
       )
       diagnosticMessages(comp) should contain(
-        "Given for Eq needs type arguments"
+        "Given for Eqv needs type arguments"
       )
       givenHeads(comp) shouldBe Seq.empty
     }
 
-    val eqTrait = "trait Eq[T] { def equals(a: T, b: T): bool }\n"
-    val ordTrait = "trait Ord[T] { def compare(a: T, b: T): int }\n"
-    val eqInt = "given Eq[int] { def equals(a: int, b: int): bool = a == b }\n"
-    val same = "def same[K: Eq](a: K, b: K): bool = true\n"
+    val eqTrait = "trait Eqv[T] { def equals(a: T, b: T): bool }\n"
+    val ordTrait = "trait Ranked[T] { def compare(a: T, b: T): int }\n"
+    val eqInt = "given Eqv[int] { def equals(a: int, b: int): bool = a == b }\n"
+    val same = "def same[K: Eqv](a: K, b: K): bool = true\n"
 
     it("should resolve evidence for a constrained call") {
       mkCompilation(eqTrait + eqInt + same + "val r = same(1, 2)")
@@ -627,7 +690,7 @@ class BinderTests extends AnyFunSpec with Matchers {
     it("should report a constrained call with no matching given") {
       val comp =
         mkFailingCompilation(eqTrait + eqInt + same + "val r = same(true, false)")
-      diagnosticMessages(comp) should contain("No given instance for Eq<bool>")
+      diagnosticMessages(comp) should contain("No given instance for Eqv<bool>")
     }
 
     it("should leave unconstrained generics alone") {
@@ -638,37 +701,37 @@ class BinderTests extends AnyFunSpec with Matchers {
       * arguments are concrete (ADR 0005, decision B).
       */
     it("should resolve evidence for a constrained constructor") {
-      val setup = eqTrait + eqInt + "class Box[T: Eq](value: T)\n"
+      val setup = eqTrait + eqInt + "class Box[T: Eqv](value: T)\n"
       mkCompilation(setup + "val b = new Box[int](1)")
 
       val comp = mkFailingCompilation(setup + "val b = new Box[bool](true)")
-      diagnosticMessages(comp) should contain("No given instance for Eq<bool>")
+      diagnosticMessages(comp) should contain("No given instance for Eqv<bool>")
     }
 
-    /** `Ord[Box[int]]` is proved by the conditional given, which then needs
-      * `Ord[int]` — the recursive evidence ADR 0005 describes.
+    /** `Ranked[Box[int]]` is proved by the conditional given, which then needs
+      * `Ranked[int]` — the recursive evidence ADR 0005 describes.
       */
     it("should resolve a conditional given recursively") {
       val boxOrd = ordTrait + "class Box[T](value: T)\n" +
-        "given [T: Ord] => Ord[Box[T]] {\n" +
+        "given [T: Ranked] => Ranked[Box[T]] {\n" +
         "  def compare(a: Box[T], b: Box[T]): int = 0\n" +
         "}\n" +
-        "def srt[K: Ord](a: K): int = 0\n"
-      val ordInt = "given Ord[int] { def compare(a: int, b: int): int = 0 }\n"
+        "def srt[K: Ranked](a: K): int = 0\n"
+      val ordInt = "given Ranked[int] { def compare(a: int, b: int): int = 0 }\n"
 
       mkCompilation(boxOrd + ordInt + "val r = srt(new Box[int](1))")
 
-      // without Ord[int] the premise fails, and the inner goal is what is
+      // without Ranked[int] the premise fails, and the inner goal is what is
       // reported rather than the outer one
       val comp =
         mkFailingCompilation(boxOrd + "val r = srt(new Box[int](1))")
-      diagnosticMessages(comp) should contain("No given instance for Ord<int>")
+      diagnosticMessages(comp) should contain("No given instance for Ranked<int>")
     }
 
     it("should let an enclosing constraint discharge a call") {
       mkCompilation(
         eqTrait + eqInt + same +
-          "def outer[T: Eq](a: T, b: T): bool = same(a, b)"
+          "def outer[T: Eqv](a: T, b: T): bool = same(a, b)"
       )
     }
 
@@ -682,7 +745,7 @@ class BinderTests extends AnyFunSpec with Matchers {
           "def outer[T](a: T, b: T): bool = same(a, b)"
       )
       diagnosticMessages(comp) should contain(
-        "No evidence for Eq[T]; the enclosing declaration does not require it"
+        "No evidence for Eqv[T]; the enclosing declaration does not require it"
       )
     }
 
@@ -691,7 +754,7 @@ class BinderTests extends AnyFunSpec with Matchers {
       * (ADR 0005, decision A).
       */
     it("should append an evidence parameter for a context bound") {
-      val comp = mkCompilation(eqTrait + "def same[K: Eq](a: K, b: K): bool = true")
+      val comp = mkCompilation(eqTrait + "def same[K: Eqv](a: K, b: K): bool = true")
       val program = assertSome(comp.root.lookup("$Program"))
       val same = assertSome(program.lookup("same"))
 
@@ -699,7 +762,7 @@ class BinderTests extends AnyFunSpec with Matchers {
         "TypeParameter(Invariant):K",
         "Parameter:a",
         "Parameter:b",
-        "Evidence:$ev$K$Eq"
+        "Evidence:$ev$K$Eqv"
       )
     }
 
@@ -709,7 +772,7 @@ class BinderTests extends AnyFunSpec with Matchers {
       */
     it("should order evidence parameters by type parameter") {
       val comp = mkCompilation(
-        eqTrait + ordTrait + "def f[K: Eq, V: Ord](a: K, b: V): bool = true"
+        eqTrait + ordTrait + "def f[K: Eqv, V: Ranked](a: K, b: V): bool = true"
       )
       val program = assertSome(comp.root.lookup("$Program"))
       val f = assertSome(program.lookup("f"))
@@ -719,8 +782,8 @@ class BinderTests extends AnyFunSpec with Matchers {
         "TypeParameter(Invariant):V",
         "Parameter:a",
         "Parameter:b",
-        "Evidence:$ev$K$Eq",
-        "Evidence:$ev$V$Ord"
+        "Evidence:$ev$K$Eqv",
+        "Evidence:$ev$V$Ranked"
       )
     }
 
@@ -729,14 +792,14 @@ class BinderTests extends AnyFunSpec with Matchers {
       * through `this`.
       */
     it("should give a constrained class an evidence parameter and field") {
-      val comp = mkCompilation(eqTrait + "class Box[T: Eq](value: T)")
+      val comp = mkCompilation(eqTrait + "class Box[T: Eqv](value: T)")
       val box = assertSome(comp.root.lookup("Box"))
 
       memberSignature(assertSome(box.lookup(".ctor"))) shouldBe Seq(
         "Parameter:value",
-        "Evidence:$ev$T$Eq"
+        "Evidence:$ev$T$Eqv"
       )
-      memberSignature(box) should contain("Field:$ev$T$Eq")
+      memberSignature(box) should contain("Field:$ev$T$Eqv")
     }
 
     it("should not touch an unconstrained generic") {
@@ -764,18 +827,18 @@ class BinderTests extends AnyFunSpec with Matchers {
 
     /** ADR 0004's contextual extensions. `equals` does not become a member of
       * `T` — a type parameter has no members at all — it is resolved through
-      * the applicable `Eq[T]` evidence, which is an ordinary symbol in scope.
+      * the applicable `Eqv[T]` evidence, which is an ordinary symbol in scope.
       */
     it("should resolve a trait member through evidence in scope") {
       mkCompilation(
-        eqTrait + eqInt + "def same[T: Eq](a: T, b: T): bool = a.equals(b)"
+        eqTrait + eqInt + "def same[T: Eqv](a: T, b: T): bool = a.equals(b)"
       )
     }
 
     it("should resolve a trait member and then the call to it") {
       mkCompilation(
         eqTrait + eqInt +
-          "def same[T: Eq](a: T, b: T): bool = a.equals(b)\n" +
+          "def same[T: Eqv](a: T, b: T): bool = a.equals(b)\n" +
           "val r = same(1, 2)"
       )
     }
@@ -791,7 +854,7 @@ class BinderTests extends AnyFunSpec with Matchers {
 
     it("should reject a member no evidence in scope supplies") {
       val comp = mkFailingCompilation(
-        eqTrait + eqInt + "def same[T: Eq](a: T, b: T): bool = a.compare(b)"
+        eqTrait + eqInt + "def same[T: Eqv](a: T, b: T): bool = a.compare(b)"
       )
       diagnosticMessages(comp) should contain(
         "Symbol compare not found for type $0"
@@ -804,7 +867,7 @@ class BinderTests extends AnyFunSpec with Matchers {
       */
     it("should count evidence call arity without the receiver") {
       val comp = mkFailingCompilation(
-        eqTrait + eqInt + "def same[T: Eq](a: T, b: T): bool = a.equals(b, b)"
+        eqTrait + eqInt + "def same[T: Eqv](a: T, b: T): bool = a.equals(b, b)"
       )
       diagnosticMessages(comp) should contain("Expected 1 arguments, but got 2")
     }
@@ -816,40 +879,54 @@ class BinderTests extends AnyFunSpec with Matchers {
       */
     it("should report a trait colliding with a class") {
       val comp = mkFailingCompilation(
-        "trait Show { def show(): string }\nclass Show()"
+        "trait Display { def show(): string }\nclass Display()"
       )
       diagnosticMessages(comp) should contain(
-        "Duplicate definition of Show at :2:8"
+        "Duplicate definition of Display at :2:8"
       )
     }
 
     /** An operator member is an ordinary method whose name is the token's own
       * text, so it needs nothing from the binder that `def` did not already
       * have (ADR 0004).
+      *
+      * `+` throughout, because the prelude already owns the comparisons: these
+      * are about a trait a user writes.
       */
-    it("should bind a trait operator as a method named after its token") {
-      val comp = mkCompilation("trait Eq[T] { operator ==(a: T, b: T): bool }")
-      val eq = assertSome(comp.root.lookup("Eq"))
+    val concat = "trait Concat[T] { operator +(a: T, b: T): T }\n"
 
-      memberSignature(eq) should contain("Method:==")
+    it("should bind a trait operator as a method named after its token") {
+      val comp = mkCompilation(concat)
+      memberSignature(assertSome(comp.root.lookup("Concat"))) should contain(
+        "Method:+"
+      )
     }
 
     it("should claim an operator token for its trait") {
-      val comp = mkCompilation("trait Eq[T] { operator ==(a: T, b: T): bool }")
-      val eq = assertSome(comp.root.lookup("Eq"))
-
+      val comp = mkCompilation(concat)
       assertSome(
-        comp.binder.operatorTraits.get(SyntaxKind.EqualsEqualsToken)
-      ) shouldBe eq
+        comp.binder.operatorTraits.get(SyntaxKind.PlusToken)
+      ) shouldBe assertSome(comp.root.lookup("Concat"))
     }
 
-    /** ADR 0004: a token may be claimed by at most one trait, or `a == b`
-      * would need overload resolution across traits.
+    /** ADR 0004: a token may be claimed by at most one trait, or `a + b` would
+      * need overload resolution across traits.
       */
     it("should reject a second trait claiming the same token") {
       val comp = mkFailingCompilation(
-        "trait Eq[T] { operator ==(a: T, b: T): bool }\n" +
-          "trait Same[T] { operator ==(a: T, b: T): bool }"
+        concat + "trait Join[T] { operator +(a: T, b: T): T }"
+      )
+      diagnosticMessages(comp) should contain(
+        "Operator + is already declared by Concat"
+      )
+    }
+
+    /** The prelude claims `==` for `Eq`, and the rule does not distinguish
+      * where a claim came from.
+      */
+    it("should reject a trait claiming a token the prelude owns") {
+      val comp = mkFailingCompilation(
+        "trait Same[T] { operator ==(a: T, b: T): bool }"
       )
       diagnosticMessages(comp) should contain(
         "Operator == is already declared by Eq"
@@ -858,17 +935,17 @@ class BinderTests extends AnyFunSpec with Matchers {
 
     it("should let one trait claim several tokens") {
       val comp = mkCompilation(
-        "trait Ord[T] { operator <(a: T, b: T): bool\n" +
-          "operator >(a: T, b: T): bool }"
+        "trait Arith[T] { operator +(a: T, b: T): T\n" +
+          "operator -(a: T, b: T): T }"
       )
-      val ord = assertSome(comp.root.lookup("Ord"))
+      val arith = assertSome(comp.root.lookup("Arith"))
 
       assertSome(
-        comp.binder.operatorTraits.get(SyntaxKind.LessThanToken)
-      ) shouldBe ord
+        comp.binder.operatorTraits.get(SyntaxKind.PlusToken)
+      ) shouldBe arith
       assertSome(
-        comp.binder.operatorTraits.get(SyntaxKind.GreaterThanToken)
-      ) shouldBe ord
+        comp.binder.operatorTraits.get(SyntaxKind.DashToken)
+      ) shouldBe arith
     }
 
     /** A given supplies the implementation for a token its trait already owns,
@@ -877,29 +954,27 @@ class BinderTests extends AnyFunSpec with Matchers {
       */
     it("should not let a given claim a token") {
       mkCompilation(
-        "trait Eq[T] { operator ==(a: T, b: T): bool }\n" +
-          "given Eq[int] { operator ==(a: int, b: int): bool = a == b }\n" +
-          "given Eq[bool] { operator ==(a: bool, b: bool): bool = a == b }"
+        concat +
+          "given Concat[int] { operator +(a: int, b: int): int = a + b }\n" +
+          "given Concat[string] { operator +(a: string, b: string): string = a + b }"
       )
     }
 
     it("should bind a given's operator implementation") {
       val comp = mkCompilation(
-        "trait Eq[T] { operator ==(a: T, b: T): bool }\n" +
-          "given Eq[int] { operator ==(a: int, b: int): bool = a == b }"
+        concat + "given Concat[int] { operator +(a: int, b: int): int = a + b }"
       )
-      givenHeads(comp) shouldBe Seq("Eq<int>")
+      givenHeads(comp) shouldBe Seq("Concat<int>")
 
       val given0 = assertSome(comp.root.lookup("$given$0"))
-      memberSignature(given0) should contain("Method:==")
+      memberSignature(given0) should contain("Method:+")
     }
 
-    val eqOp = "trait Eq[T] { operator ==(a: T, b: T): bool }\n"
-    val eqOpInt =
-      "given Eq[int] { operator ==(a: int, b: int): bool = a == b }\n"
-
+    /** Nothing is declared: `Eq` and its `given Eq[int]` are the prelude's, so
+      * `a == b` under a context bound resolves with no setup at all.
+      */
     it("should resolve == on a type parameter through its context bound") {
-      mkCompilation(eqOp + eqOpInt + "def same[T: Eq](a: T, b: T): bool = a == b")
+      mkCompilation("def same[T: Eq](a: T, b: T): bool = a == b")
     }
 
     /** No context bound, so nothing holds evidence for `T`. What the source is
@@ -911,21 +986,20 @@ class BinderTests extends AnyFunSpec with Matchers {
       * as it is here.
       */
     it("should reject an operator on an unconstrained type parameter") {
-      val ordOp = "trait Ord[T] { operator <(a: T, b: T): bool }\n"
-      val comp = mkFailingCompilation(
-        ordOp + "def lt[T](a: T, b: T): bool = a < b"
-      )
+      val comp = mkFailingCompilation("def lt[T](a: T, b: T): bool = a < b")
       diagnosticMessages(comp) should contain(
         "No operator '<' for operands $0 and $0"
       )
     }
 
+    val boxEq = "class Box(value: int)\n" +
+      "given Eq[Box] {\n" +
+      "  operator ==(a: Box, b: Box): bool = a.value == b.value\n" +
+      "  operator !=(a: Box, b: Box): bool = a.value != b.value\n" +
+      "}\n"
+
     it("should resolve == on a ground type through its given") {
-      mkCompilation(
-        eqOp + "class Box(value: int)\n" +
-          "given Eq[Box] { operator ==(a: Box, b: Box): bool = a.value == b.value }\n" +
-          "val r = new Box(1) == new Box(1)"
-      )
+      mkCompilation(boxEq + "val r = new Box(1) == new Box(1)")
     }
 
     /** ADR 0003's reference-identity rule is now the last resort rather than
@@ -944,11 +1018,23 @@ class BinderTests extends AnyFunSpec with Matchers {
       */
     it("should reject == on a ground type with no given") {
       val comp = mkFailingCompilation(
-        eqOp + "class Box(value: int)\n" +
-          "val r = new Box(1) == 1"
+        "class Box(value: int)\nval r = new Box(1) == 1"
       )
       diagnosticMessages(comp) should contain(
         "No operator '==' for operands Box and int"
+      )
+    }
+
+    /** A user given for a type the prelude has no given for is fine; one for a
+      * type it does have collides, which is coherence doing its job.
+      */
+    it("should reject a user given overlapping a prelude given") {
+      val comp = mkFailingCompilation(
+        "given Eq[int] { operator ==(a: int, b: int): bool = false\n" +
+          "operator !=(a: int, b: int): bool = true }"
+      )
+      diagnosticMessages(comp) should contain(
+        "Given for Eq<int> overlaps the one at :1:1"
       )
     }
   }

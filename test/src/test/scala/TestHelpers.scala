@@ -154,14 +154,23 @@ object TestHelpers {
     walk(tree.diagnostics)
   }
 
-  /** The heads of every registered given, in source order. `binder.givens`
-    * accumulates in reverse, so this flips it back.
+  /** The heads of every given the source registered, in source order.
+    * `binder.givens` accumulates in reverse, so this flips it back.
+    *
+    * The prelude's own givens are left out; `preludeGivenHeads` has them.
     */
-  def givenHeads(comp: Compilation): Seq[String] = {
-    def walk(givens: List[BoundGiven]): Seq[String] =
+  def givenHeads(comp: Compilation): Seq[String] =
+    allGivenHeads(comp).filterNot(_._2).map(_._1)
+
+  def preludeGivenHeads(comp: Compilation): Seq[String] =
+    allGivenHeads(comp).filter(_._2).map(_._1)
+
+  private def allGivenHeads(comp: Compilation): Seq[(String, Boolean)] = {
+    def walk(givens: List[BoundGiven]): Seq[(String, Boolean)] =
       givens match {
-        case List.Nil              => Seq.empty
-        case List.Cons(head, tail) => walk(tail) :+ head.head.toString()
+        case List.Nil => Seq.empty
+        case List.Cons(head, tail) =>
+          walk(tail) :+ (head.head.toString(), isPreludeGiven(head.symbol))
       }
     walk(comp.binder.givens)
   }
@@ -475,46 +484,66 @@ object TestHelpers {
     program
   }
 
+  /** The names the prelude defines at the root. */
+  private val preludeRootNames: Set[String] = Set(
+    "any",
+    "int",
+    "string",
+    "bool",
+    "char",
+    "unit",
+    "Array",
+    "println",
+    "print",
+    "panic",
+    "exit",
+    "assert",
+    "mod",
+    "Eq",
+    "Ord",
+    "Show"
+  )
+
+  /** A prelude given, and — one level down, on `$Program` — the static field
+    * holding its evidence record. Both are named after what they prove.
+    */
+  private def isPreludeGiven(symbol: Symbol): Boolean =
+    symbol.name.startsWith("$given$Eq$") ||
+      symbol.name.startsWith("$given$Ord$") ||
+      symbol.name.startsWith("$given$Show$")
+
+  /** The symbol chain with everything the prelude put there removed.
+    *
+    * Skipping it rather than asserting past it is what keeps a test about
+    * `val x = 12` from having to be updated whenever the prelude gains a
+    * given. The prelude has its own tests for what it defines.
+    *
+    * The root's own members are matched by name; below the root only the
+    * evidence-record fields on `$Program` are, so a source that declares a
+    * method named `mod` still shows up.
+    */
   def enumNonBuiltinSymbols(
       compilation: Compilation
   ): ChainEnumerator[Symbol] = {
-    val enumerator = new ChainEnumerator(compilation.getSymbols())
+    def chainOf(symbol: Symbol): Chain[Symbol] = {
+      val children = chainOfList(symbol.members(), false)
+      if (symbol.kind == SymbolKind.Block) children
+      else children.prepend(symbol)
+    }
 
-    assertSymbol(enumerator, SymbolKind.Class, "any")
-    assertSymbol(enumerator, SymbolKind.Class, "int")
-    assertConversionMethod(enumerator)
-    assertSymbol(enumerator, SymbolKind.Class, "string")
-    assertSymbol(enumerator, SymbolKind.Field, "length")
-    assertConversionMethod(enumerator)
-    assertSymbol(enumerator, SymbolKind.Class, "bool")
-    assertConversionMethod(enumerator)
-    assertSymbol(enumerator, SymbolKind.Class, "char")
-    assertConversionMethod(enumerator)
-    assertSymbol(enumerator, SymbolKind.Class, "unit")
-    assertSymbol(enumerator, SymbolKind.Class, "Array")
-    assertSymbol(enumerator, SymbolKind.TypeParameter(Variance.Invariant), "T")
-    assertSymbol(enumerator, SymbolKind.Constructor, ".ctor")
-    assertSymbol(enumerator, SymbolKind.Parameter, "size")
-    assertSymbol(enumerator, SymbolKind.Field, "length")
-    assertSymbol(enumerator, SymbolKind.Method, "apply")
-    assertSymbol(enumerator, SymbolKind.Parameter, "index")
-    //    assertSymbol(enumerator, SymbolKind.Object, "predef")
-    assertSymbol(enumerator, SymbolKind.Method, "println")
-    assertSymbol(enumerator, SymbolKind.Parameter, "message")
-    assertSymbol(enumerator, SymbolKind.Method, "print")
-    assertSymbol(enumerator, SymbolKind.Parameter, "message")
-    assertSymbol(enumerator, SymbolKind.Method, "panic")
-    assertSymbol(enumerator, SymbolKind.Parameter, "message")
-    assertSymbol(enumerator, SymbolKind.Method, "exit")
-    assertSymbol(enumerator, SymbolKind.Parameter, "code")
-    assertSymbol(enumerator, SymbolKind.Method, "assert")
-    assertSymbol(enumerator, SymbolKind.Parameter, "condition")
-    assertSymbol(enumerator, SymbolKind.Parameter, "message")
-    assertSymbol(enumerator, SymbolKind.Method, "mod")
-    assertSymbol(enumerator, SymbolKind.Parameter, "a")
-    assertSymbol(enumerator, SymbolKind.Parameter, "b")
+    def chainOfList(members: List[Symbol], atRoot: Boolean): Chain[Symbol] =
+      members match {
+        case List.Nil => Chain.Empty()
+        case List.Cons(head, tail) =>
+          val skip =
+            isPreludeGiven(head) ||
+              (atRoot && preludeRootNames.contains(head.name))
 
-    enumerator
+          if (skip) chainOfList(tail, atRoot)
+          else chainOf(head).concat(chainOfList(tail, atRoot))
+      }
+
+    new ChainEnumerator(chainOfList(compilation.root.members(), true))
   }
 
   def assertConversionMethod(enumerator: ChainEnumerator[Symbol]) = {
@@ -527,10 +556,13 @@ object TestHelpers {
       kind: SymbolKind,
       name: string
   ): Symbol = {
-    assert(enumerator.moveNext())
+    assert(enumerator.moveNext(), "expected " + kind + " " + name)
     val symbol = enumerator.current()
-    assert(symbol.name == name)
-    assert(symbol.kind == kind)
+    assert(
+      symbol.name == name && symbol.kind == kind,
+      "expected " + kind + " " + name + ", found " + symbol.kind + " " +
+        symbol.name
+    )
     symbol
   }
 
