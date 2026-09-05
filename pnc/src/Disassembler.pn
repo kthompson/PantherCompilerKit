@@ -85,6 +85,9 @@ class Disassembler(chunk: Chunk, metadata: Metadata) {
       methodTokenInstruction(chunk, offset, name)
     } else if (opcode == Opcode.Call) {
       methodTokenInstruction(chunk, offset, name)
+    } else if (opcode == Opcode.Calli) {
+      // no operand to print: the token is on the stack, not in the stream
+      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Ldfld) {
       fieldTokenInstruction(chunk, offset, name)
     } else if (opcode == Opcode.Ldsfld) {

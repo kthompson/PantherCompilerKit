@@ -53,6 +53,14 @@ object Opcode {
   // call
   val Call = 60 // call
 
+  /** Call through a method token popped from the stack.
+    *
+    * `Call` can only read its operand from the instruction stream, but a call
+    * through evidence has a target that arrived as data, so the token is on the
+    * stack instead. Everything after that is the same as `Call`.
+    */
+  val Calli = 61
+
   // array
   val Newarr = 70 // new array
   val Ldelem = 71 // load element of array
@@ -152,6 +160,8 @@ object Opcode {
       "brtrue"
     } else if (opcode == Call) {
       "call"
+    } else if (opcode == Calli) {
+      "calli"
     } else if (opcode == Newarr) {
       "newarr"
     } else if (opcode == Ldelem) {

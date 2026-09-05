@@ -442,6 +442,13 @@ case class VM(
         // return after the current instruction
         methodCall(token, ip)
 
+      // The token is on top of the stack, above the arguments. Popping it
+      // first leaves the frame looking exactly as `Call` leaves it, so
+      // `methodCall` computes argsp the same way.
+      case Opcode.Calli =>
+        val token = MethodToken(popInt())
+        methodCall(token, ip)
+
       case Opcode.Br =>
         val target = readI4()
 
