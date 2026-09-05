@@ -803,10 +803,7 @@ Deviations from the decision above:
 - **Only non-generic types.** `[derive(Eq)] class Box[T](value: T)` is a
   diagnostic, because its derived given is conditional and a conditional given
   still cannot reach its premise.
-- **Enums are not derived.** The cases would have to match first, which needs a
-  bound `match` with patterns rather than the expression shapes a class needs.
-  `[derive(Eq)] enum Color` parses and is reported, rather than quietly
-  deriving nothing.
+- **Enums are not derived.** (Closed in the third pass below.)
 - **The transpiler does not supply the attribute.** `case class` still
   transpiles to a plain class, so the 133 case classes remain without instances.
   Turning that on is a separate step and will move the diagnostic count.
@@ -846,3 +843,55 @@ again, this time in `_get`.
 - **Enum derivation.**
 - **The transpiler's `[derive(…)]` for `case class`.**
 - **The orphan rule and named exceptions.**
+
+## Outcome, third pass
+
+Two commits, `22868e6` and `c90f9ac`. Enums derive the same three traits a class
+does, which closes the last of the derivation gaps. 390 tests, up from 381;
+self-hosting diagnostics stay at 195.
+
+**The cases match first, then their parameters**, as the decision above says.
+`Eq` compares two values of the same case parameter by parameter and calls two
+different cases unequal. `Ord` orders by case first and only breaks a tie within
+one. `Show` prints the case rather than the enum — `Circle(7)`, not `Shape(7)`.
+
+Two details worth recording, because neither is obvious from the rule:
+
+**The `b is C` test is nested inside `a is C` rather than `&&`-ed onto it.**
+`&&` evaluates both sides, and the field reads on the right are only safe once
+`b` is known to be that case.
+
+**`Ord`'s "b comes later" is spelled out as `is` tests against the earlier
+cases.** A `Value.Ref` carries its type token but no opcode exposes it, so there
+is no ordinal to compare. That makes the generated `<` quadratic in the number
+of cases, which is accepted: it is generated code, and the alternative is a new
+opcode.
+
+### Two things this needed that were not about derivation
+
+**Evidence resolution widens a case type to its enum.** `Shape.Circle(1)` has
+the case's type, but evidence is declared for the enum — one `Eq[Shape]`, not
+one per case — so both the operator fallback and contextual extensions have to
+look past the case to find it.
+
+**A parameterless case is now a singleton.** `Color.Red` panicked in
+`emitMemberAccess` because nothing ever constructed it: a case with no
+parameters names a value rather than making one. It now gets a `.ctor`, a static
+field on the program object, and one `Newobj` in `$runtimeInit`. Sharing the
+instance is the point rather than an optimisation — `==` with no evidence falls
+back to reference identity, and two separately constructed `Color.Red` would
+compare unequal. This is what makes deriving useful for the enums that need it
+most.
+
+An enum case with parameters also got no constructor body, so its address stayed
+-1 and calling it read past the end of the chunk — the same defect `bindClass`
+was fixed for in `edb7333`, which `bindEnumCases` never received.
+
+### Matching on an enum case is still a wildcard
+
+`Lowered.boundMatchCaseToExpression` lowers `BoundPattern.Extract` by returning
+the case's result with no test, under a TODO saying so, which means every
+constructor pattern takes the first branch. It applies to `case Shape.Circle(r)`
+exactly as much as to `case Color.Red`, and predates all of this — singletons
+make it reachable for parameterless cases rather than making it worse. It is the
+largest thing left in the neighbourhood, and it is not a typeclass problem.
