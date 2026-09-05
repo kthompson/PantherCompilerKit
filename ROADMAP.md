@@ -27,7 +27,7 @@ reproduces the measurement. Re-run them rather than trusting the number.
 sbt pncs/compile && sbt test/test
 ```
 
-Green: 247 tests across the lexer, parser, binder, type checker, VM, metadata
+Green: 284 tests across the lexer, parser, binder, type checker, VM, metadata
 format, and args parser.
 
 ### The self-hosted compiler does not
@@ -36,35 +36,37 @@ format, and args parser.
 sbt pnc/compile
 ```
 
-Runs to completion and reports **282 diagnostics** against the generated
+Runs to completion and reports **204 diagnostics** against the generated
 `.pn` sources. By message:
 
 | Count | Diagnostic                      |
 | ----: | ------------------------------- |
-|   138 | `No operator for operands`      |
-|    51 | `Cannot convert from A to B`    |
+|    57 | `No operator for operands`      |
+|    52 | `Cannot convert from A to B`    |
 |    39 | `Type X not defined`            |
 |    18 | `Invalid namespace`             |
 |    17 | `Symbol X not found for type T` |
-|    11 | argument-count mismatches       |
+|    14 | argument-count mismatches       |
 |     5 | `Symbol X not found`            |
 |     2 | `Duplicate definition`          |
 
-**5 of the 282 mention an unsolved type variable** (`$0`, `$1`, …) — a
+**2 of the 204 mention an unsolved type variable** (`$0`, `$1`, …) — a
 generic parameter the binder gave up on. Name resolution is essentially
 done: the five remaining bare `Symbol X not found` are all `File` and `Path`
 from `using system.io`. What is left is operators and conversions.
 
 By file:
 
-| Count | File               |
-| ----: | ------------------ |
-|    29 | `Parser.pn`        |
-|    29 | `Emitter.pn`       |
-|    27 | `ExprBinder.pn`    |
-|    26 | `TypeInference.pn` |
-|    22 | `Conversion.pn`    |
-|    18 | `Binder.pn`        |
+| Count | File                        |
+| ----: | --------------------------- |
+|    29 | `Parser.pn`                 |
+|    25 | `TypeInference.pn`          |
+|    17 | `ExprBinder.pn`             |
+|    15 | `Emitter.pn`                |
+|    14 | `Lowered.pn`                |
+|    14 | `Binder.pn`                 |
+|    12 | `VM.pn`                     |
+|    11 | `LoweredAssemblyPrinter.pn` |
 
 ### Nothing is ever written to disk
 
@@ -85,7 +87,7 @@ the VM works and `VmTests` drives it in-process for 36 tests.
 sbt "doccheck/run docs/src/content/docs"
 ```
 
-**200 blocks across 22 files: 198 compile, 0 fail, 2 skipped.** The two skips
+**201 blocks across 22 files: 199 compile, 0 fail, 2 skipped.** The two skips
 are on `higher-order-functions.md`, which documents lambdas and function-typed
 parameters — neither exists (see cross-cutting below).
 
@@ -171,24 +173,43 @@ count that decision is made from.
 
 Ordered by what the counts say, not by what is interesting:
 
-1. **Operators on class types** — 138 `No operator`, now half the total. 85
-   are `==` or `!=`, mostly comparing an enum-typed value against one of its
-   own cases (`kind == SymbolKind.Field`, `conversion == Conversion.None`),
-   and 46 are `+` between a string and a class.
-2. **`if`/`else` does not form a union** — 11 `Cannot convert from
-   Option.None to Option.Some<T>`. The else branch is checked against the
-   then branch's type; only `match` produces a union.
-3. **Generic inference** (see §2). 5 diagnostics reference an unsolved type
-   variable and 9 a parameter that defaulted to `any`.
-4. **Member lookup** — 17 `Symbol X not found for type T`: 12 are string and
-   int builtins (`substring`, `compareTo`, `nonEmpty`, `endsWith`) that have
-   no VM support, and the rest are lookups on a case type, which never
-   consults its enum.
-5. **Namespace and import resolution** — 18 `Invalid namespace`, plus the
+1. **`string + T` for non-string `T`** — 46, and the largest single item. Every
+   remaining `+` diagnostic. Blocked on a decision, not on work: either the
+   operator gains an overload against `any`, or the transpiler inserts the
+   `string(…)` call the docs already teach. See §4.2.
+2. **`Type X not defined`** — 39, and mostly transpiler work rather than binder
+   work. Three groups: 20 are an enum case used unqualified as a type
+   (`case expr: Match =>` where the case is `Expression.Match`), which is the
+   cleanup commit `adc9723` started and did not finish; 13 are Scala type names
+   the transpiler leaves alone — `Unit` (10), `String` (2), `Boolean` — where
+   Panther spells them `unit`, `string`, `bool`; 6 are `HashMap`, which has no
+   Panther equivalent and needs one or a rewrite onto `Dictionary`.
+3. **`if`/`else` does not form a union** — 23 of the 52 `Cannot convert` are a
+   case against a sibling case of the same enum: `Option.None` to
+   `Option.Some<T>`, `MetadataFlags.None` to `MetadataFlags.Static`,
+   `LoweredStatement.Goto` to `LoweredStatement.LabelDeclaration`. The else
+   branch is checked against the then branch's type; only `match` produces a
+   union.
+4. **Namespace and import resolution** — 18 `Invalid namespace`, plus the
    five `File`/`Path` from `using system.io`, which exists only in the Scala
    runtime. The transpiler turns `import ns._` into `using ns`; the binder's
    handling of that has a known gap
    ([`Binder.scala:773`](pncs/src/main/scala/Binder.scala:773)).
+5. **Member lookup** — 17 `Symbol X not found for type T`: 12 are string and
+   int builtins (`substring`, `compareTo`, `nonEmpty`, `endsWith`) that have
+   no VM support, and the rest are lookups on a case type, which never
+   consults its enum.
+6. **String indexing types as `string`, not `char`** — 10 `No operator` and 6
+   `Cannot convert`. `str(0)` falls through `ExprBinder.inferCall` to the
+   `string(…)` conversion method, because only `Array` has an indexing path
+   and everything else lands on the constructor lookup. So `str(0) == '-'`
+   compares a string against a char. Needs an indexing path for `string` in
+   the binder and a way to read a character out of a `Value.String` in the VM.
+7. **Generic inference** (see §2). 2 diagnostics reference an unsolved type
+   variable and 11 a parameter that defaulted to `any`.
+
+The one `No operator` left over is `char + int`, at
+[`Hex.pn:39`](pnc/src/Hex.pn:39).
 
 `this` is bound as of
 [ADR 0002](docs/architecture/adr/0002-binding-this.md), which removed all 35
@@ -197,13 +218,24 @@ previously unreachable, none of which show up as diagnostics: an implicit
 field read pushes no receiver, a class with no template gets no constructor
 body, and enum methods do not emit.
 
+`==` and `!=` bind on reference types as of
+[ADR 0003](docs/architecture/adr/0003-equality-on-reference-types.md), which
+removed 80 of the 85 equality diagnostics: a value compares against a case of
+its own enum, or against another value of its own type, when one side widens
+to the other. String ordering landed with it. What that equality *means* at
+runtime is not settled and the bytecode is wrong today — `a == b` on two
+distinct instances evaluates to `true`, because the instance never reaches the
+stack as a `Value.Ref`. That is the ADR 0002 constructor hole, now observable
+through the operator; the choice between reference and structural equality is
+back-end work under §1.4 and §3.
+
 Track the number after every change:
 
 ```bash
 sbt pnc/compile
 ```
 
-**282 → 0.** Nothing else in this section matters until that number moves.
+**204 → 0.** Nothing else in this section matters until that number moves.
 
 Only the first 20 diagnostics are printed. To see them all, transpile first —
 `pnc/compile` does this implicitly, and the count depends on it — then run the
@@ -264,7 +296,7 @@ head match {
 solves what the arguments cannot, and an unsolved covariant parameter defaults
 to `never` so `Result.Error(e)` satisfies any `Result[E, B]`.
 
-Six diagnostics still mention a type variable and nine a parameter that
+Two diagnostics still mention a type variable and 11 a parameter that
 defaulted to `any`. The next lever is the positional-id constraint recorded in
 ADR 0001: a generic method on a generic class shares `$0` with its class.
 
@@ -419,14 +451,16 @@ shared the assignment branch in `currentPrecedence()`, so it bound looser than
 sits at its own precedence and `ParserTests` pins the ordering against `||`,
 `&&`, and the relational operators.
 
-Of the remaining `No operator` diagnostics, the two shapes worth deciding on
-are `string + T` for non-string `T` (the docs use `"text " + string(n)`) and
-`==` between an enum type and one of its cases, such as `SymbolKind` and
-`SymbolKind.Field`.
+`==` between an enum type and one of its cases is decided and implemented —
+[ADR 0003](docs/architecture/adr/0003-equality-on-reference-types.md). The
+other shape, `string + T` for non-string `T`, is not. The docs teach
+`"text " + string(n)` and `BinderTests` pins the implicit form as a
+diagnostic, but 46 sites in the transpiled sources write it. Either the
+operator gains an overload against `any`, or the transpiler inserts the
+`string(…)` call. Until that is settled it is the largest single item in §1.3.
 
-Still open: whether `string + int` should work at all. And `break`/`continue`
-are rejected, not implemented — they parse, and the diagnostic is a
-placeholder for lowering them to jumps.
+`break`/`continue` are rejected, not implemented — they parse, and the
+diagnostic is a placeholder for lowering them to jumps.
 
 ### 4.3 Clean up the docs tree
 
@@ -511,7 +545,7 @@ Things that do not belong to one goal but block several.
   blocks in §4.1.
 - **No lexer support for exponents or shifts**
   ([`Lexer.scala:243`](pncs/src/main/scala/Lexer.scala:243)).
-- **Test coverage is stage-shaped, not feature-shaped.** 247 tests, but
+- **Test coverage is stage-shaped, not feature-shaped.** 284 tests, but
   `MetadataTests` has 2 and there is no end-to-end test that takes source all
   the way to output. §3.4 is the fix.
 
@@ -523,13 +557,19 @@ Sequenced so each step makes the next one measurable.
 
 **First — stop flying blind.** Done. The generated tree matches the
 transpiler (§1.1), the exit code is trustworthy (§1.2), and failures come back
-as diagnostics rather than exceptions (§4.2). The 282 counts every error the
+as diagnostics rather than exceptions (§4.2). The 204 counts every error the
 front end finds — none are discarded.
 
-**Second — generics.**
-§2.1 inference, §2.2 bounds. The 282 should fall
-sharply. If it does not, the assumption behind this roadmap was wrong and the
-plan should be rewritten around what the diagnostics actually say.
+**Second — generics.** This was the plan, and the measurement has overtaken it.
+Only 13 of the 204 are generics: 2 mention a type variable, 11 a parameter that
+defaulted to `any`. §2.1 and §2.2 are still worth doing, but they cannot make
+the number fall sharply, because the number is not made of generics.
+
+What it is made of, in order: `string + T` (46), `Type X not defined` (39), the
+sibling-case conversions an `if`/`else` cannot union (23), `Invalid namespace`
+(18), member lookup on builtins and case types (17), string indexing (16).
+Those are §1.3 items 1–6 — ordinary front-end and transpiler work, not type
+theory. Take them before §2.
 
 **Third — make programs runnable.**
 §3.1 `.pnb` read/write, §3.2 the runner. Unblocks samples, output-checked docs,
@@ -546,9 +586,9 @@ doc blocks already compile, so nothing here is blocked on §4.1.
 
 The three numbers worth putting on a wall:
 
-| Metric                            |         Now | Target | Command                                    |
-| --------------------------------- | ----------: | -----: | ------------------------------------------ |
-| Self-hosting diagnostics          |         282 |      0 | `sbt pnc/compile` (now fails, as it should) |
-| Doc blocks that fail              | **0 / 200** |      0 | `sbt "doccheck/run docs/src/content/docs"` |
-| Doc blocks skipped as unsupported |           2 |      0 | as above                                   |
-| Samples that run in CI            |           0 |      6 | not yet built                              |
+| Metric                            |         Now | Target | Command                                     |
+| --------------------------------- | ----------: | -----: | ------------------------------------------- |
+| Self-hosting diagnostics          |         204 |      0 | `sbt pnc/compile` (now fails, as it should)  |
+| Doc blocks that fail              | **0 / 201** |      0 | `sbt "doccheck/run docs/src/content/docs"`  |
+| Doc blocks skipped as unsupported |           2 |      0 | as above                                    |
+| Samples that run in CI            |           0 |      6 | not yet built                               |
