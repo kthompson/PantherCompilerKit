@@ -1637,7 +1637,9 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
     if (context.expression != LoweredExpression.Unit) {
       // TODO: this should be a warning diagnostic
       println(
-        "WARN: Unused expression in lowered block - " + context.expression
+        "WARN: Unused expression in lowered block - " + string(
+          context.expression
+        )
       )
     }
   }

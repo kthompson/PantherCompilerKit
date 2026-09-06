@@ -731,7 +731,7 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
         }
       case Type.Variable(_, i) =>
         writeColor(ColorPalette.Keyword)
-        append("$" + i)
+        append("$" + string(i))
       case Type.Any =>
         writeColor(ColorPalette.Keyword)
         append("any")

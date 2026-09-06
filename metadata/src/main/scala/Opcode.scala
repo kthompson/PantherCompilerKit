@@ -219,7 +219,7 @@ object Opcode {
     } else if (opcode == Cast) {
       "cast"
     } else {
-      panic("Unknown opcode: " + opcode)
+      panic("Unknown opcode: " + string(opcode))
     }
   }
 

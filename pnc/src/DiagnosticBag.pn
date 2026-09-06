@@ -107,10 +107,13 @@ using panther
       expected: Type,
       actual: Type
   ): unit =
-    report(location, "Expected " + expected + " but got " + actual)
+    report(
+      location,
+      "Expected " + string(expected) + " but got " + string(actual)
+    )
 
   def reportTypeCircularity(location: TextLocation, name: Type): unit =
-    report(location, "Circular use of variable in type" + name)
+    report(location, "Circular use of variable in type" + string(name))
 
   def reportExpressionIsNotAssignable(location: TextLocation): unit =
     report(location, "expression is not assignable")
@@ -123,21 +126,27 @@ using panther
       expected: int,
       actual: int
   ): unit =
-    report(location, "Expected " + expected + " arguments, but got " + actual)
+    report(
+      location,
+      "Expected " + string(expected) + " arguments, but got " + string(actual)
+    )
 
   def reportCannotConvert(
       location: TextLocation,
       from: Type,
       toType: Type
   ): unit =
-    report(location, "Cannot convert from " + from + " to " + toType)
+    report(
+      location,
+      "Cannot convert from " + string(from) + " to " + string(toType)
+    )
 
   def reportSymbolNotFoundForType(
       location: TextLocation,
       left: Type,
       name: string
   ): unit =
-    report(location, "Symbol " + name + " not found for type " + left)
+    report(location, "Symbol " + name + " not found for type " + string(left))
 
   def reportSymbolNotFound(location: TextLocation, name: string): unit =
     report(location, "Symbol " + name + " not found")
@@ -304,7 +313,8 @@ using panther
   ): unit =
     report(
       location,
-      "No operator '" + op + "' for operands " + left + " and " + right
+      "No operator '" + op + "' for operands " + string(left) + " and " +
+        string(right)
     )
 
   def reportNoOperatorForOperand(
@@ -312,7 +322,7 @@ using panther
       op: string,
       operand: Type
   ): unit =
-    report(location, "No operator '" + op + "' for operand " + operand)
+    report(location, "No operator '" + op + "' for operand " + string(operand))
 
   def reportTopLevelStatementsInMultipleFiles(
       firstLocation: TextLocation,

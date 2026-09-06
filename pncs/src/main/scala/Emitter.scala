@@ -53,7 +53,8 @@ case class EmitContext(
         labels.get(patch.target.name) match {
           case Option.None =>
             panic(
-              "failed to patch label " + patch.target.name + " at " + patch.instructionIndex
+              "failed to patch label " + patch.target.name + " at " +
+                string(patch.instructionIndex)
             )
           case Option.Some(value) =>
             // patch the instruction at the given index with the target address
@@ -241,7 +242,7 @@ case class Emitter(
     ) {
       methodTokens.get(symbol) match {
         case Option.None =>
-          println("buildSignature: no method token for " + symbol)
+          println("buildSignature: no method token for " + string(symbol))
           panic("unimplemented: buildSignature")
         case Option.Some(value) =>
           metadata.methods.methods(value.token).methodSig = sigId
@@ -641,7 +642,9 @@ case class Emitter(
         chunk.emitOpcode(Opcode.Stfld, expr.location.startLine)
         chunk.emitI4(value.token, expr.location.startLine)
       case Option.None =>
-        panic("emitAssignmentStatement: no field token for " + expr.field)
+        panic(
+          "emitAssignmentStatement: no field token for " + string(expr.field)
+        )
     }
   }
 
@@ -658,7 +661,7 @@ case class Emitter(
         chunk.emitOpcode(Opcode.Stsfld, expr.location.startLine)
         chunk.emitI4(value.token, expr.location.startLine)
       case Option.None =>
-        panic("emitAssignStaticField: no field token for " + expr.field)
+        panic("emitAssignStaticField: no field token for " + string(expr.field))
     }
   }
 
@@ -709,7 +712,8 @@ case class Emitter(
     getTypeDefToken(expr.elementType) match {
       case Option.None =>
         panic(
-          "emitArrayCreation: no TypeDefToken for array element type " + expr.elementType.toString
+          "emitArrayCreation: no TypeDefToken for array element type " + expr.elementType
+            .toString()
         )
       case Option.Some(elementTypeToken) =>
         chunk.emitOpcode(Opcode.Newarr, expr.location.startLine)
@@ -1039,7 +1043,8 @@ case class Emitter(
         getTypeDefToken(expr.resultType) match {
           case Option.None =>
             panic(
-              "emitCastExpression: no TypeDefToken for type " + expr.resultType.toString
+              "emitCastExpression: no TypeDefToken for type " + expr.resultType
+                .toString()
             )
           case Option.Some(typeToken) =>
             // Emit Cast opcode with the type token
@@ -1083,7 +1088,7 @@ case class Emitter(
           chunk.emitOpcode(Opcode.Call, expr.location.startLine)
           chunk.emitI4(token.token, expr.location.startLine)
         case Option.None =>
-          panic("emitMemberAccess: no method token for " + expr.symbol)
+          panic("emitMemberAccess: no method token for " + string(expr.symbol))
       }
     } else if (expr.symbol == binder.arrayLength) {
       // An array's length is a header slot rather than a field: it is written
@@ -1126,7 +1131,9 @@ case class Emitter(
           panic("emitMemberAccess: no singleton for " + expr.symbol.name)
       }
     } else {
-      panic("emitMemberAccess: unsupported symbol kind " + expr.symbol.kind)
+      panic(
+        "emitMemberAccess: unsupported symbol kind " + string(expr.symbol.kind)
+      )
     }
   }
 
@@ -1156,7 +1163,9 @@ case class Emitter(
     methodTokens.get(expr.constructor) match {
       case Option.None =>
         panic(
-          "emitNewExpression: no method token for " + expr.constructor.kind + " '" + expr.constructor.name + "'"
+          "emitNewExpression: no method token for " + string(
+            expr.constructor.kind
+          ) + " '" + expr.constructor.name + "'"
         )
       case Option.Some(token) =>
         chunk.emitOpcode(Opcode.Newobj, expr.location.startLine)
@@ -1234,7 +1243,7 @@ case class Emitter(
     } else if (expr.symbol.kind == SymbolKind.Field) {
       emitField(expr, context)
     } else {
-      panic("emitVariable: unsupported symbol kind " + expr.symbol.kind)
+      panic("emitVariable: unsupported symbol kind " + string(expr.symbol.kind))
     }
   }
 
@@ -1570,7 +1579,8 @@ case class Emitter(
     getTypeDefToken(expr.expectedType) match {
       case Option.None =>
         panic(
-          "emitTypeCheckExpression: no TypeDefToken for type " + expr.expectedType.toString
+          "emitTypeCheckExpression: no TypeDefToken for type " + expr.expectedType
+            .toString()
         )
       case Option.Some(typeToken) =>
         // Emit IsInstance opcode with the type token

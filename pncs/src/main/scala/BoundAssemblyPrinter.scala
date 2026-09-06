@@ -211,7 +211,7 @@ class BoundAssemblyPrinter(
     writeWithColor(ColorPalette.Punctuation, ")")
   }
   def printCharacterLiteral(expr: BoundExpression.Character): unit =
-    writeWithColor(ColorPalette.String, "'" + expr.value + "'")
+    writeWithColor(ColorPalette.String, "'" + string(expr.value) + "'")
   def printIsExpression(expr: BoundExpression.Is): unit = {
     printExpression(expr.expression)
     writeWithColor(ColorPalette.Punctuation, " ")

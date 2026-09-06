@@ -128,7 +128,7 @@ object SyntaxFacts {
     else if (kind == SyntaxKind.WhileExpression) "WhileExpression"
     else if (kind == SyntaxKind.WhileKeyword) "WhileKeyword"
     else if (kind == SyntaxKind.WhitespaceTrivia) "WhitespaceTrivia"
-    else panic("Unknown SyntaxKind: " + kind)
+    else panic("Unknown SyntaxKind: " + string(kind))
   }
 
   def isKeywordKind(kind: int): bool =

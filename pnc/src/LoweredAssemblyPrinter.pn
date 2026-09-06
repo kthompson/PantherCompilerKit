@@ -303,7 +303,7 @@ class LoweredAssemblyPrinter(
   def printCharacterLiteral(
       expr: LoweredExpression.Character
   ): unit = {
-    ast.writeWithColor(ColorPalette.String, "'" + expr.value + "'")
+    ast.writeWithColor(ColorPalette.String, "'" + string(expr.value) + "'")
   }
 
   /** `$ev$K$Eq.equals(a, b)` — the evidence is shown because it is the

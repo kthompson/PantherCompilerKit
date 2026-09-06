@@ -172,7 +172,8 @@ case class BinaryOperators(binder: Binder) {
     ops match {
       case List.Nil =>
         Type.Error(
-          "Binary operator '" + operator + "' not found for types '" + left + "' and '" + right + "'."
+          "Binary operator '" + string(operator) + "' not found for types '" +
+            string(left) + "' and '" + string(right) + "'."
         )
       case List.Cons(op, tail) =>
         if (op.left == left && op.right == right && op.operator == operator) {
@@ -194,7 +195,8 @@ case class BinaryOperators(binder: Binder) {
     ops match {
       case List.Nil =>
         Type.Error(
-          "Unary operator '" + operator + "' not found for type '" + operand + "'."
+          "Unary operator '" + string(operator) + "' not found for type '" +
+            string(operand) + "'."
         )
       case List.Cons(op, tail) =>
         if (op.operand == operand && op.operator == operator) {

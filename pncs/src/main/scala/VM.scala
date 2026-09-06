@@ -182,7 +182,8 @@ case class VM(
       case Value.Int(i)      => i
       case Value.Bool(true)  => 1
       case Value.Bool(false) => 0
-      case _ => panic("Cannot convert " + value + " to int for comparison")
+      case _ =>
+        panic("Cannot convert " + string(value) + " to int for comparison")
     }
   }
 
@@ -326,7 +327,7 @@ case class VM(
     val value = pop()
     value match {
       case Value.Bool(b) => b
-      case _             => panic("Expected bool on stack, found " + value)
+      case _ => panic("Expected bool on stack, found " + string(value))
     }
   }
 
@@ -334,14 +335,14 @@ case class VM(
     val value = pop()
     value match {
       case Value.Int(i) => i
-      case _            => panic("Expected int on stack, found " + value)
+      case _ => panic("Expected int on stack, found " + string(value))
     }
   }
 
   def stackAsInt(pos: int): int = {
     stack(pos) match {
       case Value.Int(value) => value
-      case _                => panic("Expected int on stack at position " + pos)
+      case _ => panic("Expected int on stack at position " + string(pos))
     }
   }
 
@@ -642,7 +643,7 @@ case class VM(
             pushBool(b)
             InterpretResult.Continue
           case _ =>
-            runtimeError("Cannot convert value to bool: " + a)
+            runtimeError("Cannot convert value to bool: " + string(a))
         }
 
       case Opcode.ConvI4 =>
@@ -658,7 +659,7 @@ case class VM(
             push(Value.Int(0))
             InterpretResult.Continue
           case Value.String(s) =>
-            if (s.length() == 0) {
+            if (s.length == 0) {
               runtimeError("Cannot convert empty string to int")
             } else if (s(0) == '-') {
               atoi(s, 1, 0) match {
@@ -683,12 +684,12 @@ case class VM(
             push(Value.Int(i))
             InterpretResult.Continue
           case Value.String(s) =>
-            if (s.length() == 1) {
+            if (s.length == 1) {
               push(Value.Int(s(0)))
               InterpretResult.Continue
             } else {
               runtimeError(
-                "Cannot convert string of length " + s.length() + " to char"
+                "Cannot convert string of length " + string(s.length) + " to char"
               )
             }
           case _ =>
@@ -849,11 +850,11 @@ case class VM(
               // A string indexes too, and yields a char, which is an int here
               // for the same reason `ConvChar` produces one.
               case Value.String(str) =>
-                if (indexValue < 0 || indexValue >= str.length()) {
+                if (indexValue < 0 || indexValue >= str.length) {
                   runtimeError(
                     "Index " + string(indexValue) +
                       " out of range for string of length " +
-                      string(str.length())
+                      string(str.length)
                   )
                 } else {
                   push(Value.Int(int(str(indexValue))))
@@ -894,7 +895,7 @@ case class VM(
   }
 
   def atoi(s: string, index: int, value: int): Option[int] = {
-    if (index >= s.length()) {
+    if (index >= s.length) {
       Option.Some(value)
     } else {
       val c = s(index)

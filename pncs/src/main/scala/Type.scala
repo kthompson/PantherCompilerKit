@@ -107,7 +107,7 @@ enum Type {
       case List.Cons(param, tail) =>
         val sep = if (paramsStr == "") "" else ", "
         _params(
-          paramsStr + sep + param.symbol.name + ": " + param.typ.toString,
+          paramsStr + sep + param.symbol.name + ": " + param.typ.toString(),
           tail
         )
     }
@@ -118,7 +118,7 @@ enum Type {
       case List.Nil => str
       case List.Cons(typ, tail) =>
         val sep = if (str == "") "" else separator
-        _args(str + sep + typ.toString, separator, tail)
+        _args(str + sep + typ.toString(), separator, tail)
     }
 
   def _name(list: List[string], name: string): string = {
@@ -143,7 +143,7 @@ enum Type {
             "-"
         }
         val upperBoundStr = item.upperBound match {
-          case Option.Some(value) => " <: " + value.toString
+          case Option.Some(value) => " <: " + value.toString()
           case Option.None        => ""
         }
         _genArgs(str + sep + varianceStr + item.name + upperBoundStr, tail)
@@ -154,16 +154,16 @@ enum Type {
     this match {
       case Type.Function(_, parameters, returnType) =>
         val paramStr = _params("", parameters)
-        "(" + paramStr + ") -> " + returnType.toString
+        "(" + paramStr + ") -> " + returnType.toString()
 
       case Type.Class(_, ns, name, args, _) =>
         val argStr = _args("", ", ", args)
-        val tail = if (argStr.isEmpty) "" else "<" + argStr + ">"
+        val tail = if (argStr == "") "" else "<" + argStr + ">"
         _name(ns, name) + tail
 
       case Type.Alias(_, ns, name, args, value, _) =>
         val argStr = _args("", ", ", args)
-        val tail = if (argStr.isEmpty) "" else "<" + argStr + ">"
+        val tail = if (argStr == "") "" else "<" + argStr + ">"
         _name(ns, name) + tail
 
       case Type.Union(_, cases) =>
@@ -171,7 +171,7 @@ enum Type {
 
       case Type.GenericClass(_, ns, name, generics, _) =>
         val argStr = _genArgs("", generics)
-        val tail = if (argStr.isEmpty) "" else "<" + argStr + ">"
+        val tail = if (argStr == "") "" else "<" + argStr + ">"
         _name(ns, name) + tail
 
       case Type.GenericFunction(_, generics, traits, parameters, returnType) =>
@@ -183,7 +183,7 @@ enum Type {
         "<" + _genArgs(
           "",
           generics
-        ) + ">" + "(" + paramStr + ") -> " + returnType.toString + whereStr
+        ) + ">" + "(" + paramStr + ") -> " + returnType.toString() + whereStr
 
 //      case Type.Generic(_, name, variance, upperBound) =>
 //        val varianceStr = variance match {

@@ -1673,7 +1673,7 @@ using panther
           case Option.None =>
             // no type has been detected yet so lets bind the entry and then try again
             diagnosticBag.reportBugUnknownType(symbol.location, symbol.name)
-            Type.Error("Unknown type for symbol " + symbol.kind)
+            Type.Error("Unknown type for symbol " + string(symbol.kind))
           case Option.Some(value) =>
             bindOneTypingMember(symbol, value)
         }
@@ -1823,11 +1823,15 @@ using panther
         val methodScope = scope.enterSymbol(symbol)
 
         // bind generic type parameters
-        val genTypeParams = value.genericParameters match {
-          case Option.None => List.Nil
-          case Option.Some(value) =>
-            bindGenericTypeParameters(value.parameters.items, methodScope)
-        }
+        // annotated: the self-hosted compiler does not widen the branches of a
+        // `match` to their common supertype, so without this the list types as
+        // `List.Nil | List<GenericTypeParameter>` and `.isEmpty` is not found
+        val genTypeParams: List[GenericTypeParameter] =
+          value.genericParameters match {
+            case Option.None => List.Nil
+            case Option.Some(value) =>
+              bindGenericTypeParameters(value.parameters.items, methodScope)
+          }
 
         // Second pass over the same list: the parameters have to be defined
         // and indexed before a bound can be applied to one.
@@ -2075,7 +2079,9 @@ using panther
                 )
               case Option.Some(value) =>
                 panic(
-                  "TODO: return a type with the type arguments " + symbol.location
+                  "TODO: return a type with the type arguments " + string(
+                    symbol.location
+                  )
                 )
 
                 value
