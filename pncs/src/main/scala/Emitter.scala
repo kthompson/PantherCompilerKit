@@ -481,7 +481,7 @@ case class Emitter(
             chunk.emitI4(fieldToken, line)
 
             emitEvidenceSlots(head.candidate, members, 0, line)
-            emitEvidenceDependencies(head.premises, members.length, line)
+            emitEvidenceDependencies(head.premises(), members.length, line)
 
             // The record is left on the stack by the loop above, since `Stelem`
             // pops it and each store duplicates it first.
@@ -499,7 +499,7 @@ case class Emitter(
   }
 
   def evidenceRecordSize(record: BoundEvidenceRecord): int =
-    evidenceTraitMembers(record.candidate).length + record.premises.length
+    evidenceTraitMembers(record.candidate).length + record.premises().length
 
   def evidenceTraitMembers(candidate: BoundGiven): List[Symbol] = {
     binder.getTypeSymbol(candidate.head) match {

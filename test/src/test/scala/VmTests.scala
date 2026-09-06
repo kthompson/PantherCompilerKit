@@ -546,6 +546,28 @@ class VmTests extends AnyFunSpec with Matchers {
       )
     }
 
+    /** A parameter whose type is a composite over the type variable —
+      * `Lst[T]` inside `Holder[T]` — is neither ground nor a declared premise,
+      * so it becomes a premise of its own, filled per instantiation. This is
+      * the shape the AST's own containers have.
+      */
+    it("should run a derived Eq over a composite of a type parameter") {
+      val setup = "[derive(Eq)]\n" +
+        "enum Lst[T] {\n  case Nil\n  case Cons(head: T, tail: Lst[T])\n}\n" +
+        "[derive(Eq)]\nclass Holder[T](items: Lst[T])\n" +
+        "val a: Holder[int] = new Holder[int](Lst.Cons(1, Lst.Nil))\n" +
+        "val b: Holder[int] = new Holder[int](Lst.Cons(1, Lst.Nil))\n" +
+        "val c: Holder[int] = new Holder[int](Lst.Cons(2, Lst.Nil))\n" +
+        "val s: Holder[string] = new Holder[string](Lst.Cons(\"z\", Lst.Nil))\n" +
+        "val t: Holder[string] = new Holder[string](Lst.Cons(\"z\", Lst.Nil))\n"
+
+      assertExecValueBoolWithSetup(setup, "a == b", true)
+      // differs inside the list, so the added premise has to be reached
+      assertExecValueBoolWithSetup(setup, "a == c", false)
+      // a second instantiation gets its own record for the same premise
+      assertExecValueBoolWithSetup(setup, "s == t", true)
+    }
+
     /** `while` lowers to a start label, the condition, a conditional goto, the
       * body and a jump back. The start label used to be placed above every
       * statement the enclosing block had already lowered, not just above the

@@ -1153,10 +1153,42 @@ class BinderTests extends AnyFunSpec with Matchers {
     }
 
     /** A parameter whose type is a composite over the type variable —
-      * `List[T]` rather than `T` — is neither ground nor a premise, so there is
-      * nothing to point at. This is the limit of what ADR 0006 step 5 reaches.
+      * `Holder[T]` rather than `T` — is neither ground nor one of the given's
+      * declared premises. It gets a premise of its own, filled per
+      * instantiation.
       */
-    it("should reject deriving over a composite of a type parameter") {
+    it("should derive over a composite of a type parameter") {
+      val comp = mkCompilation(
+        "[derive(Eq)]\nclass Holder[T](value: T)\n" +
+          "[derive(Eq)]\nclass Box[T](held: Holder[T])"
+      )
+      givenHeads(comp) shouldBe Seq("Eq<Holder<$0>>", "Eq<Box<$0>>")
+    }
+
+    /** The added premise is resolved per instantiation like a declared one, so
+      * `Eq[Box[int]]` pulls in `Eq[Holder[int]]` and then `Eq[int]`. The
+      * `Holder` record is interned last because the premise that needs it is
+      * only discovered while `Box`'s body is built.
+      */
+    it("should intern a record for an added premise") {
+      val comp = mkCompilation(
+        "[derive(Eq)]\nclass Holder[T](value: T)\n" +
+          "[derive(Eq)]\nclass Box[T](held: Holder[T])\n" +
+          "def same[T: Eq](x: T, y: T): bool = x == y\n" +
+          "val h = new Holder[int](1)\n" +
+          "val r = same(new Box[int](h), new Box[int](h))"
+      )
+      evidenceRecordGoals(comp) shouldBe Seq(
+        "Eq<Box<int>>",
+        "Eq<int>",
+        "Eq<Holder<int>>"
+      )
+    }
+
+    /** Only where something could prove it. Nothing derives `Holder` here, so
+      * the parameter is reported rather than given a slot nothing would fill.
+      */
+    it("should reject a composite nothing can prove") {
       val comp = mkFailingCompilation(
         "class Holder[T](value: T)\n" +
           "[derive(Eq)]\nclass Box[T](held: Holder[T])"

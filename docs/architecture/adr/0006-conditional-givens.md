@@ -377,8 +377,41 @@ them. Neither had a test.
   `ChainModule.of(startLabelDecl)` had been typing as
   `Chain<LabelDeclaration>`.
 
+### A composite over a type variable
+
+The last of what this ADR recorded as not built. A parameter typed `List[T]`
+inside a given over `SeparatedSyntaxList[T]` is neither ground — so no static
+record proves it — nor one of the given's declared premises, which are one per
+type parameter. **205 → 197**, and the derivation reports are down to 8, none
+of which is derivation's problem.
+
+**The dependency half stopped being the declared premises and became a list
+that grows.** `BoundGiven.dependencies` starts as the context bounds and gains
+a goal whenever a derived body needs one; the slot is where that goal sits, and
+each ground instantiation fills it with whatever the substituted goal resolves
+to. Two parameters of the same type share a slot.
+
+Three things this needed:
+
+- **A record can no longer snapshot its premises.** It holds the type
+  arguments that instantiated its given and derives the premises from
+  `dependencies` on demand, because a body is built long after the records that
+  will carry its slots were interned.
+- **A pass to close over what the bodies added.** Once every body is built the
+  dependency lists are final, and `resolvePendingDependencies` walks the
+  interned records resolving premises nothing had seen yet — repeating, since
+  resolving one interns records with dependencies of their own. It converges
+  because the lists no longer change; a fuel count bounds it regardless.
+- **Only derivation may add one.** A hand-written given's body still has to
+  declare the bounds it wants. Inferring a premise there would accept a program
+  that never stated it, which is a language decision and not one to make as a
+  side effect. The goal also has to be provable by *some* given before it gets
+  a slot — checked by matching with the type variables still in place — so a
+  parameter nothing can prove is still reported rather than given a slot
+  nothing would fill.
+
 ### What is left
 
-A composite over a type variable is still unreachable (4 parameters); two
-stateful services should stay unprovable; and two are `Boolean` and `String`,
-Scala spellings the transpiler leaves alone. ROADMAP §1.3a has the breakdown.
+Two stateful services that should stay unprovable, and two `Boolean`/`String`
+fields whose types are errors because the transpiler leaves those spellings
+alone. ROADMAP §1.3a has the breakdown.

@@ -27,7 +27,7 @@ reproduces the measurement. Re-run them rather than trusting the number.
 sbt pncs/compile && sbt test/test
 ```
 
-Green: 432 tests across the lexer, parser, binder, type checker, VM, metadata
+Green: 435 tests across the lexer, parser, binder, type checker, VM, metadata
 format, transpiler, and args parser.
 
 ### The self-hosted compiler does not
@@ -36,7 +36,7 @@ format, transpiler, and args parser.
 sbt pnc/compile
 ```
 
-Runs to completion and reports **205 diagnostics** against the generated
+Runs to completion and reports **197 diagnostics** against the generated
 `.pn` sources. By message:
 
 | Count | Diagnostic                      |
@@ -46,19 +46,16 @@ Runs to completion and reports **205 diagnostics** against the generated
 |    39 | `Type X not defined`            |
 |    18 | `Invalid namespace`             |
 |    17 | `Symbol X not found for type T` |
-|    16 | `Cannot derive Eq`/`Show`       |
+|     8 | `Cannot derive Eq`/`Show`       |
 |     5 | argument-count mismatches       |
 |     5 | `Symbol X not found`            |
 |     2 | `Duplicate definition`          |
 
-**16 of the 205 are derivation.** They peaked at 222 when the transpiler
-started emitting `[derive(Eq, Show)]`, and are down to 16 now that conditional
-givens work, `enum` derives, a goal naming an enum case widens to the enum, and
-`Array` has a given of its own. They are not the same kind of problem as the
-other 189: each one is the compiler correctly reporting that it cannot prove
-`Eq` or `Show` for a parameter, where before the attribute existed those types
-had no equality and nothing said so. §1.3a breaks down what is left. Treat it
-as a separate burndown from §1.3.
+**8 of the 197 are derivation, and none of them is derivation's problem.**
+They peaked at 222 when the transpiler started emitting `[derive(Eq, Show)]`.
+Two are types that should stay unprovable and two are `Boolean` and `String`,
+Scala spellings the transpiler leaves alone, so the field's type is an error
+type. §1.3a has the detail and is otherwise finished.
 
 **The other 189** were 195 until the `while` fix in §1.3b took six
 `Cannot convert` with it. 2 of them mention an unsolved
@@ -67,7 +64,7 @@ resolution is essentially done: the five remaining bare `Symbol X not found` are
 all `File` and `Path` from `using system.io`. What is left is operators and
 conversions.
 
-By file, all 205:
+By file, all 197:
 
 | Count | File                        |
 | ----: | --------------------------- |
@@ -190,7 +187,7 @@ count that decision is made from.
 ### 1.3 Burn down the diagnostics
 
 Ordered by what the counts say, not by what is interesting. This list covers
-the 189 that are not derivation; the 16 derivation reports are §1.3a.
+the 189 that are not derivation; the 8 derivation reports are §1.3a.
 
 1. **`string + T` for non-string `T`** — 46, and the largest single item. Every
    remaining `+` diagnostic. Blocked on a decision, not on work: either the
@@ -250,28 +247,22 @@ back-end work under §1.4 and §3.
 
 ### 1.3a Burn down the derivation reports
 
-16, down from a peak of 222. Counts below are per trait — `Eq` and `Show` fail
-on the same parameters, so each is worth double.
+**Done, in the sense that matters.** 8 left of a peak of 222, and neither
+group is work for derivation:
 
-1. **A composite over a type variable** — 4. `items: List[T]`,
-   `tail: List[T]`, `value: List[T]`, `list: List[KeyValue[K, V]]`. Inside a
-   conditional given the goal is neither ground nor one of its premises, so
-   there is nothing to point at. Carrying it means the dependency half growing
-   as bodies are built, plus a fixpoint pass to intern what that adds — see
-   [ADR 0006](docs/architecture/adr/0006-conditional-givens.md). The only
-   design question left in derivation.
-2. **Deriving over a stateful service** — 2. `ConversionClassifier` 1,
-   `AstPrinter` 1. These should stay unprovable; the fix is at the call site,
-   not in derivation. See the fourth pass of ADR 0004 for why a
-   reference-identity fallback would be wrong.
-3. **`Boolean` and `String`** — 2. Scala spellings the transpiler leaves alone,
-   so the field's type is an error type and derivation reports what it was
-   handed. They belong to §1.3 item 2 and will go when that does.
+- **Deriving over a stateful service** — `ConversionClassifier` and
+  `AstPrinter`, one parameter each. These *should* stay unprovable; the fix is
+  at the call site. See the fourth pass of ADR 0004 for why a
+  reference-identity fallback would be wrong.
+- **`Boolean` and `String`** — Scala spellings the transpiler leaves alone, so
+  the field's type is an error type and derivation reports what it was handed.
+  They belong to §1.3 item 2 and go when that does.
 
-So one item is real work, and the other two are either correct or somebody
-else's. `Array` is done: it is builtin rather than declared, so it has a
-conditional given written by hand in the prelude, `Eq[Array[T]]` given `Eq[T]`
-and `Show[Array[T]]` given `Show[T]`.
+Everything else closed: conditional givens
+([ADR 0006](docs/architecture/adr/0006-conditional-givens.md)), `[derive(…)]`
+on a generic class and a generic enum, the transpiler emitting the attribute
+for `enum`, a goal naming an enum case widening to the enum, a hand-written
+`Eq[Array[T]]`, and a parameter whose type is a composite over a type variable.
 
 Track the number after every change:
 
@@ -279,7 +270,7 @@ Track the number after every change:
 sbt pnc/compile
 ```
 
-**205 → 0.** Nothing else in this section matters until that number moves.
+**197 → 0.** Nothing else in this section matters until that number moves.
 
 Only the first 20 diagnostics are printed. To see them all, transpile first —
 `pnc/compile` does this implicitly, and the count depends on it — then run the
@@ -638,7 +629,7 @@ Things that do not belong to one goal but block several.
   blocks in §4.1.
 - **No lexer support for exponents or shifts**
   ([`Lexer.scala:243`](pncs/src/main/scala/Lexer.scala:243)).
-- **Test coverage is stage-shaped, not feature-shaped.** 432 tests, but
+- **Test coverage is stage-shaped, not feature-shaped.** 435 tests, but
   `MetadataTests` has 2 and there is no end-to-end test that takes source all
   the way to output. §3.4 is the fix.
 
@@ -650,7 +641,7 @@ Sequenced so each step makes the next one measurable.
 
 **First — stop flying blind.** Done. The generated tree matches the
 transpiler (§1.1), the exit code is trustworthy (§1.2), and failures come back
-as diagnostics rather than exceptions (§4.2). The 205 counts every error the
+as diagnostics rather than exceptions (§4.2). The 197 counts every error the
 front end finds — none are discarded.
 
 **Second — generics.** This was the plan, and the measurement has overtaken it
@@ -689,8 +680,8 @@ The three numbers worth putting on a wall:
 
 | Metric                            |         Now | Target | Command                                     |
 | --------------------------------- | ----------: | -----: | ------------------------------------------- |
-| Self-hosting diagnostics          |         205 |      0 | `sbt pnc/compile` (now fails, as it should)  |
-| — of those, derivation            |          16 |      0 | §1.3a                                       |
+| Self-hosting diagnostics          |         197 |      0 | `sbt pnc/compile` (now fails, as it should)  |
+| — of those, derivation            |           8 |      0 | §1.3a                                       |
 | Doc blocks that fail              | **0 / 201** |      0 | `sbt "doccheck/run docs/src/content/docs"`  |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                    |
 | Samples that run in CI            |           0 |      6 | not yet built                               |

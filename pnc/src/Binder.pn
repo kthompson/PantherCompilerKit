@@ -54,9 +54,17 @@ using panther
 [derive(Eq, Show)] class BoundEvidenceRecord(
     goal: Type,
     candidate: BoundGiven,
-    premises: List[Type],
+    typeArguments: List[Type],
     field: Symbol
-)
+) {
+
+  /** The ground goals the dependency half points at, read from the given each
+    * time rather than stored: derivation appends to `dependencies` while
+    * building bodies, which is after this record was interned.
+    */
+  def premises(): List[Type] =
+    Types.substituteList(candidate.dependencies, typeArguments)
+}
 
 /** A given's member, resolved for a particular goal.
   *
@@ -86,7 +94,22 @@ using panther
     generics: List[GenericTypeParameter],
     constraints: List[Type],
     location: TextLocation
-)
+) {
+
+  /** Everything the record's dependency half holds, in slot order: the declared
+    * context bounds first, then any goal derivation discovered it needed.
+    *
+    * A derived body over `items: List[T]` needs `Eq[List[$0]]`, which is
+    * neither ground — so no static record proves it — nor one of the declared
+    * premises. It becomes a dependency of this given instead, resolved per
+    * instantiation exactly as a premise is
+    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md)).
+    *
+    * Growable, and read rather than snapshotted everywhere, because a body is
+    * built after the records that will hold its slots have been interned.
+    */
+  var dependencies: List[Type] = constraints
+}
 
 /** A `derive` attribute that has been registered and is waiting for a body.
   *
@@ -1232,6 +1255,11 @@ using panther
 
     // bind all `statementsToBind` as constructor bodies
     buildConstructorBodies()
+
+    // Derivation appends to a given's dependency list while building bodies,
+    // so a record interned before that has premises nothing has resolved. Once
+    // every body is built the lists are final and this closes over them.
+    resolvePendingDependencies(maxEvidenceDepth)
 
 //    panic("the type above probably should include the symbols we started to type, as well as all the parameters for methods")
 
@@ -3036,7 +3064,7 @@ using panther
                   leftType,
                   memberName,
                   self,
-                  candidate.constraints,
+                  candidate.dependencies,
                   dependencyBase(candidate)
                 )
             }
@@ -3458,11 +3486,11 @@ using panther
               diagnosticBag.reportNoGivenInstance(location, goal.toString())
               Option.None
             case Option.Some(KeyValue(candidate, typeArgs)) =>
-              val premises =
-                Types.substituteList(candidate.constraints, typeArgs)
-              internEvidenceRecord(goal, candidate, premises) match {
+              internEvidenceRecord(goal, candidate, typeArgs) match {
                 case Option.None => Option.None
                 case Option.Some(field) =>
+                  val premises =
+                    Types.substituteList(candidate.dependencies, typeArgs)
                   // A premise that fails has already reported; the record keeps
                   // its slot so the layout stays right, the same way a given
                   // that does not implement a member does.
@@ -3471,6 +3499,34 @@ using panther
               }
           }
         }
+    }
+  }
+
+  /** Resolves any dependency added after its record was interned, repeating
+    * until nothing new appears.
+    *
+    * Repeating is needed because resolving one dependency interns records that
+    * have dependencies of their own, and the pass walks a list that was already
+    * taken. The dependency lists themselves no longer change by this point —
+    * only derivation appends, and every body is built — so this converges;
+    * `fuel` bounds it anyway, for the same reason `maxEvidenceDepth` exists.
+    */
+  def resolvePendingDependencies(fuel: int): unit = {
+    if (fuel > 0) {
+      val before = evidenceRecordCount
+      resolveRecordPremises(evidenceRecords)
+      if (evidenceRecordCount != before) {
+        resolvePendingDependencies(fuel - 1)
+      }
+    }
+  }
+
+  def resolveRecordPremises(records: List[BoundEvidenceRecord]): unit = {
+    records match {
+      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        resolvePremises(head.premises(), head.candidate.location, 0)
+        resolveRecordPremises(tail)
     }
   }
 
@@ -3496,7 +3552,7 @@ using panther
   def internEvidenceRecord(
       goal: Type,
       candidate: BoundGiven,
-      premises: List[Type]
+      typeArgs: List[Type]
   ): Option[Symbol] = {
     programSymbol match {
       case Option.None => Option.None
@@ -3511,7 +3567,7 @@ using panther
             field.extern = false
             setSymbolType(field, evidenceRecordType)
             evidenceRecords = List.Cons(
-              BoundEvidenceRecord(goal, candidate, premises, field),
+              BoundEvidenceRecord(goal, candidate, typeArgs, field),
               evidenceRecords
             )
             Option.Some(field)
@@ -3921,6 +3977,13 @@ using panther
     * `$ev$self` when the parameter has the derived type itself, and a premise
     * when it has one of the type variables. Both are found by the ordinary
     * evidence walk, since `$ev$self` is typed as what the given proves.
+    *
+    * A composite over a type variable — `items: List[T]` — is neither, and gets
+    * a premise of its own: `Eq[List[$0]]` becomes a dependency of the given,
+    * filled per instantiation with whatever `Eq[List[int]]` resolves to. Only
+    * derivation does this. A hand-written given's body has to declare the
+    * bounds it wants, because inferring one there would accept a program that
+    * never stated it.
     */
   def derivedEvidence(
       traitSymbol: Symbol,
@@ -3947,9 +4010,10 @@ using panther
         }
       } else {
         findEvidenceMember(fieldType, memberName, member) match {
-          case Option.None => Option.None
           case Option.Some(KeyValue(evidence, traitMember)) =>
             Option.Some(DerivedEvidence.Through(evidence, traitMember))
+          case Option.None =>
+            derivedDependency(goal, traitSymbol, memberName, member)
         }
       }
 
@@ -3963,6 +4027,82 @@ using panther
           traitSymbol.name
         )
         Option.None
+    }
+  }
+
+  /** Gives `goal` a slot in the enclosing given's dependency half.
+    *
+    * Only when some given could prove it: matching with the type variables
+    * still in place answers that, because a variable in the goal binds against
+    * the candidate's own. `Eq[List[$0]]` matches `Eq[List[$0']]`, and at each
+    * ground instantiation the substituted goal is what actually gets resolved.
+    * Without the check a parameter nothing can prove would get a slot and go
+    * unreported.
+    */
+  def derivedDependency(
+      goal: Type,
+      traitSymbol: Symbol,
+      memberName: string,
+      member: Symbol
+  ): Option[DerivedEvidence] = {
+    val enclosing = member.parent match {
+      case Option.None        => Option.None
+      case Option.Some(owner) => findBoundGiven(owner, givens)
+    }
+
+    enclosing match {
+      case Option.None => Option.None
+      case Option.Some(candidate) =>
+        if (matchAnyGiven(goal, givens).isEmpty()) Option.None
+        else
+          selfEvidenceOf(member) match {
+            case Option.None => Option.None
+            case Option.Some(self) =>
+              traitSymbol.lookupMember(memberName) match {
+                case Option.None => Option.None
+                case Option.Some(traitMember) =>
+                  val slot = dependencySlot(candidate, goal)
+                  val evidence: BoundEvidence =
+                    BoundEvidence.Premise(self, slot, goal)
+                  Option.Some(DerivedEvidence.Through(evidence, traitMember))
+              }
+          }
+    }
+  }
+
+  /** The slot `goal` occupies in `candidate`'s dependency half, appending it if
+    * it is not there yet. Two parameters of the same type share one.
+    */
+  def dependencySlot(candidate: BoundGiven, goal: Type): int = {
+    val base = dependencyBase(candidate)
+    indexOfConstraint(candidate.dependencies, goal, 0) match {
+      case Option.Some(index) => base + index
+      case Option.None =>
+        val index = candidate.dependencies.length
+        candidate.dependencies =
+          appendConstraint(candidate.dependencies, goal)
+        base + index
+    }
+  }
+
+  def indexOfConstraint(
+      constraints: List[Type],
+      goal: Type,
+      index: int
+  ): Option[int] = {
+    constraints match {
+      case List.Nil => Option.None
+      case List.Cons(head, tail) =>
+        if (sameConstraint(head, goal)) Option.Some(index)
+        else indexOfConstraint(tail, goal, index + 1)
+    }
+  }
+
+  def appendConstraint(constraints: List[Type], goal: Type): List[Type] = {
+    constraints match {
+      case List.Nil => ListModule.one(goal)
+      case List.Cons(head, tail) =>
+        List.Cons(head, appendConstraint(tail, goal))
     }
   }
 
