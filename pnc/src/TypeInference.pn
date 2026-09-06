@@ -10,10 +10,12 @@ using panther
       parameterTypes: List[Type],
       argumentTypes: List[Type]
   ): List[Type] = {
-    val typeMap = new scala.collection.mutable.HashMap[string, Type]()
-
     // Try to infer from parameter/argument pairs
-    inferFromParameterArgumentPairs(parameterTypes, argumentTypes, typeMap)
+    val typeMap = inferFromParameterArgumentPairs(
+      parameterTypes,
+      argumentTypes,
+      emptyTypeMap()
+    )
 
     // Convert to list of types in the order of generic parameters
     mapGenericParamsToTypes(genericParams, typeMap)
@@ -29,37 +31,52 @@ using panther
       returnType: Type,
       expectedType: Type
   ): List[Type] = {
-    val typeMap = new scala.collection.mutable.HashMap[string, Type]()
-
     // First, infer from parameter/argument pairs (same as before)
-    inferFromParameterArgumentPairs(parameterTypes, argumentTypes, typeMap)
+    val fromArguments = inferFromParameterArgumentPairs(
+      parameterTypes,
+      argumentTypes,
+      emptyTypeMap()
+    )
 
     // NEW: Also infer from return type vs expected type
     // This helps when the return type contains type variables
     // Example: identity<T>(x: T): T called with expected type string
-    inferTypeFromPair(returnType, expectedType, typeMap)
+    val typeMap = inferTypeFromPair(returnType, expectedType, fromArguments)
 
     // Convert to list of types in the order of generic parameters
     mapGenericParamsToTypes(genericParams, typeMap)
   }
 
+  /** What each type variable has been inferred to be so far, keyed by the
+    * variable's id.
+    *
+    * `Dictionary` is immutable, so every method that learns something returns a
+    * new map rather than updating this one in place, and callers thread it
+    * through. Inference visits a handful of parameters at a time, so the linear
+    * `get` costs nothing here.
+    */
+  def emptyTypeMap(): Dictionary[int, Type] =
+    DictionaryModule.empty[int, Type]()
+
   def mapGenericParamsToTypes(
       genericParams: List[GenericTypeParameter],
-      typeMap: scala.collection.mutable.HashMap[string, Type]
+      typeMap: Dictionary[int, Type]
   ): List[Type] = {
     mapGenericParamsToTypesWithIndex(genericParams, typeMap, 0)
   }
 
   def mapGenericParamsToTypesWithIndex(
       genericParams: List[GenericTypeParameter],
-      typeMap: scala.collection.mutable.HashMap[string, Type],
+      typeMap: Dictionary[int, Type],
       index: int
   ): List[Type] = {
     genericParams match {
       case List.Nil => List.Nil
       case List.Cons(param, tail) =>
-        val key = "var_" + string(index)
-        val inferredType = typeMap.getOrElse(key, unsolvedDefault(param))
+        val inferredType = typeMap.get(index) match {
+          case Option.Some(typ) => typ
+          case Option.None      => unsolvedDefault(param)
+        }
         List.Cons(
           inferredType,
           mapGenericParamsToTypesWithIndex(tail, typeMap, index + 1)
@@ -81,32 +98,33 @@ using panther
   def inferFromParameterArgumentPairs(
       paramTypes: List[Type],
       argTypes: List[Type],
-      typeMap: scala.collection.mutable.HashMap[string, Type]
-  ): unit = {
+      typeMap: Dictionary[int, Type]
+  ): Dictionary[int, Type] = {
     Tuple2(paramTypes, argTypes) match {
       case Tuple2(
             List.Cons(paramType, paramTail),
             List.Cons(argType, argTail)
           ) =>
-        inferTypeFromPair(paramType, argType, typeMap)
-        inferFromParameterArgumentPairs(paramTail, argTail, typeMap)
-      case _ => // Different lengths or empty lists
+        inferFromParameterArgumentPairs(
+          paramTail,
+          argTail,
+          inferTypeFromPair(paramType, argType, typeMap)
+        )
+      case _ => typeMap // Different lengths or empty lists
     }
   }
 
   def inferTypeFromPair(
       paramType: Type,
       argType: Type,
-      typeMap: scala.collection.mutable.HashMap[string, Type]
-  ): unit = {
+      typeMap: Dictionary[int, Type]
+  ): Dictionary[int, Type] = {
     Tuple2(paramType, argType) match {
       case Tuple2(Type.Variable(_, id), _) =>
         // First binding wins; a later, conflicting argument is caught when
         // the arguments are converted to the instantiated parameter types.
-        val key = "var_" + string(id)
-        if (!typeMap.contains(key)) {
-          typeMap.put(key, argType)
-        }
+        if (typeMap.contains(id)) typeMap
+        else typeMap.put(id, argType)
       case Tuple2(
             Type.Class(_, _, _, paramArgs, _),
             Type.Class(_, _, _, argArgs, _)
@@ -125,28 +143,31 @@ using panther
         // case's parameter list is the enum's, so the arguments line up.
         if (isCaseOf(caseSymbol, aliasSymbol)) {
           inferFromParameterArgumentPairs(paramArgs, argArgs, typeMap)
-        }
+        } else typeMap
       case Tuple2(
             Type.Class(_, _, _, paramArgs, caseSymbol),
             Type.Alias(_, _, _, argArgs, _, aliasSymbol)
           ) =>
         if (isCaseOf(caseSymbol, aliasSymbol)) {
           inferFromParameterArgumentPairs(paramArgs, argArgs, typeMap)
-        }
+        } else typeMap
       case Tuple2(
             Type.Function(_, paramParams, paramReturn),
             Type.Function(_, argParams, argReturn)
           ) =>
-        inferFromParameterArgumentPairs(
-          parameterTypes(paramParams),
-          parameterTypes(argParams),
-          typeMap
+        inferTypeFromPair(
+          paramReturn,
+          argReturn,
+          inferFromParameterArgumentPairs(
+            parameterTypes(paramParams),
+            parameterTypes(argParams),
+            typeMap
+          )
         )
-        inferTypeFromPair(paramReturn, argReturn, typeMap)
       case _ =>
         // A union has no single argument list to learn from, and nothing
         // else carries type arguments.
-        ()
+        typeMap
     }
   }
 

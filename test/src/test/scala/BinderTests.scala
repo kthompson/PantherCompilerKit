@@ -708,6 +708,38 @@ class BinderTests extends AnyFunSpec with Matchers {
       mkCompilation(eqTrait + eqInt + "def id[K](a: K): K = a\nval r = id(true)")
     }
 
+    /** `TypeInference` carries what it has learned in an immutable
+      * `Dictionary`, so every visit returns a new map that the caller threads
+      * into the next one. These pin the two ways that threading can drop a
+      * binding: across sibling parameters, and down into a type argument.
+      *
+      * They go through a context bound rather than a type annotation because a
+      * dropped binding is not an error on its own — the variable defaults to
+      * `any`, and `any` converts to anything. Under a bound it becomes
+      * `No given instance for Eqv<any>`, which is observable.
+      */
+    it("should infer a type variable from a later parameter") {
+      mkCompilation(
+        eqTrait + eqInt + "def snd[A, B: Eqv](a: A, b: B): bool = true\n" +
+          "val r = snd(true, 1)"
+      )
+    }
+
+    it("should keep a binding made before the parameters after it") {
+      mkCompilation(
+        eqTrait + eqInt + "def fst[A: Eqv, B](a: A, b: B): bool = true\n" +
+          "val r = fst(1, true)"
+      )
+    }
+
+    it("should infer a type variable through a type argument") {
+      mkCompilation(
+        eqTrait + eqInt + "class Box[T](value: T)\n" +
+          "def unbox[T: Eqv](b: Box[T]): bool = true\n" +
+          "val r = unbox(new Box[int](1))"
+      )
+    }
+
     /** A constrained class resolves at the `new` site, where its type
       * arguments are concrete (ADR 0005, decision B).
       */
