@@ -1,4 +1,4 @@
-class BinaryOperator(
+[derive(Eq, Show)] class BinaryOperator(
     left: Type,
     right: Type,
     operator: BinaryOperatorKind,

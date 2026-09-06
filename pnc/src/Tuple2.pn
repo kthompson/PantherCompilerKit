@@ -1,1 +1,1 @@
-class Tuple2[A, B](_1: A, _2: B)
+[derive(Eq, Show)] class Tuple2[A, B](_1: A, _2: B)

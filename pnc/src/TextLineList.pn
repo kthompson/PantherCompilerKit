@@ -1,6 +1,6 @@
 using panther
 
-class TextLineList() {
+[derive(Eq, Show)] class TextLineList() {
   var _size: int = 0
   var _items: Array[TextLine] = new Array[TextLine](0)
 

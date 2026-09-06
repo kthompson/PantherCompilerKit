@@ -1,6 +1,6 @@
 using panther
 
-class ParamTable() {
+[derive(Eq, Show)] class ParamTable() {
   var params = new Array[ParamMetadata](0)
   var capacity = 0
   var size = 0

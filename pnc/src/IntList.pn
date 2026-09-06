@@ -1,6 +1,6 @@
 using panther
 
-class IntList() {
+[derive(Eq, Show)] class IntList() {
   var array = new Array[int](0)
   var capacity = 0
   var size = 0

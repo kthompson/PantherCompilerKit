@@ -1,6 +1,6 @@
 using panther
 
-class BinaryOperators(binder: Binder) {
+[derive(Eq, Show)] class BinaryOperators(binder: Binder) {
 
   var binaryOps: List[BinaryOperator] = List.Nil
   var unaryOps: List[UnaryOperator] = List.Nil

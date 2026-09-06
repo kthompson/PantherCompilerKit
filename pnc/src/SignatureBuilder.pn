@@ -1,6 +1,6 @@
 using panther
 
-class SignatureBuilder() {
+[derive(Eq, Show)] class SignatureBuilder() {
   var signature = new IntList()
 
   def toSignature(): Signature = Signature(signature.toArray())

@@ -1081,15 +1081,18 @@ class BinderTests extends AnyFunSpec with Matchers {
       )
     }
 
-    /** Derivation needs evidence for every parameter type and names the one
-      * that lacks it, rather than reporting the type as a whole.
+    /** Derivation needs evidence for every parameter type and names both the
+      * parameter that lacks it and the evidence that would settle it, rather
+      * than reporting the type as a whole. The transpiler now derives for over
+      * a hundred classes at once, so the report has to be actionable on its
+      * own.
       */
     it("should reject deriving over a parameter with no evidence") {
       val comp = mkFailingCompilation(
         "class Inner(v: int)\n[derive(Eq)]\nclass Outer(inner: Inner)"
       )
       diagnosticMessages(comp) should contain(
-        "Cannot derive Eq: no Eq evidence for the type of inner"
+        "Cannot derive Eq: no Eq[Inner] for field inner"
       )
     }
 

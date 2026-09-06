@@ -6,9 +6,9 @@ using SimpleNameSyntax
 /** separatorToken may be either a `.` or `,` in the case
   */
 
-class TypeAnnotationSyntax(colonToken: SyntaxToken, typ: NameSyntax)
+[derive(Eq, Show)] class TypeAnnotationSyntax(colonToken: SyntaxToken, typ: NameSyntax)
 
-class ArrayInitializerExpressionSyntax(
+[derive(Eq, Show)] class ArrayInitializerExpressionSyntax(
     openBrace: SyntaxToken,
     expressions: ExpressionListSyntax,
     closeBrace: SyntaxToken
@@ -50,18 +50,18 @@ enum NameSyntax {
   )
 }
 
-class ExpressionItemSyntax(
+[derive(Eq, Show)] class ExpressionItemSyntax(
     expression: Expression,
     separatorToken: Option[SyntaxToken]
 )
-class ExpressionListSyntax(expressions: List[ExpressionItemSyntax])
+[derive(Eq, Show)] class ExpressionListSyntax(expressions: List[ExpressionItemSyntax])
 
-class BlockExpressionListSyntax(
+[derive(Eq, Show)] class BlockExpressionListSyntax(
     statements: List[StatementSyntax],
     expression: Option[Expression]
 )
 
-class ElseSyntax(elseKeyword: SyntaxToken, expression: Expression)
+[derive(Eq, Show)] class ElseSyntax(elseKeyword: SyntaxToken, expression: Expression)
 
 enum Expression {
   case ArrayCreation(
@@ -160,7 +160,7 @@ enum Expression {
   )
 }
 
-class MatchCaseSyntax(
+[derive(Eq, Show)] class MatchCaseSyntax(
     caseKeyword: SyntaxToken,
     pattern: PatternSyntax,
     arrow: SyntaxToken,
@@ -185,33 +185,33 @@ enum PatternSyntax {
   case Discard(value: SyntaxToken)
 }
 
-class PatternItemSyntax(
+[derive(Eq, Show)] class PatternItemSyntax(
     pattern: PatternSyntax,
     separatorToken: Option[SyntaxToken]
 )
 
-class FunctionBodySyntax(equalToken: SyntaxToken, expression: Expression)
-class ParameterSyntax(
+[derive(Eq, Show)] class FunctionBodySyntax(equalToken: SyntaxToken, expression: Expression)
+[derive(Eq, Show)] class ParameterSyntax(
     modifier: Option[SyntaxToken],
     identifier: SyntaxToken,
     typeAnnotation: TypeAnnotationSyntax,
     commaToken: Option[SyntaxToken]
 )
 
-class TypeArgumentItemSyntax(
+[derive(Eq, Show)] class TypeArgumentItemSyntax(
     name: NameSyntax,
     separator: Option[SyntaxToken]
 )
 
-class TypeArgumentListSyntax(
+[derive(Eq, Show)] class TypeArgumentListSyntax(
     lessThanToken: SyntaxToken,
     arguments: Array[TypeArgumentItemSyntax],
     greaterThanToken: SyntaxToken
 )
 
-class UsingDirectiveSyntax(usingKeyword: SyntaxToken, name: NameSyntax)
+[derive(Eq, Show)] class UsingDirectiveSyntax(usingKeyword: SyntaxToken, name: NameSyntax)
 
-class TemplateSyntax(
+[derive(Eq, Show)] class TemplateSyntax(
     openBrace: SyntaxToken,
     members: List[MemberSyntax],
     closeBrace: SyntaxToken
@@ -230,35 +230,35 @@ enum StatementSyntax {
   case ExpressionStatement(expression: Expression)
 }
 
-class EnumCaseParametersSyntax(
+[derive(Eq, Show)] class EnumCaseParametersSyntax(
     openParenToken: SyntaxToken,
     parameters: List[ParameterSyntax],
     closeParenToken: SyntaxToken
 )
-class EnumCaseSyntax(
+[derive(Eq, Show)] class EnumCaseSyntax(
     caseKeyword: SyntaxToken,
     identifier: SyntaxToken,
     parameters: Option[EnumCaseParametersSyntax]
 )
 
-class GenericBoundsSyntax(token: SyntaxToken, name: NameSyntax)
-class GenericParameterSyntax(
+[derive(Eq, Show)] class GenericBoundsSyntax(token: SyntaxToken, name: NameSyntax)
+[derive(Eq, Show)] class GenericParameterSyntax(
     variance: Option[SyntaxToken],
     identifier: SyntaxToken,
     bounds: Option[GenericBoundsSyntax]
 )
-class GenericParametersSyntax(
+[derive(Eq, Show)] class GenericParametersSyntax(
     lessThanToken: SyntaxToken,
     parameters: SeparatedSyntaxList[GenericParameterSyntax],
     greaterThanToken: SyntaxToken
 )
 
-class SeparatedSyntaxList[T](items: List[T], separators: List[SyntaxToken])
+[derive(Eq, Show)] class SeparatedSyntaxList[T](items: List[T], separators: List[SyntaxToken])
 
 /** One trait named inside a `derive` attribute, with the comma that follows
   * it, if any — the same shape `ParameterSyntax` uses for its list.
   */
-class DerivedTraitSyntax(
+[derive(Eq, Show)] class DerivedTraitSyntax(
     name: SyntaxToken,
     commaToken: Option[SyntaxToken]
 )
@@ -269,7 +269,7 @@ class DerivedTraitSyntax(
   * b` on it is a diagnostic rather than a silent identity comparison
   * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
   */
-class DeriveAttributeSyntax(
+[derive(Eq, Show)] class DeriveAttributeSyntax(
     openBracketToken: SyntaxToken,
     deriveToken: SyntaxToken,
     openParenToken: SyntaxToken,
@@ -353,14 +353,14 @@ enum MemberSyntax {
 
 /** names [1..n]
   */
-class NamespaceDeclarationSyntax(
+[derive(Eq, Show)] class NamespaceDeclarationSyntax(
     namespaceKeyword: SyntaxToken,
     name: NameSyntax
 )
 
 /** namespaceDeclaration [0..1] usings [0..n] members [0..n]
   */
-class CompilationUnitSyntax(
+[derive(Eq, Show)] class CompilationUnitSyntax(
     namespaceDeclaration: Option[NamespaceDeclarationSyntax],
     usings: Array[UsingDirectiveSyntax],
     members: List[MemberSyntax],

@@ -1,6 +1,6 @@
 using panther
 
-class BoundAssembly(
+[derive(Eq, Show)] class BoundAssembly(
     diagnostics: Diagnostics,
     functionBodies: Dictionary[Symbol, BoundExpression],
     entryPoint: Option[Symbol]
@@ -22,7 +22,7 @@ enum BoundMember {
   )
 }
 
-class BoundParameter(symbol: Symbol, typ: Type)
+[derive(Eq, Show)] class BoundParameter(symbol: Symbol, typ: Type)
 
 enum BoundStatement {
   case Error
@@ -74,7 +74,7 @@ enum BoundPattern {
   case Discard
 }
 
-class BoundMatchCase(
+[derive(Eq, Show)] class BoundMatchCase(
     location: TextLocation,
     pattern: BoundPattern,
     result: BoundExpression

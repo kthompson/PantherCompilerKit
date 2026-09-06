@@ -1,6 +1,6 @@
 using panther
 
-class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
+[derive(Eq, Show)] class Lexer(sourceFile: SourceFile, diagnostics: DiagnosticBag) {
   var _position: int = 0
   var debug: bool = false
 

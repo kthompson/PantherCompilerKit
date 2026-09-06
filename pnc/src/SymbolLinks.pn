@@ -5,4 +5,4 @@ using panther
   * @param typ
   *   specifies the type of the symbol
   */
-class SymbolLinks(typ: Type)
+[derive(Eq, Show)] class SymbolLinks(typ: Type)

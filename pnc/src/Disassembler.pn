@@ -1,6 +1,6 @@
 using panther
 
-class Disassembler(chunk: Chunk, metadata: Metadata) {
+[derive(Eq, Show)] class Disassembler(chunk: Chunk, metadata: Metadata) {
   var extra = ""
 
   def disassembleMethod(token: MethodToken): bool = {

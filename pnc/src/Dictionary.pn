@@ -10,7 +10,7 @@ object DictionaryModule {
   * @tparam K
   * @tparam V
   */
-class Dictionary[K, V](list: List[KeyValue[K, V]]) {
+[derive(Eq, Show)] class Dictionary[K, V](list: List[KeyValue[K, V]]) {
   val length: int = list.length
 
   def put(key: K, value: V): Dictionary[K, V] = {
@@ -122,4 +122,4 @@ class Dictionary[K, V](list: List[KeyValue[K, V]]) {
   }
 }
 
-class KeyValue[K, V](key: K, value: V)
+[derive(Eq, Show)] class KeyValue[K, V](key: K, value: V)

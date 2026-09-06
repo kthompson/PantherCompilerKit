@@ -48,6 +48,22 @@ object TestHelpers {
   def mkSyntaxTree(text: string): SyntaxTree =
     MakeSyntaxTree.parseContent(text, CompilerSettingsFactory.default)
 
+  /** Transpile Scala source and hand back the Panther text.
+    *
+    * The `.scala` file name is what puts the parser and the transpiler in Scala
+    * mode, and the output is built in memory rather than written, so a test
+    * needs no directory.
+    */
+  def mkTranspiled(text: string): String = {
+    val tree = MakeSyntaxTree.parseSourceFile(
+      new SourceFile(text, "test.scala"),
+      CompilerSettingsFactory.default
+    )
+    val context = new TranspilerContext(new StringBuilder())
+    new Transpiler(List.Nil, "").transpileRoot(tree.root, context)
+    context.sb.toString()
+  }
+
   def mkBinaryExpr(text: string): Expression.Binary = {
     val expression = mkSyntaxTreeExpr(text)
     assertBinaryExpr(expression)

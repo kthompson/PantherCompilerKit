@@ -264,12 +264,15 @@ case class DiagnosticBag(settings: CompilerSettings) {
   def reportNoEvidenceForDerivedField(
       location: TextLocation,
       field: string,
+      fieldType: Type,
       traitName: string
   ): unit =
     report(
       location,
-      "Cannot derive " + traitName + ": no " + traitName +
-        " evidence for the type of " + field
+      // `.toString()` rather than letting `+` widen it: the transpiled twin
+      // cannot concatenate a reference type yet.
+      "Cannot derive " + traitName + ": no " + traitName + "[" +
+        fieldType.toString() + "] for field " + field
     )
 
   def reportNotABinaryOperator(location: TextLocation, op: string): unit =

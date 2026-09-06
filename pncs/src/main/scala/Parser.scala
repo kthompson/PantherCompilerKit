@@ -276,7 +276,14 @@ case class Parser(
     if (currentKind() == SyntaxKind.IdentifierToken) {
       val ident = accept()
 
-      if (currentKind() == SyntaxKind.OpenBracketToken) {
+      // A `[` that opens a new line is an attribute on the next member, not
+      // this name's type arguments — `using panther.int` followed by
+      // `[derive(Eq, Show)] class …` is the shape that makes the difference.
+      // Same rule the postfix operators in `parseInfixExpression` follow.
+      if (
+        currentKind() == SyntaxKind.OpenBracketToken &&
+        !ident.isStatementTerminator()
+      ) {
         val typeArgumentlist = parseTypeArgumentList(inUsing, true)
 
         new GenericNameSyntax(ident, typeArgumentlist)

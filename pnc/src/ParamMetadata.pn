@@ -1,6 +1,6 @@
 using panther
 
-class ParamMetadata(
+[derive(Eq, Show)] class ParamMetadata(
     name: StringToken,
     flags: MetadataFlags,
 paramSig: int

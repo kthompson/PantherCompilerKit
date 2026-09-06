@@ -1,6 +1,6 @@
 using panther
 
-class TypeDefTable() {
+[derive(Eq, Show)] class TypeDefTable() {
   var typeDefs = new Array[TypeDefMetadata](0)
   var capacity = 0
   var size = 0

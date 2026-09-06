@@ -1,18 +1,18 @@
 using panther
 
-class FieldToken(token: int)
+[derive(Eq, Show)] class FieldToken(token: int)
 
-class ParamToken(token: int)
+[derive(Eq, Show)] class ParamToken(token: int)
 
-class MethodToken(token: int)
+[derive(Eq, Show)] class MethodToken(token: int)
 
-class TypeDefToken(token: int)
+[derive(Eq, Show)] class TypeDefToken(token: int)
 
-class StringToken(token: int)
+[derive(Eq, Show)] class StringToken(token: int)
 
-class SignatureToken(token: int)
+[derive(Eq, Show)] class SignatureToken(token: int)
 
-class Metadata() {
+[derive(Eq, Show)] class Metadata() {
   var fields = FieldTable()
   var params = ParamTable()
   var methods = MethodTable()

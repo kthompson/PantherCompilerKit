@@ -3132,12 +3132,13 @@ case class Binder(
       field: Symbol,
       memberName: string
   ): Option[Symbol] = {
+    val fieldType = getSymbolType(field)
     val goal: Type =
       Type.Class(
         noLoc,
         List.Nil,
         traitSymbol.name,
-        ListModule.one(getSymbolType(field)),
+        ListModule.one(fieldType),
         traitSymbol
       )
 
@@ -3147,6 +3148,7 @@ case class Binder(
         diagnosticBag.reportNoEvidenceForDerivedField(
           field.location,
           field.name,
+          fieldType,
           traitSymbol.name
         )
         Option.None

@@ -1,6 +1,6 @@
 using panther
 
-class BlobTable() {
+[derive(Eq, Show)] class BlobTable() {
   var intList = new IntList()
 
   def addBlob(value: Array[int], blobSize: int): int = {

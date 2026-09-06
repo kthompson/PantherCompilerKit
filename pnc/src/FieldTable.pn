@@ -1,6 +1,6 @@
 using panther
 
-class FieldTable() {
+[derive(Eq, Show)] class FieldTable() {
   var fields = new Array[FieldMetadata](0)
   var capacity = 0
   var size = 0

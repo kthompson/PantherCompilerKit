@@ -1,4 +1,4 @@
-class SyntaxTree(
+[derive(Eq, Show)] class SyntaxTree(
     file: SourceFile,
     root: CompilationUnitSyntax,
     diagnostics: Diagnostics

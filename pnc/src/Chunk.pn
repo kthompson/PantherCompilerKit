@@ -1,6 +1,6 @@
 using panther
 
-class Chunk() {
+[derive(Eq, Show)] class Chunk() {
   // TODO: we don't currently support byte types so we will implement this with ints
 
   // line number for each instruction

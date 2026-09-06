@@ -6,9 +6,9 @@ using PatternSyntax
 using NameSyntax
 using SimpleNameSyntax
 
-class TranspilerContext(sb: StringBuilder)
+[derive(Eq, Show)] class TranspilerContext(sb: StringBuilder)
 
-class Transpiler(
+[derive(Eq, Show)] class Transpiler(
     syntaxTrees: List[SyntaxTree],
     outputPath: string
 ) {
@@ -321,8 +321,14 @@ class Transpiler(
       context: TranspilerContext
   ): unit = {
     decl.caseKeyword match {
-      case Option.Some(value) => transpileTrivia(value.leading, context)
-      case _                  =>
+      case Option.Some(value) =>
+        // `case` carried structural equality and printing in Scala; the
+        // attribute is what carries them in Panther, so it is written exactly
+        // where `case` was, keeping the trivia on either side of it.
+        transpileTrivia(value.leading, context)
+        context.sb.append("[derive(Eq, Show)]")
+        transpileTrivia(value.trailing, context)
+      case _ =>
     }
     transpileDeriveAttribute(decl.derives, context)
     transpileToken(decl.classKeyword, context)
@@ -334,10 +340,10 @@ class Transpiler(
     transpileOptionalTemplate(decl.template, context)
   }
 
-  /** Always `Option.None` today: the transpiler reads Scala, and Scala has no
-    * `derive` attribute to read. ADR 0004 has the transpiler *supplying* one
-    * for every `case class`, which is a separate step — this is only here so
-    * that a `.pn` source round-trips.
+  /** Always `Option.None` when the input is Scala, which has no `derive`
+    * attribute to read — a `case class`'s attribute is supplied by
+    * `transpileClassDeclaration` rather than read from the source. This is here
+    * so that a `.pn` source round-trips.
     */
   def transpileDeriveAttribute(
       derives: Option[DeriveAttributeSyntax],

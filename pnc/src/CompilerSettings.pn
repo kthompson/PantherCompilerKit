@@ -1,6 +1,6 @@
 using panther
 
-class CompilerSettings(
+[derive(Eq, Show)] class CompilerSettings(
     kindRecoveryAttempts: int,
     diagnosticsToPrint: int,
     stackSize: int,

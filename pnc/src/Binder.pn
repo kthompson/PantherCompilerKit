@@ -1,6 +1,6 @@
 using panther
 
-class Members(
+[derive(Eq, Show)] class Members(
     objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
     classes: List[Namespaced[MemberSyntax.ClassDeclarationSyntax]],
     functions: List[MemberSyntax.FunctionDeclarationSyntax],
@@ -14,7 +14,7 @@ class Members(
     globalStatements: List[MemberSyntax.GlobalStatementSyntax]
 )
 
-class Namespaced[A](ns: List[string], value: A)
+[derive(Eq, Show)] class Namespaced[A](ns: List[string], value: A)
 
 enum BindingMember {
   case Method(value: MemberSyntax.FunctionDeclarationSyntax)
@@ -47,7 +47,7 @@ enum FieldOptions {
   * The tree is what ADR 0005's recursive evidence describes —
   * `Eq[List[Symbol]]` holding a reference to `Eq[Symbol]`.
   */
-class Evidence(
+[derive(Eq, Show)] class Evidence(
     symbol: Symbol,
     head: Type,
     typeArguments: List[Type],
@@ -61,7 +61,7 @@ class Evidence(
   * `constraints` are that given's context bounds, the premises of the
   * implication.
   */
-class BoundGiven(
+[derive(Eq, Show)] class BoundGiven(
     symbol: Symbol,
     head: Type,
     generics: List[GenericTypeParameter],
@@ -77,7 +77,7 @@ class BoundGiven(
   * parameters' field types, which are not bound until later
   * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
   */
-class Derivation(
+[derive(Eq, Show)] class Derivation(
     typeSymbol: Symbol,
     typ: Type,
     traitSymbol: Symbol,
@@ -95,19 +95,19 @@ class Derivation(
   * parameter
   * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
   */
-class DerivedCase(
+[derive(Eq, Show)] class DerivedCase(
     symbol: Symbol,
     typ: Type,
     parameterNames: List[string]
 )
 
-class ConstructorParams(
+[derive(Eq, Show)] class ConstructorParams(
     genericTypeParameters: List[GenericTypeParameter],
     constraints: List[Type],
     parameters: List[ParameterSyntax]
 )
 
-class Binder(
+[derive(Eq, Show)] class Binder(
     trees: List[SyntaxTree],
     rootSymbol: Symbol,
     diagnosticBag: DiagnosticBag
@@ -3132,12 +3132,13 @@ class Binder(
       field: Symbol,
       memberName: string
   ): Option[Symbol] = {
+    val fieldType = getSymbolType(field)
     val goal: Type =
       Type.Class(
         noLoc,
         List.Nil,
         traitSymbol.name,
-        ListModule.one(getSymbolType(field)),
+        ListModule.one(fieldType),
         traitSymbol
       )
 
@@ -3147,6 +3148,7 @@ class Binder(
         diagnosticBag.reportNoEvidenceForDerivedField(
           field.location,
           field.name,
+          fieldType,
           traitSymbol.name
         )
         Option.None

@@ -804,9 +804,8 @@ Deviations from the decision above:
   diagnostic, because its derived given is conditional and a conditional given
   still cannot reach its premise.
 - **Enums are not derived.** (Closed in the third pass below.)
-- **The transpiler does not supply the attribute.** `case class` still
-  transpiles to a plain class, so the 133 case classes remain without instances.
-  Turning that on is a separate step and will move the diagnostic count.
+- **The transpiler does not supply the attribute.** (Closed in the fourth pass
+  below, and it moved the diagnostic count the other way.)
 
 **Contextual extensions now fire for a ground type**, closing the gap the first
 pass recorded. The open question there was what happens when a real member and an
@@ -840,8 +839,9 @@ again, this time in `_get`.
 - **Associated members.** `T.empty` does not resolve.
 - **A conditional given cannot use its premise**, which is also what blocks
   derivation for generic types.
-- **Enum derivation.**
-- **The transpiler's `[derive(…)]` for `case class`.**
+- **Enum derivation.** (Closed in the third pass.)
+- **The transpiler's `[derive(…)]` for `case class`.** (Closed in the fourth
+  pass.)
 - **The orphan rule and named exceptions.**
 
 ## Outcome, third pass
@@ -904,3 +904,66 @@ dropping a level from every chain longer than one.
 
 A match with no matching case still yields an unspecified value rather than
 reporting. That needs exhaustiveness checking, which is its own feature.
+
+## Outcome, fourth pass
+
+The transpiler now supplies the attribute. `case class` transpiles to
+`[derive(Eq, Show)] class`, plain `class` to a plain class, as the decision
+above specifies. 104 declarations across the transpiled sources carry it. 407
+tests, up from 400.
+
+**Self-hosting diagnostics went from 195 to 417, and that is the result rather
+than a regression to undo.** The 195 that were already there are unchanged, to
+the line; all 222 new ones are the derivation itself reporting what it cannot
+prove. Of the 104 derived classes, 38 derive cleanly and 66 name at least one
+parameter without evidence. Per trait, the 105 unprovable parameters divide
+into three groups:
+
+| what the parameter's type is | count | what it needs |
+| --- | --- | --- |
+| a generic container — `List` 30, `Option` 18, `Array` 7, `Dictionary` 4, `Chain` 2, `SeparatedSyntaxList` 1 | 62 | a conditional given |
+| a non-generic enum — `Type` 13, `NameSyntax` 5, `MetadataFlags` 4, `Expression` 3, and eleven more | 38 | the transpiler deriving for `enum` too |
+| a plain class — `Diagnostics` 3, `ConversionClassifier` 1, `AstPrinter` 1 | 5 | nothing; see below |
+
+This corrects what the second pass predicted. Turning the attribute on was
+expected to move the count down, on the reading that the transpiled sources
+were failing for want of equality. They were not: none of the 195 is an
+equality error, and none of them moved. What the attribute did was convert a
+silent absence into a list — before it, those 104 classes had no equality and
+nothing said so, which is exactly the risk the decision above records as the
+reason the transpiler has to emit the attribute at all.
+
+**The first two groups are one gap and one step.** A conditional given cannot
+reach its premise, so `Eq[List[T]]` given `Eq[T]` cannot be written; that is
+already recorded as still not built and 62 of the 105 wait on it. The enums are
+a smaller thing: Scala's `enum` generates structural equality the same way
+`case class` does, so the transpiler should emit the attribute for both. It is
+not free either, because the AST enums hold `List` and `Option` parameters and
+land back in the first group.
+
+**The third group should stay unprovable.** `Diagnostics`, `ConversionClassifier`
+and `AstPrinter` are stateful services that nothing compares, and Scala only
+"succeeds" on them because its generated `equals` falls through to reference
+identity on a non-case field. Deriving reference identity for any class would
+close these five and would be wrong for the other hundred: `List` and `Option`
+are reference types too, and comparing them by identity would be silently
+incorrect rather than reported.
+
+### The diagnostic now names the evidence
+
+`Cannot derive Eq: no Eq[Type] for field typ`, where it used to say
+`no Eq evidence for the type of typ`. With one class deriving that is a
+nicety; with a hundred it is the difference between a list you can group and a
+list you have to open a file for. The message builds the type with an explicit
+`toString()` rather than letting `+` widen it — `string + <reference type>` is
+itself one of the 195 things the transpiled compiler cannot do yet, and writing
+it the short way added a 196th.
+
+### A `[` that opens a line is an attribute
+
+Found by turning this on, and it applies to every transpiled file. `parseSimpleName`
+treated any following `[` as a type argument list, so `using panther.int`
+followed by `[derive(Eq, Show)] class …` parsed as the generic name
+`int[derive(…)]` and took the file's first declaration with it — 48 of the 56
+files. A name is now only generic when the `[` is on its line, which is the rule
+`parseInfixExpression` already applies to the postfix operators.

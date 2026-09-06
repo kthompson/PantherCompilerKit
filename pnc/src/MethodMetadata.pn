@@ -1,6 +1,6 @@
 using panther
 
-class MethodMetadata(
+[derive(Eq, Show)] class MethodMetadata(
     name: StringToken,
     flags: MetadataFlags,
 methodSig: int,

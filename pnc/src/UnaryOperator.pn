@@ -1,4 +1,4 @@
-class UnaryOperator(
+[derive(Eq, Show)] class UnaryOperator(
     operand: Type,
     operator: UnaryOperatorKind,
     result: Type

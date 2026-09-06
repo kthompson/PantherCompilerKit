@@ -495,5 +495,20 @@ class ParserTests extends AnyFunSpec with Matchers {
       val tree = mkSyntaxTree("[trace(Eq)]\nclass Point(x: int)")
       treeDiagnosticMessages(tree) should contain("trace is not an attribute")
     }
+
+    /** A name is only generic when the `[` is on its line. Without this the
+      * `using` that opens every transpiled file swallows the attribute below
+      * it, reading `int[derive(…)]` as a generic name.
+      */
+    it("should not read an attribute as the preceding using's type arguments") {
+      val source = "using panther.int\n\n[derive(Eq)]\nclass P(x: int)"
+      treeDiagnosticMessages(mkSyntaxTree(source)) shouldBe empty
+      derivedNames(assertSome(mkClassMember(source).derives)) shouldBe Seq("Eq")
+    }
+
+    it("should still parse a generic name written on one line") {
+      val decl = mkClassMember("class Box(items: List[int])")
+      assertTokenText("Box", decl.identifier)
+    }
   }
 }

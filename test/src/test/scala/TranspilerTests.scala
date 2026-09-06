@@ -1,0 +1,58 @@
+import panther.*
+import TestHelpers.*
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
+
+/** The transpiler is mostly a token walk, so what is worth testing is the
+  * handful of places it rewrites rather than copies. `case class` is the
+  * largest of them: Scala generates structural equality and printing from the
+  * keyword, Panther has one kind of class, and `[derive(Eq, Show)]` is what
+  * carries the difference across
+  * ([ADR 0004](../../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+  */
+class TranspilerTests extends AnyFunSpec with Matchers {
+
+  describe("Transpiler") {
+    it("should derive Eq and Show for a case class") {
+      mkTranspiled("case class Point(x: int, y: int)") shouldBe
+        "[derive(Eq, Show)] class Point(x: int, y: int)"
+    }
+
+    it("should leave a plain class without an attribute") {
+      mkTranspiled("class Heap(size: int)") shouldBe "class Heap(size: int)"
+    }
+
+    /** The attribute is written where `case` was, so whatever indented the
+      * declaration still indents it and the members below are untouched.
+      */
+    it("should keep a case class's surroundings") {
+      mkTranspiled(
+        "object Shapes {\n  case class Circle(r: int)\n}"
+      ) shouldBe "object Shapes {\n  [derive(Eq, Show)] class Circle(r: int)\n}"
+    }
+
+    /** A `[` opening a line is an attribute, not the type arguments of the name
+      * that ended the line before it. Every transpiled file starts with usings,
+      * so this shape is the common one rather than a corner.
+      */
+    it("should not read an attribute as the preceding using's type arguments") {
+      val transpiled = mkTranspiled(
+        "import panther._\n\ncase class TextSpan(start: int)"
+      )
+      transpiled should include("[derive(Eq, Show)] class TextSpan")
+      treeDiagnosticMessages(mkSyntaxTree(transpiled)) shouldBe empty
+    }
+
+    /** What the transpiled sources are made of: the attribute has to survive a
+      * round trip through the Panther parser it is written for.
+      */
+    it("should emit an attribute the parser reads back") {
+      val decl = mkClassMember(mkTranspiled("case class Point(x: int)"))
+      decl.derives match {
+        case Option.Some(attribute) =>
+          derivedNames(attribute) shouldBe Seq("Eq", "Show")
+        case Option.None => fail("no derive attribute")
+      }
+    }
+  }
+}

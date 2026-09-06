@@ -1,13 +1,13 @@
 using panther
 using system.io
 
-class EmitResult(
+[derive(Eq, Show)] class EmitResult(
     chunk: Chunk,
     metadata: Metadata,
     entry: Option[MethodToken]
 )
 
-class EmitContext(
+[derive(Eq, Show)] class EmitContext(
     chunk: Chunk,
     method: MethodMetadata,
 locals: Dictionary[Symbol, int],
@@ -92,12 +92,12 @@ params: Dictionary[Symbol, int]
   * @param instructionIndex
   * @param target
   */
-class Patch(
+[derive(Eq, Show)] class Patch(
     instructionIndex: int,
     target: Label
 )
 
-class Emitter(
+[derive(Eq, Show)] class Emitter(
     syntaxTrees: List[SyntaxTree],
     root: Symbol,
     binder: Binder,
