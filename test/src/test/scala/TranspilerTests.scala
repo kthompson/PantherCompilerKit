@@ -69,6 +69,35 @@ class TranspilerTests extends AnyFunSpec with Matchers {
         "object Shapes {\n  /** a colour */\n  [derive(Eq, Show)] enum Color {\n    case Red\n  }\n}"
     }
 
+    /** Scala's names for the builtins are not Panther's. Only the type
+      * position is rewritten.
+      */
+    it("should rewrite Scala's builtin type names") {
+      mkTranspiled("def f(a: String, b: Boolean): Unit = ()") shouldBe
+        "def f(a: string, b: bool): unit = ()"
+      mkTranspiled("def f(a: Array[String]): Unit = ()") shouldBe
+        "def f(a: Array[string]): unit = ()"
+      mkTranspiled("case class Label(name: String)") shouldBe
+        "[derive(Eq, Show)] class Label(name: string)"
+    }
+
+    /** The hard half. `String`, `Boolean` and `Unit` are also the names of
+      * enum cases all over the AST, so rewriting the token wherever it appeared
+      * — or even the last segment of a qualified type — would rename the
+      * compiler's own types out from under it.
+      */
+    it("should leave a case named String or Unit alone") {
+      mkTranspiled(
+        "enum E {\n  case String(v: String)\n  case Unit\n}"
+      ) shouldBe
+        "[derive(Eq, Show)] enum E {\n  case String(v: string)\n  case Unit\n}"
+    }
+
+    it("should leave a qualified type ending in String alone") {
+      mkTranspiled("case class Holder(e: E.String)") shouldBe
+        "[derive(Eq, Show)] class Holder(e: E.String)"
+    }
+
     /** What the transpiled sources are made of: the attribute has to survive a
       * round trip through the Panther parser it is written for.
       */

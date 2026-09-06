@@ -10,7 +10,7 @@ using panther
       parameterTypes: List[Type],
       argumentTypes: List[Type]
   ): List[Type] = {
-    val typeMap = new scala.collection.mutable.HashMap[String, Type]()
+    val typeMap = new scala.collection.mutable.HashMap[string, Type]()
 
     // Try to infer from parameter/argument pairs
     inferFromParameterArgumentPairs(parameterTypes, argumentTypes, typeMap)
@@ -29,7 +29,7 @@ using panther
       returnType: Type,
       expectedType: Type
   ): List[Type] = {
-    val typeMap = new scala.collection.mutable.HashMap[String, Type]()
+    val typeMap = new scala.collection.mutable.HashMap[string, Type]()
 
     // First, infer from parameter/argument pairs (same as before)
     inferFromParameterArgumentPairs(parameterTypes, argumentTypes, typeMap)
@@ -45,14 +45,14 @@ using panther
 
   def mapGenericParamsToTypes(
       genericParams: List[GenericTypeParameter],
-      typeMap: scala.collection.mutable.HashMap[String, Type]
+      typeMap: scala.collection.mutable.HashMap[string, Type]
   ): List[Type] = {
     mapGenericParamsToTypesWithIndex(genericParams, typeMap, 0)
   }
 
   def mapGenericParamsToTypesWithIndex(
       genericParams: List[GenericTypeParameter],
-      typeMap: scala.collection.mutable.HashMap[String, Type],
+      typeMap: scala.collection.mutable.HashMap[string, Type],
       index: int
   ): List[Type] = {
     genericParams match {
@@ -81,8 +81,8 @@ using panther
   def inferFromParameterArgumentPairs(
       paramTypes: List[Type],
       argTypes: List[Type],
-      typeMap: scala.collection.mutable.HashMap[String, Type]
-  ): Unit = {
+      typeMap: scala.collection.mutable.HashMap[string, Type]
+  ): unit = {
     Tuple2(paramTypes, argTypes) match {
       case Tuple2(
             List.Cons(paramType, paramTail),
@@ -97,7 +97,7 @@ using panther
   def inferTypeFromPair(
       paramType: Type,
       argType: Type,
-      typeMap: scala.collection.mutable.HashMap[String, Type]
+      typeMap: scala.collection.mutable.HashMap[string, Type]
   ): unit = {
     Tuple2(paramType, argType) match {
       case Tuple2(Type.Variable(_, id), _) =>

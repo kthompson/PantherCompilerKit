@@ -811,7 +811,40 @@ using SimpleNameSyntax
       context: TranspilerContext
   ): unit = {
     transpileToken(typeAnnotation.colonToken, context)
-    transpileName(typeAnnotation.typ, context)
+    transpileTypeName(typeAnnotation.typ, context)
+  }
+
+  /** A type name, where Scala's spelling of a builtin differs from Panther's.
+    *
+    * Only an *unqualified simple* name is rewritten, and that restriction is
+    * the whole difficulty. `String`, `Boolean` and `Unit` are also the names of
+    * enum cases all over the AST — `BoundExpression.String`,
+    * `Expression.Unit`, `SyntaxTokenValue.Boolean` — so rewriting a token
+    * wherever it appeared, or even the last segment of a qualified type, would
+    * rename the compiler's own types out from under it.
+    */
+  def transpileTypeName(name: NameSyntax, context: TranspilerContext): unit = {
+    name match {
+      case NameSyntax.SimpleName(
+            SimpleNameSyntax.IdentifierNameSyntax(identifier)
+          ) =>
+        transpileTokenWithText(
+          identifier,
+          pantherTypeName(identifier.text),
+          context
+        )
+      case _ => transpileName(name, context)
+    }
+  }
+
+  /** Scala's name for a builtin, as Panther spells it. Anything else is a type
+    * the sources declared and is left alone.
+    */
+  def pantherTypeName(text: string): string = {
+    if (text == "String") "string"
+    else if (text == "Boolean") "bool"
+    else if (text == "Unit") "unit"
+    else text
   }
 
   def transpileOptionalTypeAnnotation(
@@ -909,7 +942,8 @@ using SimpleNameSyntax
     transpileToken(typeArgumentlist.lessThanToken, context)
     for (x <- 0 to (typeArgumentlist.arguments.length - 1)) {
       val argument = typeArgumentlist.arguments(x)
-      transpileName(argument.name, context)
+      // `Array[String]` is a type argument, so the same rewrite applies
+      transpileTypeName(argument.name, context)
       transpileOptionalToken(argument.separator, context)
     }
     transpileToken(typeArgumentlist.greaterThanToken, context)

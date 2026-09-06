@@ -7,7 +7,7 @@ using panther
     entryPoint: Option[Symbol]
 )
 
-[derive(Eq, Show)] class Label(name: String)
+[derive(Eq, Show)] class Label(name: string)
 [derive(Eq, Show)] class LabelToken(id: int)
 
 [derive(Eq, Show)] enum LoweredStatement {
@@ -38,7 +38,7 @@ using panther
       location: TextLocation,
       label: Label,
       condition: LoweredExpression,
-      invert: Boolean
+      invert: bool
   )
 
   // is this needed?

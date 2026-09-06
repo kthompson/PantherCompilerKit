@@ -219,7 +219,7 @@ using NameSyntax
         simpleNameHasStatementTerminator(value.right)
       case value: New   => value.closeParen.isStatementTerminator()
       case value: Unary => hasStatementTerminator(value.expression)
-      case value: Unit  => value.closeParen.isStatementTerminator()
+      case value: unit  => value.closeParen.isStatementTerminator()
       case value: While => hasStatementTerminator(value.body)
     }
   }

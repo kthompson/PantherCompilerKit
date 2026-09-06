@@ -1,7 +1,7 @@
 using panther
 
 object Program {
-  def main(args: Array[String]): Unit = {
+  def main(args: Array[string]): unit = {
     val parseResult = ArgsParser.parse(args)
 
     parseResult.error match {

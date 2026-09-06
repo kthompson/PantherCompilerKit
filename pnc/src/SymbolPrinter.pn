@@ -42,7 +42,7 @@ using panther
     }
   }
 
-  def printSymbolBodyType(symbol: Symbol): Unit = {
+  def printSymbolBodyType(symbol: Symbol): unit = {
     if (
       symbol.kind == SymbolKind.Constructor || symbol.kind == SymbolKind.Method
     ) {
