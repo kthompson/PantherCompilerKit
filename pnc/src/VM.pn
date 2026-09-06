@@ -200,9 +200,7 @@ a ret instruction pops values off the stack in the following order:
       // says `==` between two reference types means. Only equality: there is
       // no order on addresses to expose.
       case Tuple2(Value.Ref(aType, aAddr), Value.Ref(bType, bAddr)) =>
-        // annotated: the self-hosted compiler does not widen the branches of
-        // an `if` to their common supertype
-        val result: Option[bool] =
+        val result =
           if (op == Opcode.Ceq)
             Option.Some(aType == bType && aAddr == bAddr)
           else Option.None

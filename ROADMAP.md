@@ -27,7 +27,7 @@ reproduces the measurement. Re-run them rather than trusting the number.
 sbt pncs/compile && sbt test/test
 ```
 
-Green: 441 tests across the lexer, parser, binder, type checker, VM, metadata
+Green: 443 tests across the lexer, parser, binder, type checker, VM, metadata
 format, transpiler, and args parser.
 
 ### The self-hosted compiler does not
@@ -36,52 +36,53 @@ format, transpiler, and args parser.
 sbt pnc/compile
 ```
 
-Runs to completion and reports **137 diagnostics** against the generated
+Runs to completion and reports **116 diagnostics** against the generated
 `.pn` sources. By message:
 
 | Count | Diagnostic                      |
 | ----: | ------------------------------- |
-|    58 | `No operator for operands`      |
-|    46 | `Cannot convert from A to B`    |
+|    60 | `No operator for operands`      |
+|    23 | `Cannot convert from A to B`    |
 |    17 | `Symbol X not found for type T` |
 |     5 | argument-count mismatches       |
 |     5 | `Symbol X not found`            |
 |     4 | `Cannot derive Eq`/`Show`       |
 |     2 | `Duplicate definition`          |
 
-**4 of the 137 are derivation, and both types should stay unprovable.**
+**4 of the 116 are derivation, and both types should stay unprovable.**
 They peaked at 222 when the transpiler started emitting `[derive(Eq, Show)]`.
 §1.3a is finished.
 
-**The other 133** were 195 until the `while` fix in §1.3b took six
+**The other 112** were 195 until the `while` fix in §1.3b took six
 `Cannot convert` with it, the wildcard-import cleanup took twenty
-`Type X not defined`, and porting `TypeInference` off `scala.collection.mutable`
-took the last six of those along with all 18 `Invalid namespace`. 2 of them
+`Type X not defined`, porting `TypeInference` off `scala.collection.mutable`
+took the last six of those along with all 18 `Invalid namespace`, and unioning
+the branches of an `if` took twenty-one more `Cannot convert`. 2 of them
 mention an unsolved type variable (`$0`, `$1`, …) — a generic parameter the
 binder gave up on. Name resolution is done apart from the five bare
 `Symbol X not found`, which are all `File` and `Path` from `using system.io`.
 What is left is operators and conversions, and nothing else.
 
-By file, the ten largest of the 137:
+By file, the ten largest of the 116:
 
-| Count | File               |
-| ----: | ------------------ |
-|    19 | `ExprBinder.pn`    |
-|    17 | `Emitter.pn`       |
-|    13 | `Binder.pn`        |
-|    11 | `VM.pn`            |
-|     9 | `Parser.pn`        |
-|     8 | `DiagnosticBag.pn` |
-|     6 | `Trim.pn`          |
-|     6 | `Lowered.pn`       |
-|     4 | `Type.pn`          |
-|     4 | `Transpiler.pn`    |
+| Count | File                |
+| ----: | ------------------- |
+|    16 | `ExprBinder.pn`     |
+|    14 | `Emitter.pn`        |
+|    10 | `VM.pn`             |
+|     9 | `Binder.pn`         |
+|     8 | `DiagnosticBag.pn`  |
+|     6 | `Trim.pn`           |
+|     6 | `Lowered.pn`        |
+|     4 | `Type.pn`           |
+|     4 | `Transpiler.pn`     |
+|     4 | `TextLineParser.pn` |
 
 `Ast.pn` and `Binder.pn` were the two largest at 62 and 61 while derivation was
 blocked, being mostly declarations. `TypeInference.pn` was the largest at 24
-and is now at zero; `Parser.pn` was 26 until the wildcard imports came out. The
-list is now shaped by what the binder cannot do rather than by what it cannot
-prove.
+and is now at zero; `Parser.pn` was 26 until the wildcard imports came out, and
+is now off this list entirely. The list is now shaped by what the binder cannot
+do rather than by what it cannot prove.
 
 ### Nothing is ever written to disk
 
@@ -187,34 +188,42 @@ count that decision is made from.
 ### 1.3 Burn down the diagnostics
 
 Ordered by what the counts say, not by what is interesting. This list covers
-the 133 that are not derivation; the 4 derivation reports are §1.3a.
+the 112 that are not derivation; the 4 derivation reports are §1.3a.
 
-1. **`string + T` for non-string `T`** — 47, and the largest single item. Every
-   remaining `+` diagnostic. Blocked on a decision, not on work: either the
-   operator gains an overload against `any`, or the transpiler inserts the
-   `string(…)` call the docs already teach. See §4.2.
-2. **`if`/`else` does not form a union** — 23 of the 46 `Cannot convert` are a
-   case against a sibling case of the same enum: `Option.None` to
-   `Option.Some<T>`, `MetadataFlags.None` to `MetadataFlags.Static`,
-   `LoweredStatement.Goto` to `LoweredStatement.LabelDeclaration`. The else
-   branch is checked against the then branch's type; only `match` produces a
-   union.
-3. **Member lookup** — 17 `Symbol X not found for type T`: 12 are string and
+1. **`string + T` for non-string `T`** — 47, and by a wide margin the largest
+   single item. Blocked on a decision, not on work: either the operator gains
+   an overload against `any`, or the transpiler inserts the `string(…)` call
+   the docs already teach. See §4.2.
+2. **Member lookup** — 17 `Symbol X not found for type T`: 12 are string and
    int builtins (`substring`, `compareTo`, `nonEmpty`, `endsWith`) that have
    no VM support, and the rest are lookups on a case type, which never
    consults its enum.
-4. **String indexing types as `string`, not `char`** — 10 `No operator` and 6
+3. **String indexing types as `string`, not `char`** — 12 `No operator` and 4
    `Cannot convert`. `str(0)` falls through `ExprBinder.inferCall` to the
    `string(…)` conversion method, because only `Array` has an indexing path
    and everything else lands on the constructor lookup. So `str(0) == '-'`
    compares a string against a char. Needs an indexing path for `string` in
    the binder and a way to read a character out of a `Value.String` in the VM.
-5. **Generic inference** (see §2). 2 diagnostics reference an unsolved type
-   variable and 11 a parameter that defaulted to `any`.
-6. **`File` and `Path`** — the five bare `Symbol X not found`, all from
+4. **Generic inference** (see §2). 2 diagnostics reference an unsolved type
+   variable and 11 a parameter that defaulted to `any`. The one new annotation
+   this section added is here: `bindEnumCases` has to state `val typ: Type`
+   because the first argument to fix a type variable wins, so
+   `List.Cons(typ, types)` binds its element to the branch union rather than
+   to `Type` ([`Binder.scala:2482`](pncs/src/main/scala/Binder.scala:2482)).
+5. **`File` and `Path`** — the five bare `Symbol X not found`, all from
    `using system.io`, which exists only in the Scala runtime.
 
-Two items are closed. **`Type X not defined`** is at zero: the transpiler
+Three items are closed. **`if`/`else` now forms a union.** With no expected
+type it infers both branches and unions them, exactly as `match` unions its
+cases; `checkIf` already checked both branches against an expected type where
+one exists. That took 21 `Cannot convert`, all of them a case against a
+sibling case of one enum — `Option.None` against `Option.Some<T>`,
+`MetadataFlags.None` against `MetadataFlags.Static`. It also retired two
+`// annotated:` comments that existed only to work around it. A union of an
+enum's cases already converted back to the enum, so nothing downstream needed
+to change.
+
+**`Type X not defined`** is at zero: the transpiler
 rewrites `String`, `Boolean` and `Unit` in a type position, the enum cases used
 unqualified as types went with the wildcard imports that made them reachable,
 and `TypeInference` no longer reaches for `scala.collection.mutable.HashMap`.
@@ -266,7 +275,7 @@ Track the number after every change:
 sbt pnc/compile
 ```
 
-**137 → 0.** Nothing else in this section matters until that number moves.
+**116 → 0.** Nothing else in this section matters until that number moves.
 
 Only the first 20 diagnostics are printed. To see them all, transpile first —
 `pnc/compile` does this implicitly, and the count depends on it — then run the
@@ -625,7 +634,7 @@ Things that do not belong to one goal but block several.
   blocks in §4.1.
 - **No lexer support for exponents or shifts**
   ([`Lexer.scala:243`](pncs/src/main/scala/Lexer.scala:243)).
-- **Test coverage is stage-shaped, not feature-shaped.** 441 tests, but
+- **Test coverage is stage-shaped, not feature-shaped.** 443 tests, but
   `MetadataTests` has 2 and there is no end-to-end test that takes source all
   the way to output. §3.4 is the fix.
 
@@ -637,19 +646,20 @@ Sequenced so each step makes the next one measurable.
 
 **First — stop flying blind.** Done. The generated tree matches the
 transpiler (§1.1), the exit code is trustworthy (§1.2), and failures come back
-as diagnostics rather than exceptions (§4.2). The 137 counts every error the
+as diagnostics rather than exceptions (§4.2). The 116 counts every error the
 front end finds — none are discarded.
 
 **Second — generics.** This was the plan, and the measurement has overtaken it
-twice. Only 13 of the non-derivation 133 are generics: 2 mention a type
+twice. Only 13 of the non-derivation 112 are generics: 2 mention a type
 variable, 11 a parameter that defaulted to `any`. §2.1 and §2.2 are still worth
 doing, but they cannot make that number fall sharply, because it is not made of
 generics.
 
-What it is made of, in order: `string + T` (47), the sibling-case conversions
-an `if`/`else` cannot union (23), member lookup on builtins and case types (17),
-string indexing (16). Those are §1.3 items 1–4 — ordinary front-end and
-transpiler work, not type theory. Take them before §2.
+What it is made of, in order: `string + T` (47), member lookup on builtins and
+case types (17), string indexing (16). Those are §1.3 items 1–3 — ordinary
+front-end and transpiler work, not type theory. Take them before §2. `string +
+T` alone is 42% of everything left, and it is waiting on a decision rather than
+on work.
 
 Derivation was the exception, and it is finished: 222 down to 4, over
 [ADR 0006](docs/architecture/adr/0006-conditional-givens.md) and the passes
@@ -672,7 +682,7 @@ The three numbers worth putting on a wall:
 
 | Metric                            |         Now | Target | Command                                     |
 | --------------------------------- | ----------: | -----: | ------------------------------------------- |
-| Self-hosting diagnostics          |         137 |      0 | `sbt pnc/compile` (now fails, as it should)  |
+| Self-hosting diagnostics          |         116 |      0 | `sbt pnc/compile` (now fails, as it should)  |
 | — of those, derivation            |           4 |      0 | §1.3a                                       |
 | Doc blocks that fail              | **0 / 201** |      0 | `sbt "doccheck/run docs/src/content/docs"`  |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                    |

@@ -1907,18 +1907,31 @@ case class ExprBinder(
               binder.unitType
             )
           case Option.Some(value) =>
-            val resultType = binder.getType(thenExpr)
-            val boundElse =
-              bindConversionExpr(value.expression, resultType, scope)
-            boundElse match {
-              case _: BoundExpression.Error => boundElse
+            // With no expected type there is nothing to check either branch
+            // against, so infer both and union them, exactly as a match unions
+            // its cases. Checking the else branch against the then branch's
+            // type instead — which is what this used to do — makes the two
+            // branches asymmetric and rejects every if whose branches are
+            // different cases of one enum, `Option.Some(x)` against
+            // `Option.None` being the common one. A union of an enum's cases
+            // converts back to the enum, so the result is still usable
+            // wherever the enum is expected.
+            //
+            // `checkIf` handles the case where an expected type does exist,
+            // and checks both branches against it.
+            val elseExpr = infer(value.expression, scope)
+            elseExpr match {
+              case _: BoundExpression.Error => elseExpr
               case _ =>
                 BoundExpression.If(
                   node.ifKeyword.location,
                   cond,
                   thenExpr,
-                  Option.Some(boundElse),
-                  resultType
+                  Option.Some(elseExpr),
+                  Types.union(
+                    binder.getType(thenExpr),
+                    binder.getType(elseExpr)
+                  )
                 )
             }
         }

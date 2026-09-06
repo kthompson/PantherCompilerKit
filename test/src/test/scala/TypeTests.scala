@@ -821,6 +821,36 @@ class TypeTests extends AnyFunSpec with Matchers {
       assertAssignableToWithSetup(setup, "o", "Option[int]")
     }
 
+    /** The same thing an `if` with no expected type. It used to check the else
+      * branch against the then branch's type, which rejected every `if` whose
+      * branches were different cases of one enum.
+      */
+    it("should union the branches of an if with no expected type") {
+      val setup = "enum Option[out T] {\n" +
+        "  case Some(value: T)\n" +
+        "  case None\n" +
+        "}\n" +
+        "val flag = true\n" +
+        "val o = if (flag) Option.Some(1) else Option.None"
+
+      assertInferExprTypeWithSetup(setup, "o", "Option.Some<int> | Option.None")
+      assertAssignableToWithSetup(setup, "o", "Option[int]")
+    }
+
+    /** An expected type is checked against directly, so both branches convert
+      * to it and no union is formed.
+      */
+    it("should check both branches of an if against an expected type") {
+      val setup = "enum Option[out T] {\n" +
+        "  case Some(value: T)\n" +
+        "  case None\n" +
+        "}\n" +
+        "val flag = true\n" +
+        "val o: Option[int] = if (flag) Option.Some(1) else Option.None"
+
+      assertInferExprTypeWithSetup(setup, "o", "Option<int>")
+    }
+
     it("should infer generic type from expected return type - identity") {
       val setup = "def identity[T](x: T): T = x"
 

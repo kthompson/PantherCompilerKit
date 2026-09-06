@@ -2479,7 +2479,11 @@ using panther
             List.Nil
           case Either.Right(caseSymbol) =>
             val parent = scope.current
-            val typ =
+            // annotated: without this the `if` types as
+            // `Type.Class | Type.GenericClass`, and `List.Cons(typ, types)`
+            // then binds its element to that union rather than to `Type`,
+            // because the first argument to fix a type variable wins.
+            val typ: Type =
               if (
                 genericTypeParameters.isEmpty || enumCase.parameters.isEmpty()
               ) {

@@ -542,9 +542,7 @@ using panther
       currentKind() != SyntaxKind.EndOfInputToken
     ) {
       val name = acceptKind(SyntaxKind.IdentifierToken)
-      // annotated: the self-hosted compiler does not widen the branches of an
-      // `if` to their common supertype
-      val comma: Option[SyntaxToken] =
+      val comma =
         if (currentKind() == SyntaxKind.CommaToken) {
           Option.Some(accept())
         } else {
