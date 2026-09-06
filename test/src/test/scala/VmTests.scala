@@ -107,6 +107,64 @@ class VmTests extends AnyFunSpec with Matchers {
       assertExecValueBoolWithSetup(setup, "bigger(2, 9)", false)
     }
 
+    /** ADR 0006: a conditional given using its premise. `Eqv[Box[int]]` is
+      * proved by the conditional given, whose body needs `Eqv[int]` — which is
+      * not a symbol it can name, but slot 1 of the record it was reached
+      * through: slot 0 is `equals`, and the dependency half starts after it.
+      */
+    it("should let a conditional given use its premise") {
+      val setup =
+        "trait Eqv[T] { def equals(a: T, b: T): bool }\n" +
+          "class Box[T](value: T)\n" +
+          "given Eqv[int] { def equals(a: int, b: int): bool = a == b }\n" +
+          "given [T: Eqv] => Eqv[Box[T]] {\n" +
+          "  def equals(a: Box[T], b: Box[T]): bool = a.value.equals(b.value)\n" +
+          "}\n" +
+          "def same[T: Eqv](a: T, b: T): bool = a.equals(b)"
+
+      assertExecValueBoolWithSetup(
+        setup,
+        "same(new Box[int](4), new Box[int](4))",
+        true
+      )
+      assertExecValueBoolWithSetup(
+        setup,
+        "same(new Box[int](4), new Box[int](5))",
+        false
+      )
+    }
+
+    /** The premise is per instantiation, so the same conditional given has to
+      * reach a different record depending on which one it was called through.
+      * One record per goal is what makes that work.
+      */
+    it("should use the right premise at two instantiations") {
+      val setup =
+        "trait Eqv[T] { def equals(a: T, b: T): bool }\n" +
+          "class Box[T](value: T)\n" +
+          "given Eqv[int] { def equals(a: int, b: int): bool = a == b }\n" +
+          "given Eqv[string] {\n" +
+          "  def equals(a: string, b: string): bool = false\n" +
+          "}\n" +
+          "given [T: Eqv] => Eqv[Box[T]] {\n" +
+          "  def equals(a: Box[T], b: Box[T]): bool = a.value.equals(b.value)\n" +
+          "}\n" +
+          "def same[T: Eqv](a: T, b: T): bool = a.equals(b)"
+
+      assertExecValueBoolWithSetup(
+        setup,
+        "same(new Box[int](4), new Box[int](4))",
+        true
+      )
+      // `Eqv[string]` answers false for everything, so the string instantiation
+      // reaching the int record would show up here
+      assertExecValueBoolWithSetup(
+        setup,
+        "same(new Box[string](\"a\"), new Box[string](\"a\"))",
+        false
+      )
+    }
+
     /** The class half of evidence passing: the constructor stores its evidence
       * in a field, and an instance method reads it back out to dispatch.
       */

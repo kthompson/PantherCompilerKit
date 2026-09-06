@@ -133,7 +133,7 @@ enum LoweredExpression {
     */
   case EvidenceCall(
       location: TextLocation,
-      evidence: Symbol,
+      evidence: BoundEvidence,
       member: Symbol,
       arguments: Chain[LoweredExpression],
       resultType: Type

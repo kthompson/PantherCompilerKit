@@ -310,12 +310,20 @@ class LoweredAssemblyPrinter(
     * dispatch target, not a receiver.
     */
   def printEvidenceCall(call: LoweredExpression.EvidenceCall): unit = {
-    ast.append(call.evidence.name)
+    ast.append(evidenceName(call.evidence))
     ast.writeWithColor(ColorPalette.Punctuation, ".")
     ast.append(call.member.name)
     ast.writeWithColor(ColorPalette.Punctuation, "(")
     printExpressions(call.arguments.uncons())
     ast.writeWithColor(ColorPalette.Punctuation, ")")
+  }
+
+  def evidenceName(evidence: BoundEvidence): string = {
+    evidence match {
+      case BoundEvidence.Held(symbol) => symbol.name
+      case BoundEvidence.Premise(self, index, _) =>
+        self.name + "[" + string(index) + "]"
+    }
   }
 
   def printEvidenceRecord(expr: LoweredExpression.EvidenceRecord): unit =

@@ -185,12 +185,20 @@ class BoundAssemblyPrinter(
     * through is visible, unlike an ordinary call where the target is the name.
     */
   def printEvidenceCall(expr: BoundExpression.EvidenceCall): unit = {
-    writeWithColor(ColorPalette.Identifier, expr.evidence.name)
+    writeWithColor(ColorPalette.Identifier, evidenceName(expr.evidence))
     writeWithColor(ColorPalette.Punctuation, ".")
     writeWithColor(ColorPalette.Identifier, expr.member.name)
     writeWithColor(ColorPalette.Punctuation, "(")
     printExpressions(expr.arguments)
     writeWithColor(ColorPalette.Punctuation, ")")
+  }
+
+  def evidenceName(evidence: BoundEvidence): string = {
+    evidence match {
+      case BoundEvidence.Held(symbol) => symbol.name
+      case BoundEvidence.Premise(self, index, _) =>
+        self.name + "[" + string(index) + "]"
+    }
   }
 
   def printEvidenceRecord(expr: BoundExpression.EvidenceRecord): unit =

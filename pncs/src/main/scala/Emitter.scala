@@ -856,7 +856,7 @@ case class Emitter(
     emitEvidenceValue(expr.evidence, context, line)
     emitEvidenceValue(expr.evidence, context, line)
 
-    val index = binder.getTypeSymbol(binder.getSymbolType(expr.evidence)) match {
+    val index = binder.getTypeSymbol(binder.evidenceGoal(expr.evidence)) match {
       case Option.Some(traitSymbol) =>
         binder.indexOfSymbol(binder.traitMembers(traitSymbol), expr.member, 0)
       case Option.None => -1
@@ -885,10 +885,30 @@ case class Emitter(
     }
   }
 
-  /** Evidence reaches a method either as its own parameter or, in an instance
-    * method of a constrained class, as a field on the receiver.
+  /** Evidence reaches a method as its own parameter, as a field on the receiver
+    * in an instance method of a constrained class, or — for a conditional given
+    * reading its own premise — out of the dependency half of the record it was
+    * reached through
+    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
+    * decision D).
     */
   def emitEvidenceValue(
+      evidence: BoundEvidence,
+      context: EmitContext,
+      line: int
+  ): unit = {
+    evidence match {
+      case BoundEvidence.Held(symbol) =>
+        emitHeldEvidence(symbol, context, line)
+      case BoundEvidence.Premise(self, index, _) =>
+        emitHeldEvidence(self, context, line)
+        chunk.emitOpcode(Opcode.LdcI4, line)
+        chunk.emitI4(index, line)
+        chunk.emitOpcode(Opcode.Ldelem, line)
+    }
+  }
+
+  def emitHeldEvidence(
       evidence: Symbol,
       context: EmitContext,
       line: int

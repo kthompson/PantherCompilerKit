@@ -2542,15 +2542,127 @@ case class Binder(
       leftType: Type,
       memberName: string,
       symbol: Symbol
-  ): Option[KeyValue[Symbol, Symbol]] = {
+  ): Option[KeyValue[BoundEvidence, Symbol]] = {
     scanEvidenceMembers(leftType, memberName, symbol.members()) match {
       case Option.Some(found) => Option.Some(found)
       case Option.None =>
-        symbol.parent match {
-          case Option.None         => Option.None
-          case Option.Some(parent) =>
-            findEvidenceMember(leftType, memberName, parent)
+        findPremiseMember(leftType, memberName, symbol) match {
+          case Option.Some(found) => Option.Some(found)
+          case Option.None =>
+            symbol.parent match {
+              case Option.None => Option.None
+              case Option.Some(parent) =>
+                findEvidenceMember(leftType, memberName, parent)
+            }
         }
+    }
+  }
+
+  /** The premise of the given `symbol` belongs to that supplies `memberName`
+    * for `leftType`.
+    *
+    * The premise is not a symbol — it is a slot in the dependency half of the
+    * record the member was reached through
+    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
+    * decision D), which is what `scanEvidenceMembers` cannot find by walking
+    * members. Inside `given [T: Ord] => Ord[Box[T]]`, `a.value.compare(b.value)`
+    * resolves `compare` here.
+    *
+    * Only a method directly inside a given has one, which is what the
+    * `$ev$self` lookup checks: it is defined for exactly those.
+    */
+  def findPremiseMember(
+      leftType: Type,
+      memberName: string,
+      symbol: Symbol
+  ): Option[KeyValue[BoundEvidence, Symbol]] = {
+    selfEvidenceOf(symbol) match {
+      case Option.None => Option.None
+      case Option.Some(self) =>
+        symbol.parent match {
+          case Option.None => Option.None
+          case Option.Some(owner) =>
+            findBoundGiven(owner, givens) match {
+              case Option.None => Option.None
+              case Option.Some(candidate) =>
+                scanPremises(
+                  leftType,
+                  memberName,
+                  self,
+                  candidate.constraints,
+                  dependencyBase(candidate)
+                )
+            }
+        }
+    }
+  }
+
+  /** The slot the dependency half starts at: one past the last trait member,
+    * which is the same count the emitter lays the token half out with.
+    */
+  def dependencyBase(candidate: BoundGiven): int = {
+    getTypeSymbol(candidate.head) match {
+      case Option.None              => 0
+      case Option.Some(traitSymbol) => traitMembers(traitSymbol).length
+    }
+  }
+
+  def scanPremises(
+      leftType: Type,
+      memberName: string,
+      self: Symbol,
+      constraints: List[Type],
+      index: int
+  ): Option[KeyValue[BoundEvidence, Symbol]] = {
+    constraints match {
+      case List.Nil => Option.None
+      case List.Cons(constraint, tail) =>
+        val found: Option[KeyValue[BoundEvidence, Symbol]] = constraint match {
+          case Type.Class(_, _, _, List.Cons(arg, List.Nil), traitSymbol) =>
+            if (
+              traitSymbol.kind == SymbolKind.Trait &&
+              sameConstraint(arg, leftType)
+            ) {
+              traitSymbol.lookupMember(memberName) match {
+                case Option.None => Option.None
+                case Option.Some(member) =>
+                  // annotated: a bare `BoundEvidence.Premise` types as the
+                  // case, not the enum
+                  val premise: BoundEvidence =
+                    BoundEvidence.Premise(self, index, constraint)
+                  Option.Some(KeyValue(premise, member))
+              }
+            } else Option.None
+          case _ => Option.None
+        }
+
+        found match {
+          case Option.Some(_) => found
+          case Option.None =>
+            scanPremises(leftType, memberName, self, tail, index + 1)
+        }
+    }
+  }
+
+  def findBoundGiven(
+      symbol: Symbol,
+      remaining: List[BoundGiven]
+  ): Option[BoundGiven] = {
+    remaining match {
+      case List.Nil => Option.None
+      case List.Cons(head, tail) =>
+        if (head.symbol == symbol) Option.Some(head)
+        else findBoundGiven(symbol, tail)
+    }
+  }
+
+  /** What a piece of evidence proves, which is what tells a `Calli` site which
+    * trait's member layout to index into.
+    */
+  def evidenceGoal(evidence: BoundEvidence): Type = {
+    evidence match {
+      case BoundEvidence.Held(symbol)      => getSymbolType(symbol)
+      case BoundEvidence.Premise(_, _, goal) => goal
     }
   }
 
@@ -2558,7 +2670,7 @@ case class Binder(
       leftType: Type,
       memberName: string,
       members: List[Symbol]
-  ): Option[KeyValue[Symbol, Symbol]] = {
+  ): Option[KeyValue[BoundEvidence, Symbol]] = {
     members match {
       case List.Nil => Option.None
       case List.Cons(head, tail) =>
@@ -2570,7 +2682,7 @@ case class Binder(
         //
         // annotated: the self-hosted compiler does not widen the branches of
         // an `if` to their common supertype
-        val found: Option[KeyValue[Symbol, Symbol]] =
+        val found: Option[KeyValue[BoundEvidence, Symbol]] =
           if (
             head.kind != SymbolKind.Evidence && head.kind != SymbolKind.Field
           ) Option.None
@@ -2586,7 +2698,10 @@ case class Binder(
                   traitSymbol.lookupMember(memberName) match {
                     case Option.None => Option.None
                     case Option.Some(member) =>
-                      Option.Some(KeyValue(head, member))
+                      // annotated: a bare `BoundEvidence.Held` types as the
+                      // case, not the enum
+                      val held: BoundEvidence = BoundEvidence.Held(head)
+                      Option.Some(KeyValue(held, member))
                   }
                 } else Option.None
               case _ => Option.None

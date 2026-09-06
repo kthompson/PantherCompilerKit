@@ -1001,7 +1001,7 @@ case class ExprBinder(
       left: BoundExpression,
       right: BoundExpression,
       scope: Scope,
-      evidence: Option[Symbol],
+      evidence: Option[BoundEvidence],
       record: Option[Symbol]
   ): Option[BoundExpression] = {
     binder.tryGetSymbolType(member) match {
@@ -2146,7 +2146,7 @@ case class ExprBinder(
   def bindContextualCall(
       location: TextLocation,
       member: Symbol,
-      evidence: Option[Symbol],
+      evidence: Option[BoundEvidence],
       receiver: BoundExpression,
       args: List[BoundExpression],
       scope: Scope

@@ -24,6 +24,19 @@ enum BoundMember {
 
 [derive(Eq, Show)] class BoundParameter(symbol: Symbol, typ: Type)
 
+/** Where the evidence a call dispatches through comes from.
+  *
+  * `Held` is the case ADR 0005 built: an evidence parameter of the enclosing
+  * method, or the field a constrained class stores its constructor's evidence
+  * in. `Premise` is the one ADR 0006 adds — a conditional given reading its own
+  * premise out of the dependency half of the record it was reached through,
+  * which no symbol names.
+  */
+enum BoundEvidence {
+  case Held(symbol: Symbol)
+  case Premise(self: Symbol, index: int, goal: Type)
+}
+
 enum BoundStatement {
   case Error
   case ExpressionStatement(expression: BoundExpression)
@@ -112,7 +125,7 @@ enum BoundExpression {
     */
   case EvidenceCall(
       location: TextLocation,
-      evidence: Symbol,
+      evidence: BoundEvidence,
       member: Symbol,
       arguments: List[BoundExpression],
       resultType: Type
