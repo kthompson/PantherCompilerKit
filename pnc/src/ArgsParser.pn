@@ -181,8 +181,8 @@ object ArgsParser {
     println("  --print-symbols              Print symbol table")
     println("  --print-bound-assembly       Print bound assembly")
     println("  --print-lowered-assembly     Print lowered assembly")
-    println("  --stack-size <size>          Set VM stack size (default: 50)")
-    println("  --heap-size <size>           Set VM heap size (default: 1024)")
+    println("  --stack-size <size>          Set VM stack size (default: 8192)")
+    println("  --heap-size <size>           Set VM heap size (default: 65536)")
     println(
       "  --recovery-attempts <count>  Set parser recovery attempts (default: 5)"
     )

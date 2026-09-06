@@ -273,11 +273,6 @@ The last 2 are `Boolean` and `String` — Scala spellings the transpiler leaves
 alone, so the field's type is an error type. They belong to §1.3 item 2, not
 here.
 
-**One thing to settle before any of this is usable on real data.** The VM's
-default stack is 50 slots, and a recursive derived equality — which is what
-`Eq[List[T]]` is — overflows it at two elements. `--stack-size` raises it and
-the derivation is correct either way, but the default has to change.
-
 Track the number after every change:
 
 ```bash
@@ -293,6 +288,42 @@ compiler directly with a higher limit:
 ```bash
 sbt pncs/transpile && sbt --error "pncs/run --diagnostics-limit 5000 out.pnb $(find pnc/src -name '*.pn' | tr '\n' ' ')"
 ```
+
+### 1.3b Make derivation cheaper on the stack
+
+A derived `Eq` over a recursive type is the most stack-hungry thing the VM
+runs. Measured, for a list of `n` elements:
+
+| | slots |
+| --- | --- |
+| derived `Eq` | `20 + 16n` |
+| plain recursive function | `15 + 12n` |
+
+A frame is `arguments + receiver + 3 + locals`, the 3 being the return address
+and the caller's `localp` and `argsp`. The derived `==` measures
+`args=3, locals=5` — 11 slots — and each level costs 16, the difference being
+what the caller still has live on the stack across the call.
+
+Four of the sixteen are evidence: the `$ev$self` argument every given's member
+takes ([ADR 0006](docs/architecture/adr/0006-conditional-givens.md), decision
+C) and the record being loaded twice at a `Calli`, once as that argument and
+once to read the token out of. Three things are worth trying, in order of how
+much they look worth:
+
+1. **Five locals for a body that is a chain of `&&` over field comparisons.**
+   Lowering spills more temporaries than the shape needs; this is the largest
+   single line item and it is not specific to derivation.
+2. **The record is loaded twice per evidence call.** `emitEvidenceCall` could
+   `Dup` instead, trading a slot of stack for an opcode.
+3. **`Eq` on a list is not naturally recursive** — `derivedEqChain` recurses
+   because the *type* is recursive, but the comparison is a fold. A derived
+   member that loops rather than recurses would be flat in `n`. This is the
+   real fix and the largest change.
+
+None of this blocks anything: the default stack is 8192 slots, which is about
+680 plain frames or a derived `Eq` over a 500-element list. It was 50, which
+is two or three frames of anything, and it went unnoticed because nothing
+recursive had ever run on the VM.
 
 ### 1.4 Close the unimplemented holes
 

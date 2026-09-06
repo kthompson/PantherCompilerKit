@@ -294,12 +294,14 @@ The recursive case works: `enum Chain[T] { case Empty; case Link(head: T, tail:
 Chain[T]) }` derives, with `head` discharged by the premise and `tail` by
 `$ev$self`. That is the `List` shape.
 
-**But recursive derived equality overflows the default stack.** A frame costs
-arguments + receiver + 3 + locals, and `CompilerSettingsFactory.default` gives
-the VM 50 slots, so a two-link chain does not run. `--stack-size` raises it, and
-nothing about the derivation is wrong, but the default has to change before a
-derived `Eq[List[T]]` is usable on real data. That is a VM-defaults decision,
-not a type-system one, and it is not made here.
+**Recursive derived equality is what found the VM's stack default.** A frame
+costs arguments + receiver + 3 + locals, and the default was 50 slots — two or
+three frames of anything — so a two-link chain did not run. It is 8192 now.
+Nothing about the derivation was wrong, and the measurements it produced are
+[ROADMAP §1.3b](../../../ROADMAP.md#13b-make-derivation-cheaper-on-the-stack):
+a derived `Eq` costs `20 + 16n` slots for `n` elements against `15 + 12n` for a
+plain recursive function, so evidence is four of the sixteen and the rest is
+what any call costs here.
 
 ## Outcome, second pass
 

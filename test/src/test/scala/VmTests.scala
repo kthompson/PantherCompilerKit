@@ -514,12 +514,16 @@ class VmTests extends AnyFunSpec with Matchers {
         "  case Empty\n" +
         "  case Link(head: T, tail: Chain[T])\n" +
         "}\n" +
-        "val a: Chain[int] = Chain.Link(1, Chain.Empty)\n" +
-        "val b: Chain[int] = Chain.Link(1, Chain.Empty)\n" +
-        "val c: Chain[int] = Chain.Link(2, Chain.Empty)\n"
+        "val a: Chain[int] = Chain.Link(1, Chain.Link(2, Chain.Link(3, Chain.Empty)))\n" +
+        "val b: Chain[int] = Chain.Link(1, Chain.Link(2, Chain.Link(3, Chain.Empty)))\n" +
+        "val c: Chain[int] = Chain.Link(1, Chain.Link(2, Chain.Link(4, Chain.Empty)))\n" +
+        "val d: Chain[int] = Chain.Link(1, Chain.Link(2, Chain.Empty))\n"
 
       assertExecValueBoolWithSetup(chain, "a == b", true)
+      // differs only in the last link, so the recursion has to reach it
       assertExecValueBoolWithSetup(chain, "a == c", false)
+      // differs in length
+      assertExecValueBoolWithSetup(chain, "a == d", false)
     }
 
     /** A field declared as an enum *case* rather than the enum. Evidence is
