@@ -198,6 +198,18 @@ object TestHelpers {
   def preludeGivenHeads(comp: Compilation): Seq[String] =
     allGivenHeads(comp).filter(_._2).map(_._1)
 
+  /** The goal each interned evidence record proves, in interning order — which
+    * is the order the records are laid out and built in.
+    */
+  def evidenceRecordGoals(comp: Compilation): Seq[String] = {
+    def walk(records: List[BoundEvidenceRecord]): Seq[String] =
+      records match {
+        case List.Nil              => Seq.empty
+        case List.Cons(head, tail) => head.goal.toString() +: walk(tail)
+      }
+    walk(comp.binder.evidenceRecordsInOrder())
+  }
+
   private def allGivenHeads(comp: Compilation): Seq[(String, Boolean)] = {
     def walk(givens: List[BoundGiven]): Seq[(String, Boolean)] =
       givens match {

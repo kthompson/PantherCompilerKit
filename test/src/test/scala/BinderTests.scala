@@ -735,6 +735,42 @@ class BinderTests extends AnyFunSpec with Matchers {
       diagnosticMessages(comp) should contain("No given instance for Ranked<int>")
     }
 
+    /** A record is per ground goal, not per given (ADR 0006, decision B), so
+      * one conditional given used at two instantiations lays out two — each
+      * followed by the record its premise needs.
+      */
+    it("should intern one record per instantiation") {
+      val comp = mkCompilation(
+        ordTrait + "class Box[T](value: T)\n" +
+          "given [T: Ranked] => Ranked[Box[T]] {\n" +
+          "  def compare(a: Box[T], b: Box[T]): int = 0\n" +
+          "}\n" +
+          "given Ranked[int] { def compare(a: int, b: int): int = 0 }\n" +
+          "given Ranked[string] { def compare(a: string, b: string): int = 0 }\n" +
+          "def srt[K: Ranked](a: K): int = 0\n" +
+          "val r = srt(new Box[int](1))\n" +
+          "val s = srt(new Box[string](\"a\"))"
+      )
+      evidenceRecordGoals(comp) shouldBe Seq(
+        "Ranked<Box<int>>",
+        "Ranked<int>",
+        "Ranked<Box<string>>",
+        "Ranked<string>"
+      )
+    }
+
+    /** Nothing asks for `Ranked[string]`, so no record is laid out for it. */
+    it("should lay out no record for a given nothing needs") {
+      val comp = mkCompilation(
+        ordTrait +
+          "given Ranked[int] { def compare(a: int, b: int): int = 0 }\n" +
+          "given Ranked[string] { def compare(a: string, b: string): int = 0 }\n" +
+          "def srt[K: Ranked](a: K): int = 0\n" +
+          "val r = srt(1)"
+      )
+      evidenceRecordGoals(comp) shouldBe Seq("Ranked<int>")
+    }
+
     it("should let an enclosing constraint discharge a call") {
       mkCompilation(
         eqTrait + eqInt + same +

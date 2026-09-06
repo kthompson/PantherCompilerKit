@@ -290,7 +290,7 @@ params: Dictionary[Symbol, int]
         // after `$runtimeInit`.
         if (isRuntimeInit(symbol)) {
           emitEnumSingletons(binder.enumSingletons, context)
-          emitEvidenceRecords(binder.givens, context)
+          emitEvidenceRecords(binder.evidenceRecordsInOrder(), context)
         }
 
         val isConstructor = symbol.kind == SymbolKind.Constructor
@@ -426,40 +426,79 @@ params: Dictionary[Symbol, int]
     }
   }
 
+  /** Every record is allocated and stored before any slot is filled.
+    *
+    * The two passes are what make a cycle work rather than an optimisation:
+    * `Eq[Symbol]` points at `Eq[List[Symbol]]`, which points back. Filling as
+    * it goes would need one of them to load a field that has not been stored
+    * yet ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
+    * decision E).
+    */
   def emitEvidenceRecords(
-      givens: List[BoundGiven],
+      records: List[BoundEvidenceRecord],
       context: EmitContext
   ): unit = {
-    givens match {
+    allocateEvidenceRecords(records)
+    fillEvidenceRecords(records)
+  }
+
+  def allocateEvidenceRecords(records: List[BoundEvidenceRecord]): unit = {
+    records match {
       case List.Nil => ()
       case List.Cons(head, tail) =>
-        emitEvidenceRecord(head, context)
-        emitEvidenceRecords(tail, context)
-    }
-  }
-
-  def emitEvidenceRecord(candidate: BoundGiven, context: EmitContext): unit = {
-    binder.evidenceFields.get(candidate.symbol) match {
-      case Option.None => ()
-      case Option.Some(field) =>
-        fieldTokens.get(field) match {
+        evidenceFieldToken(head) match {
           case Option.None => ()
           case Option.Some(fieldToken) =>
-            val members = evidenceTraitMembers(candidate)
-            val line = candidate.location.startLine
+            val line = head.candidate.location.startLine
 
+            // One slot per trait member, then one per premise
+            // ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
+            // decision A).
             chunk.emitOpcode(Opcode.LdcI4, line)
-            chunk.emitI4(members.length, line)
+            chunk.emitI4(evidenceRecordSize(head), line)
             chunk.emitOpcode(Opcode.Newarr, line)
-            chunk.emitI4(intTypeToken(), line)
-
-            emitEvidenceSlots(candidate, members, 0, line)
+            chunk.emitI4(anyTypeToken(), line)
 
             chunk.emitOpcode(Opcode.Stsfld, line)
-            chunk.emitI4(fieldToken.token, line)
+            chunk.emitI4(fieldToken, line)
         }
+        allocateEvidenceRecords(tail)
     }
   }
+
+  def fillEvidenceRecords(records: List[BoundEvidenceRecord]): unit = {
+    records match {
+      case List.Nil => ()
+      case List.Cons(head, tail) =>
+        evidenceFieldToken(head) match {
+          case Option.None => ()
+          case Option.Some(fieldToken) =>
+            val members = evidenceTraitMembers(head.candidate)
+            val line = head.candidate.location.startLine
+
+            chunk.emitOpcode(Opcode.Ldsfld, line)
+            chunk.emitI4(fieldToken, line)
+
+            emitEvidenceSlots(head.candidate, members, 0, line)
+            emitEvidenceDependencies(head.premises, members.length, line)
+
+            // The record is left on the stack by the loop above, since `Stelem`
+            // pops it and each store duplicates it first.
+            chunk.emitOpcode(Opcode.Pop, line)
+        }
+        fillEvidenceRecords(tail)
+    }
+  }
+
+  def evidenceFieldToken(record: BoundEvidenceRecord): Option[int] = {
+    fieldTokens.get(record.field) match {
+      case Option.None        => Option.None
+      case Option.Some(token) => Option.Some(token.token)
+    }
+  }
+
+  def evidenceRecordSize(record: BoundEvidenceRecord): int =
+    evidenceTraitMembers(record.candidate).length + record.premises.length
 
   def evidenceTraitMembers(candidate: BoundGiven): List[Symbol] = {
     binder.getTypeSymbol(candidate.head) match {
@@ -470,7 +509,7 @@ params: Dictionary[Symbol, int]
 
   /** One slot per trait member. `Stelem` pops the array too, so the reference
     * is duplicated before each store and the original is left on the stack for
-    * the `Stsfld` that follows.
+    * whatever follows.
     */
   def emitEvidenceSlots(
       candidate: BoundGiven,
@@ -502,10 +541,42 @@ params: Dictionary[Symbol, int]
     }
   }
 
-  def intTypeToken(): int = {
-    typeTokens.get(binder.intSymbol) match {
+  /** The dependency half: the record proving each premise, in the order the
+    * given declared its context bounds.
+    */
+  def emitEvidenceDependencies(
+      premises: List[Type],
+      index: int,
+      line: int
+  ): unit = {
+    premises match {
+      case List.Nil => ()
+      case List.Cons(premise, tail) =>
+        binder.findEvidenceRecord(premise) match {
+          case Option.None =>
+            // The premise had no given. Binding reported it; the slot stays
+            // uninitialised so the layout is still right.
+            ()
+          case Option.Some(dependency) =>
+            evidenceFieldToken(dependency) match {
+              case Option.None => ()
+              case Option.Some(dependencyToken) =>
+                chunk.emitOpcode(Opcode.Dup, line)
+                chunk.emitOpcode(Opcode.LdcI4, line)
+                chunk.emitI4(index, line)
+                chunk.emitOpcode(Opcode.Ldsfld, line)
+                chunk.emitI4(dependencyToken, line)
+                chunk.emitOpcode(Opcode.Stelem, line)
+            }
+        }
+        emitEvidenceDependencies(tail, index + 1, line)
+    }
+  }
+
+  def anyTypeToken(): int = {
+    typeTokens.get(binder.anySymbol) match {
       case Option.Some(token) => token.token
-      case Option.None        => panic("intTypeToken: int is not registered")
+      case Option.None        => panic("anyTypeToken: any is not registered")
     }
   }
 
@@ -750,8 +821,8 @@ params: Dictionary[Symbol, int]
             // Binding already reported this; emitting nothing would misalign
             // the frame, so fail loudly rather than produce a bad call.
             panic("emitEvidenceArguments: no evidence for " + goal.toString())
-          case Option.Some(field) =>
-            fieldTokens.get(field) match {
+          case Option.Some(record) =>
+            fieldTokens.get(record.field) match {
               case Option.None =>
                 panic("emitEvidenceArguments: no field token for evidence")
               case Option.Some(token) =>

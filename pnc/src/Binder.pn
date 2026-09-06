@@ -41,17 +41,21 @@ enum FieldOptions {
   case ExpressionOnly(expression: Expression)
 }
 
-/** A resolved proof: which given was used, with what type arguments, and the
-  * evidence its own constraints needed.
+/** A resolved proof, and the static field its record lives in.
   *
-  * The tree is what ADR 0005's recursive evidence describes —
-  * `Eq[List[Symbol]]` holding a reference to `Eq[Symbol]`.
+  * One per ground goal rather than one per given, because a conditional given
+  * proves a different thing at every instantiation
+  * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
+  * decision B). `premises` are the given's constraints with this
+  * instantiation's type arguments substituted in, so they are ground goals too
+  * and name the records the dependency half points at — `Eq[List[Symbol]]`
+  * holding a reference to `Eq[Symbol]`, which is ADR 0005's recursive evidence.
   */
-[derive(Eq, Show)] class Evidence(
-    symbol: Symbol,
-    head: Type,
-    typeArguments: List[Type],
-    dependencies: List[Evidence]
+[derive(Eq, Show)] class BoundEvidenceRecord(
+    goal: Type,
+    candidate: BoundGiven,
+    premises: List[Type],
+    field: Symbol
 )
 
 /** A `given` as the resolver needs it: what it proves, and what it needs first.
@@ -451,12 +455,26 @@ enum FieldOptions {
     */
   var operatorTraits: Dictionary[int, Symbol] = DictionaryModule.empty()
 
-  /** The static field holding each given's evidence record, keyed by the
-    * given's symbol. Defined once the program object exists, and filled in by
-    * the emitter, which is the first place method tokens are known.
+  /** Every evidence record the program needs, in reverse discovery order.
+    *
+    * Interned as resolution reaches each ground goal, rather than laid out once
+    * per given: a conditional given has no single record to lay out
+    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
+    * decision B). Discovery order is a function of the source, which is what
+    * stage 3 needs — the field order is part of the bytecode.
+    *
+    * Each holds a static field on the program object; the emitter fills the
+    * slots, being the first place method tokens are known.
     */
-  var evidenceFields: Dictionary[Symbol, Symbol] =
-    DictionaryModule.empty[Symbol, Symbol]()
+  var evidenceRecords: List[BoundEvidenceRecord] = List.Nil
+
+  /** Numbers the evidence-record fields, in interning order. */
+  var evidenceRecordCount: int = 0
+
+  /** The program object, so a record can be defined on it at the moment
+    * resolution discovers it rather than in one pass up front.
+    */
+  var programSymbol: Option[Symbol] = Option.None
 
   /** `$runtimeInit`, so the emitter can recognise the method it has to append
     * the evidence-record construction to.
@@ -752,8 +770,10 @@ enum FieldOptions {
 
     // The evidence records live on the program object, which makes them static
     // and so reachable from anywhere. They cannot be defined while binding the
-    // givens themselves: the program object does not exist yet.
-    defineEvidenceRecords(givens, program)
+    // givens themselves: the program object does not exist yet. Each is
+    // defined as resolution reaches its goal, which is why the owner is handed
+    // over here rather than a layout pass being run.
+    programSymbol = Option.Some(program)
     defineEnumSingletons(enumSingletons, program)
 
     // bind global statements, fields, and functions
@@ -2770,61 +2790,118 @@ enum FieldOptions {
     }
   }
 
-  /** Finds the given that proves `goal`, and recursively the evidence its own
-    * constraints need. Reports and returns `None` when there is none.
+  /** Finds the given that proves `goal`, interns a record for it, and does the
+    * same for the premises that given depends on. Reports and returns `None`
+    * when there is no given.
     *
     * There is no ambiguity to resolve: coherence already rejected any two
     * givens whose heads could unify, so the first match is the only match.
+    *
+    * The record is interned *before* its premises are resolved, which is what
+    * makes a goal that reappears underneath itself terminate: `Eq[Symbol]`
+    * needs `Eq[List[Symbol]]`, which needs `Eq[Symbol]` again and finds the
+    * record already being built. ADR 0005 asks for exactly that rule, and it
+    * costs nothing here because a record is an array — a reference to one that
+    * is allocated but not yet filled is still a usable reference
+    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
+    * decision E).
     */
   def resolveEvidence(
       goal: Type,
       location: TextLocation,
       depth: int
-  ): Option[Evidence] = {
-    if (depth > maxEvidenceDepth) {
-      diagnosticBag.reportEvidenceTooDeep(location, goal.toString())
-      Option.None
-    } else {
-      matchAnyGiven(goal, givens) match {
-        case Option.None =>
-          diagnosticBag.reportNoGivenInstance(location, goal.toString())
+  ): Option[Symbol] = {
+    findEvidenceRecord(goal) match {
+      case Option.Some(record) => Option.Some(record.field)
+      case Option.None =>
+        if (depth > maxEvidenceDepth) {
+          diagnosticBag.reportEvidenceTooDeep(location, goal.toString())
           Option.None
-        case Option.Some(KeyValue(candidate, typeArgs)) =>
-          resolveDependencies(
-            Types.substituteList(candidate.constraints, typeArgs),
-            location,
-            depth + 1,
-            List.Nil
-          ) match {
-            case Option.None => Option.None
-            case Option.Some(dependencies) =>
-              Option.Some(
-                Evidence(candidate.symbol, goal, typeArgs, dependencies)
-              )
+        } else {
+          matchAnyGiven(goal, givens) match {
+            case Option.None =>
+              diagnosticBag.reportNoGivenInstance(location, goal.toString())
+              Option.None
+            case Option.Some(KeyValue(candidate, typeArgs)) =>
+              val premises =
+                Types.substituteList(candidate.constraints, typeArgs)
+              internEvidenceRecord(goal, candidate, premises) match {
+                case Option.None => Option.None
+                case Option.Some(field) =>
+                  // A premise that fails has already reported; the record keeps
+                  // its slot so the layout stays right, the same way a given
+                  // that does not implement a member does.
+                  resolvePremises(premises, location, depth + 1)
+                  Option.Some(field)
+              }
           }
-      }
+        }
     }
   }
 
-  def resolveDependencies(
+  def resolvePremises(
       goals: List[Type],
       location: TextLocation,
-      depth: int,
-      acc: List[Evidence]
-  ): Option[List[Evidence]] = {
+      depth: int
+  ): unit = {
     goals match {
-      case List.Nil => Option.Some(acc.reverse())
+      case List.Nil => ()
       case List.Cons(goal, tail) =>
-        resolveEvidence(goal, location, depth) match {
-          case Option.None => Option.None
-          case Option.Some(evidence) =>
-            resolveDependencies(
-              tail,
-              location,
-              depth,
-              List.Cons(evidence, acc)
+        resolveEvidence(goal, location, depth)
+        resolvePremises(tail, location, depth)
+    }
+  }
+
+  /** Defines the record's static field on the program object and records it.
+    *
+    * The name carries both the interning index and the goal: the index makes it
+    * unique whatever the goal renders as, and the goal makes a disassembly
+    * readable.
+    */
+  def internEvidenceRecord(
+      goal: Type,
+      candidate: BoundGiven,
+      premises: List[Type]
+  ): Option[Symbol] = {
+    programSymbol match {
+      case Option.None => Option.None
+      case Option.Some(program) =>
+        val name =
+          "$ev$" + string(evidenceRecordCount) + "$" + mangleGoal(goal)
+        evidenceRecordCount = evidenceRecordCount + 1
+
+        program.tryDefineField(name, candidate.location, true) match {
+          case Either.Left(_) => Option.None
+          case Either.Right(field) =>
+            field.extern = false
+            setSymbolType(field, evidenceRecordType)
+            evidenceRecords = List.Cons(
+              BoundEvidenceRecord(goal, candidate, premises, field),
+              evidenceRecords
             )
+            Option.Some(field)
         }
+    }
+  }
+
+  /** `Eq<List<Symbol>>` as `Eq$List$Symbol`. Only a name — the index in front
+    * of it is what keeps records apart.
+    *
+    * Built from the type rather than from `toString`, so there is no bracket to
+    * strip back out: the separator is the only punctuation a name can pick up.
+    */
+  def mangleGoal(goal: Type): string = {
+    goal match {
+      case Type.Class(_, _, name, args, _) => name + mangleGoalArgs(args, "")
+      case _                               => goal.toString()
+    }
+  }
+
+  def mangleGoalArgs(args: List[Type], acc: string): string = {
+    args match {
+      case List.Nil => acc
+      case List.Cons(head, tail) =>
+        mangleGoalArgs(tail, acc + "$" + mangleGoal(head))
     }
   }
 
@@ -2921,32 +2998,6 @@ enum FieldOptions {
     }
   }
 
-  /** An evidence record is an `Array[int]` of method tokens, one slot per trait
-    * member, indexed by the member's position in the trait.
-    *
-    * ADR 0005 calls it a record of method tokens; an int array is that on this
-    * VM without synthesizing a type and a constructor for every given. A slot
-    * per member — rather than one field per member with the record skipped —
-    * is what keeps the shape the same for a trait with any number of members.
-    */
-  def defineEvidenceRecords(
-      remaining: List[BoundGiven],
-      program: Symbol
-  ): unit = {
-    remaining match {
-      case List.Nil => ()
-      case List.Cons(head, tail) =>
-        program.tryDefineField(head.symbol.name, head.location, true) match {
-          case Either.Left(_) =>
-          case Either.Right(field) =>
-            field.extern = false
-            setSymbolType(field, evidenceRecordType)
-            evidenceFields = evidenceFields.put(head.symbol, field)
-        }
-        defineEvidenceRecords(tail, program)
-    }
-  }
-
   /** One static field per parameterless enum case, on the program object so it
     * is reachable from anywhere. Same placement as the evidence records, and
     * for the same reason: the program object does not exist while the enum is
@@ -2978,12 +3029,19 @@ enum FieldOptions {
     "$case$" + enumName + "$" + caseSymbol.name
   }
 
+  /** The record's element type is `any` rather than `int` because the slots
+    * hold two kinds of thing: a method token in the token half, and a reference
+    * to another record in the dependency half
+    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
+    * decision A). The VM's array is untyped — the element type only picks a
+    * default value — so this costs nothing at runtime.
+    */
   val evidenceRecordType: Type =
     Type.Class(
       noLoc,
       List.Nil,
       "Array",
-      ListModule.one(intType),
+      ListModule.one(anyType),
       arraySymbol
     )
 
@@ -3713,17 +3771,31 @@ enum FieldOptions {
     }
   }
 
-  /** The static field holding the evidence record that proves `goal`, if a
-    * given does. Used by the emitter, which needs the field rather than the
-    * proof tree, and reports nothing — binding already did.
+  /** The record proving `goal`, if resolution has already interned one.
+    *
+    * Reports nothing: every goal that reaches an emit site was resolved during
+    * binding, so a miss here means the diagnostic was already issued.
     */
-  def findEvidenceRecord(goal: Type): Option[Symbol] = {
-    matchAnyGiven(goal, givens) match {
-      case Option.None                        => Option.None
-      case Option.Some(KeyValue(candidate, _)) =>
-        evidenceFields.get(candidate.symbol)
+  def findEvidenceRecord(goal: Type): Option[BoundEvidenceRecord] =
+    scanEvidenceRecords(goal, evidenceRecords)
+
+  def scanEvidenceRecords(
+      goal: Type,
+      remaining: List[BoundEvidenceRecord]
+  ): Option[BoundEvidenceRecord] = {
+    remaining match {
+      case List.Nil => Option.None
+      case List.Cons(head, tail) =>
+        if (sameConstraint(head.goal, goal)) Option.Some(head)
+        else scanEvidenceRecords(goal, tail)
     }
   }
+
+  /** The records in interning order, which is the order they are laid out and
+    * built in. `evidenceRecords` accumulates by prepending.
+    */
+  def evidenceRecordsInOrder(): List[BoundEvidenceRecord] =
+    evidenceRecords.reverse()
 
   /** `typ`, followed by the enum it is a case of, if it is one.
     *
