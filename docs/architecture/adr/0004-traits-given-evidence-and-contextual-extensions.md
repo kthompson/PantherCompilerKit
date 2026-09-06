@@ -887,11 +887,20 @@ An enum case with parameters also got no constructor body, so its address stayed
 -1 and calling it read past the end of the chunk — the same defect `bindClass`
 was fixed for in `edb7333`, which `bindEnumCases` never received.
 
-### Matching on an enum case is still a wildcard
+### Matching on an enum case was still a wildcard
 
-`Lowered.boundMatchCaseToExpression` lowers `BoundPattern.Extract` by returning
-the case's result with no test, under a TODO saying so, which means every
-constructor pattern takes the first branch. It applies to `case Shape.Circle(r)`
-exactly as much as to `case Color.Red`, and predates all of this — singletons
-make it reachable for parameterless cases rather than making it worse. It is the
-largest thing left in the neighbourhood, and it is not a typeclass problem.
+`Lowered.boundMatchCaseToExpression` lowered `BoundPattern.Extract` by returning
+the case's result with no test, under a TODO saying so, so every constructor
+pattern took the first branch. It applied to `case Shape.Circle(r)` exactly as
+much as to `case Color.Red`, and predated all of this.
+
+**Fixed in `f847431`**, which is not a typeclass change and is recorded here
+only because this is where it was found. Each case is now
+`if (<test>) { <bindings>; <result> } else <the rest>`. A bare type pattern
+keeps its type instead of binding to `Discard`; `case x: int` tests its
+annotation instead of only borrowing it as a type; and `emitLHS` on a member
+access emits the whole access rather than only its receiver, which had been
+dropping a level from every chain longer than one.
+
+A match with no matching case still yields an unspecified value rather than
+reporting. That needs exhaustiveness checking, which is its own feature.

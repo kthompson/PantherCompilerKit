@@ -27,7 +27,7 @@ reproduces the measurement. Re-run them rather than trusting the number.
 sbt pncs/compile && sbt test/test
 ```
 
-Green: 390 tests across the lexer, parser, binder, type checker, VM, metadata
+Green: 400 tests across the lexer, parser, binder, type checker, VM, metadata
 format, and args parser.
 
 ### The self-hosted compiler does not
@@ -79,7 +79,7 @@ the only code in the repo that writes files is the transpiler.
 So `pncs output.pnb source.pn` — the invocation in the README, in
 `ArgsParser.printUsage()`, and in the docs — produces no `output.pnb`. There is
 no `.pnb` reader either, and no CLI path to `Compilation.exec()`, even though
-the VM works and `VmTests` drives it in-process for 66 tests.
+the VM works and `VmTests` drives it in-process for 76 tests.
 
 ### The docs compile
 
@@ -545,7 +545,7 @@ Things that do not belong to one goal but block several.
   blocks in §4.1.
 - **No lexer support for exponents or shifts**
   ([`Lexer.scala:243`](pncs/src/main/scala/Lexer.scala:243)).
-- **Test coverage is stage-shaped, not feature-shaped.** 390 tests, but
+- **Test coverage is stage-shaped, not feature-shaped.** 400 tests, but
   `MetadataTests` has 2 and there is no end-to-end test that takes source all
   the way to output. §3.4 is the fix.
 
