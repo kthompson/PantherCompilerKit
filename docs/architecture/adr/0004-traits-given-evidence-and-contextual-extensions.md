@@ -838,7 +838,9 @@ again, this time in `_get`.
 
 - **Associated members.** `T.empty` does not resolve.
 - **A conditional given cannot use its premise**, which is also what blocks
-  derivation for generic types.
+  derivation for generic types. (Closed by
+  [ADR 0006](0006-conditional-givens.md); derivation for generic types is
+  that ADR's step 5 and is still open.)
 - **Enum derivation.** (Closed in the third pass.)
 - **The transpiler's `[derive(…)]` for `case class`.** (Closed in the fourth
   pass.)

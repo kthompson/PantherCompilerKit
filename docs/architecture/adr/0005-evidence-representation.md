@@ -324,7 +324,9 @@ nothing else, so it cannot hold a reference to another record — which is exact
 the recursive evidence this ADR describes when it says `Eq[List[Symbol]]` holds a
 reference to `Eq[Symbol]`.
 
-**The consequence: a conditional given cannot use its premise.**
+**The consequence: a conditional given cannot use its premise.** (Closed by
+[ADR 0006](0006-conditional-givens.md), which took both changes named at the
+end of this paragraph.)
 `given [T: Ord] => Ord[Box[T]]` declares, registers, participates in the
 coherence check, and resolves at a call site — including recursively, so
 `Ord[Box[int]]` finds `Ord[int]` behind it at bind time. But the premise never

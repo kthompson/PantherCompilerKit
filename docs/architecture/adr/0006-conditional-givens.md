@@ -1,6 +1,7 @@
 # ADR 0006: Conditional givens
 
-**Status:** Proposed
+**Status:** Accepted — steps 1–4 implemented 2026-09-05, see
+[Outcome](#outcome); step 5 outstanding
 **Date:** 2026-09-05
 **Primitives:** `binder`, `lowering-emit` (see [`primitives.yaml`](../primitives.yaml))
 **Roadmap:** [§1.3a](../../../ROADMAP.md#13a-burn-down-the-derivation-reports)
@@ -183,3 +184,62 @@ Steps 1–4 close what ADR 0004 and ADR 0005 both record as not built. Step 5 is
 what moves the count, and it is worth keeping separate: the first four change
 how evidence works for every given in the program, and the last one only adds
 givens.
+
+## Outcome
+
+Four commits, `931a7b3`..`14a8079`. Steps 1 to 4 are built, which closes the gap
+[ADR 0004](0004-traits-given-evidence-and-contextual-extensions.md) and
+[ADR 0005](0005-evidence-representation.md) both record as still not built:
+`given [T: Eqv] => Eqv[Box[T]]` can write `a.value.equals(b.value)` in its own
+body, and it runs. 411 tests, up from 409. Self-hosting diagnostics 417 → 415,
+which is the expected shape — none of the 415 is a conditional given.
+
+### The decisions held
+
+**A and B together, not separately.** The implementation order put `Array[any]`
+first on the grounds that every given has zero premises today, so the dependency
+half would be empty and the change a no-op. That was true and it was also
+pointless: a conditional given already got a record under the old scheme, and
+that record was already wrong — one per given, for a thing that proves something
+different at every instantiation. The two landed in one commit.
+
+**Interning turned out to be the in-progress rule.** `resolveEvidence` built an
+`Evidence` tree with a `dependencies` field and every caller threw it away; the
+tree was describing the interning table. Replacing it with the table got the
+recursion guard ADR 0005 asks for and never had, for free — interning the record
+before resolving its premises means a goal that reappears underneath itself
+finds the record being built. Without it `Eq[Symbol]` needing `Eq[List[Symbol]]`
+needing `Eq[Symbol]` would report "too deeply nested" at depth 32.
+
+**C is what forced `BoundEvidence`.** The plan said the record becomes a
+trailing parameter on every given member and a premise is read out of a
+dependency slot. The second half has no symbol to name, and `EvidenceCall.evidence`
+was a `Symbol`. It is now a `BoundEvidence` — `Held` for the parameter or field
+ADR 0005 built, `Premise` for a slot of `$ev$self`. That is the shape the
+decision implied and did not say.
+
+### Two things the plan did not have
+
+**A direct call needs a bound node for the record.** Decision C says every
+caller passes the record. For a `Calli` the caller already holds it, but the two
+direct-call paths — a ground operator, and a contextual extension — do not, and
+the emitter cannot recover it: it knows the callee is a given's member but not
+which instantiation's record that member was reached through. A
+`BoundExpression.EvidenceRecord` carries the static field from binding.
+
+**`findGivenMember` had to start resolving.** It matched a given and returned
+the member, never touching the record. Under decision B a record only exists if
+something resolved its goal, and a ground call site is exactly such a use — so
+the ground path now resolves as well as matches, and hands the record back
+alongside the member.
+
+### Still not built
+
+- **Step 5: `[derive(…)] class Box[T](value: T)`.** `registerDerivation` still
+  reports `reportDeriveOnGenericType`. A generic type's derived given is a
+  conditional one, and derivation has never synthesized one: the body it builds
+  would have to resolve `Eq[T]` to a premise rather than a static record, and
+  emit an `EvidenceCall` rather than a `Call`. This is the step that moves the
+  61.
+- **The orphan rule, named exceptions, and associated members**, all still
+  deferred by ADR 0004.

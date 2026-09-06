@@ -36,12 +36,12 @@ format, transpiler, and args parser.
 sbt pnc/compile
 ```
 
-Runs to completion and reports **417 diagnostics** against the generated
+Runs to completion and reports **415 diagnostics** against the generated
 `.pn` sources. By message:
 
 | Count | Diagnostic                      |
 | ----: | ------------------------------- |
-|   222 | `Cannot derive Eq`/`Show`       |
+|   220 | `Cannot derive Eq`/`Show`       |
 |    57 | `No operator for operands`      |
 |    52 | `Cannot convert from A to B`    |
 |    39 | `Type X not defined`            |
@@ -51,15 +51,14 @@ Runs to completion and reports **417 diagnostics** against the generated
 |     5 | `Symbol X not found`            |
 |     2 | `Duplicate definition`          |
 
-**222 of the 417 are derivation**, and they arrived all at once when the
+**220 of the 415 are derivation**, and they arrived all at once when the
 transpiler started emitting `[derive(Eq, Show)]` for `case class`. They are not
 the same kind of problem as the other 195: each one is the compiler correctly
 reporting that it cannot prove `Eq` or `Show` for a parameter, where before the
 attribute existed those classes had no equality and nothing said so.
-[ADR 0004](docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)'s
-fourth pass breaks them down — 62 of the 105 parameters per trait wait on
-conditional givens, 38 on the transpiler deriving for `enum` too, and 5 should
-stay unprovable. Treat them as a separate burndown from §1.3.
+§1.3a breaks them down — 61 of the 104 parameters per trait wait on
+`[derive(…)]` for a generic type, 38 on the transpiler deriving for `enum` too,
+and 5 should stay unprovable. Treat them as a separate burndown from §1.3.
 
 **The other 195 have not moved**, to the line. 2 of them mention an unsolved
 type variable (`$0`, `$1`, …) — a generic parameter the binder gave up on. Name
@@ -67,12 +66,12 @@ resolution is essentially done: the five remaining bare `Symbol X not found` are
 all `File` and `Path` from `using system.io`. What is left is operators and
 conversions.
 
-By file, all 417:
+By file, all 415:
 
 | Count | File                        |
 | ----: | --------------------------- |
 |    62 | `Ast.pn`                    |
-|    61 | `Binder.pn`                 |
+|    59 | `Binder.pn`                 |
 |    28 | `Lowered.pn`                |
 |    26 | `Parser.pn`                 |
 |    25 | `TypeInference.pn`          |
@@ -190,7 +189,7 @@ count that decision is made from.
 ### 1.3 Burn down the diagnostics
 
 Ordered by what the counts say, not by what is interesting. This list covers
-the 195 that are not derivation; the 222 derivation reports are §1.3a.
+the 195 that are not derivation; the 220 derivation reports are §1.3a.
 
 1. **`string + T` for non-string `T`** — 46, and the largest single item. Every
    remaining `+` diagnostic. Blocked on a decision, not on work: either the
@@ -250,16 +249,18 @@ back-end work under §1.4 and §3.
 
 ### 1.3a Burn down the derivation reports
 
-222 of them, all arrived at once. Three groups, and the counts below are per
-trait — `Eq` and `Show` fail on the same parameters, so each is worth double:
+220 of them. Three groups, and the counts below are per trait — `Eq` and
+`Show` fail on the same parameters, so each is worth double:
 
-1. **A conditional given cannot reach its premise** — 62. `List` 30, `Option`
-   18, `Array` 7, `Dictionary` 4, `Chain` 2, `SeparatedSyntaxList` 1. Writing
-   `Eq[List[T]]` given `Eq[T]` needs an evidence record built per
-   instantiation rather than laid out once at runtime init, which is the gap
-   [ADR 0004](docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)
-   records under "still not built". The largest item, and the one the other two
-   partly wait on.
+1. **`[derive(…)]` on a generic type** — 61. `List` 29, `Option` 18, `Array` 7,
+   `Dictionary` 4, `Chain` 2, `SeparatedSyntaxList` 1. `Eq[List[T]]` given
+   `Eq[T]` is a conditional given, and a conditional given can now reach its
+   premise — [ADR 0006](docs/architecture/adr/0006-conditional-givens.md)
+   steps 1 to 4 closed the gap ADR 0004 and ADR 0005 both recorded as still
+   not built. What is left is step 5: `registerDerivation` still reports
+   `reportDeriveOnGenericType`, because a generic type's derived given *is* a
+   conditional one and derivation has never synthesized one. The largest item,
+   and the one the other two partly wait on.
 2. **The transpiler does not derive for `enum`** — 38. `Type` 13,
    `NameSyntax` 5, `MetadataFlags` 4, `Expression` 3, and eleven more. Scala's
    `enum` generates structural equality the same way `case class` does, so the
@@ -276,7 +277,7 @@ Track the number after every change:
 sbt pnc/compile
 ```
 
-**417 → 0.** Nothing else in this section matters until that number moves.
+**415 → 0.** Nothing else in this section matters until that number moves.
 
 Only the first 20 diagnostics are printed. To see them all, transpile first —
 `pnc/compile` does this implicitly, and the count depends on it — then run the
@@ -598,7 +599,7 @@ Sequenced so each step makes the next one measurable.
 
 **First — stop flying blind.** Done. The generated tree matches the
 transpiler (§1.1), the exit code is trustworthy (§1.2), and failures come back
-as diagnostics rather than exceptions (§4.2). The 417 counts every error the
+as diagnostics rather than exceptions (§4.2). The 415 counts every error the
 front end finds — none are discarded.
 
 **Second — generics.** This was the plan, and the measurement has overtaken it
@@ -613,8 +614,12 @@ sibling-case conversions an `if`/`else` cannot union (23), `Invalid namespace`
 Those are §1.3 items 1–6 — ordinary front-end and transpiler work, not type
 theory. Take them before §2.
 
-The 222 derivation reports are the exception: §1.3a item 1 is conditional
-givens, which is type-system work and the single largest item on the board.
+The 220 derivation reports are the exception: §1.3a item 1 is `[derive(…)]` on
+a generic type, which is type-system work and the single largest item on the
+board. The machinery it needs is built — a conditional given can reach its
+premise as of
+[ADR 0006](docs/architecture/adr/0006-conditional-givens.md) — and what is left
+is synthesizing one.
 
 **Third — make programs runnable.**
 §3.1 `.pnb` read/write, §3.2 the runner. Unblocks samples, output-checked docs,
@@ -633,8 +638,8 @@ The three numbers worth putting on a wall:
 
 | Metric                            |         Now | Target | Command                                     |
 | --------------------------------- | ----------: | -----: | ------------------------------------------- |
-| Self-hosting diagnostics          |         417 |      0 | `sbt pnc/compile` (now fails, as it should)  |
-| — of those, derivation            |         222 |      0 | §1.3a                                       |
+| Self-hosting diagnostics          |         415 |      0 | `sbt pnc/compile` (now fails, as it should)  |
+| — of those, derivation            |         220 |      0 | §1.3a                                       |
 | Doc blocks that fail              | **0 / 201** |      0 | `sbt "doccheck/run docs/src/content/docs"`  |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                    |
 | Samples that run in CI            |           0 |      6 | not yet built                               |
