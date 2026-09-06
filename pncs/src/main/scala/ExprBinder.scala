@@ -1155,44 +1155,20 @@ case class ExprBinder(
           val location = AstUtils.locationOfBoundLeftHandSide(function)
           // Handle array indexing
           if (name == "Array") {
-            args match {
-              case List.Cons(indexArg, List.Nil) =>
-                val boundIndex = bindConversion(indexArg, binder.intType, false)
-                val elementType = typeArgs match {
-                  case List.Cons(elemType, List.Nil) => elemType
-                  case _                             => binder.anyType
-                }
-                val arrayExpr = function match {
-                  case BoundLeftHandSide.Variable(loc, sym) =>
-                    BoundExpression.Variable(
-                      loc,
-                      sym,
-                      binder.tryGetSymbolType(sym)
-                    )
-                  case BoundLeftHandSide.MemberAccess(memberAccess) =>
-                    memberAccess
-                  case _ =>
-                    BoundExpression.Error("Unsupported array expression type")
-                }
-                val indexExpr = new BoundExpression.Index(
-                  location,
-                  arrayExpr,
-                  boundIndex,
-                  elementType
-                )
-                Result.Success(BoundLeftHandSide.Index(indexExpr))
-              case _ =>
-                diagnosticBag.reportArgumentCountMismatch(
-                  location,
-                  1,
-                  args.length
-                )
-                Result.Error(
-                  BoundExpression.Error(
-                    "Array indexing requires exactly one argument but got " + args.length
-                  )
-                )
+            val elementType = typeArgs match {
+              case List.Cons(elemType, List.Nil) => elemType
+              case _                             => binder.anyType
             }
+            bindIndexAccess(function, args, elementType, location)
+          } else if (name == "string" && !namesItsOwnType(function, symbol)) {
+            // `str(0)` reads a character out of a string. It reaches here the
+            // same way `string(x)` does — both are a call whose callee types
+            // as `string` — and the two are told apart by whether the callee
+            // is the type itself or a value of it. Without this the index
+            // falls through to `apply`, which is the conversion, so `str(0)`
+            // types as `string` and `str(0) == '-'` compares a string to a
+            // char.
+            bindIndexAccess(function, args, binder.charType, location)
           } else {
             // Handle regular class constructors
             findConstructor(symbol) match {
@@ -1245,6 +1221,60 @@ case class ExprBinder(
             )
           )
       }
+  }
+
+  /** True when the callee names the class itself rather than a value of it.
+    * `string(x)` is the conversion; `str(x)` is an index into `str`.
+    */
+  def namesItsOwnType(function: BoundLeftHandSide, symbol: Symbol): bool =
+    function match {
+      case BoundLeftHandSide.Variable(_, callee) => callee == symbol
+      case _                                     => false
+    }
+
+  /** `receiver(index)`, for the two receivers that have one: an array yields
+    * its element type, a string yields `char`.
+    */
+  def bindIndexAccess(
+      function: BoundLeftHandSide,
+      args: List[BoundExpression],
+      elementType: Type,
+      location: TextLocation
+  ): Result[BoundExpression.Error, BoundLeftHandSide] = {
+    args match {
+      case List.Cons(indexArg, List.Nil) =>
+        val boundIndex = bindConversion(indexArg, binder.intType, false)
+        val receiver = function match {
+          case BoundLeftHandSide.Variable(loc, sym) =>
+            BoundExpression.Variable(
+              loc,
+              sym,
+              binder.tryGetSymbolType(sym)
+            )
+          case BoundLeftHandSide.MemberAccess(memberAccess) =>
+            memberAccess
+          case _ =>
+            BoundExpression.Error("Unsupported array expression type")
+        }
+        val indexExpr = new BoundExpression.Index(
+          location,
+          receiver,
+          boundIndex,
+          elementType
+        )
+        Result.Success(BoundLeftHandSide.Index(indexExpr))
+      case _ =>
+        diagnosticBag.reportArgumentCountMismatch(
+          location,
+          1,
+          args.length
+        )
+        Result.Error(
+          BoundExpression.Error(
+            "Indexing requires exactly one argument but got " + args.length
+          )
+        )
+    }
   }
 
   def bindApply(

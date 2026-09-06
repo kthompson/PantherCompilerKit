@@ -846,6 +846,19 @@ case class VM(
                 val elementValue = heap(addr + 1 + indexValue)
                 push(elementValue)
                 InterpretResult.Continue
+              // A string indexes too, and yields a char, which is an int here
+              // for the same reason `ConvChar` produces one.
+              case Value.String(str) =>
+                if (indexValue < 0 || indexValue >= str.length()) {
+                  runtimeError(
+                    "Index " + string(indexValue) +
+                      " out of range for string of length " +
+                      string(str.length())
+                  )
+                } else {
+                  push(Value.Int(int(str(indexValue))))
+                  InterpretResult.Continue
+                }
               case _ =>
                 runtimeError("Expected array reference for element access")
             }

@@ -36,6 +36,29 @@ using panther
   equalityOp(binder.charType, BinaryOperatorKind.GreaterThan)
   equalityOp(binder.charType, BinaryOperatorKind.GreaterThanOrEqual)
 
+  // Char arithmetic answers in int. `c - '0'` is how a digit character
+  // becomes its value and `'A' + n` is how one is built, and a char is an int
+  // at runtime anyway, so there is no representation to preserve by answering
+  // in char — the caller writes `char(…)` when it wants one back.
+  binaryOp(
+    binder.charType,
+    binder.charType,
+    BinaryOperatorKind.Minus,
+    binder.intType
+  )
+  binaryOp(
+    binder.charType,
+    binder.intType,
+    BinaryOperatorKind.Plus,
+    binder.intType
+  )
+  binaryOp(
+    binder.charType,
+    binder.intType,
+    BinaryOperatorKind.Minus,
+    binder.intType
+  )
+
   equalityOp(binder.intType, BinaryOperatorKind.Equals)
   equalityOp(binder.intType, BinaryOperatorKind.NotEquals)
   equalityOp(binder.intType, BinaryOperatorKind.LessThan)

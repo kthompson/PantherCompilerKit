@@ -203,23 +203,28 @@ object ArgsParser {
     var result = 0
     var i = 0
     var negative = false
+    // annotated: Panther has no `return`, so an invalid digit leaves through
+    // the loop condition rather than out of the middle of the body
+    var valid = true
 
     if (str.length > 0 && str(0) == '-') {
       negative = true
       i = 1
     }
 
-    while (i < str.length) {
+    while (valid && i < str.length) {
       val c = str(i)
       if (c >= '0' && c <= '9') {
-        result = result * 10 + (int(c) - int('0'))
+        result = result * 10 + (c - '0')
+        i = i + 1
       } else {
-        return -1 // Invalid number
+        valid = false // Invalid number
       }
-      i = i + 1
     }
 
-    if (negative) -result else result
+    if (!valid) -1
+    else if (negative) -result
+    else result
   }
 
   def startsWith(str: string, prefix: string): bool = {

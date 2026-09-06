@@ -1049,10 +1049,17 @@ case class Emitter(
     }
   }
 
+  /** A char is an int at runtime — the VM has no `Value` case of its own for
+    * one, and `ConvChar` and `getDefaultValueForType` already agree on that —
+    * so a char literal is its code point.
+    */
   def emitCharacterLiteral(
       expr: LoweredExpression.Character,
       context: EmitContext
-  ): unit = panic("unimplemented: emitCharacterLiteral")
+  ): unit = {
+    chunk.emitOpcode(Opcode.LdcI4, expr.location.startLine)
+    chunk.emitI4(int(expr.value), expr.location.startLine)
+  }
 
   def emitIntLiteral(
       expr: LoweredExpression.Integer,

@@ -1393,6 +1393,42 @@ class VmTests extends AnyFunSpec with Matchers {
       assertExecValueStringWithSetup(stringSetup, "stringArray(1)", "world")
     }
 
+    /** A char is an int at runtime, so these assert on int values. `'h'` is
+      * 104.
+      */
+    it("should execute char literals") {
+      assertExecValueInt("'h'", 104)
+      assertExecValueInt("'\\n'", 10)
+      assertExecValueBool("'a' == 'a'", true)
+      assertExecValueBool("'a' == 'b'", false)
+      assertExecValueBool("'a' < 'b'", true)
+    }
+
+    /** Char arithmetic answers in int, so `c - '0'` reads a digit and
+      * `char('A' + n)` builds one.
+      */
+    it("should execute char arithmetic") {
+      assertExecValueInt("'7' - '0'", 7)
+      assertExecValueInt("'a' + 1", 98)
+      assertExecValueInt("'z' - 1", 121)
+      assertExecValueIntWithSetup("val s = \"42\"", "s(0) - '0'", 4)
+    }
+
+    it("should execute string indexing") {
+      assertExecValueIntWithSetup("val s = \"hello\"", "s(0)", 104)
+      assertExecValueIntWithSetup("val s = \"hello\"", "s(4)", 111)
+      assertExecValueBoolWithSetup("val s = \"hello\"", "s(0) == 'h'", true)
+      assertExecValueBoolWithSetup("val s = \"hello\"", "s(1) == 'h'", false)
+    }
+
+    /** The index is a value of type string, the conversion is the type itself.
+      * Both are a call whose callee types as `string`.
+      */
+    it("should tell string indexing apart from the string conversion") {
+      assertExecValueString("string(42)", "42")
+      assertExecValueIntWithSetup("val string2 = \"ab\"", "string2(1)", 98)
+    }
+
     it("should execute string conversions - basic literals") {
       // Test string conversion of basic literals
       assertExecValueString("string(42)", "42")
