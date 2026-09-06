@@ -315,17 +315,31 @@ tree at 62 and is now 10.
 
 `List` and `Option` derive, which is what everything above was for.
 
-### What is left, and the surprise in it
+### A goal naming an enum case widens to the enum
 
-The biggest remaining item is not a gap in this ADR. **An enum case used as a
-type of its own** — a field declared `BoundExpression.Call` rather than
-`BoundExpression` — resolves to nothing, because evidence is declared for the
-enum and goal resolution does not widen a case to it. `Binder.evidenceTypes`
-already does exactly that widening, and the operator and contextual-extension
-paths already use it; `resolveEvidence` and `findGivenMember` do not. That is
-8 fields plus 8 goals that fail underneath them, and one widening in one place.
+The biggest item this uncovered was not a gap in this ADR. A field declared
+`BoundExpression.Call` rather than `BoundExpression` resolved to nothing,
+because evidence is declared for the enum — one `Eq[BoundExpression]`, not one
+per case — and goal resolution did not widen a case to it.
+`Binder.evidenceTypes` already did exactly that widening, and the operator and
+contextual-extension paths already used it; `resolveEvidence`,
+`findGivenMember` and `findEvidenceRecord` did not.
 
-The rest: `Array` needs a conditional given written by hand, being builtin
-rather than declared (10); a composite over a type variable is still unreachable
+`widenGoal` is that rule for a goal, applied at all three. **263 → 231**, and
+`No given instance` went to zero. Two details it needed:
+
+- **It carries the case's type arguments.** `enclosingEnumType` answers with the
+  enum as declared, which is enough for the operator paths because they compare
+  it against a ground receiver and never instantiate it. A goal has to keep
+  them: `Eq[List.Cons<int>]` widens to `Eq[List<int>]`, not to `Eq[List]`.
+- **It only fires when the goal as written has no given**, so a case that proves
+  something in its own right keeps its own evidence. Being idempotent is what
+  lets resolution and the emitter's record lookup both apply it and agree on the
+  key — one record per enum, not one per case.
+
+### What is left
+
+`Array` needs a conditional given written by hand, being builtin rather than
+declared (10 parameters); a composite over a type variable is still unreachable
 (4); and two stateful services should stay unprovable. ROADMAP §1.3a has the
 breakdown.

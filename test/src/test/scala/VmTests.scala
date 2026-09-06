@@ -522,6 +522,26 @@ class VmTests extends AnyFunSpec with Matchers {
       assertExecValueBoolWithSetup(chain, "a == c", false)
     }
 
+    /** A field declared as an enum *case* rather than the enum. Evidence is
+      * declared for the enum, so the goal widens to it — and the enum's derived
+      * `==` still tests the case before comparing parameters, so a `Circle`
+      * held in one and a `Rect` held in another come out unequal.
+      */
+    it("should run a derived Eq over a field typed as an enum case") {
+      val setup = shape + "[derive(Eq)]\nclass Held(shape: Shape.Circle)\n"
+
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Held(Shape.Circle(1)) == new Held(Shape.Circle(1))",
+        true
+      )
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Held(Shape.Circle(1)) == new Held(Shape.Circle(2))",
+        false
+      )
+    }
+
     /** Case order decides before any parameter does, so every `Circle` sorts
       * before every `Rect` regardless of what they hold.
       */

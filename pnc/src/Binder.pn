@@ -3091,10 +3091,15 @@ using panther
     * decision E).
     */
   def resolveEvidence(
-      goal: Type,
+      rawGoal: Type,
       location: TextLocation,
       depth: int
   ): Option[Symbol] = {
+    // A goal naming an enum case is proved by the enum's given, and interning
+    // under the widened form is what keeps one record per enum rather than one
+    // per case — and what lets the emitter's lookup find it.
+    val goal = widenGoal(rawGoal)
+
     findEvidenceRecord(goal) match {
       case Option.Some(record) => Option.Some(record.field)
       case Option.None =>
@@ -4222,7 +4227,8 @@ using panther
     * binding, so a miss here means the diagnostic was already issued.
     */
   def findEvidenceRecord(goal: Type): Option[BoundEvidenceRecord] =
-    scanEvidenceRecords(goal, evidenceRecords)
+    // The same widening resolution interned under, so the two agree on the key.
+    scanEvidenceRecords(widenGoal(goal), evidenceRecords)
 
   def scanEvidenceRecords(
       goal: Type,
@@ -4267,6 +4273,58 @@ using panther
             else Option.None
         }
     }
+  }
+
+  /** The enum `typ` is a case of, carrying the case's own type arguments.
+    *
+    * `enclosingEnumType` answers with the enum as declared, which is enough for
+    * the operator paths: they compare it against a ground receiver and never
+    * instantiate it. A goal has to keep the arguments —
+    * `Eq[List.Cons<int>]` widens to `Eq[List<int>]`, not to `Eq[List]` — and a
+    * case's type parameters are the enum's, in order, because `bindEnumCases`
+    * passes them straight through.
+    */
+  def widenedEnumType(typ: Type): Option[Type] = {
+    val args = typ match {
+      case Type.Class(_, _, _, caseArgs, _) => caseArgs
+      case _                                => List.Nil
+    }
+
+    enclosingEnumType(typ) match {
+      case Option.None => Option.None
+      case Option.Some(Type.Alias(loc, ns, name, _, value, symbol)) =>
+        Option.Some(Type.Alias(loc, ns, name, args, value, symbol))
+      case Option.Some(other) => Option.Some(other)
+    }
+  }
+
+  /** `goal` with its argument widened to the enum, where the goal names a case
+    * that no given proves and the enum has one.
+    *
+    * Evidence is declared for the enum — one `Eq[BoundExpression]`, not one per
+    * case — so a field declared `BoundExpression.Call` has to look past the
+    * case to find it. `evidenceTypes` is this same rule for the operator and
+    * contextual-extension paths; this is it for a goal.
+    *
+    * Only when the goal as written has no given, so a case that proves
+    * something in its own right keeps its own evidence. Idempotent, which is
+    * what lets both resolution and the emitter's record lookup apply it and
+    * agree on the key.
+    */
+  def widenGoal(goal: Type): Type = {
+    if (!matchAnyGiven(goal, givens).isEmpty()) goal
+    else
+      goal match {
+        case Type.Class(loc, ns, name, List.Cons(arg, List.Nil), traitSymbol) =>
+          widenedEnumType(arg) match {
+            case Option.None => goal
+            case Option.Some(enumTyp) =>
+              val widened: Type =
+                Type.Class(loc, ns, name, ListModule.one(enumTyp), traitSymbol)
+              if (matchAnyGiven(widened, givens).isEmpty()) goal else widened
+          }
+        case _ => goal
+      }
   }
 
   /** The first of `types` for which a given supplies `memberName`. */
@@ -4327,10 +4385,12 @@ using panther
     * and a goal nothing uses gets no record.
     */
   def findGivenMember(
-      goal: Type,
+      rawGoal: Type,
       memberName: string,
       location: TextLocation
   ): Option[GivenMember] = {
+    val goal = widenGoal(rawGoal)
+
     matchAnyGiven(goal, givens) match {
       case Option.None => Option.None
       case Option.Some(KeyValue(candidate, typeArgs)) =>

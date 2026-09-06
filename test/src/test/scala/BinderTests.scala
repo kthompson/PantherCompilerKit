@@ -1250,6 +1250,48 @@ class BinderTests extends AnyFunSpec with Matchers {
       diagnosticMessages(comp) should contain("No given instance for Ord<bool>")
     }
 
+    /** Evidence is declared for the enum, not per case, so a field declared as
+      * one case has to look past it. `evidenceTypes` already did this for the
+      * operator paths; `widenGoal` is the same rule for a goal.
+      */
+    it("should derive over a field typed as an enum case") {
+      val comp = mkCompilation(
+        "[derive(Eq)]\nenum Shape {\n  case Circle(r: int)\n  case Rect(w: int)\n}\n" +
+          "[derive(Eq)]\nclass Holder(shape: Shape.Circle)"
+      )
+      diagnosticMessages(comp) shouldBe empty
+    }
+
+    /** One record per enum rather than one per case: the widened goal is what
+      * resolution interns under, so two cases of one enum share it.
+      */
+    it("should intern one record for every case of an enum") {
+      val comp = mkCompilation(
+        "[derive(Eq)]\nenum Shape {\n  case Circle(r: int)\n  case Rect(w: int)\n}\n" +
+          "[derive(Eq)]\nclass Two(a: Shape.Circle, b: Shape.Rect)"
+      )
+      // `Eq<int>` first: Shape's own derived body resolves it before anything
+      // asks for Shape
+      evidenceRecordGoals(comp) shouldBe Seq("Eq<int>", "Eq<Shape>")
+    }
+
+    /** Widening is only a fallback. A case that proves something in its own
+      * right keeps its own evidence, which is what stops the enum's given
+      * silently taking over a more specific one.
+      */
+    it("should prefer a given on the case over the enum's") {
+      val comp = mkCompilation(
+        "[derive(Eq)]\nenum Shape {\n  case Circle(r: int)\n  case Rect(w: int)\n}\n" +
+          "given Eq[Shape.Circle] {\n" +
+          "  operator ==(a: Shape.Circle, b: Shape.Circle): bool = true\n" +
+          "  operator !=(a: Shape.Circle, b: Shape.Circle): bool = false\n" +
+          "}\n" +
+          "[derive(Eq)]\nclass Holder(shape: Shape.Circle)"
+      )
+      // the case's own given, not the enum's — `Eq<int>` is Shape's own body
+      evidenceRecordGoals(comp) shouldBe Seq("Eq<int>", "Eq<Shape.Circle>")
+    }
+
     it("should reject deriving a trait an enum has no rule for") {
       val comp = mkFailingCompilation(
         "trait Printable[T] { def print(a: T): string }\n" +
