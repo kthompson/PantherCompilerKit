@@ -1,6 +1,6 @@
 using panther
 
-enum Conversion {
+[derive(Eq, Show)] enum Conversion {
   case Implicit
   case Explicit
   case Identity

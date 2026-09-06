@@ -288,8 +288,7 @@ union would make every instantiation look identical.
 
 `registerEnumDerivation` now takes the enum's type parameters rather than a
 `bool` saying whether it has any, and applies them to the alias. 421 tests, up
-from 417. The self-hosting count does not move — no `enum` in `pnc/src` carries
-the attribute, because the transpiler only emits it for `case class`.
+from 417.
 
 The recursive case works: `enum Chain[T] { case Empty; case Link(head: T, tail:
 Chain[T]) }` derives, with `head` discharged by the premise and `tail` by
@@ -301,3 +300,32 @@ the VM 50 slots, so a two-link chain does not run. `--stack-size` raises it, and
 nothing about the derivation is wrong, but the default has to change before a
 derived `Eq[List[T]]` is usable on real data. That is a VM-defaults decision,
 not a type-system one, and it is not made here.
+
+## Outcome, second pass
+
+The transpiler emits `[derive(Eq, Show)]` for `enum` as well as `case class`,
+which is what was holding the count at 407. Scala generates structural equality
+for both; there is no `case` keyword to write the attribute over, so it goes
+between the `enum` keyword's leading trivia and the keyword itself.
+
+**407 → 263**, and derivation went 210 → 68 (52 `Cannot derive` plus 16
+`No given instance`, which is the same failure one level down). 424 tests. The
+195 that are not derivation are unchanged. `Ast.pn` was the largest file in the
+tree at 62 and is now 10.
+
+`List` and `Option` derive, which is what everything above was for.
+
+### What is left, and the surprise in it
+
+The biggest remaining item is not a gap in this ADR. **An enum case used as a
+type of its own** — a field declared `BoundExpression.Call` rather than
+`BoundExpression` — resolves to nothing, because evidence is declared for the
+enum and goal resolution does not widen a case to it. `Binder.evidenceTypes`
+already does exactly that widening, and the operator and contextual-extension
+paths already use it; `resolveEvidence` and `findGivenMember` do not. That is
+8 fields plus 8 goals that fail underneath them, and one widening in one place.
+
+The rest: `Array` needs a conditional given written by hand, being builtin
+rather than declared (10); a composite over a type variable is still unreachable
+(4); and two stateful services should stay unprovable. ROADMAP §1.3a has the
+breakdown.

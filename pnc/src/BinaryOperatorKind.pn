@@ -1,4 +1,4 @@
-enum BinaryOperatorKind {
+[derive(Eq, Show)] enum BinaryOperatorKind {
   case Plus
   case Minus
   case Multiply

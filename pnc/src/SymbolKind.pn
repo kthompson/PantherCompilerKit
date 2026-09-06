@@ -1,4 +1,4 @@
-enum SymbolKind {
+[derive(Eq, Show)] enum SymbolKind {
   case Namespace
   case Object
   case Class

@@ -11,7 +11,7 @@ using panther
 
 /** A sorted list of compiler errors. Sorting is handled by the DiagnosticBag
   */
-enum Diagnostics {
+[derive(Eq, Show)] enum Diagnostics {
   case Empty
   case Node(left: Diagnostics, head: Diagnostic, tail: Diagnostics)
 

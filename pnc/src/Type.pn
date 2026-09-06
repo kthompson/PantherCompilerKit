@@ -13,7 +13,7 @@ using panther
     upperBound: Option[Type]
 )
 
-enum Type {
+[derive(Eq, Show)] enum Type {
 
   /** A named type can have zero or more type arguments. E.g. `List[Int]` ->
     * Named("panther", "List", List.Cons(Named("", "Int"), List.Nil))

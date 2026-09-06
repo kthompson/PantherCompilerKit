@@ -1,6 +1,6 @@
 using panther
 
-enum Chain[T] {
+[derive(Eq, Show)] enum Chain[T] {
   case Empty()
   case Singleton(value: T)
   case Two(left: T, right: T)

@@ -14,7 +14,7 @@ using SimpleNameSyntax
     closeBrace: SyntaxToken
 )
 
-enum SimpleNameSyntax {
+[derive(Eq, Show)] enum SimpleNameSyntax {
 
   // name[type1, type2, ...]
   case GenericNameSyntax(
@@ -41,7 +41,7 @@ enum SimpleNameSyntax {
   )
 }
 
-enum NameSyntax {
+[derive(Eq, Show)] enum NameSyntax {
   case SimpleName(name: SimpleNameSyntax)
   case QualifiedName(
       left: NameSyntax,
@@ -63,7 +63,7 @@ enum NameSyntax {
 
 [derive(Eq, Show)] class ElseSyntax(elseKeyword: SyntaxToken, expression: Expression)
 
-enum Expression {
+[derive(Eq, Show)] enum Expression {
   case ArrayCreation(
       newKeyword: SyntaxToken,
       name: NameSyntax,
@@ -167,7 +167,7 @@ enum Expression {
     block: BlockExpressionListSyntax
 )
 
-enum PatternSyntax {
+[derive(Eq, Show)] enum PatternSyntax {
   case Extract(
       value: NameSyntax,
       openParenToken: SyntaxToken,
@@ -217,7 +217,7 @@ enum PatternSyntax {
     closeBrace: SyntaxToken
 )
 
-enum StatementSyntax {
+[derive(Eq, Show)] enum StatementSyntax {
   case VariableDeclarationStatement(
       valOrVarKeyword: SyntaxToken,
       identifier: SyntaxToken,
@@ -278,7 +278,7 @@ enum StatementSyntax {
     closeBracketToken: SyntaxToken
 )
 
-enum MemberSyntax {
+[derive(Eq, Show)] enum MemberSyntax {
   case ObjectDeclarationSyntax(
       objectKeyword: SyntaxToken,
       identifier: SyntaxToken,

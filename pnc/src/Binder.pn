@@ -16,13 +16,13 @@ using panther
 
 [derive(Eq, Show)] class Namespaced[A](ns: List[string], value: A)
 
-enum BindingMember {
+[derive(Eq, Show)] enum BindingMember {
   case Method(value: MemberSyntax.FunctionDeclarationSyntax)
   case Field(value: MemberSyntax.VariableDeclaration)
   case Parameter(value: ParameterSyntax)
 }
 
-enum TypingMember {
+[derive(Eq, Show)] enum TypingMember {
   case Method(
       genericParameters: List[GenericTypeParameter],
       // context bounds, as trait types applied to the parameter they constrain
@@ -35,7 +35,7 @@ enum TypingMember {
   case Field(options: FieldOptions, scope: Scope)
 }
 
-enum FieldOptions {
+[derive(Eq, Show)] enum FieldOptions {
   case TypeAndExpression(fieldType: Type, expression: Expression)
   case TypeOnly(fieldType: Type)
   case ExpressionOnly(expression: Expression)
@@ -3552,7 +3552,7 @@ enum FieldOptions {
     * call dispatches rather than naming a target
     * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md)).
     */
-  enum DerivedEvidence {
+  [derive(Eq, Show)] enum DerivedEvidence {
     case Ground(member: Symbol, record: Symbol)
     case Through(evidence: BoundEvidence, member: Symbol)
   }

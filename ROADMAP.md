@@ -27,7 +27,7 @@ reproduces the measurement. Re-run them rather than trusting the number.
 sbt pncs/compile && sbt test/test
 ```
 
-Green: 421 tests across the lexer, parser, binder, type checker, VM, metadata
+Green: 424 tests across the lexer, parser, binder, type checker, VM, metadata
 format, transpiler, and args parser.
 
 ### The self-hosted compiler does not
@@ -36,32 +36,31 @@ format, transpiler, and args parser.
 sbt pnc/compile
 ```
 
-Runs to completion and reports **407 diagnostics** against the generated
+Runs to completion and reports **263 diagnostics** against the generated
 `.pn` sources. By message:
 
 | Count | Diagnostic                      |
 | ----: | ------------------------------- |
-|   210 | `Cannot derive Eq`/`Show`       |
 |    57 | `No operator for operands`      |
 |    52 | `Cannot convert from A to B`    |
+|    52 | `Cannot derive Eq`/`Show`       |
 |    39 | `Type X not defined`            |
 |    18 | `Invalid namespace`             |
 |    17 | `Symbol X not found for type T` |
+|    16 | `No given instance`             |
 |     5 | argument-count mismatches       |
 |     5 | `Symbol X not found`            |
 |     2 | `Duplicate definition`          |
-|     2 | `No given instance`             |
 
-**210 of the 407 are derivation**, and they arrived all at once when the
-transpiler started emitting `[derive(Eq, Show)]` for `case class`. They are not
-the same kind of problem as the other 197: each one is the compiler correctly
-reporting that it cannot prove `Eq` or `Show` for a parameter, where before the
-attribute existed those classes had no equality and nothing said so.
-§1.3a breaks them down — 62 of the 105 parameters per trait wait on the generic
-containers, 38 on the transpiler deriving for `enum` too, and 5 should stay
-unprovable. The two `No given instance` belong with them: they are the same
-failure reported at an instantiation rather than at a field. Treat them all as
-a separate burndown from §1.3.
+**68 of the 263 are derivation** — the 52 `Cannot derive` plus the 16
+`No given instance`, which are the same failure reported at an instantiation
+rather than at a field. They peaked at 222 when the transpiler started emitting
+`[derive(Eq, Show)]`, and are down to 68 now that conditional givens work and
+`enum` derives too. They are not the same kind of problem as the other 195:
+each one is the compiler correctly reporting that it cannot prove `Eq` or
+`Show` for a parameter, where before the attribute existed those types had no
+equality and nothing said so. §1.3a breaks down what is left. Treat it as a
+separate burndown from §1.3.
 
 **The other 195 have not moved**, to the line. 2 of them mention an unsolved
 type variable (`$0`, `$1`, …) — a generic parameter the binder gave up on. Name
@@ -69,24 +68,23 @@ resolution is essentially done: the five remaining bare `Symbol X not found` are
 all `File` and `Path` from `using system.io`. What is left is operators and
 conversions.
 
-By file, all 407:
+By file, all 263:
 
 | Count | File                        |
 | ----: | --------------------------- |
-|    62 | `Ast.pn`                    |
-|    61 | `Binder.pn`                 |
+|    33 | `Binder.pn`                 |
 |    26 | `Parser.pn`                 |
-|    26 | `Lowered.pn`                |
 |    25 | `TypeInference.pn`          |
-|    23 | `ExprBinder.pn`             |
-|    19 | `Emitter.pn`                |
-|    17 | `VM.pn`                     |
-|    12 | `BoundNodes.pn`             |
+|    19 | `ExprBinder.pn`             |
+|    18 | `Lowered.pn`                |
+|    15 | `VM.pn`                     |
+|    15 | `Emitter.pn`                |
+|    14 | `BoundNodes.pn`             |
 |    10 | `LoweredAssemblyPrinter.pn` |
+|    10 | `Ast.pn`                    |
 
-`Ast.pn` and `BoundNodes.pn` are near the top only because they are almost
-entirely `case class` declarations; every one of their diagnostics is a
-derivation report.
+`Ast.pn` was the largest file at 62 while derivation was blocked, being almost
+entirely declarations. At 10 it is now the smallest of these.
 
 ### Nothing is ever written to disk
 
@@ -192,7 +190,7 @@ count that decision is made from.
 ### 1.3 Burn down the diagnostics
 
 Ordered by what the counts say, not by what is interesting. This list covers
-the 195 that are not derivation; the 212 derivation reports are §1.3a.
+the 195 that are not derivation; the 68 derivation reports are §1.3a.
 
 1. **`string + T` for non-string `T`** — 46, and the largest single item. Every
    remaining `+` diagnostic. Blocked on a decision, not on work: either the
@@ -252,37 +250,43 @@ back-end work under §1.4 and §3.
 
 ### 1.3a Burn down the derivation reports
 
-210 of them, plus 2 `No given instance` that are the same failure reported at
-an instantiation. Three groups, and the counts below are per trait — `Eq` and
-`Show` fail on the same parameters, so each is worth double:
+68: 52 `Cannot derive` plus 16 `No given instance`, which is the same failure
+reported at an instantiation rather than at a field. They peaked at 222 when
+the transpiler started emitting the attribute. Counts below are per trait —
+`Eq` and `Show` fail on the same parameters, so each is worth double.
 
-1. **The generic containers** — 62. `List` 35, `Option` 18, `Array` 7,
-   `Chain` 2. [ADR 0006](docs/architecture/adr/0006-conditional-givens.md) is
-   implemented, so a conditional given works and a generic *class* derives:
-   `Dictionary`, `KeyValue`, `Tuple2`, `NonEmptyList`, `SeparatedSyntaxList`
-   and `Namespaced` all have givens now. Two things still stand in the way, and
-   both are recorded under that ADR:
-   the transpiler does not emit `[derive(…)]` for `enum`, and `List` and
-   `Option` are both enums; and a parameter whose type is a composite over a
-   type variable — `list: List[KeyValue[K, V]]` — is neither ground nor a
-   premise, so there is nothing for it to point at. `Array` needs a given of
-   its own either way, being builtin. Still the largest item, and the one the
-   other two partly wait on.
+1. **An enum case used as a type of its own** — 8 fields, plus 8 goals that
+   fail one level down as `No given instance`. `BoundExpression.Call`,
+   `MemberSyntax.FunctionDeclarationSyntax` and seven more. Evidence is
+   declared for the enum, not per case, and `Binder.evidenceTypes` already
+   widens a case to its enum — but only on the operator and contextual
+   extension paths. Goal resolution does not, so `Eq[BoundExpression.Call]`
+   finds nothing while `Eq[BoundExpression]` is right there. The largest item
+   left and the cheapest: one widening in one place.
+2. **`Array`** — 10. `Array[SyntaxTrivia]`, `Array[Value]`, `Array[int]` and
+   seven more. `Array` is builtin rather than declared, so there is nothing to
+   put `[derive(…)]` on; it needs a conditional given written the way the
+   prelude's `Eq[int]` is — `Eq[Array[T]]` given `Eq[T]`, comparing lengths and
+   then elements.
+3. **A composite over a type variable** — 4. `items: List[T]`,
+   `tail: List[T]`, `value: List[T]`, `list: List[KeyValue[K, V]]`. Inside a
+   conditional given the goal is neither ground nor one of its premises, so
+   there is nothing to point at. Carrying it means the dependency half growing
+   as bodies are built, plus a fixpoint pass to intern what that adds — see
+   [ADR 0006](docs/architecture/adr/0006-conditional-givens.md).
+4. **Deriving over a stateful service** — 2. `ConversionClassifier` 1,
+   `AstPrinter` 1. These should stay unprovable; the fix is at the call site,
+   not in derivation. See the fourth pass of ADR 0004 for why a
+   reference-identity fallback would be wrong.
 
-   A generic enum itself now derives, recursive cases included, so the `List`
-   shape is expressible; what it waits on is the attribute. One thing to settle
-   first: the VM's default stack is 50 slots, which a recursive derived
-   equality overflows at two elements. `--stack-size` raises it, but the
-   default has to change before `Eq[List[T]]` is usable on real data.
-2. **The transpiler does not derive for `enum`** — 38. `Type` 13,
-   `NameSyntax` 5, `MetadataFlags` 4, `Expression` 3, and eleven more. Scala's
-   `enum` generates structural equality the same way `case class` does, so the
-   transpiler should emit the attribute for both. Cheap to turn on, but the AST
-   enums hold `List` and `Option` parameters and land back in group 1.
-3. **Deriving over a stateful service** — 5. `Diagnostics` 3,
-   `ConversionClassifier` 1, `AstPrinter` 1. These should stay unprovable; the
-   fix is at the call site, not in derivation. See the fourth pass of ADR 0004
-   for why a reference-identity fallback would be wrong.
+The last 2 are `Boolean` and `String` — Scala spellings the transpiler leaves
+alone, so the field's type is an error type. They belong to §1.3 item 2, not
+here.
+
+**One thing to settle before any of this is usable on real data.** The VM's
+default stack is 50 slots, and a recursive derived equality — which is what
+`Eq[List[T]]` is — overflows it at two elements. `--stack-size` raises it and
+the derivation is correct either way, but the default has to change.
 
 Track the number after every change:
 
@@ -290,7 +294,7 @@ Track the number after every change:
 sbt pnc/compile
 ```
 
-**407 → 0.** Nothing else in this section matters until that number moves.
+**263 → 0.** Nothing else in this section matters until that number moves.
 
 Only the first 20 diagnostics are printed. To see them all, transpile first —
 `pnc/compile` does this implicitly, and the count depends on it — then run the
@@ -600,7 +604,7 @@ Things that do not belong to one goal but block several.
   blocks in §4.1.
 - **No lexer support for exponents or shifts**
   ([`Lexer.scala:243`](pncs/src/main/scala/Lexer.scala:243)).
-- **Test coverage is stage-shaped, not feature-shaped.** 421 tests, but
+- **Test coverage is stage-shaped, not feature-shaped.** 424 tests, but
   `MetadataTests` has 2 and there is no end-to-end test that takes source all
   the way to output. §3.4 is the fix.
 
@@ -612,7 +616,7 @@ Sequenced so each step makes the next one measurable.
 
 **First — stop flying blind.** Done. The generated tree matches the
 transpiler (§1.1), the exit code is trustworthy (§1.2), and failures come back
-as diagnostics rather than exceptions (§4.2). The 407 counts every error the
+as diagnostics rather than exceptions (§4.2). The 263 counts every error the
 front end finds — none are discarded.
 
 **Second — generics.** This was the plan, and the measurement has overtaken it
@@ -651,8 +655,8 @@ The three numbers worth putting on a wall:
 
 | Metric                            |         Now | Target | Command                                     |
 | --------------------------------- | ----------: | -----: | ------------------------------------------- |
-| Self-hosting diagnostics          |         407 |      0 | `sbt pnc/compile` (now fails, as it should)  |
-| — of those, derivation            |         212 |      0 | §1.3a                                       |
+| Self-hosting diagnostics          |         263 |      0 | `sbt pnc/compile` (now fails, as it should)  |
+| — of those, derivation            |          68 |      0 | §1.3a                                       |
 | Doc blocks that fail              | **0 / 201** |      0 | `sbt "doccheck/run docs/src/content/docs"`  |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                    |
 | Samples that run in CI            |           0 |      6 | not yet built                               |

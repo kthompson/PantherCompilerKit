@@ -1,6 +1,6 @@
 using panther
 
-enum Value {
+[derive(Eq, Show)] enum Value {
   case Int(value: int)
   case String(value: string)
   case Bool(value: bool)

@@ -1,6 +1,6 @@
 using panther
 
-enum InterpretResult {
+[derive(Eq, Show)] enum InterpretResult {
   case Continue // will continue running
   case Ok // completed running the program
   case OkValue(

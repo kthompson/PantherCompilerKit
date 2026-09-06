@@ -1,4 +1,4 @@
-enum Variance {
+[derive(Eq, Show)] enum Variance {
   case Invariant
   case Covariant // "out"
   case Contravariant // "in"

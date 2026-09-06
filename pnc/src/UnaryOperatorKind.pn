@@ -1,4 +1,4 @@
-enum UnaryOperatorKind {
+[derive(Eq, Show)] enum UnaryOperatorKind {
 
   case Identity
   case Negation // -x => neg

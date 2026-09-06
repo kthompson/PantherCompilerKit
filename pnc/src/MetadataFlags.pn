@@ -1,6 +1,6 @@
 using panther
 
-enum MetadataFlags {
+[derive(Eq, Show)] enum MetadataFlags {
   case None
   case Static
 }

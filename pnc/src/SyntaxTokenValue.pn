@@ -1,6 +1,6 @@
 using panther
 
-enum SyntaxTokenValue {
+[derive(Eq, Show)] enum SyntaxTokenValue {
   case Boolean(value: bool)
   case String(value: string)
   case Character(value: char)

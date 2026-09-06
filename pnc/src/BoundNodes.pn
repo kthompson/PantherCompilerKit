@@ -6,13 +6,13 @@ using panther
     entryPoint: Option[Symbol]
 )
 
-enum BoundDefinition {
+[derive(Eq, Show)] enum BoundDefinition {
   case Object(symbol: Symbol, members: List[BoundMember])
   case Class(symbol: Symbol, members: List[BoundMember])
   //  case Enum(symbol: string, members: Array[String])
 }
 
-enum BoundMember {
+[derive(Eq, Show)] enum BoundMember {
   case Field(symbol: Symbol, typ: Type)
   case Method(
       symbol: Symbol,
@@ -32,12 +32,12 @@ enum BoundMember {
   * premise out of the dependency half of the record it was reached through,
   * which no symbol names.
   */
-enum BoundEvidence {
+[derive(Eq, Show)] enum BoundEvidence {
   case Held(symbol: Symbol)
   case Premise(self: Symbol, index: int, goal: Type)
 }
 
-enum BoundStatement {
+[derive(Eq, Show)] enum BoundStatement {
   case Error
   case ExpressionStatement(expression: BoundExpression)
   case VariableDeclaration(
@@ -48,7 +48,7 @@ enum BoundStatement {
   )
 }
 
-enum BoundLeftHandSide {
+[derive(Eq, Show)] enum BoundLeftHandSide {
   case ArrayCreation(expression: BoundExpression.ArrayCreation)
   case Call(expression: BoundExpression.Call)
   case EvidenceCall(expression: BoundExpression.EvidenceCall)
@@ -58,14 +58,14 @@ enum BoundLeftHandSide {
   case Variable(location: TextLocation, symbol: Symbol)
 }
 
-enum BoundLiteral {
+[derive(Eq, Show)] enum BoundLiteral {
   case Int(location: TextLocation, value: int)
   case String(location: TextLocation, value: string)
   case Bool(location: TextLocation, value: bool)
   case Char(location: TextLocation, value: char)
 }
 
-enum BoundPattern {
+[derive(Eq, Show)] enum BoundPattern {
   case Literal(literal: BoundLiteral)
   case Variable(symbol: Symbol)
   /** `case Color.Red =>` — a case named without destructuring it. It binds
@@ -93,7 +93,7 @@ enum BoundPattern {
     result: BoundExpression
 )
 
-enum BoundExpression {
+[derive(Eq, Show)] enum BoundExpression {
   case Error(message: string)
   case ArrayCreation(
       location: TextLocation,

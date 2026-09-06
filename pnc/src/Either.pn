@@ -1,4 +1,4 @@
-enum Either[out A, out B] {
+[derive(Eq, Show)] enum Either[out A, out B] {
   case Left(value: A)
   case Right(value: B)
 }

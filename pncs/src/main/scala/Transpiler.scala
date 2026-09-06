@@ -157,8 +157,16 @@ case class Transpiler(
       decl: MemberSyntax.EnumDeclarationSyntax,
       context: TranspilerContext
   ): unit = {
+    // Scala's `enum` generates structural equality and printing exactly as
+    // `case class` does, so the attribute belongs on both. Unlike a class there
+    // is no `case` keyword to write it over, so it goes between the keyword's
+    // leading trivia — the indentation and any doc comment — and the keyword
+    // itself, carrying its own separating space.
+    transpileTrivia(decl.enumKeyword.leading, context)
+    context.sb.append("[derive(Eq, Show)] ")
     transpileDeriveAttribute(decl.derives, context)
-    transpileToken(decl.enumKeyword, context)
+    context.sb.append(decl.enumKeyword.text)
+    transpileTrivia(decl.enumKeyword.trailing, context)
     transpileToken(decl.identifier, context)
     transpileGenericParameters(decl.genericParameters, context)
     transpileToken(decl.openBraceToken, context)

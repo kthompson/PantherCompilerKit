@@ -10,7 +10,7 @@ using panther
 [derive(Eq, Show)] class Label(name: String)
 [derive(Eq, Show)] class LabelToken(id: int)
 
-enum LoweredStatement {
+[derive(Eq, Show)] enum LoweredStatement {
   case Error
   case AssignStaticField(
       location: TextLocation,
@@ -62,7 +62,7 @@ enum LoweredStatement {
     expression: LoweredLeftHandSide
 )
 
-enum LoweredLeftHandSide {
+[derive(Eq, Show)] enum LoweredLeftHandSide {
   case Variable(location: TextLocation, symbol: Symbol)
   case MemberAccess(
       location: TextLocation,
@@ -91,7 +91,7 @@ enum LoweredLeftHandSide {
   }
 }
 
-enum LoweredExpression {
+[derive(Eq, Show)] enum LoweredExpression {
   case Error
   case ArrayAccess(
       location: TextLocation,

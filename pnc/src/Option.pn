@@ -1,6 +1,6 @@
 using panther
 
-enum Option[out T] {
+[derive(Eq, Show)] enum Option[out T] {
   case None
   case Some(value: T)
 
