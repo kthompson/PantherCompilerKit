@@ -1,9 +1,4 @@
 using panther
-using Expression
-using MemberSyntax
-using StatementSyntax
-using SimpleNameSyntax
-using NameSyntax
 
 class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
   def toString(): string = buffer.toString()
@@ -49,15 +44,21 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
 
   def printMember(member: MemberSyntax): unit = {
     member match {
-      case value: ObjectDeclarationSyntax   => printObjectDeclaration(value)
-      case value: ClassDeclarationSyntax    => printClassDeclaration(value)
-      case value: FunctionDeclarationSyntax => printFunctionDeclaration(value)
-      case value: TraitDeclarationSyntax    => printTraitDeclaration(value)
-      case value: GivenDeclarationSyntax    => printGivenDeclaration(value)
-      case value: GlobalStatementSyntax     => printGlobalStatement(value)
-      case value: VariableDeclaration =>
+      case value: MemberSyntax.ObjectDeclarationSyntax =>
+        printObjectDeclaration(value)
+      case value: MemberSyntax.ClassDeclarationSyntax =>
+        printClassDeclaration(value)
+      case value: MemberSyntax.FunctionDeclarationSyntax =>
+        printFunctionDeclaration(value)
+      case value: MemberSyntax.TraitDeclarationSyntax =>
+        printTraitDeclaration(value)
+      case value: MemberSyntax.GivenDeclarationSyntax =>
+        printGivenDeclaration(value)
+      case value: MemberSyntax.GlobalStatementSyntax =>
+        printGlobalStatement(value)
+      case value: MemberSyntax.VariableDeclaration =>
         panic("VariableDeclaration not implemented")
-      case value: EnumDeclarationSyntax =>
+      case value: MemberSyntax.EnumDeclarationSyntax =>
         panic("EnumDeclarationSyntax not implemented")
     }
   }
@@ -429,11 +430,13 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
 
   def printStatment(node: StatementSyntax): unit = {
     node match {
-      case value: VariableDeclarationStatement =>
+      case value: StatementSyntax.VariableDeclarationStatement =>
         printVariableDeclarationStatement(value)
-      case value: BreakStatement      => printBreakStatement(value)
-      case value: ContinueStatement   => printContinueStatement(value)
-      case value: ExpressionStatement => printExpressionStatement(value)
+      case value: StatementSyntax.BreakStatement => printBreakStatement(value)
+      case value: StatementSyntax.ContinueStatement =>
+        printContinueStatement(value)
+      case value: StatementSyntax.ExpressionStatement =>
+        printExpressionStatement(value)
     }
   }
 

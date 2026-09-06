@@ -1,9 +1,4 @@
 import panther._
-import MemberSyntax._
-import Expression._
-import StatementSyntax._
-import SimpleNameSyntax._
-import NameSyntax._
 
 case class Parser(
     sourceFile: SourceFile,
@@ -190,37 +185,37 @@ case class Parser(
 
   def hasStatementTerminator(expression: Expression): bool = {
     expression match {
-      case value: ArrayCreation =>
+      case value: Expression.ArrayCreation =>
         value.initializer match {
           case Option.None =>
             value.closeBracket.isStatementTerminator()
           case Option.Some(value) =>
             value.closeBrace.isStatementTerminator()
         }
-      case value: Assignment => hasStatementTerminator(value.right)
-      case value: Binary     => hasStatementTerminator(value.right)
-      case value: Block      => value.closeBrace.isStatementTerminator()
-      case value: Call       => value.closeParen.isStatementTerminator()
-      case value: Cast       => nameHasStatementTerminator(value.typ)
-      case value: For        => hasStatementTerminator(value.body)
-      case value: Group      => value.closeParen.isStatementTerminator()
+      case value: Expression.Assignment => hasStatementTerminator(value.right)
+      case value: Expression.Binary     => hasStatementTerminator(value.right)
+      case value: Expression.Block => value.closeBrace.isStatementTerminator()
+      case value: Expression.Call  => value.closeParen.isStatementTerminator()
+      case value: Expression.Cast  => nameHasStatementTerminator(value.typ)
+      case value: Expression.For   => hasStatementTerminator(value.body)
+      case value: Expression.Group => value.closeParen.isStatementTerminator()
       case Expression.IdentifierName(value) =>
         simpleNameHasStatementTerminator(value)
-      case value: If =>
+      case value: Expression.If =>
         hasStatementTerminator(value.elseExpr match {
           case Option.Some(value) => value.expression
           case Option.None        => value.thenExpr
         })
-      case value: Is      => nameHasStatementTerminator(value.typ)
-      case value: Literal => value.token.isStatementTerminator()
-      case Match(_, _, _, _, closeBrace) =>
+      case value: Expression.Is      => nameHasStatementTerminator(value.typ)
+      case value: Expression.Literal => value.token.isStatementTerminator()
+      case Expression.Match(_, _, _, _, closeBrace) =>
         closeBrace.isStatementTerminator()
-      case value: MemberAccess =>
+      case value: Expression.MemberAccess =>
         simpleNameHasStatementTerminator(value.right)
-      case value: New   => value.closeParen.isStatementTerminator()
-      case value: Unary => hasStatementTerminator(value.expression)
-      case value: Unit  => value.closeParen.isStatementTerminator()
-      case value: While => hasStatementTerminator(value.body)
+      case value: Expression.New   => value.closeParen.isStatementTerminator()
+      case value: Expression.Unary => hasStatementTerminator(value.expression)
+      case value: Expression.Unit  => value.closeParen.isStatementTerminator()
+      case value: Expression.While => hasStatementTerminator(value.body)
     }
   }
 
@@ -248,7 +243,7 @@ case class Parser(
   def parseIdentifierNameExpression(): Expression = {
     val name = parseSimpleName(false)
 
-    new IdentifierName(name)
+    new Expression.IdentifierName(name)
   }
 
   def parseQualifiedName(inUsing: bool, left: NameSyntax): NameSyntax = {
@@ -258,7 +253,7 @@ case class Parser(
     } else {
       val dot = accept()
       val right = parseSimpleName(inUsing)
-      val qn = new QualifiedName(left, dot, right)
+      val qn = new NameSyntax.QualifiedName(left, dot, right)
       parseQualifiedName(inUsing, qn)
     }
   }
@@ -286,13 +281,13 @@ case class Parser(
       ) {
         val typeArgumentlist = parseTypeArgumentList(inUsing, true)
 
-        new GenericNameSyntax(ident, typeArgumentlist)
+        new SimpleNameSyntax.GenericNameSyntax(ident, typeArgumentlist)
       } else {
-        new IdentifierNameSyntax(ident)
+        new SimpleNameSyntax.IdentifierNameSyntax(ident)
       }
     } else if (scala && inUsing && currentKind() == SyntaxKind.StarToken) {
       val ident = accept()
-      new IdentifierNameSyntax(ident)
+      new SimpleNameSyntax.IdentifierNameSyntax(ident)
     } else if (scala && inUsing && currentKind() == SyntaxKind.OpenBraceToken) {
       val openBrace = accept()
       val name = acceptKind(SyntaxKind.IdentifierToken)
@@ -300,9 +295,17 @@ case class Parser(
       val alias = acceptKind(SyntaxKind.IdentifierToken)
       val closeBrace = acceptKind(SyntaxKind.CloseBraceToken)
 
-      new ScalaAliasSyntax(openBrace, name, arrow, alias, closeBrace)
+      new SimpleNameSyntax.ScalaAliasSyntax(
+        openBrace,
+        name,
+        arrow,
+        alias,
+        closeBrace
+      )
     } else {
-      new IdentifierNameSyntax(acceptKind(SyntaxKind.IdentifierToken))
+      new SimpleNameSyntax.IdentifierNameSyntax(
+        acceptKind(SyntaxKind.IdentifierToken)
+      )
     }
   }
 
@@ -358,7 +361,11 @@ case class Parser(
     val identifier = acceptKind(SyntaxKind.IdentifierToken)
     val template = parseTemplate()
 
-    new ObjectDeclarationSyntax(objectKeyword, identifier, template)
+    new MemberSyntax.ObjectDeclarationSyntax(
+      objectKeyword,
+      identifier,
+      template
+    )
   }
 
   /** `trait Eq[T] { def equals(a: T, b: T): bool }`
@@ -574,7 +581,7 @@ case class Parser(
       Option.None
     }
 
-    new ClassDeclarationSyntax(
+    new MemberSyntax.ClassDeclarationSyntax(
       derives,
       caseKeyword,
       keyword,
@@ -1079,21 +1086,21 @@ case class Parser(
     val cases = NonEmptyList(caseHead, parseMatchCases(List.Nil))
     val close = acceptKind(SyntaxKind.CloseBraceToken)
 
-    new Match(left, keyword, open, cases, close)
+    new Expression.Match(left, keyword, open, cases, close)
   }
 
   def parseCastExpression(left: Expression): Expression = {
     val keyword = accept()
     val typ = parseName(false)
 
-    new Cast(left, keyword, typ)
+    new Expression.Cast(left, keyword, typ)
   }
 
   def parseIsExpression(left: Expression): Expression = {
     val keyword = accept()
     val typ = parseName(false)
 
-    new Is(left, keyword, typ)
+    new Expression.Is(left, keyword, typ)
   }
 
   def parseMatchCases(
@@ -1196,7 +1203,7 @@ case class Parser(
 
   def identFromName(name: NameSyntax): Option[SyntaxToken] = {
     name match {
-      case _: QualifiedName => Option.None
+      case _: NameSyntax.QualifiedName => Option.None
       case NameSyntax.SimpleName(simpleName) =>
         simpleName match {
           case value: SimpleNameSyntax.GenericNameSyntax =>
@@ -1284,7 +1291,7 @@ case class Parser(
     val typeAnnotation = parseOptionalTypeAnnotation()
     val body = parseFunctionBody()
 
-    new FunctionDeclarationSyntax(
+    new MemberSyntax.FunctionDeclarationSyntax(
       defKeyword,
       identifier,
       typeParams,
@@ -1364,7 +1371,7 @@ case class Parser(
     val members = parseMembers(false)
     val close = acceptKind(SyntaxKind.CloseBraceToken)
 
-    new EnumDeclarationSyntax(
+    new MemberSyntax.EnumDeclarationSyntax(
       derives,
       enumKeyword,
       identifier,
@@ -1474,7 +1481,7 @@ case class Parser(
 
   def parseGlobalStatement(): MemberSyntax.GlobalStatementSyntax = {
     debugPrint("parseGlobalStatement")
-    new GlobalStatementSyntax(parseStatement())
+    new MemberSyntax.GlobalStatementSyntax(parseStatement())
   }
 
   def parseMember(topLevelStatement: bool): MemberSyntax = {

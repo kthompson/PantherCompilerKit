@@ -36,50 +36,52 @@ format, transpiler, and args parser.
 sbt pnc/compile
 ```
 
-Runs to completion and reports **181 diagnostics** against the generated
+Runs to completion and reports **161 diagnostics** against the generated
 `.pn` sources. By message:
 
 | Count | Diagnostic                      |
 | ----: | ------------------------------- |
 |    58 | `No operator for operands`      |
 |    46 | `Cannot convert from A to B`    |
-|    26 | `Type X not defined`            |
 |    18 | `Invalid namespace`             |
 |    17 | `Symbol X not found for type T` |
+|     6 | `Type X not defined`            |
 |     5 | argument-count mismatches       |
 |     5 | `Symbol X not found`            |
 |     4 | `Cannot derive Eq`/`Show`       |
 |     2 | `Duplicate definition`          |
 
-**4 of the 181 are derivation, and both types should stay unprovable.**
+**4 of the 161 are derivation, and both types should stay unprovable.**
 They peaked at 222 when the transpiler started emitting `[derive(Eq, Show)]`.
 §1.3a is finished.
 
-**The other 189** were 195 until the `while` fix in §1.3b took six
-`Cannot convert` with it. 2 of them mention an unsolved
+**The other 157** were 195 until the `while` fix in §1.3b took six
+`Cannot convert` with it and the wildcard-import cleanup took twenty
+`Type X not defined`. 2 of them mention an unsolved
 type variable (`$0`, `$1`, …) — a generic parameter the binder gave up on. Name
 resolution is essentially done: the five remaining bare `Symbol X not found` are
-all `File` and `Path` from `using system.io`. What is left is operators and
-conversions.
+all `File` and `Path` from `using system.io`, and every remaining
+`Type X not defined` is `HashMap`. What is left is operators and conversions.
 
-By file, all 181:
+By file, the ten largest of the 161:
 
 | Count | File               |
 | ----: | ------------------ |
-|    26 | `Parser.pn`        |
 |    24 | `TypeInference.pn` |
 |    19 | `ExprBinder.pn`    |
 |    17 | `Emitter.pn`       |
 |    13 | `Binder.pn`        |
 |    11 | `VM.pn`            |
+|     9 | `Parser.pn`        |
 |     8 | `DiagnosticBag.pn` |
 |     6 | `Trim.pn`          |
 |     6 | `Lowered.pn`       |
-|     5 | `Transpiler.pn`    |
+|     4 | `Type.pn`          |
 
 `Ast.pn` and `Binder.pn` were the two largest at 62 and 61 while derivation was
-blocked, being mostly declarations. The list is now shaped by what the binder
-cannot do rather than by what it cannot prove.
+blocked, being mostly declarations. `Parser.pn` was 26 until the wildcard
+imports came out. The list is now shaped by what the binder cannot do rather
+than by what it cannot prove.
 
 ### Nothing is ever written to disk
 
@@ -185,19 +187,17 @@ count that decision is made from.
 ### 1.3 Burn down the diagnostics
 
 Ordered by what the counts say, not by what is interesting. This list covers
-the 177 that are not derivation; the 4 derivation reports are §1.3a.
+the 157 that are not derivation; the 4 derivation reports are §1.3a.
 
 1. **`string + T` for non-string `T`** — 47, and the largest single item. Every
    remaining `+` diagnostic. Blocked on a decision, not on work: either the
    operator gains an overload against `any`, or the transpiler inserts the
    `string(…)` call the docs already teach. See §4.2.
-2. **`Type X not defined`** — 26, and still transpiler work rather than binder
-   work. Two groups: 20 are an enum case used unqualified as a type
-   (`case expr: Match =>` where the case is `Expression.Match`), which is the
-   cleanup commit `adc9723` started and did not finish; 6 are `HashMap`, which
-   has no Panther equivalent and needs one or a rewrite onto `Dictionary`.
-   The third group — Scala's own spellings of the builtins — is closed: the
-   transpiler rewrites `String`, `Boolean` and `Unit` in a type position.
+2. **`Type X not defined`** — 6, all of them `HashMap`, which has no Panther
+   equivalent and needs one or a rewrite onto `Dictionary`. The other two
+   groups are closed: the transpiler rewrites `String`, `Boolean` and `Unit`
+   in a type position, and the enum cases used unqualified as types are gone
+   with the wildcard imports that made them reachable.
 3. **`if`/`else` does not form a union** — 23 of the 52 `Cannot convert` are a
    case against a sibling case of the same enum: `Option.None` to
    `Option.Some<T>`, `MetadataFlags.None` to `MetadataFlags.Static`,
@@ -264,7 +264,7 @@ Track the number after every change:
 sbt pnc/compile
 ```
 
-**181 → 0.** Nothing else in this section matters until that number moves.
+**161 → 0.** Nothing else in this section matters until that number moves.
 
 Only the first 20 diagnostics are printed. To see them all, transpile first —
 `pnc/compile` does this implicitly, and the count depends on it — then run the
@@ -635,27 +635,24 @@ Sequenced so each step makes the next one measurable.
 
 **First — stop flying blind.** Done. The generated tree matches the
 transpiler (§1.1), the exit code is trustworthy (§1.2), and failures come back
-as diagnostics rather than exceptions (§4.2). The 181 counts every error the
+as diagnostics rather than exceptions (§4.2). The 161 counts every error the
 front end finds — none are discarded.
 
 **Second — generics.** This was the plan, and the measurement has overtaken it
-twice. Only 13 of the non-derivation 195 are generics: 2 mention a type
+twice. Only 13 of the non-derivation 157 are generics: 2 mention a type
 variable, 11 a parameter that defaulted to `any`. §2.1 and §2.2 are still worth
 doing, but they cannot make that number fall sharply, because it is not made of
 generics.
 
-What it is made of, in order: `string + T` (46), `Type X not defined` (39), the
-sibling-case conversions an `if`/`else` cannot union (23), `Invalid namespace`
-(18), member lookup on builtins and case types (17), string indexing (16).
-Those are §1.3 items 1–6 — ordinary front-end and transpiler work, not type
-theory. Take them before §2.
+What it is made of, in order: `string + T` (47), the sibling-case conversions
+an `if`/`else` cannot union (23), `Invalid namespace` (18), member lookup on
+builtins and case types (17), string indexing (16). Those are §1.3 items 1 and
+3–6 — ordinary front-end and transpiler work, not type theory. Take them before
+§2.
 
-The 210 derivation reports are the exception: §1.3a item 1 is the generic
-containers, which is type-system work and the single largest item on the board.
-Most of the machinery is built —
-[ADR 0006](docs/architecture/adr/0006-conditional-givens.md) — and what is left
-is unifying an enum's type and carrying a goal that is a composite over a type
-variable.
+Derivation was the exception, and it is finished: 222 down to 4, over
+[ADR 0006](docs/architecture/adr/0006-conditional-givens.md) and the passes
+listed in §1.3a.
 
 **Third — make programs runnable.**
 §3.1 `.pnb` read/write, §3.2 the runner. Unblocks samples, output-checked docs,
@@ -674,7 +671,7 @@ The three numbers worth putting on a wall:
 
 | Metric                            |         Now | Target | Command                                     |
 | --------------------------------- | ----------: | -----: | ------------------------------------------- |
-| Self-hosting diagnostics          |         181 |      0 | `sbt pnc/compile` (now fails, as it should)  |
+| Self-hosting diagnostics          |         161 |      0 | `sbt pnc/compile` (now fails, as it should)  |
 | — of those, derivation            |           4 |      0 | §1.3a                                       |
 | Doc blocks that fail              | **0 / 201** |      0 | `sbt "doccheck/run docs/src/content/docs"`  |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                    |

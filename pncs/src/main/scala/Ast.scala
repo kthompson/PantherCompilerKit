@@ -1,8 +1,5 @@
 import panther._
 
-import MemberSyntax._
-import SimpleNameSyntax._
-
 /** separatorToken may be either a `.` or `,` in the case
   */
 

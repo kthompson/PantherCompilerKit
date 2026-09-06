@@ -1,10 +1,5 @@
-using Expression
 using panther
 using system.io
-using MemberSyntax
-using PatternSyntax
-using NameSyntax
-using SimpleNameSyntax
 
 [derive(Eq, Show)] class TranspilerContext(sb: StringBuilder)
 
@@ -134,21 +129,21 @@ using SimpleNameSyntax
       context: TranspilerContext
   ): unit = {
     member match {
-      case value: ObjectDeclarationSyntax =>
+      case value: MemberSyntax.ObjectDeclarationSyntax =>
         transpileObjectDeclaration(value, context)
-      case value: ClassDeclarationSyntax =>
+      case value: MemberSyntax.ClassDeclarationSyntax =>
         transpileClassDeclaration(value, context)
-      case value: FunctionDeclarationSyntax =>
+      case value: MemberSyntax.FunctionDeclarationSyntax =>
         transpileFunctionDeclaration(value, context)
-      case value: EnumDeclarationSyntax =>
+      case value: MemberSyntax.EnumDeclarationSyntax =>
         transpileEnumDeclaration(value, context)
-      case value: TraitDeclarationSyntax =>
+      case value: MemberSyntax.TraitDeclarationSyntax =>
         transpileTraitDeclaration(value, context)
-      case value: GivenDeclarationSyntax =>
+      case value: MemberSyntax.GivenDeclarationSyntax =>
         transpileGivenDeclaration(value, context)
-      case value: VariableDeclaration =>
+      case value: MemberSyntax.VariableDeclaration =>
         transpileVariableDeclaration(value, context)
-      case value: GlobalStatementSyntax =>
+      case value: MemberSyntax.GlobalStatementSyntax =>
         transpileGlobalStatement(value, context)
     }
   }
@@ -818,10 +813,10 @@ using SimpleNameSyntax
     *
     * Only an *unqualified simple* name is rewritten, and that restriction is
     * the whole difficulty. `String`, `Boolean` and `Unit` are also the names of
-    * enum cases all over the AST — `BoundExpression.String`,
-    * `Expression.Unit`, `SyntaxTokenValue.Boolean` — so rewriting a token
-    * wherever it appeared, or even the last segment of a qualified type, would
-    * rename the compiler's own types out from under it.
+    * enum cases all over the AST — `BoundExpression.String`, `Expression.Unit`,
+    * `SyntaxTokenValue.Boolean` — so rewriting a token wherever it appeared, or
+    * even the last segment of a qualified type, would rename the compiler's own
+    * types out from under it.
     */
   def transpileTypeName(name: NameSyntax, context: TranspilerContext): unit = {
     name match {
