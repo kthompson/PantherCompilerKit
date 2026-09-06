@@ -546,6 +546,76 @@ class VmTests extends AnyFunSpec with Matchers {
       )
     }
 
+    /** `while` lowers to a start label, the condition, a conditional goto, the
+      * body and a jump back. The start label used to be placed above every
+      * statement the enclosing block had already lowered, not just above the
+      * condition, so a `var` declared before the loop was re-initialised on
+      * each pass and a counter never advanced. Nothing covered it.
+      */
+    it("should execute a while loop after a declaration") {
+      assertExecValueIntWithSetup(
+        "var i = 0",
+        "{ while (i < 3) { i = i + 1 } i }",
+        3
+      )
+      // the condition's own temporaries still have to be recomputed each pass
+      assertExecValueIntWithSetup(
+        "var i = 0\nvar n = 4",
+        "{ while (i < n - 1) { i = i + 1 } i }",
+        3
+      )
+      // a loop whose condition is false on entry runs zero times
+      assertExecValueIntWithSetup(
+        "var i = 9",
+        "{ while (i < 3) { i = i + 1 } i }",
+        9
+      )
+    }
+
+    /** `Eq[Array[T]]` given `Eq[T]`: a prelude given written by hand, because
+      * `Array` is builtin and there is nothing to put `[derive(…)]` on. The
+      * body loops rather than recursing, so its stack cost is flat in the
+      * array's length.
+      */
+    it("should run Eq over an array") {
+      val setup = "val a = new Array[int](2)\na(0) = 1\na(1) = 2\n" +
+        "val b = new Array[int](2)\nb(0) = 1\nb(1) = 2\n" +
+        "val c = new Array[int](2)\nc(0) = 1\nc(1) = 9\n" +
+        "val d = new Array[int](1)\nd(0) = 1\n"
+
+      assertExecValueBoolWithSetup(setup, "a == b", true)
+      // differs in the last element, so the loop has to reach it
+      assertExecValueBoolWithSetup(setup, "a == c", false)
+      // differs in length
+      assertExecValueBoolWithSetup(setup, "a == d", false)
+      assertExecValueBoolWithSetup(setup, "a != c", true)
+      assertExecValueBoolWithSetup(setup, "a != b", false)
+    }
+
+    it("should run Show over an array") {
+      assertExecValueStringWithSetup(
+        "val a = new Array[int](2)\na(0) = 1\na(1) = 2",
+        "a.show()",
+        "[1, 2]"
+      )
+      assertExecValueStringWithSetup(
+        "val a = new Array[string](2)\na(0) = \"x\"\na(1) = \"y\"",
+        "a.show()",
+        "[x, y]"
+      )
+      // no elements, so no separator
+      assertExecValueStringWithSetup(
+        "val a = new Array[int](0)",
+        "a.show()",
+        "[]"
+      )
+      assertExecValueStringWithSetup(
+        "val a = new Array[int](1)\na(0) = 7",
+        "a.show()",
+        "[7]"
+      )
+    }
+
     /** Case order decides before any parameter does, so every `Circle` sorts
       * before every `Rect` regardless of what they hold.
       */
@@ -1215,6 +1285,31 @@ class VmTests extends AnyFunSpec with Matchers {
       assertExecValueIntWithSetup(setup, "array(0)", 0)
       assertExecValueIntWithSetup(setup, "array(1)", 0)
       assertExecValueIntWithSetup(setup, "array(2)", 0)
+    }
+
+    /** An array's length is a header slot written by `Newarr`, not a field.
+      * Reading it as a field landed on element 0, so `length` answered with
+      * whatever the first element happened to hold and a fresh array always
+      * looked empty.
+      */
+    it("should execute array length") {
+      assertExecValueIntWithSetup("val a = new Array[int](3)", "a.length", 3)
+      assertExecValueIntWithSetup("val a = new Array[int](0)", "a.length", 0)
+      assertExecValueIntWithSetup("val a = new Array[string](7)", "a.length", 7)
+
+      // element 0 is where the old field read landed, so writing it is what
+      // tells the two apart
+      assertExecValueIntWithSetup(
+        "val a = new Array[int](3)\na(0) = 5",
+        "a.length",
+        3
+      )
+      // and the header must not be reachable as an element
+      assertExecValueIntWithSetup(
+        "val a = new Array[int](3)\na(0) = 5",
+        "a(0)",
+        5
+      )
     }
 
     it("should execute array indexing - with assignment") {

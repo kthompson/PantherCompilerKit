@@ -1194,10 +1194,16 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       endLabel
     )
 
-    val conditionBlock = lowerExpression(expr.condition, context)
+    // Lowered against an empty block, not against `context`: the condition's
+    // own temporaries have to sit *after* the start label so they are
+    // recomputed each time round, while everything the enclosing block already
+    // lowered has to stay before it. Threading `context` through here put the
+    // label above both, so a `var` declared before the loop was re-initialised
+    // on every iteration and a counter never advanced.
+    val conditionBlock = lowerExpression(expr.condition, emptyBlock)
 
-    val condGoto = ChainModule
-      .of(startLabelDecl)
+    val condGoto = context.statements
+      .append(startLabelDecl)
       .concat(conditionBlock.statements)
       .append(
         LoweredStatement.ConditionalGoto(

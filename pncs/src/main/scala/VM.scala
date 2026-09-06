@@ -793,6 +793,11 @@ case class VM(
         methodCall(token, ip)
 
       // Array operations
+      // An array's first slot holds its length and its elements follow, so
+      // `Ldelem` and `Stelem` index from `addr + 1`. Without the header there
+      // is nowhere for `Ldlen` to read from: an array reference is an address
+      // and nothing else, and `length` was being read as a field, which landed
+      // on element 0.
       case Opcode.Newarr =>
         // Read the element type token
         val elementTypeToken = readTypeDefToken()
@@ -801,13 +806,14 @@ case class VM(
         val sizeValue = pop()
         sizeValue match {
           case Value.Int(size) =>
-            // Allocate space for the array
-            val arrayAddr = alloc(size)
+            // One slot for the length, then one per element
+            val arrayAddr = alloc(size + 1)
+            heap(arrayAddr) = Value.Int(size)
 
             // Initialize all elements with appropriate default values based on type
             val defaultValue = getDefaultValueForType(elementTypeToken)
             for (i <- 0 to (size - 1)) {
-              heap(arrayAddr + i) = defaultValue
+              heap(arrayAddr + 1 + i) = defaultValue
             }
 
             // Use the element type token for the array reference
@@ -817,6 +823,16 @@ case class VM(
             InterpretResult.Continue
           case _ =>
             runtimeError("Expected integer size for array creation")
+        }
+
+      case Opcode.Ldlen =>
+        val arrayRef = pop()
+        arrayRef match {
+          case Value.Ref(_, addr) =>
+            push(heap(addr))
+            InterpretResult.Continue
+          case _ =>
+            runtimeError("Expected array reference for length")
         }
 
       case Opcode.Ldelem =>
@@ -829,7 +845,7 @@ case class VM(
             arrayRef match {
               case Value.Ref(typeToken, addr) =>
                 // Load the element from the array
-                val elementValue = heap(addr + indexValue)
+                val elementValue = heap(addr + 1 + indexValue)
                 push(elementValue)
                 InterpretResult.Continue
               case _ =>
@@ -850,7 +866,7 @@ case class VM(
             arrayRef match {
               case Value.Ref(typeToken, addr) =>
                 // Store the value in the array
-                heap(addr + indexValue) = value
+                heap(addr + 1 + indexValue) = value
                 InterpretResult.Continue
               case _ =>
                 runtimeError("Expected array reference for element assignment")

@@ -81,7 +81,11 @@ class BinderTests extends AnyFunSpec with Matchers {
         "Show<int>",
         "Show<string>",
         "Show<bool>",
-        "Show<char>"
+        "Show<char>",
+        // conditional: an array is comparable and printable when its elements
+        // are. `Array` is builtin, so there is nothing to derive over
+        "Eq<Array<$0>>",
+        "Show<Array<$0>>"
       )
 
       memberSignature(

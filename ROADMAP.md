@@ -27,7 +27,7 @@ reproduces the measurement. Re-run them rather than trusting the number.
 sbt pncs/compile && sbt test/test
 ```
 
-Green: 428 tests across the lexer, parser, binder, type checker, VM, metadata
+Green: 432 tests across the lexer, parser, binder, type checker, VM, metadata
 format, transpiler, and args parser.
 
 ### The self-hosted compiler does not
@@ -36,50 +36,51 @@ format, transpiler, and args parser.
 sbt pnc/compile
 ```
 
-Runs to completion and reports **231 diagnostics** against the generated
+Runs to completion and reports **205 diagnostics** against the generated
 `.pn` sources. By message:
 
 | Count | Diagnostic                      |
 | ----: | ------------------------------- |
 |    57 | `No operator for operands`      |
-|    52 | `Cannot convert from A to B`    |
+|    46 | `Cannot convert from A to B`    |
 |    39 | `Type X not defined`            |
-|    36 | `Cannot derive Eq`/`Show`       |
 |    18 | `Invalid namespace`             |
 |    17 | `Symbol X not found for type T` |
+|    16 | `Cannot derive Eq`/`Show`       |
 |     5 | argument-count mismatches       |
 |     5 | `Symbol X not found`            |
 |     2 | `Duplicate definition`          |
 
-**36 of the 231 are derivation.** They peaked at 222 when the transpiler
-started emitting `[derive(Eq, Show)]`, and are down to 36 now that conditional
-givens work, `enum` derives, and a goal naming an enum case widens to the enum.
-They are not the same kind of problem as the other 195: each one is the
-compiler correctly reporting that it cannot prove `Eq` or `Show` for a
-parameter, where before the attribute existed those types had no equality and
-nothing said so. §1.3a breaks down what is left. Treat it as a separate
-burndown from §1.3.
+**16 of the 205 are derivation.** They peaked at 222 when the transpiler
+started emitting `[derive(Eq, Show)]`, and are down to 16 now that conditional
+givens work, `enum` derives, a goal naming an enum case widens to the enum, and
+`Array` has a given of its own. They are not the same kind of problem as the
+other 189: each one is the compiler correctly reporting that it cannot prove
+`Eq` or `Show` for a parameter, where before the attribute existed those types
+had no equality and nothing said so. §1.3a breaks down what is left. Treat it
+as a separate burndown from §1.3.
 
-**The other 195 have not moved**, to the line. 2 of them mention an unsolved
+**The other 189** were 195 until the `while` fix in §1.3b took six
+`Cannot convert` with it. 2 of them mention an unsolved
 type variable (`$0`, `$1`, …) — a generic parameter the binder gave up on. Name
 resolution is essentially done: the five remaining bare `Symbol X not found` are
 all `File` and `Path` from `using system.io`. What is left is operators and
 conversions.
 
-By file, all 231:
+By file, all 205:
 
 | Count | File                        |
 | ----: | --------------------------- |
 |    26 | `Parser.pn`                 |
 |    25 | `TypeInference.pn`          |
 |    19 | `ExprBinder.pn`             |
-|    18 | `Lowered.pn`                |
-|    15 | `VM.pn`                     |
 |    15 | `Emitter.pn`                |
 |    13 | `Binder.pn`                 |
+|    12 | `Lowered.pn`                |
+|    11 | `VM.pn`                     |
 |    10 | `LoweredAssemblyPrinter.pn` |
-|    10 | `Ast.pn`                    |
 |     8 | `DiagnosticBag.pn`          |
+|     6 | `Trim.pn`                   |
 
 `Ast.pn` and `Binder.pn` were the two largest at 62 and 61 while derivation was
 blocked, being mostly declarations. The list is now shaped by what the binder
@@ -189,7 +190,7 @@ count that decision is made from.
 ### 1.3 Burn down the diagnostics
 
 Ordered by what the counts say, not by what is interesting. This list covers
-the 195 that are not derivation; the 36 derivation reports are §1.3a.
+the 189 that are not derivation; the 16 derivation reports are §1.3a.
 
 1. **`string + T` for non-string `T`** — 46, and the largest single item. Every
    remaining `+` diagnostic. Blocked on a decision, not on work: either the
@@ -249,29 +250,28 @@ back-end work under §1.4 and §3.
 
 ### 1.3a Burn down the derivation reports
 
-36, down from a peak of 222. Counts below are per trait — `Eq` and `Show` fail
+16, down from a peak of 222. Counts below are per trait — `Eq` and `Show` fail
 on the same parameters, so each is worth double.
 
-1. **`Array`** — 10. `Array[SyntaxTrivia]`, `Array[Value]`, `Array[int]` and
-   seven more. `Array` is builtin rather than declared, so there is nothing to
-   put `[derive(…)]` on; it needs a conditional given written the way the
-   prelude's `Eq[int]` is — `Eq[Array[T]]` given `Eq[T]`, comparing lengths and
-   then elements. The largest item left, and the only one that is plain work
-   rather than a design question.
-2. **A composite over a type variable** — 4. `items: List[T]`,
+1. **A composite over a type variable** — 4. `items: List[T]`,
    `tail: List[T]`, `value: List[T]`, `list: List[KeyValue[K, V]]`. Inside a
    conditional given the goal is neither ground nor one of its premises, so
    there is nothing to point at. Carrying it means the dependency half growing
    as bodies are built, plus a fixpoint pass to intern what that adds — see
-   [ADR 0006](docs/architecture/adr/0006-conditional-givens.md).
-3. **Deriving over a stateful service** — 2. `ConversionClassifier` 1,
+   [ADR 0006](docs/architecture/adr/0006-conditional-givens.md). The only
+   design question left in derivation.
+2. **Deriving over a stateful service** — 2. `ConversionClassifier` 1,
    `AstPrinter` 1. These should stay unprovable; the fix is at the call site,
    not in derivation. See the fourth pass of ADR 0004 for why a
    reference-identity fallback would be wrong.
+3. **`Boolean` and `String`** — 2. Scala spellings the transpiler leaves alone,
+   so the field's type is an error type and derivation reports what it was
+   handed. They belong to §1.3 item 2 and will go when that does.
 
-The last 2 are `Boolean` and `String` — Scala spellings the transpiler leaves
-alone, so the field's type is an error type. They belong to §1.3 item 2, not
-here.
+So one item is real work, and the other two are either correct or somebody
+else's. `Array` is done: it is builtin rather than declared, so it has a
+conditional given written by hand in the prelude, `Eq[Array[T]]` given `Eq[T]`
+and `Show[Array[T]]` given `Show[T]`.
 
 Track the number after every change:
 
@@ -279,7 +279,7 @@ Track the number after every change:
 sbt pnc/compile
 ```
 
-**231 → 0.** Nothing else in this section matters until that number moves.
+**205 → 0.** Nothing else in this section matters until that number moves.
 
 Only the first 20 diagnostics are printed. To see them all, transpile first —
 `pnc/compile` does this implicitly, and the count depends on it — then run the
@@ -320,10 +320,23 @@ much they look worth:
    member that loops rather than recurses would be flat in `n`. This is the
    real fix and the largest change.
 
+`Eq[Array[T]]` in the prelude is the third of these done by hand: it loops, so
+its stack cost does not grow with the array's length. Whatever a derived member
+would have to generate for `List` is what that body already spells out.
+
 None of this blocks anything: the default stack is 8192 slots, which is about
 680 plain frames or a derived `Eq` over a 500-element list. It was 50, which
 is two or three frames of anything, and it went unnoticed because nothing
 recursive had ever run on the VM.
+
+Fixing `while` was a prerequisite for that body and is worth recording on its
+own: the lowerer placed the loop's start label above every statement the
+enclosing block had already lowered, not just above the condition, so a `var`
+declared before a loop was re-initialised on each pass and a counter never
+advanced. No test covered `while` at all. `Array.length` was the other one —
+it was read as a field and landed on element 0, so a fresh array always looked
+empty. Both are in
+[ADR 0006](docs/architecture/adr/0006-conditional-givens.md).
 
 ### 1.4 Close the unimplemented holes
 
@@ -625,7 +638,7 @@ Things that do not belong to one goal but block several.
   blocks in §4.1.
 - **No lexer support for exponents or shifts**
   ([`Lexer.scala:243`](pncs/src/main/scala/Lexer.scala:243)).
-- **Test coverage is stage-shaped, not feature-shaped.** 428 tests, but
+- **Test coverage is stage-shaped, not feature-shaped.** 432 tests, but
   `MetadataTests` has 2 and there is no end-to-end test that takes source all
   the way to output. §3.4 is the fix.
 
@@ -637,7 +650,7 @@ Sequenced so each step makes the next one measurable.
 
 **First — stop flying blind.** Done. The generated tree matches the
 transpiler (§1.1), the exit code is trustworthy (§1.2), and failures come back
-as diagnostics rather than exceptions (§4.2). The 231 counts every error the
+as diagnostics rather than exceptions (§4.2). The 205 counts every error the
 front end finds — none are discarded.
 
 **Second — generics.** This was the plan, and the measurement has overtaken it
@@ -676,8 +689,8 @@ The three numbers worth putting on a wall:
 
 | Metric                            |         Now | Target | Command                                     |
 | --------------------------------- | ----------: | -----: | ------------------------------------------- |
-| Self-hosting diagnostics          |         231 |      0 | `sbt pnc/compile` (now fails, as it should)  |
-| — of those, derivation            |          36 |      0 | §1.3a                                       |
+| Self-hosting diagnostics          |         205 |      0 | `sbt pnc/compile` (now fails, as it should)  |
+| — of those, derivation            |          16 |      0 | §1.3a                                       |
 | Doc blocks that fail              | **0 / 201** |      0 | `sbt "doccheck/run docs/src/content/docs"`  |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                    |
 | Samples that run in CI            |           0 |      6 | not yet built                               |

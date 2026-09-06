@@ -339,9 +339,46 @@ contextual-extension paths already used it; `resolveEvidence`,
   lets resolution and the emitter's record lookup both apply it and agree on the
   key — one record per enum, not one per case.
 
+### `Eq[Array[T]]` and `Show[Array[T]]`
+
+`Array` is builtin rather than declared, so there is nothing to put
+`[derive(…)]` on and its givens are written by hand in the prelude, the way
+`Eq[int]` is. Unlike those they are conditional — an array is comparable when
+its elements are — so the element's evidence is a premise read out of the
+dependency half, which is decision D used from a hand-built body rather than a
+synthesized one. **231 → 205.**
+
+The bodies loop rather than recurse. A recursive fold would be shorter to
+write, but its stack cost is linear in the array's length
+([ROADMAP §1.3b](../../../ROADMAP.md#13b-make-derivation-cheaper-on-the-stack));
+a loop is flat. That makes `Eq[Array[T]]` a worked example of the third item in
+that section — what a derived member would have to generate for `List`.
+
+### Two defects this uncovered
+
+Both predate this ADR, and both were reachable only once something needed
+them. Neither had a test.
+
+- **`Array.length` answered with element 0.** An array reference is an address
+  and nothing else — `Newarr` allocated exactly `size` slots and stored the
+  length nowhere — while `length` was declared as an ordinary field, so
+  reading it emitted `Ldfld` and landed on the first element. A fresh array
+  always looked empty, and `a(0) = 5` made `a.length` report 5. Arrays now
+  carry their length in a header slot, `Ldelem` and `Stelem` index from
+  `addr + 1`, and `Ldlen` — an opcode that already had a number and no
+  implementation — reads it.
+- **`while` re-initialised everything declared before it.** The lowerer built
+  the loop as `startLabel ++ conditionBlock.statements ++ …`, and
+  `conditionBlock.statements` is the *whole* accumulated chain, not just the
+  condition's own temporaries. So the start label went above every statement
+  the enclosing block had already lowered: a counter declared before the loop
+  was reset on each pass and the loop never terminated. `while` had no test.
+  Fixing it also removed six `Cannot convert` diagnostics, because
+  `ChainModule.of(startLabelDecl)` had been typing as
+  `Chain<LabelDeclaration>`.
+
 ### What is left
 
-`Array` needs a conditional given written by hand, being builtin rather than
-declared (10 parameters); a composite over a type variable is still unreachable
-(4); and two stateful services should stay unprovable. ROADMAP §1.3a has the
-breakdown.
+A composite over a type variable is still unreachable (4 parameters); two
+stateful services should stay unprovable; and two are `Boolean` and `String`,
+Scala spellings the transpiler leaves alone. ROADMAP §1.3a has the breakdown.

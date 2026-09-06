@@ -1078,6 +1078,12 @@ case class Emitter(
         case Option.None =>
           panic("emitMemberAccess: no method token for " + expr.symbol)
       }
+    } else if (expr.symbol == binder.arrayLength) {
+      // An array's length is a header slot rather than a field: it is written
+      // by `Newarr` and there is no field token for it. Reading it as a field
+      // landed on element 0 and silently answered with whatever was there.
+      emitLHS(expr.left, context)
+      chunk.emitOpcode(Opcode.Ldlen, expr.location.startLine)
     } else if (expr.symbol.kind == SymbolKind.Field) {
       fieldTokens.get(expr.symbol) match {
         case Option.Some(value) =>

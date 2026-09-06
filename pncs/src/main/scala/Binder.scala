@@ -576,6 +576,13 @@ case class Binder(
   builtinShowGiven(boolType, "bool")
   builtinShowGiven(charType, "char")
 
+  // `Array` is builtin rather than declared, so there is nothing to put
+  // `[derive(…)]` on and its givens have to be spelled out here. Conditional,
+  // because an array is only comparable or printable when its elements are
+  // ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md)).
+  builtinArrayEqGiven()
+  builtinArrayShowGiven()
+
   val classifier = new ConversionClassifier(this)
   val exprBinder: ExprBinder =
     new ExprBinder(rootSymbol, this, classifier, diagnosticBag)
@@ -741,6 +748,342 @@ case class Binder(
           )
         )
       case _ => panic("builtinBinaryBody: " + name + " has no parameters")
+    }
+  }
+
+  // ── `Eq[Array[T]]` and `Show[Array[T]]` ─────────────────────────────────
+  //
+  // Written by hand for the same reason the prelude's other givens are: there
+  // is no source the compiler always reads. Unlike those, these are
+  // conditional — an array is comparable when its elements are — so the
+  // element's evidence is a premise, read out of the dependency half of the
+  // record the member was reached through (ADR 0006, decision D).
+  //
+  // The bodies loop rather than recurse. A recursive fold would be the shorter
+  // thing to write, but the stack cost is linear in the array's length
+  // ([ROADMAP §1.3b](../../../ROADMAP.md#13b-make-derivation-cheaper-on-the-stack));
+  // a loop is flat.
+
+  /** `Array[$0]`, the type these givens are about. */
+  def arrayOfT(): Type =
+    Type.Class(noLoc, List.Nil, "Array", ListModule.one(variableT), arraySymbol)
+
+  /** `Trait[$0]` — the premise, one per given. */
+  def elementConstraint(traitSymbol: Symbol): Type =
+    Type.Class(
+      noLoc,
+      List.Nil,
+      traitSymbol.name,
+      ListModule.one(variableT),
+      traitSymbol
+    )
+
+  /** Registers a conditional prelude given for `Array`, with `Trait[$0]` as its
+    * only premise.
+    */
+  def builtinArrayGiven(traitSymbol: Symbol): Symbol = {
+    val name = "$given$" + traitSymbol.name + "$Array"
+    val symbol = pantherNamespace.tryDefineGiven(name, noLoc) match {
+      case Either.Left(_)       => panic("prelude given " + name + " exists")
+      case Either.Right(symbol) => symbol
+    }
+    val head =
+      Type.Class(
+        noLoc,
+        List.Nil,
+        traitSymbol.name,
+        ListModule.one(arrayOfT()),
+        traitSymbol
+      )
+    setSymbolType(symbol, head)
+    registerGiven(
+      BoundGiven(
+        symbol,
+        head,
+        ListModule.one(T),
+        ListModule.one(elementConstraint(traitSymbol)),
+        noLoc
+      )
+    )
+    symbol
+  }
+
+  /** The element's evidence, as the member sees it: the slot just past the
+    * token half of the record it was reached through.
+    */
+  def arrayPremise(member: Symbol, traitSymbol: Symbol): BoundEvidence = {
+    val self = selfEvidenceOf(member) match {
+      case Option.Some(value) => value
+      case Option.None        => panic("array given: no " + selfEvidenceName)
+    }
+    BoundEvidence.Premise(
+      self,
+      traitMembers(traitSymbol).length,
+      elementConstraint(traitSymbol)
+    )
+  }
+
+  def builtinLocal(owner: Symbol, name: string, typ: Type): Symbol = {
+    val symbol = owner.defineLocal(name, noLoc, false)
+    setSymbolType(symbol, typ)
+    symbol
+  }
+
+  def readLocal(symbol: Symbol, typ: Type): BoundExpression =
+    BoundExpression.Variable(noLoc, symbol, Option.Some(typ))
+
+  def assignLocal(symbol: Symbol, value: BoundExpression): BoundStatement =
+    BoundStatement.ExpressionStatement(
+      BoundExpression.Assignment(
+        noLoc,
+        BoundLeftHandSide.Variable(noLoc, symbol),
+        value
+      )
+    )
+
+  def declareLocal(symbol: Symbol, typ: Type, init: BoundExpression): BoundStatement =
+    BoundStatement.VariableDeclaration(symbol, false, typ, init)
+
+  def arrayLengthOf(array: Symbol): BoundExpression =
+    BoundExpression.MemberAccess(
+      noLoc,
+      BoundLeftHandSide.Variable(noLoc, array),
+      arrayLength,
+      List.Nil,
+      intType
+    )
+
+  /** `array(index)`, typed as the element. */
+  def arrayElement(array: Symbol, index: Symbol): BoundExpression =
+    BoundExpression.Index(
+      noLoc,
+      readLocal(array, arrayOfT()),
+      readLocal(index, intType),
+      variableT
+    )
+
+  def intBinary(
+      left: BoundExpression,
+      op: BinaryOperatorKind,
+      right: BoundExpression,
+      result: Type
+  ): BoundExpression = BoundExpression.Binary(noLoc, left, op, right, result)
+
+  /** `i = i + 1` */
+  def incrementLocal(index: Symbol): BoundStatement =
+    assignLocal(
+      index,
+      intBinary(
+        readLocal(index, intType),
+        BinaryOperatorKind.Plus,
+        BoundExpression.Int(noLoc, 1),
+        intType
+      )
+    )
+
+  /** `Eq[Array[T]]` given `Eq[T]`.
+    *
+    * ```
+    * ==(a, b) = {
+    *   var result = a.length == b.length
+    *   var i = 0
+    *   while (result && i < a.length) {
+    *     result = <premise ==>(a(i), b(i))
+    *     i = i + 1
+    *   }
+    *   result
+    * }
+    * ```
+    *
+    * `result` doubles as the loop's exit condition, which is what gives the
+    * comparison its short circuit without needing a break.
+    */
+  def builtinArrayEqGiven(): unit = {
+    val givenSymbol = builtinArrayGiven(eqSymbol)
+    val equals = builtinBinaryMember(givenSymbol, "==", arrayOfT(), boolType)
+    val notEquals = builtinBinaryMember(givenSymbol, "!=", arrayOfT(), boolType)
+
+    derivedOperands(equals) match {
+      case Tuple2(a, b) =>
+        val result = builtinLocal(equals, "result", boolType)
+        val index = builtinLocal(equals, "i", intType)
+
+        val sameLength = intBinary(
+          arrayLengthOf(a),
+          BinaryOperatorKind.Equals,
+          arrayLengthOf(b),
+          boolType
+        )
+
+        val condition = intBinary(
+          readLocal(result, boolType),
+          BinaryOperatorKind.LogicalAnd,
+          intBinary(
+            readLocal(index, intType),
+            BinaryOperatorKind.LessThan,
+            arrayLengthOf(a),
+            boolType
+          ),
+          boolType
+        )
+
+        val compareElements: BoundExpression =
+          BoundExpression.EvidenceCall(
+            noLoc,
+            arrayPremise(equals, eqSymbol),
+            derivedMemberOf(eqSymbol, "=="),
+            List.Cons(
+              arrayElement(a, index),
+              ListModule.one(arrayElement(b, index))
+            ),
+            boolType
+          )
+
+        val body: BoundExpression = BoundExpression.Block(
+          List.Cons(
+            assignLocal(result, compareElements),
+            ListModule.one(incrementLocal(index))
+          ),
+          BoundExpression.Unit(noLoc)
+        )
+
+        functionBodies = functionBodies.put(
+          equals,
+          BoundExpression.Block(
+            List.Cons(
+              declareLocal(result, boolType, sameLength),
+              List.Cons(
+                declareLocal(index, intType, BoundExpression.Int(noLoc, 0)),
+                ListModule.one(
+                  BoundStatement.ExpressionStatement(
+                    BoundExpression.While(noLoc, condition, body)
+                  )
+                )
+              )
+            ),
+            readLocal(result, boolType)
+          )
+        )
+    }
+
+    derivedOperands(notEquals) match {
+      case Tuple2(a, b) =>
+        functionBodies = functionBodies.put(
+          notEquals,
+          BoundExpression.Unary(
+            noLoc,
+            UnaryOperatorKind.LogicalNegation,
+            derivedCall2(
+              equals,
+              readLocal(a, arrayOfT()),
+              readLocal(b, arrayOfT()),
+              selfEvidenceExpression(notEquals),
+              boolType
+            ),
+            boolType
+          )
+        )
+    }
+  }
+
+  /** `Show[Array[T]]` given `Show[T]`, printing `[a, b, c]`.
+    *
+    * ```
+    * show(value) = {
+    *   var acc = "["
+    *   var i = 0
+    *   while (i < value.length) {
+    *     acc = acc + (if (i == 0) "" else ", ") + <premise show>(value(i))
+    *     i = i + 1
+    *   }
+    *   acc + "]"
+    * }
+    * ```
+    *
+    * The separator is an `if` *expression* rather than a statement, so the
+    * whole body stays a chain of assignments.
+    */
+  def builtinArrayShowGiven(): unit = {
+    val givenSymbol = builtinArrayGiven(showSymbol)
+    val show = builtinUnaryMember(givenSymbol, "show", arrayOfT(), stringType)
+
+    filterParameters(show.members()) match {
+      case List.Cons(value, _) =>
+        val acc = builtinLocal(show, "acc", stringType)
+        val index = builtinLocal(show, "i", intType)
+
+        val condition = intBinary(
+          readLocal(index, intType),
+          BinaryOperatorKind.LessThan,
+          arrayLengthOf(value),
+          boolType
+        )
+
+        val separator: BoundExpression = BoundExpression.If(
+          noLoc,
+          intBinary(
+            readLocal(index, intType),
+            BinaryOperatorKind.Equals,
+            BoundExpression.Int(noLoc, 0),
+            boolType
+          ),
+          BoundExpression.String(noLoc, ""),
+          Option.Some(BoundExpression.String(noLoc, ", ")),
+          stringType
+        )
+
+        val showElement: BoundExpression =
+          BoundExpression.EvidenceCall(
+            noLoc,
+            arrayPremise(show, showSymbol),
+            derivedMemberOf(showSymbol, "show"),
+            ListModule.one(arrayElement(value, index)),
+            stringType
+          )
+
+        val appended = intBinary(
+          intBinary(
+            readLocal(acc, stringType),
+            BinaryOperatorKind.Plus,
+            separator,
+            stringType
+          ),
+          BinaryOperatorKind.Plus,
+          showElement,
+          stringType
+        )
+
+        val body: BoundExpression = BoundExpression.Block(
+          List.Cons(
+            assignLocal(acc, appended),
+            ListModule.one(incrementLocal(index))
+          ),
+          BoundExpression.Unit(noLoc)
+        )
+
+        functionBodies = functionBodies.put(
+          show,
+          BoundExpression.Block(
+            List.Cons(
+              declareLocal(acc, stringType, BoundExpression.String(noLoc, "[")),
+              List.Cons(
+                declareLocal(index, intType, BoundExpression.Int(noLoc, 0)),
+                ListModule.one(
+                  BoundStatement.ExpressionStatement(
+                    BoundExpression.While(noLoc, condition, body)
+                  )
+                )
+              )
+            ),
+            intBinary(
+              readLocal(acc, stringType),
+              BinaryOperatorKind.Plus,
+              BoundExpression.String(noLoc, "]"),
+              stringType
+            )
+          )
+        )
+      case _ => panic("array given: show has no parameter")
     }
   }
 
