@@ -138,6 +138,14 @@ enum LoweredExpression {
       arguments: Chain[LoweredExpression],
       resultType: Type
   )
+  /** The static field holding an evidence record, loaded as the trailing
+    * argument of a call to a given's member (ADR 0006, decision C).
+    */
+  case EvidenceRecord(
+      location: TextLocation,
+      field: Symbol,
+      resultType: Type
+  )
   case Character(location: TextLocation, value: char)
   case Integer(location: TextLocation, value: int)
   case MemberAccess(
@@ -176,6 +184,7 @@ enum LoweredExpression {
       case expr: LoweredExpression.Boolean          => expr.location
       case expr: LoweredExpression.Call             => expr.location
       case expr: LoweredExpression.EvidenceCall     => expr.location
+      case expr: LoweredExpression.EvidenceRecord   => expr.location
       case expr: LoweredExpression.Cast             => expr.location
       case expr: LoweredExpression.Character        => expr.location
       case expr: LoweredExpression.Integer          => expr.location
@@ -308,6 +317,8 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
         lowerCallExpression(expr, context)
       case expr: BoundExpression.EvidenceCall =>
         lowerEvidenceCall(expr, context)
+      case expr: BoundExpression.EvidenceRecord =>
+        lowerEvidenceRecord(expr, context)
       case expr: BoundExpression.Cast =>
         lowerCastExpression(expr, context)
       case expr: BoundExpression.Character =>
@@ -553,6 +564,21 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       Chain.Empty(),
       context.statements
     )
+  }
+
+  def lowerEvidenceRecord(
+      expr: BoundExpression.EvidenceRecord,
+      context: LoweredBlock
+  ): LoweredBlock = {
+    val lowered = LoweredExpression.EvidenceRecord(
+      expr.location,
+      expr.field,
+      expr.resultType
+    )
+
+    checkUnusedExpr(context)
+
+    LoweredBlock(context.statements, lowered)
   }
 
   def lowerEvidenceCall(

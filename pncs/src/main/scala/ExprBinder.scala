@@ -921,17 +921,27 @@ case class ExprBinder(
           left,
           right,
           scope,
-          Option.Some(evidence)
+          Option.Some(evidence),
+          Option.None
         )
       case Option.None =>
         findOperatorGivenMember(
           binder.evidenceTypes(leftType),
           node.operator.kind,
-          name
+          name,
+          location
         ) match {
           case Option.None => Option.None
-          case Option.Some(member) =>
-            bindOperatorCall(location, member, left, right, scope, Option.None)
+          case Option.Some(KeyValue(member, record)) =>
+            bindOperatorCall(
+              location,
+              member,
+              left,
+              right,
+              scope,
+              Option.None,
+              Option.Some(record)
+            )
         }
     }
   }
@@ -943,22 +953,24 @@ case class ExprBinder(
   def findOperatorGivenMember(
       types: List[Type],
       tokenKind: int,
-      name: string
-  ): Option[Symbol] = {
+      name: string,
+      location: TextLocation
+  ): Option[KeyValue[Symbol, Symbol]] = {
     types match {
       case List.Nil => Option.None
       case List.Cons(head, tail) =>
-        val found: Option[Symbol] =
+        val found: Option[KeyValue[Symbol, Symbol]] =
           binder.operatorGoal(tokenKind, head) match {
             case Option.None => Option.None
             case Option.Some(goal) =>
               if (!binder.isGroundType(goal)) Option.None
-              else binder.findGivenMember(goal, name)
+              else binder.findGivenMember(goal, name, location)
           }
 
         found match {
           case Option.Some(_) => found
-          case Option.None    => findOperatorGivenMember(tail, tokenKind, name)
+          case Option.None =>
+            findOperatorGivenMember(tail, tokenKind, name, location)
         }
     }
   }
@@ -977,7 +989,11 @@ case class ExprBinder(
   /** Binds the two operands against the operator member's declared parameters.
     *
     * `evidence` decides the node: `Some` for a record the caller has to load,
-    * `None` for a static call on the given itself.
+    * `None` for a static call on the given itself. `record` is the static field
+    * that call has to pass on as the member's trailing argument
+    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
+    * decision C); the `EvidenceCall` shape loads its own, so the two are never
+    * both set.
     */
   def bindOperatorCall(
       location: TextLocation,
@@ -985,7 +1001,8 @@ case class ExprBinder(
       left: BoundExpression,
       right: BoundExpression,
       scope: Scope,
-      evidence: Option[Symbol]
+      evidence: Option[Symbol],
+      record: Option[Symbol]
   ): Option[BoundExpression] = {
     binder.tryGetSymbolType(member) match {
       case Option.Some(Type.Function(_, parameters, returnType)) =>
@@ -1020,7 +1037,7 @@ case class ExprBinder(
                   Option.None,
                   member,
                   List.Nil,
-                  arguments,
+                  binder.withRecordArgument(arguments, record, location),
                   returnType
                 )
               )
@@ -2177,7 +2194,11 @@ case class ExprBinder(
                     Option.None,
                     member,
                     List.Nil,
-                    bound,
+                    binder.withRecordArgument(
+                      bound,
+                      binder.recordForGivenOwner(member, location),
+                      location
+                    ),
                     returnType
                   )
                 )

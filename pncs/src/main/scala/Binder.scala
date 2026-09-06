@@ -491,9 +491,25 @@ case class Binder(
   // compiler always reads: a test snippet, a doc block and `pnc/src` are each
   // just the trees they are handed.
   //
-  // These have to come after `functionBodies`, `givens` and `operatorTraits`
-  // are declared — a class body initialises in order, and every one of the
-  // three is written to below.
+  // These have to come after `functionBodies`, `givens`, `operatorTraits` and
+  // `evidenceRecordType` are declared — a class body initialises in order, and
+  // every one of the four is read or written below.
+
+  /** The record's element type is `any` rather than `int` because the slots
+    * hold two kinds of thing: a method token in the token half, and a reference
+    * to another record in the dependency half
+    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
+    * decision A). The VM's array is untyped — the element type only picks a
+    * default value — so this costs nothing at runtime.
+    */
+  val evidenceRecordType: Type =
+    Type.Class(
+      noLoc,
+      List.Nil,
+      "Array",
+      ListModule.one(anyType),
+      arraySymbol
+    )
 
   /** The trait parameter `T` as it appears inside a trait's own members. */
   val variableT: Type = Type.Variable(noLoc, 0)
@@ -579,6 +595,7 @@ case class Binder(
         result
       )
     )
+    defineSelfEvidence(symbol)
     symbol
   }
 
@@ -595,8 +612,49 @@ case class Binder(
       symbol,
       Type.Function(noLoc, ListModule.one(BoundParameter(value, operand)), result)
     )
+    defineSelfEvidence(symbol)
     symbol
   }
+
+  /** The name of the record a given's member is reached through. */
+  val selfEvidenceName: string = "$ev$self"
+
+  /** Every member of a given takes the record it was reached through, whether
+    * or not that given has premises
+    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
+    * decision C).
+    *
+    * Uniform because `Calli` is: the VM reads the argument count from the
+    * *callee's* metadata, and a caller dispatching on a token it read out of a
+    * record cannot know which given filled that record in. A member with no
+    * premise ignores the argument.
+    *
+    * Defined after the declared parameters, so it takes the trailing slot, and
+    * as `SymbolKind.Evidence`, so `filterParameters` and the declared signature
+    * in `Type.Function.parameters` both leave it out — the arity a diagnostic
+    * reports is still the one the source wrote (ADR 0005, decision E).
+    *
+    * A trait's own members go through the same two builders and are not
+    * given members, which is what the owner check is for.
+    */
+  def defineSelfEvidence(member: Symbol): unit = {
+    val isGivenMember = member.parent match {
+      case Option.None         => false
+      case Option.Some(parent) => parent.kind == SymbolKind.Given
+    }
+
+    if (isGivenMember) {
+      member.tryDefineEvidence(selfEvidenceName, member.location) match {
+        case Either.Left(_) => ()
+        case Either.Right(symbol) =>
+          setSymbolType(symbol, evidenceRecordType)
+      }
+    }
+  }
+
+  /** The record parameter of a given's member, if it has one. */
+  def selfEvidenceOf(member: Symbol): Option[Symbol] =
+    member.lookupMember(selfEvidenceName)
 
   /** Registers a prelude given and returns its symbol.
     *
@@ -1183,7 +1241,8 @@ case class Binder(
       case _: BoundExpression.While      => unitType
 
       case expr: BoundExpression.ArrayCreation => expr.resultType
-      case expr: BoundExpression.EvidenceCall  => expr.resultType
+      case expr: BoundExpression.EvidenceCall   => expr.resultType
+      case expr: BoundExpression.EvidenceRecord => expr.resultType
       case expr: BoundExpression.Binary        => expr.resultType
       case expr: BoundExpression.Block         => getType(expr.expression)
       case expr: BoundExpression.Call          => expr.resultType
@@ -1385,6 +1444,7 @@ case class Binder(
           methodLocation,
           methodScope
         )
+        defineSelfEvidence(symbol)
 
         val expr = value.body match {
           case Option.None       => Option.None
@@ -3029,22 +3089,6 @@ case class Binder(
     "$case$" + enumName + "$" + caseSymbol.name
   }
 
-  /** The record's element type is `any` rather than `int` because the slots
-    * hold two kinds of thing: a method token in the token half, and a reference
-    * to another record in the dependency half
-    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
-    * decision A). The VM's array is untyped — the element type only picks a
-    * default value — so this costs nothing at runtime.
-    */
-  val evidenceRecordType: Type =
-    Type.Class(
-      noLoc,
-      List.Nil,
-      "Array",
-      ListModule.one(anyType),
-      arraySymbol
-    )
-
   /** A trait's callable members, in declaration order. That order is the
     * evidence record's layout, so it has to be the same on both sides — the
     * given that fills a slot and the call that reads it.
@@ -3163,22 +3207,92 @@ case class Binder(
       getSymbolType(field)
     )
 
+  /** A call to a given's member. `evidence` is the record it was reached
+    * through, which every given's member takes as its trailing argument
+    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
+    * decision C).
+    */
   def derivedCall(
       member: Symbol,
       arguments: List[BoundExpression],
+      evidence: BoundExpression,
       result: Type
   ): BoundExpression =
-    BoundExpression.Call(noLoc, Option.None, member, List.Nil, arguments, result)
+    BoundExpression.Call(
+      noLoc,
+      Option.None,
+      member,
+      List.Nil,
+      appendArgument(arguments, evidence),
+      result
+    )
 
   def derivedCall2(
       member: Symbol,
       left: BoundExpression,
       right: BoundExpression,
+      evidence: BoundExpression,
       result: Type
   ): BoundExpression =
-    derivedCall(member, List.Cons(left, ListModule.one(right)), result)
+    derivedCall(
+      member,
+      List.Cons(left, ListModule.one(right)),
+      evidence,
+      result
+    )
 
-  /** The member of the given that proves `traitSymbol[typ]`.
+  def appendArgument(
+      arguments: List[BoundExpression],
+      last: BoundExpression
+  ): List[BoundExpression] = {
+    arguments match {
+      case List.Nil => ListModule.one(last)
+      case List.Cons(head, tail) =>
+        List.Cons(head, appendArgument(tail, last))
+    }
+  }
+
+  /** The record held in a static field, as an argument. */
+  def evidenceRecordExpression(field: Symbol): BoundExpression =
+    BoundExpression.EvidenceRecord(noLoc, field, evidenceRecordType)
+
+  /** `arguments` with the record appended, which every direct call to a given's
+    * member needs
+    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
+    * decision C).
+    *
+    * `None` means resolution failed and reported; the argument is appended
+    * anyway, as an error, so the arity still matches what the callee declares
+    * and the emitter is not the thing that discovers the gap.
+    */
+  def withRecordArgument(
+      arguments: List[BoundExpression],
+      record: Option[Symbol],
+      location: TextLocation
+  ): List[BoundExpression] = {
+    val argument: BoundExpression = record match {
+      case Option.Some(field) =>
+        BoundExpression.EvidenceRecord(location, field, evidenceRecordType)
+      case Option.None =>
+        BoundExpression.Error("no evidence record for this call")
+    }
+    appendArgument(arguments, argument)
+  }
+
+  /** The `$ev$self` a derived member received, so it can hand it on when it
+    * calls a sibling member of the same given — `!=` calling `==`.
+    */
+  def selfEvidenceExpression(member: Symbol): BoundExpression = {
+    selfEvidenceOf(member) match {
+      case Option.Some(symbol) =>
+        BoundExpression.Variable(noLoc, symbol, Option.Some(evidenceRecordType))
+      case Option.None =>
+        panic("buildDerivedBody: " + member.name + " has no " + selfEvidenceName)
+    }
+  }
+
+  /** The member of the given that proves `traitSymbol[typ]`, and the record
+    * that proves it.
     *
     * Derivation requires evidence for every parameter type and names the one
     * that lacks it. There is no recursion guard to add: the derived given is
@@ -3189,7 +3303,7 @@ case class Binder(
       traitSymbol: Symbol,
       field: Symbol,
       memberName: string
-  ): Option[Symbol] = {
+  ): Option[KeyValue[Symbol, Symbol]] = {
     val fieldType = getSymbolType(field)
     val goal: Type =
       Type.Class(
@@ -3200,8 +3314,8 @@ case class Binder(
         traitSymbol
       )
 
-    findGivenMember(goal, memberName) match {
-      case Option.Some(member) => Option.Some(member)
+    findGivenMember(goal, memberName, field.location) match {
+      case Option.Some(found) => Option.Some(found)
       case Option.None =>
         diagnosticBag.reportNoEvidenceForDerivedField(
           field.location,
@@ -3255,6 +3369,7 @@ case class Binder(
               equals,
               derivedVariable(a, derivation.typ),
               derivedVariable(b, derivation.typ),
+              selfEvidenceExpression(notEquals),
               boolType
             ),
             boolType
@@ -3349,11 +3464,12 @@ case class Binder(
   ): BoundExpression = {
     derivedEvidence(eqSymbol, field, "==") match {
       case Option.None => BoundExpression.Boolean(noLoc, false)
-      case Option.Some(member) =>
+      case Option.Some(KeyValue(member, record)) =>
         derivedCall2(
           member,
           derivedFieldAccess(a, field),
           derivedFieldAccess(b, field),
+          evidenceRecordExpression(record),
           boolType
         )
     }
@@ -3394,8 +3510,22 @@ case class Binder(
         val left = derivedVariable(a, derivation.typ)
         val right = derivedVariable(b, derivation.typ)
         val call =
-          if (swapped) derivedCall2(lessThan, right, left, boolType)
-          else derivedCall2(lessThan, left, right, boolType)
+          if (swapped)
+            derivedCall2(
+              lessThan,
+              right,
+              left,
+              selfEvidenceExpression(member),
+              boolType
+            )
+          else
+            derivedCall2(
+              lessThan,
+              left,
+              right,
+              selfEvidenceExpression(member),
+              boolType
+            )
 
         val body: BoundExpression =
           if (negated)
@@ -3539,11 +3669,12 @@ case class Binder(
   ): BoundExpression = {
     derivedEvidence(ordSymbol, field, "<") match {
       case Option.None => BoundExpression.Boolean(noLoc, false)
-      case Option.Some(member) =>
+      case Option.Some(KeyValue(member, record)) =>
         derivedCall2(
           member,
           derivedFieldAccess(a, field),
           derivedFieldAccess(b, field),
+          evidenceRecordExpression(record),
           boolType
         )
     }
@@ -3637,10 +3768,11 @@ case class Binder(
   def derivedFieldShow(field: Symbol, value: Symbol): BoundExpression = {
     derivedEvidence(showSymbol, field, "show") match {
       case Option.None => BoundExpression.String(noLoc, "")
-      case Option.Some(member) =>
+      case Option.Some(KeyValue(member, record)) =>
         derivedCall(
           member,
           ListModule.one(derivedFieldAccess(value, field)),
+          evidenceRecordExpression(record),
           stringType
         )
     }
@@ -3864,23 +3996,42 @@ case class Binder(
     }
   }
 
-  /** The member of the given that proves `goal`, by name.
+  /** The member of the given that proves `goal`, by name, and the record that
+    * proves it.
     *
     * The ground half of operator resolution: where `findEvidenceMember` finds
     * evidence held by an enclosing declaration, this finds the given itself.
-    * A given is a singleton whose members are static, so the caller can emit an
-    * ordinary call rather than going through the evidence record — the record
+    * A given is a singleton whose members are static, so the caller emits an
+    * ordinary call rather than dispatching through the record — the record
     * exists to defer a choice, and here there is nothing left to defer.
+    *
+    * The record still comes back, because the member takes one as its trailing
+    * argument whether the caller needed it to choose or not
+    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
+    * decision C). Resolving is what interns it: a ground call site is a use,
+    * and a goal nothing uses gets no record.
     */
-  def findGivenMember(goal: Type, memberName: string): Option[Symbol] = {
+  def findGivenMember(
+      goal: Type,
+      memberName: string,
+      location: TextLocation
+  ): Option[KeyValue[Symbol, Symbol]] = {
     matchAnyGiven(goal, givens) match {
       case Option.None => Option.None
       case Option.Some(KeyValue(candidate, _)) =>
-        candidate.symbol.lookupMember(memberName)
+        candidate.symbol.lookupMember(memberName) match {
+          case Option.None => Option.None
+          case Option.Some(member) =>
+            resolveEvidence(goal, location, 0) match {
+              case Option.None        => Option.None
+              case Option.Some(field) => Option.Some(KeyValue(member, field))
+            }
+        }
     }
   }
 
-  /** The member a given supplies as a contextual extension on `leftType`.
+  /** The member a given supplies as a contextual extension on `leftType`, and
+    * the record that proves it.
     *
     * The ground-type half of ADR 0004's member resolution: intrinsic members
     * first, then applicable contextual extensions. Where `findEvidenceMember`
@@ -3918,6 +4069,28 @@ case class Binder(
           case Option.Some(_) => found
           case Option.None =>
             scanGivenExtensions(leftType, memberName, tail)
+        }
+    }
+  }
+
+  /** The record proving what the given that owns `member` proves.
+    *
+    * The contextual-extension path finds a given by matching its head against a
+    * ground receiver type, so it never lands on a conditional given — a
+    * conditional head holds a type variable, which `sameConstraint` will not
+    * match against a ground type. That is what makes the head enough here,
+    * where the operator path has to carry the goal it actually resolved.
+    */
+  def recordForGivenOwner(
+      member: Symbol,
+      location: TextLocation
+  ): Option[Symbol] = {
+    member.parent match {
+      case Option.None => Option.None
+      case Option.Some(owner) =>
+        tryGetSymbolType(owner) match {
+          case Option.None       => Option.None
+          case Option.Some(head) => resolveEvidence(head, location, 0)
         }
     }
   }

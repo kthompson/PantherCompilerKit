@@ -117,6 +117,15 @@ enum BoundExpression {
       arguments: List[BoundExpression],
       resultType: Type
   )
+  /** The static field holding the evidence record that proves a goal.
+    *
+    * Every call to a given's member carries one as its trailing argument
+    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
+    * decision C). Distinct from a member access because there is no receiver to
+    * name: the record lives on the program object and the binder holds the
+    * field directly.
+    */
+  case EvidenceRecord(location: TextLocation, field: Symbol, resultType: Type)
   case Call(
       location: TextLocation,
       receiver: Option[BoundLeftHandSide],

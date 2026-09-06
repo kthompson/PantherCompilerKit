@@ -600,6 +600,8 @@ params: Dictionary[Symbol, int]
         emitCallExpression(value, context)
       case value: LoweredExpression.EvidenceCall =>
         emitEvidenceCall(value, context)
+      case value: LoweredExpression.EvidenceRecord =>
+        emitEvidenceRecordLoad(value)
       case value: LoweredExpression.Cast =>
         emitCastExpression(value, context)
       case value: LoweredExpression.Character =>
@@ -837,6 +839,11 @@ params: Dictionary[Symbol, int]
   /** `equals(a, b)` through evidence: the arguments are already in order with
     * the receiver first, then the record is loaded, the member's slot read, and
     * `Calli` dispatches on the token that comes back.
+    *
+    * The record is loaded twice — once as the member's own trailing argument,
+    * once to read the token out of
+    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
+    * decision C). The first is what a conditional given reads its premise from.
     */
   def emitEvidenceCall(
       expr: LoweredExpression.EvidenceCall,
@@ -845,6 +852,7 @@ params: Dictionary[Symbol, int]
     emitExpressions(expr.arguments, context)
 
     val line = expr.location.startLine
+    emitEvidenceValue(expr.evidence, context, line)
     emitEvidenceValue(expr.evidence, context, line)
 
     val index = binder.getTypeSymbol(binder.getSymbolType(expr.evidence)) match {
@@ -860,6 +868,19 @@ params: Dictionary[Symbol, int]
       chunk.emitI4(index, line)
       chunk.emitOpcode(Opcode.Ldelem, line)
       chunk.emitOpcode(Opcode.Calli, line)
+    }
+  }
+
+  /** The record proving a goal, loaded from its static field on the program
+    * object.
+    */
+  def emitEvidenceRecordLoad(expr: LoweredExpression.EvidenceRecord): unit = {
+    fieldTokens.get(expr.field) match {
+      case Option.None =>
+        panic("emitEvidenceRecord: no field token for " + expr.field.name)
+      case Option.Some(token) =>
+        chunk.emitOpcode(Opcode.Ldsfld, expr.location.startLine)
+        chunk.emitI4(token.token, expr.location.startLine)
     }
   }
 
@@ -1166,7 +1187,13 @@ params: Dictionary[Symbol, int]
   ): unit = {
     if (expr.symbol.kind == SymbolKind.This) {
       emitThis(expr.location, context)
-    } else if (expr.symbol.kind == SymbolKind.Parameter) {
+    } else if (
+      // Evidence takes an argument slot like a declared parameter, so naming
+      // one loads the same way — `$ev$self` handed on from one member of a
+      // given to another is the case that reaches this.
+      expr.symbol.kind == SymbolKind.Parameter ||
+      expr.symbol.kind == SymbolKind.Evidence
+    ) {
       emitParameter(expr, context)
     } else if (expr.symbol.kind == SymbolKind.Local) {
       emitLocal(expr, context)

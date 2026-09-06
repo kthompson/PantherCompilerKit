@@ -548,6 +548,7 @@ object AstUtils {
       case BoundExpression.Boolean(location, _)          => location
       case BoundExpression.Call(location, _, _, _, _, _) => location
       case BoundExpression.EvidenceCall(location, _, _, _, _) => location
+      case BoundExpression.EvidenceRecord(location, _, _)     => location
       case BoundExpression.Cast(location, expression, _) => location
       case BoundExpression.Character(location, _)        => location
       case BoundExpression.For(location, _, _, _, _)     => location

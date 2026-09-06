@@ -221,6 +221,8 @@ class LoweredAssemblyPrinter(
         printCall(expr)
       case expr: LoweredExpression.EvidenceCall =>
         printEvidenceCall(expr)
+      case expr: LoweredExpression.EvidenceRecord =>
+        printEvidenceRecord(expr)
       case expr: LoweredExpression.Character =>
         printCharacterLiteral(expr)
       case expr: LoweredExpression.Integer =>
@@ -315,6 +317,9 @@ class LoweredAssemblyPrinter(
     printExpressions(call.arguments.uncons())
     ast.writeWithColor(ColorPalette.Punctuation, ")")
   }
+
+  def printEvidenceRecord(expr: LoweredExpression.EvidenceRecord): unit =
+    ast.append(expr.field.name)
 
   def printCall(call: LoweredExpression.Call): unit = {
     ast.append(call.method.name)

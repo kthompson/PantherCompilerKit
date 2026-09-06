@@ -71,6 +71,8 @@ class BoundAssemblyPrinter(
       case expr: BoundExpression.Boolean       => printBooleanLiteral(expr)
       case expr: BoundExpression.Call          => printCallExpression(expr)
       case expr: BoundExpression.EvidenceCall  => printEvidenceCall(expr)
+      case expr: BoundExpression.EvidenceRecord =>
+        printEvidenceRecord(expr)
       case expr: BoundExpression.Cast          => printCastExpression(expr)
       case expr: BoundExpression.Character     => printCharacterLiteral(expr)
       case expr: BoundExpression.For           => printForExpression(expr)
@@ -190,6 +192,9 @@ class BoundAssemblyPrinter(
     printExpressions(expr.arguments)
     writeWithColor(ColorPalette.Punctuation, ")")
   }
+
+  def printEvidenceRecord(expr: BoundExpression.EvidenceRecord): unit =
+    writeWithColor(ColorPalette.Identifier, expr.field.name)
 
   def printCastExpression(expr: BoundExpression.Cast): unit = {
     ast._printType(expr.targetType, true)
