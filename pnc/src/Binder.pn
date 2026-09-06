@@ -2019,7 +2019,7 @@ enum FieldOptions {
           symbol,
           head.value.derives,
           derivedCases(symbol, cases),
-          !genericParameters.isEmpty
+          genericParameters
         )
     }
   }
@@ -2059,7 +2059,7 @@ enum FieldOptions {
       enumSymbol: Symbol,
       derives: Option[DeriveAttributeSyntax],
       cases: List[DerivedCase],
-      isGeneric: bool
+      generics: List[GenericTypeParameter]
   ): unit = {
     derives match {
       case Option.None => ()
@@ -2068,7 +2068,7 @@ enum FieldOptions {
           enumSymbol,
           attribute.traits,
           cases,
-          isGeneric
+          generics
         )
     }
   }
@@ -2077,13 +2077,13 @@ enum FieldOptions {
       enumSymbol: Symbol,
       traits: List[DerivedTraitSyntax],
       cases: List[DerivedCase],
-      isGeneric: bool
+      generics: List[GenericTypeParameter]
   ): unit = {
     traits match {
       case List.Nil => ()
       case List.Cons(head, tail) =>
-        registerEnumDerivation(enumSymbol, head.name, cases, isGeneric)
-        registerEnumDerivationList(enumSymbol, tail, cases, isGeneric)
+        registerEnumDerivation(enumSymbol, head.name, cases, generics)
+        registerEnumDerivationList(enumSymbol, tail, cases, generics)
     }
   }
 
@@ -2417,41 +2417,54 @@ enum FieldOptions {
   /** The enum half of `registerDerivation`.
     *
     * Separate because an enum's type says less than a class's: its alias
-    * carries `List.Nil` for its arguments whether or not it is generic, so
-    * whether it has type parameters has to be passed in rather than read back
-    * off the type.
+    * carries `List.Nil` for its arguments whether or not it is generic, so the
+    * type parameters have to be passed in rather than read back off the type.
+    * Applying them is what makes a generic enum's head `Eq[List[$0]]` rather
+    * than `Eq[List]`.
     */
   def registerEnumDerivation(
       typeSymbol: Symbol,
       name: SyntaxToken,
       cases: List[DerivedCase],
-      isGeneric: bool
+      generics: List[GenericTypeParameter]
   ): unit = {
     derivableTrait(name.text) match {
       case Option.None =>
         diagnosticBag.reportTraitNotDerivable(name.location, name.text)
       case Option.Some(traitSymbol) =>
-        if (isGeneric) {
-          diagnosticBag.reportDeriveOnGenericType(
-            name.location,
-            typeSymbol.name
-          )
-        } else {
-          tryGetSymbolType(typeSymbol) match {
-            case Option.None => ()
-            case Option.Some(typ) =>
-              declareDerivedGiven(
-                typeSymbol,
-                typ,
-                List.Nil,
-                traitSymbol,
-                List.Nil,
-                cases,
-                name
-              )
-          }
+        tryGetSymbolType(typeSymbol) match {
+          case Option.None => ()
+          case Option.Some(typ) =>
+            declareDerivedGiven(
+              typeSymbol,
+              applyEnumGenerics(typ, generics),
+              generics,
+              traitSymbol,
+              List.Nil,
+              cases,
+              name
+            )
         }
     }
+  }
+
+  /** The enum's alias applied to its own type variables.
+    *
+    * The union underneath is left alone, which is the same thing
+    * `Types.substitute` does to an alias: the cases are already stated in those
+    * variables, so rewriting the arguments is the whole instantiation.
+    */
+  def applyEnumGenerics(
+      typ: Type,
+      generics: List[GenericTypeParameter]
+  ): Type = {
+    if (generics.isEmpty) typ
+    else
+      typ match {
+        case Type.Alias(loc, ns, name, _, value, symbol) =>
+          Type.Alias(loc, ns, name, typeVariables(generics, 0), value, symbol)
+        case _ => typ
+      }
   }
 
   def declareDerivedGiven(
@@ -3023,6 +3036,14 @@ enum FieldOptions {
           ) =>
         leftSymbol == rightSymbol && leftName == rightName &&
         sameConstraintList(leftArgs, rightArgs)
+      // Structural on the arguments, not on the union, for the same reason
+      // `matchType` is: the union does not vary with the instantiation.
+      case Tuple2(
+            Type.Alias(_, _, leftName, leftArgs, _, leftSymbol),
+            Type.Alias(_, _, rightName, rightArgs, _, rightSymbol)
+          ) =>
+        leftSymbol == rightSymbol && leftName == rightName &&
+        sameConstraintList(leftArgs, rightArgs)
       case _ => left == right
     }
   }
@@ -3213,6 +3234,18 @@ enum FieldOptions {
       case Tuple2(
             Type.Class(_, _, leftName, leftArgs, leftSymbol),
             Type.Class(_, _, rightName, rightArgs, rightSymbol)
+          ) =>
+        if (leftSymbol == rightSymbol && leftName == rightName) {
+          matchTypeList(leftArgs, rightArgs, bindings)
+        } else Option.None
+      // An enum is an alias for the union of its cases, so a generic enum only
+      // unifies here. The union is deliberately not compared: `substitute`
+      // rewrites an alias's arguments and leaves its value alone, so two
+      // instantiations of the same enum carry the *same* union and differ only
+      // in the arguments. The symbol and the arguments are what identify it.
+      case Tuple2(
+            Type.Alias(_, _, leftName, leftArgs, _, leftSymbol),
+            Type.Alias(_, _, rightName, rightArgs, _, rightSymbol)
           ) =>
         if (leftSymbol == rightSymbol && leftName == rightName) {
           matchTypeList(leftArgs, rightArgs, bindings)
@@ -4408,6 +4441,12 @@ enum FieldOptions {
       case Tuple2(
             Type.Class(_, _, leftName, leftArgs, leftSymbol),
             Type.Class(_, _, rightName, rightArgs, rightSymbol)
+          ) =>
+        leftSymbol == rightSymbol && leftName == rightName &&
+        typeListsOverlap(leftArgs, rightArgs)
+      case Tuple2(
+            Type.Alias(_, _, leftName, leftArgs, _, leftSymbol),
+            Type.Alias(_, _, rightName, rightArgs, _, rightSymbol)
           ) =>
         leftSymbol == rightSymbol && leftName == rightName &&
         typeListsOverlap(leftArgs, rightArgs)

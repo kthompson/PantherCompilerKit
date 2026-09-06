@@ -27,7 +27,7 @@ reproduces the measurement. Re-run them rather than trusting the number.
 sbt pncs/compile && sbt test/test
 ```
 
-Green: 417 tests across the lexer, parser, binder, type checker, VM, metadata
+Green: 421 tests across the lexer, parser, binder, type checker, VM, metadata
 format, transpiler, and args parser.
 
 ### The self-hosted compiler does not
@@ -261,13 +261,19 @@ an instantiation. Three groups, and the counts below are per trait — `Eq` and
    implemented, so a conditional given works and a generic *class* derives:
    `Dictionary`, `KeyValue`, `Tuple2`, `NonEmptyList`, `SeparatedSyntaxList`
    and `Namespaced` all have givens now. Two things still stand in the way, and
-   both are recorded under that ADR's "still not built":
-   `List` and `Option` are generic *enums*, which `matchType` cannot unify
-   because an enum's type is a `Type.Alias`; and a parameter whose type is a
-   composite over a type variable — `list: List[KeyValue[K, V]]` — is neither
-   ground nor a premise, so there is nothing for it to point at. `Array` needs
-   a given of its own either way, being builtin. Still the largest item, and
-   the one the other two partly wait on.
+   both are recorded under that ADR:
+   the transpiler does not emit `[derive(…)]` for `enum`, and `List` and
+   `Option` are both enums; and a parameter whose type is a composite over a
+   type variable — `list: List[KeyValue[K, V]]` — is neither ground nor a
+   premise, so there is nothing for it to point at. `Array` needs a given of
+   its own either way, being builtin. Still the largest item, and the one the
+   other two partly wait on.
+
+   A generic enum itself now derives, recursive cases included, so the `List`
+   shape is expressible; what it waits on is the attribute. One thing to settle
+   first: the VM's default stack is 50 slots, which a recursive derived
+   equality overflows at two elements. `--stack-size` raises it, but the
+   default has to change before `Eq[List[T]]` is usable on real data.
 2. **The transpiler does not derive for `enum`** — 38. `Type` 13,
    `NameSyntax` 5, `MetadataFlags` 4, `Expression` 3, and eleven more. Scala's
    `enum` generates structural equality the same way `case class` does, so the
@@ -594,7 +600,7 @@ Things that do not belong to one goal but block several.
   blocks in §4.1.
 - **No lexer support for exponents or shifts**
   ([`Lexer.scala:243`](pncs/src/main/scala/Lexer.scala:243)).
-- **Test coverage is stage-shaped, not feature-shaped.** 417 tests, but
+- **Test coverage is stage-shaped, not feature-shaped.** 421 tests, but
   `MetadataTests` has 2 and there is no end-to-end test that takes source all
   the way to output. §3.4 is the fix.
 

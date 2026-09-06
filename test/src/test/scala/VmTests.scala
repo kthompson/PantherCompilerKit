@@ -476,6 +476,52 @@ class VmTests extends AnyFunSpec with Matchers {
       )
     }
 
+    /** A generic enum. Its head is an alias applied to its own type variable,
+      * which only unifies with an instantiation — `matchType` gained that for
+      * `Type.Alias`. The parameter of `Has` is discharged by a premise.
+      *
+      * The annotations are load-bearing: a bare `Opt.Has(1)` infers the case
+      * type, and only the operator path widens a case to its enum.
+      */
+    it("should run a derived Eq over a generic enum") {
+      val opt = "[derive(Eq)]\n" +
+        "enum Opt[T] {\n  case Nothing\n  case Has(value: T)\n}\n" +
+        "val one: Opt[int] = Opt.Has(1)\n" +
+        "val alsoOne: Opt[int] = Opt.Has(1)\n" +
+        "val two: Opt[int] = Opt.Has(2)\n" +
+        "val nope: Opt[int] = Opt.Nothing\n"
+
+      assertExecValueBoolWithSetup(opt, "one == alsoOne", true)
+      assertExecValueBoolWithSetup(opt, "one == two", false)
+      // different cases
+      assertExecValueBoolWithSetup(opt, "one == nope", false)
+      assertExecValueBoolWithSetup(opt, "one != nope", true)
+    }
+
+    /** The recursive case: `tail` has the enum's own type, so its evidence is
+      * `$ev$self` rather than a premise. This is the `List` shape, and it is
+      * what the generic containers in `pnc/src` wait on.
+      *
+      * One link, because the default stack is 50 slots and a frame costs
+      * arguments + receiver + 3 + locals. Two links overflow it. That is a
+      * limit on the VM's default, not on the derivation — `--stack-size` raises
+      * it — but it does mean recursive derived equality is unusable at the
+      * default until that changes.
+      */
+    it("should run a derived Eq over a recursive generic enum") {
+      val chain = "[derive(Eq)]\n" +
+        "enum Chain[T] {\n" +
+        "  case Empty\n" +
+        "  case Link(head: T, tail: Chain[T])\n" +
+        "}\n" +
+        "val a: Chain[int] = Chain.Link(1, Chain.Empty)\n" +
+        "val b: Chain[int] = Chain.Link(1, Chain.Empty)\n" +
+        "val c: Chain[int] = Chain.Link(2, Chain.Empty)\n"
+
+      assertExecValueBoolWithSetup(chain, "a == b", true)
+      assertExecValueBoolWithSetup(chain, "a == c", false)
+    }
+
     /** Case order decides before any parameter does, so every `Circle` sorts
       * before every `Rect` regardless of what they hold.
       */

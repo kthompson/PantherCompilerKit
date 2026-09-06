@@ -272,10 +272,32 @@ place decides which given wins and one place interns the record.
   growing as bodies are built, and a fixpoint pass to intern what that adds.
   This is what `List[T]`, `Dictionary[K, V]`, `NonEmptyList[T]`,
   `SeparatedSyntaxList[T]` and `Namespaced[A]` each hit.
-- **Generic enums.** `registerEnumDerivation` still rejects them, because
-  `matchType` unifies `Type.Class` and falls through to equality on
-  `Type.Alias`, which is what an enum's type is. `List` and `Option` are both
-  generic enums, so this and the item above are what stand between here and the
-  bulk of §1.3a.
 - **The orphan rule, named exceptions, and associated members**, all still
   deferred by ADR 0004.
+
+### Generic enums
+
+`matchType`, `sameConstraint` and `typesOverlap` all unified `Type.Class` and
+fell through to structural equality on `Type.Alias`, which is what an enum's
+type is — so a generic enum's head could never match an instantiation. All
+three now unify an alias the same way they unify a class: on the symbol and the
+arguments, deliberately *not* on the union underneath. `Types.substitute`
+rewrites an alias's arguments and leaves its value alone, so two instantiations
+of one enum carry the same union and differ only in the arguments; comparing the
+union would make every instantiation look identical.
+
+`registerEnumDerivation` now takes the enum's type parameters rather than a
+`bool` saying whether it has any, and applies them to the alias. 421 tests, up
+from 417. The self-hosting count does not move — no `enum` in `pnc/src` carries
+the attribute, because the transpiler only emits it for `case class`.
+
+The recursive case works: `enum Chain[T] { case Empty; case Link(head: T, tail:
+Chain[T]) }` derives, with `head` discharged by the premise and `tail` by
+`$ev$self`. That is the `List` shape.
+
+**But recursive derived equality overflows the default stack.** A frame costs
+arguments + receiver + 3 + locals, and `CompilerSettingsFactory.default` gives
+the VM 50 slots, so a two-link chain does not run. `--stack-size` raises it, and
+nothing about the derivation is wrong, but the default has to change before a
+derived `Eq[List[T]]` is usable on real data. That is a VM-defaults decision,
+not a type-system one, and it is not made here.

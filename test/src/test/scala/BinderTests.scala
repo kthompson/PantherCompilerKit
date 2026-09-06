@@ -1205,13 +1205,49 @@ class BinderTests extends AnyFunSpec with Matchers {
       givenHeads(comp) shouldBe Seq("Eq<Shape>", "Ord<Shape>", "Show<Shape>")
     }
 
-    it("should reject deriving for a generic enum") {
+    /** An enum is an alias for the union of its cases, so a generic enum's head
+      * is an alias applied to its own type variables. Only unification relates
+      * that to an instantiation, which is what `matchType` gained for
+      * `Type.Alias`.
+      */
+    it("should derive for a generic enum") {
+      val comp = mkCompilation(
+        "[derive(Eq)]\nenum Opt[T] {\n  case Nothing\n  case Has(value: T)\n}"
+      )
+      givenHeads(comp) shouldBe Seq("Eq<Opt<$0>>")
+    }
+
+    /** A recursive case — `tail` has the enum's own type — is discharged by
+      * `$ev$self` rather than by a premise, since the goal is what the given
+      * itself proves. This is the `List` shape.
+      */
+    it("should derive for a recursive generic enum") {
+      val comp = mkCompilation(
+        "[derive(Eq)]\n" +
+          "enum Chain[T] {\n" +
+          "  case Empty\n" +
+          "  case Link(head: T, tail: Chain[T])\n" +
+          "}"
+      )
+      givenHeads(comp) shouldBe Seq("Eq<Chain<$0>>")
+    }
+
+    /** The instantiation still has to have evidence for what it substitutes
+      * in, and it is the premise that reports when it does not.
+      *
+      * The annotation is load-bearing: a bare `Opt.Has(true)` infers the case
+      * type, and only the operator and extension paths widen a case to its
+      * enum. That is a gap in the constrained-call path, and it predates
+      * generic enums.
+      */
+    it("should report a generic enum instantiated without evidence") {
       val comp = mkFailingCompilation(
-        "[derive(Eq)]\nenum Opt[T] {\n  case Has(value: T)\n}"
+        "[derive(Ord)]\nenum Opt[T] {\n  case Has(value: T)\n}\n" +
+          "def srt[T: Ord](x: T): bool = x < x\n" +
+          "val v: Opt[bool] = Opt.Has(true)\n" +
+          "val r = srt(v)"
       )
-      diagnosticMessages(comp) should contain(
-        "Cannot derive for Opt: it has type parameters"
-      )
+      diagnosticMessages(comp) should contain("No given instance for Ord<bool>")
     }
 
     it("should reject deriving a trait an enum has no rule for") {
