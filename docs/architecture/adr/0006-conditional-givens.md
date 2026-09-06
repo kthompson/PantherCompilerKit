@@ -1,7 +1,6 @@
 # ADR 0006: Conditional givens
 
-**Status:** Accepted — steps 1–4 implemented 2026-09-05, see
-[Outcome](#outcome); step 5 outstanding
+**Status:** Accepted — implemented 2026-09-05, see [Outcome](#outcome)
 **Date:** 2026-09-05
 **Primitives:** `binder`, `lowering-emit` (see [`primitives.yaml`](../primitives.yaml))
 **Roadmap:** [§1.3a](../../../ROADMAP.md#13a-burn-down-the-derivation-reports)
@@ -233,13 +232,50 @@ something resolved its goal, and a ground call site is exactly such a use — so
 the ground path now resolves as well as matches, and hands the record back
 alongside the member.
 
+### Step 5
+
+`[derive(Eq)] class Box[T](value: T)` registers `Eq[Box[$0]]` given `Eq[$0]`,
+one premise per type parameter in declaration order. 417 tests, up from 411;
+self-hosting diagnostics 415 → 407.
+
+**The derived body needed no new resolution rule.** A parameter's goal is
+either ground — a concrete type, proved by a given, called directly with its
+record, exactly as before — or it mentions the given's own type variables, in
+which case it is answered by what the member already holds. Typing `$ev$self`
+as *what the given proves* rather than as the record's own `Array[any]` is what
+made that fall out: the ordinary evidence walk then finds `$ev$self` for a
+parameter of the derived type itself, and `findPremiseMember` finds a premise
+for a parameter that is a bare type variable. Only the call node differs —
+`EvidenceCall` where a ground goal builds a `Call`.
+
+**A conditional given's member is stated in that given's type variables**, and
+three call sites were checking operands against it without instantiating: the
+operator path, the contextual-extension path, and the member lookup behind it.
+`findGivenMember` now returns the type arguments that matched alongside the
+member and the record, and each site substitutes. Without this `a == b` on a
+`Box[int]` silently fell through to ADR 0003's reference identity, which
+compiles and answers wrongly.
+
+**The contextual-extension path had to start unifying.** It matched a given's
+head structurally, which can only ever see a non-generic given — `Show[Box[$0]]`
+does not equal `Show[Box<int>]`. It now scans the givens only to discover which
+trait might supply the name and hands the goal to `findGivenMember`, so one
+place decides which given wins and one place interns the record.
+
 ### Still not built
 
-- **Step 5: `[derive(…)] class Box[T](value: T)`.** `registerDerivation` still
-  reports `reportDeriveOnGenericType`. A generic type's derived given is a
-  conditional one, and derivation has never synthesized one: the body it builds
-  would have to resolve `Eq[T]` to a premise rather than a static record, and
-  emit an `EvidenceCall` rather than a `Call`. This is the step that moves the
-  61.
+- **A parameter whose type is a composite over a type variable.**
+  `class Box[T](held: Holder[T])` reports `no Eq[Holder<$0>] for field held`.
+  The goal is neither ground — so there is no static record to point at — nor a
+  premise, and the dependency half is sized by the declared context bounds,
+  which are one per type parameter. Carrying it would mean the dependency list
+  growing as bodies are built, and a fixpoint pass to intern what that adds.
+  This is what `List[T]`, `Dictionary[K, V]`, `NonEmptyList[T]`,
+  `SeparatedSyntaxList[T]` and `Namespaced[A]` each hit.
+- **Generic enums.** `registerEnumDerivation` still rejects them, because
+  `matchType` unifies `Type.Class` and falls through to equality on
+  `Type.Alias`, which is what an enum's type is. `List` and `Option` are both
+  generic enums, so this and the item above are what stand between here and the
+  bulk of §1.3a.
 - **The orphan rule, named exceptions, and associated members**, all still
   deferred by ADR 0004.

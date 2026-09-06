@@ -273,6 +273,69 @@ class VmTests extends AnyFunSpec with Matchers {
       assertExecValueBoolWithSetup(setup, "new Point(1, 2) != new Point(1, 2)", false)
     }
 
+    /** ADR 0006 step 5: derivation over a generic type. The given is
+      * conditional, so its body reaches `Eq[T]` through a premise rather than
+      * a static record, and one declaration serves every instantiation.
+      */
+    it("should run a derived Eq over a generic type") {
+      val setup = "[derive(Eq)]\nclass Box[T](value: T)"
+
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Box[int](3) == new Box[int](3)",
+        true
+      )
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Box[int](3) == new Box[int](4)",
+        false
+      )
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Box[string](\"a\") == new Box[string](\"b\")",
+        false
+      )
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Box[string](\"a\") != new Box[string](\"b\")",
+        true
+      )
+    }
+
+    /** Two type parameters, so the premises have to be read from the right
+      * slots: `Eq[A]` from the first and `Eq[B]` from the second. Swapping them
+      * would still typecheck and would compare `a` against `b`.
+      */
+    it("should run a derived Eq over two type parameters") {
+      val setup = "[derive(Eq)]\nclass Pair[A, B](a: A, b: B)"
+
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Pair[int, string](1, \"x\") == new Pair[int, string](1, \"x\")",
+        true
+      )
+      // differs only in the second parameter, which is the string one
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Pair[int, string](1, \"x\") == new Pair[int, string](1, \"y\")",
+        false
+      )
+      // and only in the first
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Pair[int, string](1, \"x\") == new Pair[int, string](2, \"x\")",
+        false
+      )
+    }
+
+    it("should run a derived Show over a generic type") {
+      assertExecValueStringWithSetup(
+        "[derive(Show)]\nclass Box[T](value: T)",
+        "new Box[int](7).show()",
+        "Box(7)"
+      )
+    }
+
     /** Lexicographic over the parameters, in order: the first that differs
       * decides, so `y` is only consulted when the two `x` agree.
       */

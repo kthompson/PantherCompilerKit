@@ -918,6 +918,7 @@ case class ExprBinder(
         bindOperatorCall(
           location,
           member,
+          binder.getSymbolType(member),
           left,
           right,
           scope,
@@ -932,15 +933,16 @@ case class ExprBinder(
           location
         ) match {
           case Option.None => Option.None
-          case Option.Some(KeyValue(member, record)) =>
+          case Option.Some(found) =>
             bindOperatorCall(
               location,
-              member,
+              found.member,
+              binder.instantiateGivenMember(found),
               left,
               right,
               scope,
               Option.None,
-              Option.Some(record)
+              Option.Some(found.record)
             )
         }
     }
@@ -955,11 +957,11 @@ case class ExprBinder(
       tokenKind: int,
       name: string,
       location: TextLocation
-  ): Option[KeyValue[Symbol, Symbol]] = {
+  ): Option[GivenMember] = {
     types match {
       case List.Nil => Option.None
       case List.Cons(head, tail) =>
-        val found: Option[KeyValue[Symbol, Symbol]] =
+        val found: Option[GivenMember] =
           binder.operatorGoal(tokenKind, head) match {
             case Option.None => Option.None
             case Option.Some(goal) =>
@@ -998,14 +1000,18 @@ case class ExprBinder(
   def bindOperatorCall(
       location: TextLocation,
       member: Symbol,
+      memberType: Type,
       left: BoundExpression,
       right: BoundExpression,
       scope: Scope,
       evidence: Option[BoundEvidence],
       record: Option[Symbol]
   ): Option[BoundExpression] = {
-    binder.tryGetSymbolType(member) match {
-      case Option.Some(Type.Function(_, parameters, returnType)) =>
+    // `memberType` rather than the member's declared type: a conditional
+    // given's member is stated in that given's type variables, so the operands
+    // have to be checked against the instantiated signature (ADR 0006).
+    memberType match {
+      case Type.Function(_, parameters, returnType) =>
         // The goal was built from the left operand alone, so the right one is
         // still unchecked. Rejecting here rather than binding the arguments
         // and letting the conversion fail keeps `"a" == 'c'` reported as a
@@ -2095,7 +2101,9 @@ case class ExprBinder(
             bindContextualCall(
               location,
               member,
+              binder.getSymbolType(member),
               Option.Some(evidence),
+              Option.None,
               receiver,
               args,
               scope
@@ -2103,38 +2111,41 @@ case class ExprBinder(
           case Option.None =>
             // Nothing in scope holds evidence for the receiver's type, which
             // for a ground type is expected: the given is known already, and
-            // its members are static, so this is an ordinary call.
-            if (isGivenMember(access.member)) {
-              bindContextualCall(
-                location,
-                access.member,
-                Option.None,
-                receiver,
-                args,
-                scope
-              )
-            } else {
-              diagnosticBag.reportSymbolNotFoundForType(
-                location,
-                receiverType,
-                access.member.name
-              )
-              Result.Error(
-                BoundExpression.Error(
-                  "No evidence supplies " + access.member.name
+            // its members are static, so this is an ordinary call. Resolving
+            // it here rather than trusting the member the access already
+            // carries is what gives the call its record and, for a conditional
+            // given, the type arguments its signature is stated in.
+            binder.findGivenExtensionForAny(
+              binder.evidenceTypes(receiverType),
+              access.member.name,
+              location
+            ) match {
+              case Option.Some(found) =>
+                bindContextualCall(
+                  location,
+                  found.member,
+                  binder.instantiateGivenMember(found),
+                  Option.None,
+                  Option.Some(found.record),
+                  receiver,
+                  args,
+                  scope
                 )
-              )
+              case Option.None =>
+                diagnosticBag.reportSymbolNotFoundForType(
+                  location,
+                  receiverType,
+                  access.member.name
+                )
+                Result.Error(
+                  BoundExpression.Error(
+                    "No evidence supplies " + access.member.name
+                  )
+                )
             }
         }
       case _ =>
         Result.Error(BoundExpression.Error("Expected a trait member access"))
-    }
-  }
-
-  def isGivenMember(member: Symbol): bool = {
-    member.parent match {
-      case Option.Some(owner) => owner.kind == SymbolKind.Given
-      case Option.None        => false
     }
   }
 
@@ -2146,7 +2157,9 @@ case class ExprBinder(
   def bindContextualCall(
       location: TextLocation,
       member: Symbol,
+      memberType: Type,
       evidence: Option[BoundEvidence],
+      record: Option[Symbol],
       receiver: BoundExpression,
       args: List[BoundExpression],
       scope: Scope
@@ -2154,8 +2167,10 @@ case class ExprBinder(
     // annotated: a bare `List.Cons` types as the case, not the enum
     val allArgs: List[BoundExpression] = List.Cons(receiver, args)
 
-    binder.tryGetSymbolType(member) match {
-      case Option.Some(Type.Function(_, parameters, returnType)) =>
+    // `memberType` rather than the member's declared type: a conditional
+    // given's member is stated in that given's type variables (ADR 0006).
+    memberType match {
+      case Type.Function(_, parameters, returnType) =>
         if (parameters.length != allArgs.length) {
           diagnosticBag.reportArgumentCountMismatch(
             location,
@@ -2194,11 +2209,7 @@ case class ExprBinder(
                     Option.None,
                     member,
                     List.Nil,
-                    binder.withRecordArgument(
-                      bound,
-                      binder.recordForGivenOwner(member, location),
-                      location
-                    ),
+                    binder.withRecordArgument(bound, record, location),
                     returnType
                   )
                 )
@@ -2262,10 +2273,13 @@ case class ExprBinder(
             // type declares itself always win (ADR 0004).
             binder.findGivenExtensionForAny(
               binder.evidenceTypes(leftType),
-              right.text
+              right.text,
+              right.location
             ) match {
-              case Option.Some(member) =>
-                Either.Right(Tuple2(member, binder.getSymbolType(member)))
+              case Option.Some(found) =>
+                Either.Right(
+                  Tuple2(found.member, binder.instantiateGivenMember(found))
+                )
               case Option.None =>
                 reportMemberNotFound(leftType, right)
             }

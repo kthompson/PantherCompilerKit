@@ -1106,14 +1106,59 @@ class BinderTests extends AnyFunSpec with Matchers {
     }
 
     /** A generic type's derived given is conditional — `Eq[Box[T]]` given
-      * `Eq[T]` — and a conditional given cannot reach its own premise yet.
+      * `Eq[T]` — which is what ADR 0006 makes expressible. The head applies the
+      * class to its own type variable, so it is stated once and instantiated
+      * per use.
       */
-    it("should reject deriving for a generic type") {
+    it("should derive for a generic type") {
+      val comp = mkCompilation("[derive(Eq)]\nclass Box[T](value: T)")
+      givenHeads(comp) shouldBe Seq("Eq<Box<$0>>")
+    }
+
+    /** The premise is one per type parameter, in declaration order, which is
+      * also the dependency half's layout.
+      */
+    it("should derive for a type with two parameters") {
+      val comp = mkCompilation("[derive(Eq)]\nclass Pair[A, B](a: A, b: B)")
+      givenHeads(comp) shouldBe Seq("Eq<Pair<$0, $1>>")
+
+      val comp2 = mkCompilation(
+        "[derive(Eq)]\nclass Pair[A, B](a: A, b: B)\n" +
+          "def same[T: Eq](x: T, y: T): bool = x == y\n" +
+          "val r = same(new Pair[int, string](1, \"a\"), " +
+          "new Pair[int, string](1, \"a\"))"
+      )
+      evidenceRecordGoals(comp2) shouldBe Seq(
+        "Eq<Pair<int, string>>",
+        "Eq<int>",
+        "Eq<string>"
+      )
+    }
+
+    /** The instantiation has to have evidence for what it substitutes in, and
+      * the premise is what reports when it does not — `Eq[bool]` exists but
+      * `Ord[bool]` deliberately does not.
+      */
+    it("should report a generic derivation instantiated without evidence") {
       val comp = mkFailingCompilation(
-        "[derive(Eq)]\nclass Box[T](value: T)"
+        "[derive(Ord)]\nclass Box[T](value: T)\n" +
+          "def srt[T: Ord](x: T): bool = x < x\n" +
+          "val r = srt(new Box[bool](true))"
+      )
+      diagnosticMessages(comp) should contain("No given instance for Ord<bool>")
+    }
+
+    /** A parameter whose type is a composite over the type variable —
+      * `List[T]` rather than `T` — is neither ground nor a premise, so there is
+      * nothing to point at. This is the limit of what ADR 0006 step 5 reaches.
+      */
+    it("should reject deriving over a composite of a type parameter") {
+      val comp = mkFailingCompilation(
+        "class Holder[T](value: T)\n" +
+          "[derive(Eq)]\nclass Box[T](held: Holder[T])"
       )
       diagnosticMessages(comp) should contain(
-        "Cannot derive for Box: it has type parameters"
+        "Cannot derive Eq: no Eq[Holder<$0>] for field held"
       )
     }
 
