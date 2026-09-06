@@ -506,9 +506,15 @@ case class Binder(
   // compiler always reads: a test snippet, a doc block and `pnc/src` are each
   // just the trees they are handed.
   //
-  // These have to come after `functionBodies`, `givens`, `operatorTraits` and
-  // `evidenceRecordType` are declared — a class body initialises in order, and
-  // every one of the four is read or written below.
+  // These have to come after `functionBodies`, `givens`, `operatorTraits`,
+  // `evidenceRecordType` and `selfEvidenceName` are declared — a class body
+  // initialises in order, and every one of the five is read or written below.
+  // Getting that wrong is quiet: `builtinEqGiven` runs here, so a name it
+  // needs that is declared further down is simply `null` on the symbols it
+  // defines, and nothing fails until something looks one up by name.
+
+  /** The name of the record a given's member is reached through. */
+  val selfEvidenceName: string = "$ev$self"
 
   /** The record's element type is `any` rather than `int` because the slots
     * hold two kinds of thing: a method token in the token half, and a reference
@@ -630,9 +636,6 @@ case class Binder(
     defineSelfEvidence(symbol)
     symbol
   }
-
-  /** The name of the record a given's member is reached through. */
-  val selfEvidenceName: string = "$ev$self"
 
   /** Every member of a given takes the record it was reached through, whether
     * or not that given has premises
