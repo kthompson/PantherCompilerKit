@@ -773,6 +773,134 @@ class VmTests extends AnyFunSpec with Matchers {
       )
     }
 
+    /** A bare name binds the scrutinee and always matches, so it is a
+      * catch-all that can also be read.
+      */
+    it("should bind a variable pattern to the scrutinee") {
+      assertExecValueIntWithSetup(
+        "def f(x: int): int = x match {\n  case 1 => 100\n  case n => n + 1\n}",
+        "f(7)",
+        8
+      )
+      assertExecValueIntWithSetup(
+        "def f(x: int): int = x match {\n  case 1 => 100\n  case n => n + 1\n}",
+        "f(1)",
+        100
+      )
+    }
+
+    /** `case Color.Red` names a case without destructuring it. It binds
+      * nothing, but it is still a test — every case used to take the first
+      * branch.
+      */
+    val colorMatch =
+      "enum Color {\n  case Red\n  case Green\n  case Blue\n}\n" +
+        "def name(c: Color): string = c match {\n" +
+        "  case Color.Red => \"r\"\n" +
+        "  case Color.Green => \"g\"\n" +
+        "  case Color.Blue => \"b\"\n}\n"
+
+    it("should match a parameterless enum case") {
+      assertExecValueStringWithSetup(colorMatch, "name(Color.Red)", "r")
+      assertExecValueStringWithSetup(colorMatch, "name(Color.Green)", "g")
+      assertExecValueStringWithSetup(colorMatch, "name(Color.Blue)", "b")
+    }
+
+    val shapeEnum =
+      "enum Shape {\n  case Circle(r: int)\n  case Rect(w: int, h: int)\n}\n"
+
+    it("should extract an enum case's parameters") {
+      val setup = shapeEnum +
+        "def area(s: Shape): int = s match {\n" +
+        "  case Shape.Circle(r) => r * r * 3\n" +
+        "  case Shape.Rect(w, h) => w * h\n}\n"
+
+      assertExecValueIntWithSetup(setup, "area(Shape.Circle(2))", 12)
+      assertExecValueIntWithSetup(setup, "area(Shape.Rect(3, 4))", 12)
+      assertExecValueIntWithSetup(setup, "area(Shape.Rect(5, 6))", 30)
+    }
+
+    it("should test a literal inside an extract pattern") {
+      val setup = shapeEnum +
+        "def f(s: Shape): string = s match {\n" +
+        "  case Shape.Rect(1, h) => \"thin\"\n" +
+        "  case Shape.Rect(w, h) => \"wide\"\n" +
+        "  case Shape.Circle(r) => \"round\"\n}\n"
+
+      assertExecValueStringWithSetup(setup, "f(Shape.Rect(1, 4))", "thin")
+      assertExecValueStringWithSetup(setup, "f(Shape.Rect(2, 4))", "wide")
+      assertExecValueStringWithSetup(setup, "f(Shape.Circle(2))", "round")
+    }
+
+    it("should ignore a discarded parameter in an extract pattern") {
+      val setup = shapeEnum +
+        "def width(s: Shape): int = s match {\n" +
+        "  case Shape.Rect(w, _) => w\n" +
+        "  case _ => 0\n}\n"
+
+      assertExecValueIntWithSetup(setup, "width(Shape.Rect(3, 4))", 3)
+      assertExecValueIntWithSetup(setup, "width(Shape.Circle(9))", 0)
+    }
+
+    it("should destructure a class") {
+      assertExecValueIntWithSetup(
+        "class Point(x: int, y: int)\n" +
+          "def sum(p: Point): int = p match {\n  case Point(x, y) => x + y\n}\n",
+        "sum(new Point(3, 4))",
+        7
+      )
+    }
+
+    /** A nested pattern's test only runs once the outer one has matched, and
+      * its binding reads a field of a field.
+      */
+    it("should match a nested extract pattern") {
+      val setup = "enum Option[out T] {\n  case Some(value: T)\n  case None\n}\n" +
+        "def f(o: Option[Option[int]]): int = o match {\n" +
+        "  case Option.Some(Option.Some(v)) => v\n" +
+        "  case Option.Some(Option.None) => -1\n" +
+        "  case Option.None => -2\n}\n"
+
+      assertExecValueIntWithSetup(setup, "f(Option.Some(Option.Some(5)))", 5)
+      assertExecValueIntWithSetup(setup, "f(Option.Some(Option.None))", -1)
+      assertExecValueIntWithSetup(setup, "f(Option.None)", -2)
+    }
+
+    /** The annotation on `case x: int` is a test as well as a type. Without
+      * it the first annotated case caught everything.
+      */
+    it("should test a type assertion pattern") {
+      val setup = "def f(v: any): string = v match {\n" +
+        "  case s: string => \"str\"\n" +
+        "  case i: int => \"int\"\n" +
+        "  case _ => \"other\"\n}\n"
+
+      assertExecValueStringWithSetup(setup, "f(1)", "int")
+      assertExecValueStringWithSetup(setup, "f(\"x\")", "str")
+      assertExecValueStringWithSetup(setup, "f(true)", "other")
+    }
+
+    it("should bind a type assertion pattern") {
+      val setup =
+        "def f(v: any): int = v match {\n  case i: int => i + 1\n  case _ => 0\n}\n"
+
+      assertExecValueIntWithSetup(setup, "f(41)", 42)
+      assertExecValueIntWithSetup(setup, "f(\"x\")", 0)
+    }
+
+    /** `a.b` used as a place is the value of `b`. Emitting only `a` dropped a
+      * level from every chain longer than one, which nested patterns are the
+      * first thing to build.
+      */
+    it("should read a field of a field") {
+      assertExecValueIntWithSetup(
+        "class Inner(v: int)\nclass Outer(inner: Inner)\n" +
+          "val o = new Outer(new Inner(7))\n",
+        "o.inner.v",
+        7
+      )
+    }
+
     it("should execute is expression basic functionality") {
       // Test that is expressions execute properly and return correct boolean values
       assertExecValueBool("12 is int", true)

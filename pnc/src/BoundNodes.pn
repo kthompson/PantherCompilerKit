@@ -55,6 +55,18 @@ enum BoundLiteral {
 enum BoundPattern {
   case Literal(literal: BoundLiteral)
   case Variable(symbol: Symbol)
+  /** `case Color.Red =>` — a case named without destructuring it. It binds
+    * nothing, but it is a test, which is why it cannot be a `Discard`.
+    *
+    * Named `TypeTest` rather than `Type`, which would shadow the class of that
+    * name everywhere this enum is matched on.
+    */
+  case TypeTest(typ: Type)
+  /** `case x: int =>` — a test on the annotation, and then whatever the inner
+    * pattern does. Without the test the annotation would be a claim the match
+    * never checks, and `case x: int` would catch everything.
+    */
+  case Typed(typ: Type, inner: BoundPattern)
   case Extract(
       constructor: Symbol,
       patterns: Array[BoundPattern]

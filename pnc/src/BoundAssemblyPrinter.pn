@@ -363,6 +363,12 @@ class BoundAssemblyPrinter(
     case BoundPattern.Literal(lit) => printBoundLiteral(lit)
     case BoundPattern.Variable(symbol) =>
       writeWithColor(ColorPalette.Identifier, symbol.name)
+    case BoundPattern.TypeTest(typ) =>
+      writeWithColor(ColorPalette.Identifier, typ.toString())
+    case BoundPattern.Typed(typ, inner) =>
+      printPattern(inner)
+      writeWithColor(ColorPalette.Punctuation, ": ")
+      writeWithColor(ColorPalette.Identifier, typ.toString())
     case BoundPattern.Extract(constructor, patterns) =>
       writeWithColor(ColorPalette.Identifier, constructor.name)
       writeWithColor(ColorPalette.Punctuation, "(")

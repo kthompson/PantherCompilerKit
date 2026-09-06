@@ -881,9 +881,14 @@ case class Emitter(
       context: EmitContext
   ): unit = {
     lhs match {
-      case LoweredLeftHandSide.MemberAccess(_, left, symbol) =>
-        // Emit the receiver for instance member access
-        emitLHS(left, context)
+      case LoweredLeftHandSide.MemberAccess(location, left, symbol) =>
+        // The whole access, not just its receiver: `a.b` used as a place is
+        // the value of `b`, and emitting only `a` silently drops a level from
+        // every chain of more than one — `a.b.c` loaded `a` and then `c`.
+        emitMemberAccess(
+          LoweredExpression.MemberAccess(location, left, symbol),
+          context
+        )
       case LoweredLeftHandSide.Variable(location, variable) =>
         emitVariable(LoweredExpression.Variable(location, variable), context)
       case LoweredLeftHandSide.New(

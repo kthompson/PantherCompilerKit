@@ -1243,54 +1243,294 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
     )
   }
 
+  /** One case, as `if (<test>) { <bindings>; <result> } else <the rest>`.
+    *
+    * An irrefutable pattern — `case _` or `case x` — has no test, so it
+    * becomes the body directly and whatever follows it is unreachable, which
+    * is what a catch-all means.
+    */
   def boundMatchCaseToExpression(
       variable: Symbol,
       node: BoundExpression.Match,
       matchCase: BoundMatchCase,
       cases: List[BoundMatchCase]
   ): BoundExpression = {
-    matchCase.pattern match {
-      case BoundPattern.Literal(literal) =>
+    val scrutinee: BoundExpression =
+      BoundExpression.Variable(matchCase.location, variable, Option.None)
+
+    val bindings = patternBindings(scrutinee, matchCase.pattern, matchCase.location)
+    val body: BoundExpression =
+      if (bindings.isEmpty) matchCase.result
+      else BoundExpression.Block(bindings, matchCase.result)
+
+    patternTest(scrutinee, matchCase.pattern, matchCase.location) match {
+      case Option.None => body
+      case Option.Some(condition) =>
+        val rest: Option[BoundExpression] = cases match {
+          case List.Nil => Option.None
+          case List.Cons(head, tail) =>
+            Option.Some(boundMatchCaseToExpression(variable, node, head, tail))
+        }
+
         BoundExpression.If(
           matchCase.location,
-          BoundExpression.Binary(
-            matchCase.location,
-            BoundExpression.Variable(matchCase.location, variable, Option.None),
-            BinaryOperatorKind.Equals,
-            literal match {
-              case BoundLiteral.Int(location, value) =>
-                BoundExpression.Int(location, value)
-              case BoundLiteral.String(location, value) =>
-                BoundExpression.String(location, value)
-              case BoundLiteral.Bool(location, value) =>
-                BoundExpression.Boolean(location, value)
-              case BoundLiteral.Char(location, value) =>
-                BoundExpression.Character(location, value)
-            },
-            binder.boolType
-          ),
-          matchCase.result,
-          cases match {
-            case List.Nil => Option.None
-            case List.Cons(head, tail) =>
-              Option.Some(
-                boundMatchCaseToExpression(variable, node, head, tail)
-              )
-          },
+          condition,
+          body,
+          rest,
           node.resultType
         )
-      case BoundPattern.Variable(symbol) =>
-        // TODO: not sure how to handle this yet
-        // For now, we just return the result of the match case
-        matchCase.result
+    }
+  }
+
+  /** What has to hold for `pattern` to match `scrutinee`, or `None` when the
+    * pattern is irrefutable and there is nothing to check.
+    */
+  def patternTest(
+      scrutinee: BoundExpression,
+      pattern: BoundPattern,
+      location: TextLocation
+  ): Option[BoundExpression] = {
+    pattern match {
+      case BoundPattern.Discard     => Option.None
+      case BoundPattern.Variable(_) => Option.None
+      case BoundPattern.Literal(literal) =>
+        Option.Some(
+          BoundExpression.Binary(
+            location,
+            scrutinee,
+            BinaryOperatorKind.Equals,
+            literalExpression(literal),
+            binder.boolType
+          )
+        )
+      case BoundPattern.TypeTest(typ) =>
+        Option.Some(BoundExpression.Is(location, scrutinee, typ))
+      case BoundPattern.Typed(typ, inner) =>
+        val test = BoundExpression.Is(location, scrutinee, typ)
+
+        patternTest(scrutinee, inner, location) match {
+          case Option.None => Option.Some(test)
+          case Option.Some(innerTest) =>
+            // nested, not `&&`-ed: the inner pattern may read the value as the
+            // annotated type, which only the outer test establishes
+            Option.Some(
+              BoundExpression.If(
+                location,
+                test,
+                innerTest,
+                Option.Some(BoundExpression.Boolean(location, false)),
+                binder.boolType
+              )
+            )
+        }
       case BoundPattern.Extract(constructor, patterns) =>
-        // TODO: Implement proper constructor pattern matching
-        // This would involve checking if the value is an instance of the constructor
-        // and extracting the fields for nested pattern matching
-        // For now, we treat it as a wildcard match
-        matchCase.result
-      case BoundPattern.Discard =>
-        matchCase.result
+        constructorCaseType(constructor) match {
+          case Option.None =>
+            panic("patternTest: no type for " + constructor.qualifiedName())
+          case Option.Some(caseType) =>
+            // The sub-tests read fields, which is only safe once the value is
+            // known to be this case — so they go inside the `is` rather than
+            // being `&&`-ed onto it.
+            Option.Some(
+              BoundExpression.If(
+                location,
+                BoundExpression.Is(location, scrutinee, caseType),
+                subPatternTests(
+                  scrutinee,
+                  constructorFields(constructor),
+                  patterns,
+                  0,
+                  location
+                ),
+                Option.Some(BoundExpression.Boolean(location, false)),
+                binder.boolType
+              )
+            )
+        }
+    }
+  }
+
+  /** The sub-patterns' tests, `&&`-ed together, and `true` when none of them
+    * has one.
+    *
+    * `&&` is safe between siblings where it is not between the `is` and its
+    * sub-tests: every sibling reads a field of the same value, which the `is`
+    * has already established.
+    */
+  def subPatternTests(
+      scrutinee: BoundExpression,
+      fields: List[Symbol],
+      patterns: Array[BoundPattern],
+      index: int,
+      location: TextLocation
+  ): BoundExpression = {
+    fields match {
+      case List.Nil => BoundExpression.Boolean(location, true)
+      case List.Cons(field, tail) =>
+        val rest = subPatternTests(scrutinee, tail, patterns, index + 1, location)
+
+        if (index >= patterns.length) rest
+        else
+          patternTest(
+            fieldAccess(scrutinee, field, location),
+            patterns(index),
+            location
+          ) match {
+            case Option.None => rest
+            case Option.Some(test) =>
+              BoundExpression.Binary(
+                location,
+                test,
+                BinaryOperatorKind.LogicalAnd,
+                rest,
+                binder.boolType
+              )
+          }
+    }
+  }
+
+  /** The assignments a pattern's variables need, in the order they appear.
+    *
+    * Run only once the test has passed, which is what makes reading a field
+    * here safe.
+    */
+  def patternBindings(
+      scrutinee: BoundExpression,
+      pattern: BoundPattern,
+      location: TextLocation
+  ): List[BoundStatement] = {
+    pattern match {
+      case BoundPattern.Discard     => List.Nil
+      case BoundPattern.Literal(_)  => List.Nil
+      case BoundPattern.TypeTest(_) => List.Nil
+      case BoundPattern.Typed(_, inner) =>
+        patternBindings(scrutinee, inner, location)
+      case BoundPattern.Variable(symbol) =>
+        ListModule.one(
+          BoundStatement.ExpressionStatement(
+            BoundExpression.Assignment(
+              location,
+              BoundLeftHandSide.Variable(location, symbol),
+              scrutinee
+            )
+          )
+        )
+      case BoundPattern.Extract(constructor, patterns) =>
+        subPatternBindings(
+          scrutinee,
+          constructorFields(constructor),
+          patterns,
+          0,
+          location
+        )
+    }
+  }
+
+  def subPatternBindings(
+      scrutinee: BoundExpression,
+      fields: List[Symbol],
+      patterns: Array[BoundPattern],
+      index: int,
+      location: TextLocation
+  ): List[BoundStatement] = {
+    fields match {
+      case List.Nil => List.Nil
+      case List.Cons(field, tail) =>
+        val rest =
+          subPatternBindings(scrutinee, tail, patterns, index + 1, location)
+
+        if (index >= patterns.length) rest
+        else
+          ListModule.concat(
+            patternBindings(
+              fieldAccess(scrutinee, field, location),
+              patterns(index),
+              location
+            ),
+            rest
+          )
+    }
+  }
+
+  def literalExpression(literal: BoundLiteral): BoundExpression = {
+    literal match {
+      case BoundLiteral.Int(location, value) =>
+        BoundExpression.Int(location, value)
+      case BoundLiteral.String(location, value) =>
+        BoundExpression.String(location, value)
+      case BoundLiteral.Bool(location, value) =>
+        BoundExpression.Boolean(location, value)
+      case BoundLiteral.Char(location, value) =>
+        BoundExpression.Character(location, value)
+    }
+  }
+
+  /** The type a constructor pattern tests for, which is the type its `.ctor`
+    * belongs to.
+    */
+  def constructorCaseType(constructor: Symbol): Option[Type] = {
+    constructor.parent match {
+      case Option.None         => Option.None
+      case Option.Some(owner) => binder.tryGetSymbolType(owner)
+    }
+  }
+
+  /** The fields a constructor pattern destructures, in the order its
+    * parameters are declared.
+    *
+    * Taken from the constructor's parameters rather than from the type's
+    * fields, because a pattern is positional and `members()` gives a class's
+    * fields in reverse.
+    */
+  def constructorFields(constructor: Symbol): List[Symbol] = {
+    constructor.parent match {
+      case Option.None => List.Nil
+      case Option.Some(owner) =>
+        fieldsForParameters(owner, constructor.members())
+    }
+  }
+
+  def fieldsForParameters(
+      owner: Symbol,
+      members: List[Symbol]
+  ): List[Symbol] = {
+    members match {
+      case List.Nil => List.Nil
+      case List.Cons(head, tail) =>
+        val rest = fieldsForParameters(owner, tail)
+
+        if (head.kind != SymbolKind.Parameter) rest
+        else
+          owner.lookupMember(head.name) match {
+            case Option.Some(field) => List.Cons(field, rest)
+            case Option.None        => rest
+          }
+    }
+  }
+
+  def fieldAccess(
+      receiver: BoundExpression,
+      field: Symbol,
+      location: TextLocation
+  ): BoundExpression =
+    BoundExpression.MemberAccess(
+      location,
+      asLeftHandSide(receiver),
+      field,
+      List.Nil,
+      binder.getSymbolType(field)
+    )
+
+  /** A scrutinee as something a member access can hang off. Only the two
+    * shapes `patternTest` builds ever reach this.
+    */
+  def asLeftHandSide(expr: BoundExpression): BoundLeftHandSide = {
+    expr match {
+      case value: BoundExpression.Variable =>
+        BoundLeftHandSide.Variable(value.location, value.symbol)
+      case value: BoundExpression.MemberAccess =>
+        BoundLeftHandSide.MemberAccess(value)
+      case _ => panic("asLeftHandSide: not a place")
     }
   }
 

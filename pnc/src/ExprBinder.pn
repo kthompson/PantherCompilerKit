@@ -2397,16 +2397,28 @@ class ExprBinder(
         Result.Success(BoundPattern.Discard)
       case PatternSyntax.Identifier(identifier) =>
         bindIdentifierPattern(scope, identifier, expectedType)
-      case PatternSyntax.Type(_) =>
-        // A bare type pattern binds nothing; the check is the lowerer's
-        Result.Success(BoundPattern.Discard)
+      case PatternSyntax.Type(name) =>
+        // A bare type pattern binds nothing, but it is still a test — the
+        // type has to survive to the lowerer, which is what makes
+        // `case Color.Red` different from `case _`.
+        binder.bindTypeName(name, scope) match {
+          case Type.Error(message) =>
+            Result.Error(BoundExpression.Error(message))
+          case typ => Result.Success(BoundPattern.TypeTest(typ))
+        }
       case PatternSyntax.TypeAssertion(innerPattern, typeAnnotation) =>
-        // The annotation, not the scrutinee, is what the inner pattern sees
+        // The annotation, not the scrutinee, is what the inner pattern sees —
+        // and it is a test as well as a type, or `case x: int` would catch
+        // every value and bind it.
         binder.bindTypeName(typeAnnotation.typ, scope) match {
           case Type.Error(message) =>
             Result.Error(BoundExpression.Error(message))
           case annotatedType =>
-            bindPattern(innerPattern, scope, annotatedType)
+            bindPattern(innerPattern, scope, annotatedType) match {
+              case Result.Error(error) => Result.Error(error)
+              case Result.Success(inner) =>
+                Result.Success(BoundPattern.Typed(annotatedType, inner))
+            }
         }
       case PatternSyntax.Extract(constructorName, _, patterns, _) =>
         resolveConstructorSymbol(constructorName, scope) match {
