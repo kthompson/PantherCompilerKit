@@ -333,8 +333,8 @@ case class Binder(
     boolType
   )
 
-  // "a".compareTo("b"): int and 1.compareTo(2): int — both emit `Cmp`, which
-  // dispatches on the values rather than needing an opcode per type.
+  // "a".compareTo("b"): int and 1.compareTo(2): int — two builtins sharing one
+  // implementation, which tells the operand types apart by what it pops.
   builtinMethod(
     stringSymbol,
     "compareTo",
@@ -1233,7 +1233,8 @@ case class Binder(
   }
 
   /** `Show[T].show` is the conversion function the language already has.
-    * `string(value)` is an extern call the emitter turns into `ConvStr`.
+    * `string(value)` is an extern call, which the emitter turns into a `Callx`
+    * of the `string.apply` builtin.
     */
   def builtinShowGiven(typ: Type, typeName: string): unit = {
     val symbol = builtinGiven(showSymbol, typ, typeName)
@@ -1264,10 +1265,14 @@ case class Binder(
 
   /** An instance method on a builtin type, named by the parameters it takes.
     *
-    * Extern, because there is no body: the emitter turns each of these into its
-    * own opcode, the way it already turns `string(value)` into `ConvStr`. The
-    * parameters are defined after the method so that they can be its children,
-    * which is why they arrive as names and types rather than as symbols.
+    * Extern, because there is no body: the call site emits `Callx` with the id
+    * `Builtin` gives this method's qualified name, and the VM runs it. Every
+    * method declared here needs an entry there, or emitting a call to it fails
+    * the compile.
+    *
+    * The parameters are defined after the method so that they can be its
+    * children, which is why they arrive as names and types rather than as
+    * symbols.
     */
   def builtinMethod(
       owner: Symbol,

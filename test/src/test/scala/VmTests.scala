@@ -1438,6 +1438,39 @@ class VmTests extends AnyFunSpec with Matchers {
       * through `Ldlen` the way an array's does. Reading it as a field failed
       * outright, which nothing exercised until these.
       */
+    /** Tracing disassembles every instruction before running it, so it is the
+      * only thing that exercises the disassembler against a real stream. Every
+      * builtin used to be an opcode the disassembler had no case for, so
+      * `--trace` on any program calling one died with `Unsupported opcode`
+      * before it could run. One `callx` case covers all of them.
+      */
+    it("should disassemble every builtin while tracing") {
+      execTraced("println(\"hi\")") shouldBe InterpretResult.OkValue(
+        Value.Uninitialized
+      )
+      execTraced("print(\"hi\")") shouldBe InterpretResult.OkValue(
+        Value.Uninitialized
+      )
+      execTraced("string(1)") shouldBe InterpretResult.OkValue(
+        Value.String("1")
+      )
+      execTraced("int(\"1\")") shouldBe InterpretResult.OkValue(Value.Int(1))
+      execTraced("bool(1)") shouldBe InterpretResult.OkValue(Value.Bool(true))
+      execTraced("char(\"a\")") shouldBe InterpretResult.OkValue(Value.Int(97))
+      execTraced("mod(7, 3)") shouldBe InterpretResult.OkValue(Value.Int(1))
+      // through a variable, not a literal: a literal receiver panics in
+      // `bindLHS`, which is a separate gap
+      execTraced("val s = \"abc\"\ns.substring(0, 2)") shouldBe
+        InterpretResult.OkValue(Value.String("ab"))
+      execTraced("val s = \"abc\"\ns.endsWith(\"c\")") shouldBe
+        InterpretResult.OkValue(Value.Bool(true))
+      execTraced("val s = \"a\"\ns.compareTo(\"b\")") shouldBe
+        InterpretResult.OkValue(Value.Int(-1))
+      execTraced("Path.combine(\"a\", \"b\")") should not be
+        InterpretResult.RuntimeError
+      execTraced("exit(2)") shouldBe InterpretResult.Exit(2)
+    }
+
     /** The prelude intrinsics. Every one of these used to panic the emitter
       * with `unknown extern`, so a program calling any of them could be bound
       * and never run.

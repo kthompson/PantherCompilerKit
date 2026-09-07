@@ -83,14 +83,6 @@ using panther
       simpleInstruction(name, offset)
     } else if (opcode == Opcode.Ldlen) {
       simpleInstruction(name, offset)
-    } else if (opcode == Opcode.ConvI4) {
-      simpleInstruction(name, offset)
-    } else if (opcode == Opcode.ConvStr) {
-      simpleInstruction(name, offset)
-    } else if (opcode == Opcode.ConvBool) {
-      simpleInstruction(name, offset)
-    } else if (opcode == Opcode.ConvChar) {
-      simpleInstruction(name, offset)
     } else if (opcode == Opcode.Ldtrue) {
       simpleInstruction(name, offset)
     } else if (opcode == Opcode.Ldfalse) {
@@ -104,6 +96,8 @@ using panther
     } else if (opcode == Opcode.Calli) {
       // no operand to print: the token is on the stack, not in the stream
       simpleInstruction(name, offset)
+    } else if (opcode == Opcode.Callx) {
+      builtinInstruction(chunk, offset, name)
     } else if (opcode == Opcode.Ldfld) {
       fieldTokenInstruction(chunk, offset, name)
     } else if (opcode == Opcode.Ldsfld) {
@@ -190,6 +184,15 @@ using panther
     val token = chunk.readI4(offset + 1)
     val fieldName = metadata.getFieldName(FieldToken(token))
     println(name + " " + fieldName)
+    offset + 2
+  }
+
+  /** `callx` prints what it calls, the way `call` prints a method name — the
+    * operand is a builtin id and the number on its own says nothing.
+    */
+  def builtinInstruction(chunk: Chunk, offset: int, name: string): int = {
+    val id = chunk.readI4(offset + 1)
+    println(name + " " + Builtin.nameOf(id))
     offset + 2
   }
 

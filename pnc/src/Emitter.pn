@@ -963,55 +963,26 @@ params: Dictionary[Symbol, int]
     }
   }
 
-  /** A builtin member has no body to call into, so each one is its own opcode.
+  /** A builtin has no body to call into, so the call is `Callx` and the id says
+    * which one.
     *
-    * The receiver and then the arguments are already on the stack, which is the
-    * order these opcodes pop them in.
+    * The receiver and then the arguments are already on the stack, in the order
+    * the builtin pops them: `Callx` changes how the target is named, not how it
+    * is reached.
+    *
+    * Named by `qualifiedName`, not `name` — `apply` is declared on four types
+    * and `compareTo` on two, so a bare name does not identify a builtin.
     */
   def emitExternCall(method: Symbol, line: int): unit = {
-    if (method.name == "apply") {
-      method.parent.get().name match {
-        case "string" =>
-          chunk.emitOpcode(Opcode.ConvStr, line)
-        case "bool" =>
-          chunk.emitOpcode(Opcode.ConvBool, line)
-        case "int" =>
-          chunk.emitOpcode(Opcode.ConvI4, line)
-        case "char" =>
-          chunk.emitOpcode(Opcode.ConvChar, line)
-        case _ =>
-          panic("emitExternCall: unknown extern " + method.name)
-      }
-    } else if (method.name == "substring") {
-      chunk.emitOpcode(Opcode.Substr, line)
-    } else if (method.name == "endsWith") {
-      chunk.emitOpcode(Opcode.EndsWith, line)
-    } else if (method.name == "compareTo") {
-      // Both the `string` and the `int` member land here: `Cmp` tells them
-      // apart by the values it pops.
-      chunk.emitOpcode(Opcode.Cmp, line)
-    } else if (method.name == "print") {
-      chunk.emitOpcode(Opcode.Print, line)
-    } else if (method.name == "println") {
-      chunk.emitOpcode(Opcode.Println, line)
-    } else if (method.name == "panic") {
-      chunk.emitOpcode(Opcode.Panic, line)
-    } else if (method.name == "exit") {
-      chunk.emitOpcode(Opcode.Exit, line)
-    } else if (method.name == "assert") {
-      chunk.emitOpcode(Opcode.Assert, line)
-    } else if (method.name == "mod") {
-      chunk.emitOpcode(Opcode.Mod, line)
-    } else if (method.name == "readAllText") {
-      chunk.emitOpcode(Opcode.ReadAllText, line)
-    } else if (method.name == "writeAllText") {
-      chunk.emitOpcode(Opcode.WriteAllText, line)
-    } else if (method.name == "combine") {
-      chunk.emitOpcode(Opcode.PathCombine, line)
-    } else if (method.name == "nameWithoutExtension") {
-      chunk.emitOpcode(Opcode.PathName, line)
+    val id = Builtin.idOf(method.qualifiedName())
+    if (id == Builtin.None) {
+      // Every extern method is a builtin. Reporting it here means a prelude
+      // declaration with no implementation fails the compile that emits it,
+      // rather than the first program that happens to call it.
+      panic("emitExternCall: no builtin for " + method.qualifiedName())
     } else {
-      panic("emitExternCall: unknown extern " + method.name)
+      chunk.emitOpcode(Opcode.Callx, line)
+      chunk.emitI4(id, line)
     }
   }
 

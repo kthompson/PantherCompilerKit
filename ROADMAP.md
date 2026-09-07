@@ -29,7 +29,7 @@ reproduces the measurement. Re-run them rather than trusting the number.
 sbt pncs/compile && sbt test/test
 ```
 
-Green: 476 tests across the lexer, parser, binder, type checker, VM, metadata
+Green: 482 tests across the lexer, parser, binder, type checker, VM, metadata
 format, transpiler, and args parser.
 
 ### The self-hosted compiler does not
@@ -246,11 +246,9 @@ the name resolves and then reports `Bug: type could not be determined`.
 `substring` (5), `compareTo` on `string` (2) and on `int` (2), `nonEmpty` (2),
 `endsWith` and `toString` on `bool`. Three needed no builtin at all: `nonEmpty`
 is `!= ""`, following `.isEmpty` becoming `== ""` in the pass before, and
-`b.toString()` is `string(b)`, which already emitted `ConvStr`. The other four
-are members on the builtin symbol emitted as their own opcode, the way
-`string(value)` is `ConvStr` rather than a call — `Substr`, `EndsWith`, and
-`Cmp` for both `compareTo`s, dispatching on the values it pops the way `Ceq`
-and `Clt` already do. `substring` is the two-argument form only, because
+`b.toString()` is `string(b)`, which was already a builtin. The other four are
+members declared on the builtin symbol and run by the VM. `substring` is the
+two-argument form only, because
 Panther has no overloading, so the two callers that wanted Java's one-argument
 overload now pass the length.
 
@@ -585,17 +583,16 @@ until something writes one.
 `panic`, `exit`, `assert`, `mod`, and the four `File`/`Path` members were all
 bound, marked `extern`, and had no case anywhere in the emitter, so
 `println("hi")` type-checked and then panicked `emitExternCall` with
-`unknown extern`. Each is now its own opcode, the shape the string builtins
-settled on (§1.3) — ten of them, `Print` through `PathName`. `panic` and
+`unknown extern`. They run through `Callx` now — see §3.2a. `panic` and
 `assert` report a runtime error; `exit` ends the run rather than a frame, so
 there is no stack to unwind.
 
 Two things this settled that the count could not see:
 
-- **`println(x)` and `println(string(x))` agree**, because `ConvStr` and
-  `Println` now share one `valueToString` rather than matching on the value
-  twice. A reference prints as its type; there is no `Show` to reach from
-  inside the VM, which only holds the token.
+- **`println(x)` and `println(string(x))` agree**, because the string
+  conversion and `println` share one `valueToString` rather than matching on
+  the value twice. A reference prints as its type; there is no `Show` to reach
+  from inside the VM, which only holds the token.
 - **An exit code is not a diagnostic count.** `Program.run` returned an `int`
   meaning "diagnostics", and `main` turned any non-zero into `exit(1)`, so a
   program calling `exit(3)` left with 1. It returns a `RunResult` now —
@@ -606,6 +603,45 @@ Two things this settled that the count could not see:
 `--run` takes no output file, so every positional is a source. The flag is
 resolved after the whole argument list rather than as it is read, because what
 the first positional means depends on a flag that may come after it.
+
+### 3.2a One instruction for every builtin
+
+**Done.** Each builtin used to be its own opcode — seventeen of them, between
+the ten prelude intrinsics, the three string members and the four conversions —
+and `emitExternCall` was a seventeen-branch chain dispatching on the method's
+bare name. Adding a builtin meant touching the opcode table, `nameOf`, the
+emitter and the VM.
+
+They now share one instruction, in the spirit of a CLR QCall:
+
+```
+callx <builtin id>
+```
+
+[`Builtin`](metadata/src/main/scala/Builtin.scala) maps a method's **qualified**
+name to an id, and the VM's `nativeCall` runs it. Declaring a builtin is a
+binder declaration, a table entry and a VM case; the instruction set does not
+grow. **17 opcodes out, 1 in.**
+
+Qualified, not bare, because `apply` is declared on four types and `compareTo`
+on two — the old chain special-cased `apply` by parent name and had no way to
+express any further collision. `idOf` answering `None` is what the emitter's
+guard reports, so a prelude declaration with no implementation fails the compile
+that emits it rather than the first program that calls it.
+
+**This fixed a live bug.** None of the seventeen were in the disassembler's
+if-chain, which panics on an opcode it does not know, and tracing disassembles
+every instruction before running it — so `pncs --trace` died with
+`Unsupported opcode println` on any program that printed. One `callx` case
+covers every builtin, and prints what it calls:
+
+```
+0006    | callx println
+```
+
+The one extern mechanism `callx` does **not** cover is the two extern *fields*,
+`Array.length` and `string.length`. They are matched by identity in
+`emitMemberAccess` and emit `Ldlen`; a call table cannot describe a field read.
 
 ### 3.3 Then write the samples
 
@@ -783,7 +819,7 @@ Things that do not belong to one goal but block several.
   blocks in §4.1.
 - **No lexer support for exponents or shifts**
   ([`Lexer.scala:243`](pncs/src/main/scala/Lexer.scala:243)).
-- **Test coverage is stage-shaped, not feature-shaped.** 476 tests, but
+- **Test coverage is stage-shaped, not feature-shaped.** 482 tests, but
   `MetadataTests` has 2 and there is no end-to-end test that takes source all
   the way to output. §3.4 is the fix.
 

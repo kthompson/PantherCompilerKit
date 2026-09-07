@@ -61,6 +61,14 @@ object Opcode {
     */
   val Calli = 61
 
+  /** Call a builtin, whose id is the operand.
+    *
+    * A builtin is an `extern` method with no body to call into. One
+    * instruction rather than one per builtin: the id says which, so declaring
+    * a builtin does not grow the instruction set. See `Builtin`.
+    */
+  val Callx = 62
+
   // array
   val Newarr = 70 // new array
   val Ldelem = 71 // load element of array
@@ -89,46 +97,9 @@ object Opcode {
   val Cgt = 101
   val Clt = 102
 
-  /** Three-way compare: pops two values and pushes -1, 0 or 1.
-    *
-    * One opcode for every type that has an ordering, dispatching on the values
-    * it pops the way `Ceq` and `Clt` already do, rather than one per type.
-    */
-  val Cmp = 103
-
-  // conversion
-  val ConvI4 = 110
-  val ConvStr = 111
-  val ConvBool = 112
-  val ConvChar = 113
-
   // type checking
   val IsInst = 120
   val Cast = 121
-
-  // string
-  //
-  // A builtin member has no body to call into, so each one is its own opcode,
-  // the same way `string(value)` is `ConvStr` rather than a call.
-  val Substr = 130 // (str, start, end) -> str, end exclusive
-  val EndsWith = 131 // (str, suffix) -> bool
-
-  // prelude intrinsics
-  //
-  // The rest of what `panther.scala` shims and the transpiler skips. These are
-  // host services rather than operations on values — writing to a console,
-  // ending the process, reading a file — but they are opcodes for the same
-  // reason `Substr` is: an `extern` method has no body to call into.
-  val Print = 140 // (value) -> unit, no newline
-  val Println = 141 // (value) -> unit
-  val Panic = 142 // (message) -> never
-  val Exit = 143 // (code) -> never
-  val Assert = 144 // (condition, message) -> unit
-  val Mod = 145 // (a, b) -> int, sign follows the dividend as `Rem` does
-  val ReadAllText = 146 // (path) -> str
-  val WriteAllText = 147 // (path, text) -> unit
-  val PathCombine = 148 // (path1, path2) -> str
-  val PathName = 149 // (path) -> str, no directory and no extension
 
   def nameOf(opcode: int): string = {
     if (opcode == Nop) {
@@ -193,6 +164,8 @@ object Opcode {
       "call"
     } else if (opcode == Calli) {
       "calli"
+    } else if (opcode == Callx) {
+      "callx"
     } else if (opcode == Newarr) {
       "newarr"
     } else if (opcode == Ldelem) {
@@ -237,44 +210,10 @@ object Opcode {
       "cgt"
     } else if (opcode == Clt) {
       "clt"
-    } else if (opcode == Cmp) {
-      "cmp"
-    } else if (opcode == ConvI4) {
-      "conv.i4"
-    } else if (opcode == ConvStr) {
-      "conv.str"
-    } else if (opcode == ConvBool) {
-      "conv.bool"
-    } else if (opcode == ConvChar) {
-      "conv.char"
     } else if (opcode == IsInst) {
       "isinst"
     } else if (opcode == Cast) {
       "cast"
-    } else if (opcode == Substr) {
-      "substr"
-    } else if (opcode == EndsWith) {
-      "endswith"
-    } else if (opcode == Print) {
-      "print"
-    } else if (opcode == Println) {
-      "println"
-    } else if (opcode == Panic) {
-      "panic"
-    } else if (opcode == Exit) {
-      "exit"
-    } else if (opcode == Assert) {
-      "assert"
-    } else if (opcode == Mod) {
-      "mod"
-    } else if (opcode == ReadAllText) {
-      "readalltext"
-    } else if (opcode == WriteAllText) {
-      "writealltext"
-    } else if (opcode == PathCombine) {
-      "pathcombine"
-    } else if (opcode == PathName) {
-      "pathname"
     } else {
       panic("Unknown opcode: " + string(opcode))
     }

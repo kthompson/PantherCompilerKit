@@ -727,6 +727,39 @@ object TestHelpers {
   def execResult(program: string): InterpretResult =
     mkCompilation(program).exec()
 
+  /** Runs with tracing on, which disassembles every instruction before
+    * executing it, and throws away the disassembly.
+    *
+    * Tracing is the only thing that exercises the disassembler on a real
+    * instruction stream, and an opcode missing from it panics rather than
+    * printing — which is what every builtin used to do.
+    */
+  def execTraced(program: string): InterpretResult = {
+    val settings = CompilerSettingsFactory.default
+    val traced = CompilerSettings(
+      settings.kindRecoveryAttempts,
+      settings.diagnosticsToPrint,
+      settings.stackSize,
+      settings.heapSize,
+      settings.debug,
+      true, // enableTracing
+      settings.printSymbols,
+      settings.printBoundAssembly,
+      settings.printLoweredAssembly,
+      settings.transpile,
+      settings.run
+    )
+    val tree = MakeSyntaxTree.parseContent(program, traced)
+    val comp = MakeCompilation.create(ListModule.one(tree), traced)
+    if (comp.diagnostics.count() > 0) {
+      comp.diagnostics.printDiagnostics(20)
+      throw new AssertionError("Compilation failed")
+    }
+    Console.withOut(new java.io.ByteArrayOutputStream()) {
+      comp.exec()
+    }
+  }
+
   /** What the program wrote to stdout, which for `print` and `println` is the
     * whole of what they do.
     */

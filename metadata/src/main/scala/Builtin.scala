@@ -1,0 +1,120 @@
+import panther._
+
+/** The builtin methods, and the ids `Opcode.Callx` carries as its operand.
+  *
+  * A builtin is an `extern` method: declared in the binder's prelude, with no
+  * body to call into because the implementation lives in the VM. They share one
+  * instruction and are told apart by this id rather than having an opcode each,
+  * so declaring a builtin does not grow the instruction set.
+  *
+  * Keyed on the qualified name rather than the bare one. `apply` is declared on
+  * four types and `compareTo` on two, so a bare name does not name a builtin —
+  * which is what the emitter used to dispatch on, with a parent-name check
+  * bolted onto `apply` alone.
+  *
+  * `idOf` and `nameOf` are inverses. Written as if/else over the constants
+  * rather than a `match`, for the same reason `Opcode.nameOf` is: a `case`
+  * naming a `val` is a stable-identifier pattern, which reads as a comparison
+  * and is easy to turn into a binding by accident.
+  */
+object Builtin {
+  val None = 0
+
+  // predef
+  val Println = 1
+  val Print = 2
+  val Panic = 3
+  val Exit = 4
+  val Assert = 5
+  val Mod = 6
+
+  // the conversions, which are `apply` on each primitive: `string(x)` is a
+  // call to `string.apply`
+  val StringApply = 7
+  val IntApply = 8
+  val BoolApply = 9
+  val CharApply = 10
+
+  // string members
+  val Substring = 11
+  val EndsWith = 12
+  val StringCompareTo = 13
+
+  // `int.compareTo` answers the same way `string.compareTo` does and shares its
+  // implementation, but takes an id of its own: one id per declared method
+  // keeps the table an inverse.
+  val IntCompareTo = 14
+
+  // system.io
+  val ReadAllText = 15
+  val WriteAllText = 16
+  val PathCombine = 17
+  val PathName = 18
+
+  /** The id for a method's qualified name, or `None` if it names no builtin. */
+  def idOf(qualifiedName: string): int = {
+    qualifiedName match {
+      case "println"                    => Println
+      case "print"                      => Print
+      case "panic"                      => Panic
+      case "exit"                       => Exit
+      case "assert"                     => Assert
+      case "mod"                        => Mod
+      case "string.apply"               => StringApply
+      case "int.apply"                  => IntApply
+      case "bool.apply"                 => BoolApply
+      case "char.apply"                 => CharApply
+      case "string.substring"           => Substring
+      case "string.endsWith"            => EndsWith
+      case "string.compareTo"           => StringCompareTo
+      case "int.compareTo"              => IntCompareTo
+      case "File.readAllText"           => ReadAllText
+      case "File.writeAllText"          => WriteAllText
+      case "Path.combine"               => PathCombine
+      case "Path.nameWithoutExtension"  => PathName
+      case _                            => None
+    }
+  }
+
+  def nameOf(id: int): string = {
+    if (id == Println) {
+      "println"
+    } else if (id == Print) {
+      "print"
+    } else if (id == Panic) {
+      "panic"
+    } else if (id == Exit) {
+      "exit"
+    } else if (id == Assert) {
+      "assert"
+    } else if (id == Mod) {
+      "mod"
+    } else if (id == StringApply) {
+      "string.apply"
+    } else if (id == IntApply) {
+      "int.apply"
+    } else if (id == BoolApply) {
+      "bool.apply"
+    } else if (id == CharApply) {
+      "char.apply"
+    } else if (id == Substring) {
+      "string.substring"
+    } else if (id == EndsWith) {
+      "string.endsWith"
+    } else if (id == StringCompareTo) {
+      "string.compareTo"
+    } else if (id == IntCompareTo) {
+      "int.compareTo"
+    } else if (id == ReadAllText) {
+      "File.readAllText"
+    } else if (id == WriteAllText) {
+      "File.writeAllText"
+    } else if (id == PathCombine) {
+      "Path.combine"
+    } else if (id == PathName) {
+      "Path.nameWithoutExtension"
+    } else {
+      panic("Unknown builtin: " + string(id))
+    }
+  }
+}
