@@ -1092,15 +1092,26 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
     )
     val location = arg.expression.getLocation()
 
+    // Hoisting the argument into a local is the last place its type is known:
+    // the temp is what the call now names, so anything downstream that asks
+    // what an argument is gets `[missing type]` unless it is recorded here.
+    //
+    // Through a widening cast to `any`, which does not change the value and is
+    // there only because the callee said `any` — `string(value: any)` is the
+    // one that matters, since a char and an int are the same value at runtime
+    // and the emitter picks the conversion by this type.
+    val storedType = head match {
+      case cast: BoundExpression.Cast =>
+        if (cast.targetType == binder.anyType) {
+          binder.getType(cast.expression)
+        } else {
+          binder.getType(head)
+        }
+      case _ => binder.getType(head)
+    }
+    binder.setSymbolType(temp, storedType)
+
     val nextStatements = arg.statements
-//      .append(
-//        LoweredStatement.VariableDeclaration(
-//          location,
-//          temp,
-//          false,
-//          binder.getType(head)
-//        )
-//      )
       .append(LoweredStatement.AssignLocal(location, temp, arg.expression))
 
     val nextArgs =

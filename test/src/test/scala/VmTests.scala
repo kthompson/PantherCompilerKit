@@ -1438,6 +1438,29 @@ class VmTests extends AnyFunSpec with Matchers {
       * through `Ldlen` the way an array's does. Reading it as a field failed
       * outright, which nothing exercised until these.
       */
+    /** `string(c)` on a char is the character, not its code.
+      *
+      * A char and an int are the same `Value.Int` by the time the conversion
+      * runs, so it cannot tell them apart from the value — the emitter picks
+      * between two builtins by the static type. Before that, `string('a')`
+      * answered "97", which quietly broke every string built a character at a
+      * time: `StringBuilder.appendChar`, `Hex.toString`, and the lexer's
+      * escape handling.
+      */
+    it("should convert a char to the character it names") {
+      assertExecValueString("string('a')", "a")
+      assertExecValueString("string(char(97))", "a")
+      assertExecValueString("string('a') + string('b')", "ab")
+      assertExecValueStringWithSetup("val c = 'x'", "string(c)", "x")
+      assertExecValueStringWithSetup("val s = \"hi\"", "string(s(0))", "h")
+      // an int still reads as its digits
+      assertExecValueString("string(97)", "97")
+      assertExecValueStringWithSetup("val n = 97", "string(n)", "97")
+      // and char arithmetic answers in int, so it reads as a number
+      assertExecValueString("string('a' + 1)", "98")
+      assertExecValueString("string(char('a' + 1))", "b")
+    }
+
     /** Tracing disassembles every instruction before running it, so it is the
       * only thing that exercises the disassembler against a real stream. Every
       * builtin used to be an opcode the disassembler had no case for, so

@@ -944,7 +944,7 @@ params: Dictionary[Symbol, int]
     val startLine = expr.location.startLine
 
     if (expr.method.extern) {
-      emitExternCall(expr.method, startLine)
+      emitExternCall(expr, startLine)
     } else {
       // Evidence arrives after the declared arguments, so it is pushed here,
       // once the arguments are on the stack (ADR 0005, decision A). The goals
@@ -973,16 +973,63 @@ params: Dictionary[Symbol, int]
     * Named by `qualifiedName`, not `name` — `apply` is declared on four types
     * and `compareTo` on two, so a bare name does not identify a builtin.
     */
-  def emitExternCall(method: Symbol, line: int): unit = {
-    val id = Builtin.idOf(method.qualifiedName())
-    if (id == Builtin.None) {
+  def emitExternCall(expr: LoweredExpression.Call, line: int): unit = {
+    val method = expr.method
+    val named = Builtin.idOf(method.qualifiedName())
+    if (named == Builtin.None) {
       // Every extern method is a builtin. Reporting it here means a prelude
       // declaration with no implementation fails the compile that emits it,
       // rather than the first program that happens to call it.
       panic("emitExternCall: no builtin for " + method.qualifiedName())
     } else {
+      val id =
+        if (named == Builtin.StringApply && isCharArgument(expr.arguments)) {
+          // `string(c)` on a char is the one builtin the name does not
+          // determine: a char is an int at runtime, so the conversion has to be
+          // chosen here, where the static type is still known.
+          Builtin.CharToString
+        } else {
+          named
+        }
       chunk.emitOpcode(Opcode.Callx, line)
       chunk.emitI4(id, line)
+    }
+  }
+
+  def isCharArgument(arguments: Chain[LoweredExpression]): bool = {
+    arguments.uncons() match {
+      case Option.Some(Tuple2(argument, _)) => isCharExpression(argument)
+      case Option.None                      => false
+    }
+  }
+
+  /** Whether an expression's static type is `char`.
+    *
+    * Only the cases that can carry one answer true. A `MemberAccess` or a
+    * `Variable` is typed by its symbol rather than by the node, so those are
+    * looked up; a literal knows already.
+    */
+  def isCharExpression(expr: LoweredExpression): bool = {
+    expr match {
+      case _: LoweredExpression.Character            => true
+      case value: LoweredExpression.ArrayAccess      => isCharType(value.resultType)
+      case value: LoweredExpression.BinaryExpression => isCharType(value.resultType)
+      case value: LoweredExpression.Cast             => isCharType(value.resultType)
+      case value: LoweredExpression.Call             => isCharType(value.resultType)
+      case value: LoweredExpression.EvidenceCall     => isCharType(value.resultType)
+      case value: LoweredExpression.Unary            => isCharType(value.resultType)
+      case value: LoweredExpression.Variable         => isCharSymbol(value.symbol)
+      case value: LoweredExpression.MemberAccess     => isCharSymbol(value.symbol)
+      case _                                         => false
+    }
+  }
+
+  def isCharType(typ: Type): bool = typ == binder.charType
+
+  def isCharSymbol(symbol: Symbol): bool = {
+    binder.tryGetSymbolType(symbol) match {
+      case Option.Some(typ) => isCharType(typ)
+      case Option.None      => false
     }
   }
 

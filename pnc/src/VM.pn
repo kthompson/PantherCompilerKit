@@ -292,6 +292,8 @@ a ret instruction pops values off the stack in the following order:
       modOp()
     } else if (id == Builtin.StringApply) {
       stringApplyOp()
+    } else if (id == Builtin.CharToString) {
+      charToStringOp()
     } else if (id == Builtin.IntApply) {
       intApplyOp()
     } else if (id == Builtin.BoolApply) {
@@ -333,6 +335,21 @@ a ret instruction pops values off the stack in the following order:
   /** `string(value)`. */
   def stringApplyOp(): InterpretResult = {
       push(Value.String(valueToString(pop())))
+  }
+
+  /** `string(c)` where `c` is a char — the character itself, not its code.
+    *
+    * `stringApplyOp` would answer "97" for `'a'`, both being `Value.Int` by the
+    * time they reach here. The emitter picks between the two by the static
+    * type, which is the only place the difference still exists.
+    */
+  def charToStringOp(): InterpretResult = {
+    val value = pop()
+    value match {
+      case Value.Int(code) => push(Value.String(string(char(code))))
+      case Value.String(s) => push(Value.String(s))
+      case _               => runtimeError("Cannot convert value to string")
+    }
   }
 
   /** `bool(value)`. */

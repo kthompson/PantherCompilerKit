@@ -45,6 +45,16 @@ object Builtin {
   // keeps the table an inverse.
   val IntCompareTo = 14
 
+  /** `string(c)` where `c` is a char.
+    *
+    * Not reachable by name: it is `string.apply` like the others, and the
+    * emitter picks it by the argument's static type. A char and an int are the
+    * same value at runtime, so the conversion cannot tell `string('a')` from
+    * `string(97)` by what it pops — the type is the only thing that says one
+    * should be "a" and the other "97".
+    */
+  val CharToString = 19
+
   // system.io
   val ReadAllText = 15
   val WriteAllText = 16
@@ -113,6 +123,8 @@ object Builtin {
       "Path.combine"
     } else if (id == PathName) {
       "Path.nameWithoutExtension"
+    } else if (id == CharToString) {
+      "string.apply(char)"
     } else {
       panic("Unknown builtin: " + string(id))
     }
