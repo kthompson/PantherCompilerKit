@@ -1,0 +1,320 @@
+└──Namespace 
+    ├──Class any
+    ├──Class int
+    │   ├──Method int.compareTo: (other: int) -> int = [extern]
+    │   │   └──Parameter int.compareTo.other: int
+    │   └──Method int.apply: (value: any) -> int = [extern]
+    │       └──Parameter int.apply.value: any
+    ├──Class string
+    │   ├──Field string.length: int
+    │   ├──Method string.substring: (start: int, end: int) -> string = [extern]
+    │   │   ├──Parameter string.substring.start: int
+    │   │   └──Parameter string.substring.end: int
+    │   ├──Method string.endsWith: (suffix: string) -> bool = [extern]
+    │   │   └──Parameter string.endsWith.suffix: string
+    │   ├──Method string.compareTo: (other: string) -> int = [extern]
+    │   │   └──Parameter string.compareTo.other: string
+    │   └──Method string.apply: (value: any) -> string = [extern]
+    │       └──Parameter string.apply.value: any
+    ├──Class bool
+    │   └──Method bool.apply: (value: any) -> bool = [extern]
+    │       └──Parameter bool.apply.value: any
+    ├──Class char
+    │   └──Method char.apply: (value: any) -> char = [extern]
+    │       └──Parameter char.apply.value: any
+    ├──Class unit
+    ├──Class Array<T>
+    │   ├──TypeParameter Array.T: [missing type]
+    │   ├──Constructor Array..ctor: (size: int) -> unit = [extern]
+    │   │   └──Parameter Array..ctor.size: int
+    │   ├──Field Array.length: int
+    │   └──Method Array.apply: (index: int) -> $0 = [no body]
+    │       └──Parameter Array.apply.index: int
+    ├──Method println: (message: any) -> unit = [extern]
+    │   └──Parameter println.message: string
+    ├──Method print: (message: any) -> unit = [extern]
+    │   └──Parameter print.message: string
+    ├──Method panic: (message: string) -> never = [extern]
+    │   └──Parameter panic.message: string
+    ├──Method exit: (code: int) -> never = [extern]
+    │   └──Parameter exit.code: int
+    ├──Method assert: (condition: bool, message: string) -> unit = [extern]
+    │   ├──Parameter assert.condition: bool
+    │   └──Parameter assert.message: string
+    ├──Method mod: (a: int, b: int) -> int = [extern]
+    │   ├──Parameter mod.a: int
+    │   └──Parameter mod.b: int
+    ├──Object File
+    │   ├──Method File.readAllText: (file: string) -> string = [extern]
+    │   │   └──Parameter File.readAllText.file: string
+    │   ├──Method File.readAllBytes: (file: string) -> Array<int> = [extern]
+    │   │   └──Parameter File.readAllBytes.file: string
+    │   ├──Method File.writeAllBytes: (file: string, bytes: Array<int>) -> unit = [extern]
+    │   │   ├──Parameter File.writeAllBytes.file: string
+    │   │   └──Parameter File.writeAllBytes.bytes: Array<int>
+    │   └──Method File.writeAllText: (file: string, text: string) -> unit = [extern]
+    │       ├──Parameter File.writeAllText.file: string
+    │       └──Parameter File.writeAllText.text: string
+    ├──Object Path
+    │   ├──Method Path.combine: (path1: string, path2: string) -> string = [extern]
+    │   │   ├──Parameter Path.combine.path1: string
+    │   │   └──Parameter Path.combine.path2: string
+    │   └──Method Path.nameWithoutExtension: (path: string) -> string = [extern]
+    │       └──Parameter Path.nameWithoutExtension.path: string
+    ├──Trait Eq: Eq<T>
+    │   ├──TypeParameter Eq.T: [missing type]
+    │   ├──Method Eq.==: (a: $0, b: $0) -> bool = [no body]
+    │   │   ├──Parameter Eq.==.a: $0
+    │   │   └──Parameter Eq.==.b: $0
+    │   └──Method Eq.!=: (a: $0, b: $0) -> bool = [no body]
+    │       ├──Parameter Eq.!=.a: $0
+    │       └──Parameter Eq.!=.b: $0
+    ├──Trait Ord: Ord<T>
+    │   ├──TypeParameter Ord.T: [missing type]
+    │   ├──Method Ord.<: (a: $0, b: $0) -> bool = [no body]
+    │   │   ├──Parameter Ord.<.a: $0
+    │   │   └──Parameter Ord.<.b: $0
+    │   ├──Method Ord.<=: (a: $0, b: $0) -> bool = [no body]
+    │   │   ├──Parameter Ord.<=.a: $0
+    │   │   └──Parameter Ord.<=.b: $0
+    │   ├──Method Ord.>: (a: $0, b: $0) -> bool = [no body]
+    │   │   ├──Parameter Ord.>.a: $0
+    │   │   └──Parameter Ord.>.b: $0
+    │   └──Method Ord.>=: (a: $0, b: $0) -> bool = [no body]
+    │       ├──Parameter Ord.>=.a: $0
+    │       └──Parameter Ord.>=.b: $0
+    ├──Trait Show: Show<T>
+    │   ├──TypeParameter Show.T: [missing type]
+    │   └──Method Show.show: (value: $0) -> string = [no body]
+    │       └──Parameter Show.show.value: $0
+    ├──Given $given$Eq$int: Eq<int>
+    │   ├──Method $given$Eq$int.==: (a: int, b: int) -> bool = [body]
+    │   │   ├──Parameter $given$Eq$int.==.a: int
+    │   │   ├──Parameter $given$Eq$int.==.b: int
+    │   │   └──Evidence $given$Eq$int.==.$ev$self: Eq<int>
+    │   └──Method $given$Eq$int.!=: (a: int, b: int) -> bool = [body]
+    │       ├──Parameter $given$Eq$int.!=.a: int
+    │       ├──Parameter $given$Eq$int.!=.b: int
+    │       └──Evidence $given$Eq$int.!=.$ev$self: Eq<int>
+    ├──Given $given$Eq$string: Eq<string>
+    │   ├──Method $given$Eq$string.==: (a: string, b: string) -> bool = [body]
+    │   │   ├──Parameter $given$Eq$string.==.a: string
+    │   │   ├──Parameter $given$Eq$string.==.b: string
+    │   │   └──Evidence $given$Eq$string.==.$ev$self: Eq<string>
+    │   └──Method $given$Eq$string.!=: (a: string, b: string) -> bool = [body]
+    │       ├──Parameter $given$Eq$string.!=.a: string
+    │       ├──Parameter $given$Eq$string.!=.b: string
+    │       └──Evidence $given$Eq$string.!=.$ev$self: Eq<string>
+    ├──Given $given$Eq$bool: Eq<bool>
+    │   ├──Method $given$Eq$bool.==: (a: bool, b: bool) -> bool = [body]
+    │   │   ├──Parameter $given$Eq$bool.==.a: bool
+    │   │   ├──Parameter $given$Eq$bool.==.b: bool
+    │   │   └──Evidence $given$Eq$bool.==.$ev$self: Eq<bool>
+    │   └──Method $given$Eq$bool.!=: (a: bool, b: bool) -> bool = [body]
+    │       ├──Parameter $given$Eq$bool.!=.a: bool
+    │       ├──Parameter $given$Eq$bool.!=.b: bool
+    │       └──Evidence $given$Eq$bool.!=.$ev$self: Eq<bool>
+    ├──Given $given$Eq$char: Eq<char>
+    │   ├──Method $given$Eq$char.==: (a: char, b: char) -> bool = [body]
+    │   │   ├──Parameter $given$Eq$char.==.a: char
+    │   │   ├──Parameter $given$Eq$char.==.b: char
+    │   │   └──Evidence $given$Eq$char.==.$ev$self: Eq<char>
+    │   └──Method $given$Eq$char.!=: (a: char, b: char) -> bool = [body]
+    │       ├──Parameter $given$Eq$char.!=.a: char
+    │       ├──Parameter $given$Eq$char.!=.b: char
+    │       └──Evidence $given$Eq$char.!=.$ev$self: Eq<char>
+    ├──Given $given$Ord$int: Ord<int>
+    │   ├──Method $given$Ord$int.<: (a: int, b: int) -> bool = [body]
+    │   │   ├──Parameter $given$Ord$int.<.a: int
+    │   │   ├──Parameter $given$Ord$int.<.b: int
+    │   │   └──Evidence $given$Ord$int.<.$ev$self: Ord<int>
+    │   ├──Method $given$Ord$int.<=: (a: int, b: int) -> bool = [body]
+    │   │   ├──Parameter $given$Ord$int.<=.a: int
+    │   │   ├──Parameter $given$Ord$int.<=.b: int
+    │   │   └──Evidence $given$Ord$int.<=.$ev$self: Ord<int>
+    │   ├──Method $given$Ord$int.>: (a: int, b: int) -> bool = [body]
+    │   │   ├──Parameter $given$Ord$int.>.a: int
+    │   │   ├──Parameter $given$Ord$int.>.b: int
+    │   │   └──Evidence $given$Ord$int.>.$ev$self: Ord<int>
+    │   └──Method $given$Ord$int.>=: (a: int, b: int) -> bool = [body]
+    │       ├──Parameter $given$Ord$int.>=.a: int
+    │       ├──Parameter $given$Ord$int.>=.b: int
+    │       └──Evidence $given$Ord$int.>=.$ev$self: Ord<int>
+    ├──Given $given$Ord$string: Ord<string>
+    │   ├──Method $given$Ord$string.<: (a: string, b: string) -> bool = [body]
+    │   │   ├──Parameter $given$Ord$string.<.a: string
+    │   │   ├──Parameter $given$Ord$string.<.b: string
+    │   │   └──Evidence $given$Ord$string.<.$ev$self: Ord<string>
+    │   ├──Method $given$Ord$string.<=: (a: string, b: string) -> bool = [body]
+    │   │   ├──Parameter $given$Ord$string.<=.a: string
+    │   │   ├──Parameter $given$Ord$string.<=.b: string
+    │   │   └──Evidence $given$Ord$string.<=.$ev$self: Ord<string>
+    │   ├──Method $given$Ord$string.>: (a: string, b: string) -> bool = [body]
+    │   │   ├──Parameter $given$Ord$string.>.a: string
+    │   │   ├──Parameter $given$Ord$string.>.b: string
+    │   │   └──Evidence $given$Ord$string.>.$ev$self: Ord<string>
+    │   └──Method $given$Ord$string.>=: (a: string, b: string) -> bool = [body]
+    │       ├──Parameter $given$Ord$string.>=.a: string
+    │       ├──Parameter $given$Ord$string.>=.b: string
+    │       └──Evidence $given$Ord$string.>=.$ev$self: Ord<string>
+    ├──Given $given$Ord$char: Ord<char>
+    │   ├──Method $given$Ord$char.<: (a: char, b: char) -> bool = [body]
+    │   │   ├──Parameter $given$Ord$char.<.a: char
+    │   │   ├──Parameter $given$Ord$char.<.b: char
+    │   │   └──Evidence $given$Ord$char.<.$ev$self: Ord<char>
+    │   ├──Method $given$Ord$char.<=: (a: char, b: char) -> bool = [body]
+    │   │   ├──Parameter $given$Ord$char.<=.a: char
+    │   │   ├──Parameter $given$Ord$char.<=.b: char
+    │   │   └──Evidence $given$Ord$char.<=.$ev$self: Ord<char>
+    │   ├──Method $given$Ord$char.>: (a: char, b: char) -> bool = [body]
+    │   │   ├──Parameter $given$Ord$char.>.a: char
+    │   │   ├──Parameter $given$Ord$char.>.b: char
+    │   │   └──Evidence $given$Ord$char.>.$ev$self: Ord<char>
+    │   └──Method $given$Ord$char.>=: (a: char, b: char) -> bool = [body]
+    │       ├──Parameter $given$Ord$char.>=.a: char
+    │       ├──Parameter $given$Ord$char.>=.b: char
+    │       └──Evidence $given$Ord$char.>=.$ev$self: Ord<char>
+    ├──Given $given$Show$int: Show<int>
+    │   └──Method $given$Show$int.show: (value: int) -> string = [body]
+    │       ├──Parameter $given$Show$int.show.value: int
+    │       ├──Evidence $given$Show$int.show.$ev$self: Show<int>
+    │       └──Local $given$Show$int.show.$1: int
+    ├──Given $given$Show$string: Show<string>
+    │   └──Method $given$Show$string.show: (value: string) -> string = [body]
+    │       ├──Parameter $given$Show$string.show.value: string
+    │       ├──Evidence $given$Show$string.show.$ev$self: Show<string>
+    │       └──Local $given$Show$string.show.$1: string
+    ├──Given $given$Show$bool: Show<bool>
+    │   └──Method $given$Show$bool.show: (value: bool) -> string = [body]
+    │       ├──Parameter $given$Show$bool.show.value: bool
+    │       ├──Evidence $given$Show$bool.show.$ev$self: Show<bool>
+    │       └──Local $given$Show$bool.show.$1: bool
+    ├──Given $given$Show$char: Show<char>
+    │   └──Method $given$Show$char.show: (value: char) -> string = [body]
+    │       ├──Parameter $given$Show$char.show.value: char
+    │       ├──Evidence $given$Show$char.show.$ev$self: Show<char>
+    │       └──Local $given$Show$char.show.$1: char
+    ├──Given $given$Eq$Array: Eq<Array<$0>>
+    │   ├──Method $given$Eq$Array.==: (a: Array<$0>, b: Array<$0>) -> bool = [body]
+    │   │   ├──Parameter $given$Eq$Array.==.a: Array<$0>
+    │   │   ├──Parameter $given$Eq$Array.==.b: Array<$0>
+    │   │   ├──Evidence $given$Eq$Array.==.$ev$self: Eq<Array<$0>>
+    │   │   ├──Local $given$Eq$Array.==.result: bool
+    │   │   └──Local $given$Eq$Array.==.i: int
+    │   └──Method $given$Eq$Array.!=: (a: Array<$0>, b: Array<$0>) -> bool = [body]
+    │       ├──Parameter $given$Eq$Array.!=.a: Array<$0>
+    │       ├──Parameter $given$Eq$Array.!=.b: Array<$0>
+    │       ├──Evidence $given$Eq$Array.!=.$ev$self: Eq<Array<$0>>
+    │       ├──Local $given$Eq$Array.!=.$1: Array<$0>
+    │       ├──Local $given$Eq$Array.!=.$2: Array<$0>
+    │       └──Local $given$Eq$Array.!=.$3: Array<any>
+    ├──Given $given$Show$Array: Show<Array<$0>>
+    │   └──Method $given$Show$Array.show: (value: Array<$0>) -> string = [body]
+    │       ├──Parameter $given$Show$Array.show.value: Array<$0>
+    │       ├──Evidence $given$Show$Array.show.$ev$self: Show<Array<$0>>
+    │       ├──Local $given$Show$Array.show.acc: string
+    │       ├──Local $given$Show$Array.show.i: int
+    │       └──Local $given$Show$Array.show.$1: [missing type]
+    ├──Alias Expr
+    │   ├──Class Expr.Literal
+    │   │   ├──Field Expr.Literal.value: int
+    │   │   └──Constructor Expr.Literal..ctor: (value: int) -> unit = [body]
+    │   │       └──Parameter Expr.Literal..ctor.value: int
+    │   ├──Class Expr.Add
+    │   │   ├──Field Expr.Add.right: Expr
+    │   │   ├──Field Expr.Add.left: Expr
+    │   │   └──Constructor Expr.Add..ctor: (left: Expr, right: Expr) -> unit = [body]
+    │   │       ├──Parameter Expr.Add..ctor.left: Expr
+    │   │       └──Parameter Expr.Add..ctor.right: Expr
+    │   ├──Class Expr.Multiply
+    │   │   ├──Field Expr.Multiply.right: Expr
+    │   │   ├──Field Expr.Multiply.left: Expr
+    │   │   └──Constructor Expr.Multiply..ctor: (left: Expr, right: Expr) -> unit = [body]
+    │   │       ├──Parameter Expr.Multiply..ctor.left: Expr
+    │   │       └──Parameter Expr.Multiply..ctor.right: Expr
+    │   ├──Class Expr.Negate
+    │   │   ├──Field Expr.Negate.operand: Expr
+    │   │   └──Constructor Expr.Negate..ctor: (operand: Expr) -> unit = [body]
+    │   │       └──Parameter Expr.Negate..ctor.operand: Expr
+    │   └──This Expr.this: Expr
+    └──Object $Program
+        ├──Method $Program.$runtimeInit: () -> unit = [body]
+        ├──Method $Program.report: (expr: Expr) -> unit = [body]
+        │   ├──Parameter $Program.report.expr: Expr
+        │   ├──Local $Program.report.$1: string
+        │   ├──Local $Program.report.$2: Expr
+        │   ├──Local $Program.report.$3: int
+        │   └──Local $Program.report.$4: Expr
+        ├──Method $Program.eval: (expr: Expr) -> int = [body]
+        │   ├──Parameter $Program.eval.expr: Expr
+        │   ├──Block $Program.eval.block$0
+        │   │   ├──Block $Program.eval.block$0.block$0
+        │   │   │   └──Local $Program.eval.block$0.block$0.value: int
+        │   │   ├──Block $Program.eval.block$0.block$1
+        │   │   │   ├──Local $Program.eval.block$0.block$1.left: Expr
+        │   │   │   └──Local $Program.eval.block$0.block$1.right: Expr
+        │   │   ├──Block $Program.eval.block$0.block$2
+        │   │   │   ├──Local $Program.eval.block$0.block$2.left: Expr
+        │   │   │   └──Local $Program.eval.block$0.block$2.right: Expr
+        │   │   └──Block $Program.eval.block$0.block$3
+        │   │       └──Local $Program.eval.block$0.block$3.operand: Expr
+        │   ├──Local $Program.eval.$1: [missing type]
+        │   ├──Local $Program.eval.$2: [missing type]
+        │   ├──Local $Program.eval.$3: [missing type]
+        │   ├──Local $Program.eval.$4: Expr
+        │   ├──Local $Program.eval.$5: Expr
+        │   ├──Local $Program.eval.$6: [missing type]
+        │   ├──Local $Program.eval.$7: Expr
+        │   ├──Local $Program.eval.$8: Expr
+        │   ├──Local $Program.eval.$9: [missing type]
+        │   ├──Local $Program.eval.$10: Expr
+        │   ├──Local $Program.eval.$11: [missing type]
+        │   ├──Local $Program.eval.$12: [missing type]
+        │   └──Local $Program.eval.$13: [missing type]
+        ├──Method $Program.show: (expr: Expr) -> string = [body]
+        │   ├──Parameter $Program.show.expr: Expr
+        │   ├──Block $Program.show.block$0
+        │   │   ├──Block $Program.show.block$0.block$0
+        │   │   │   └──Local $Program.show.block$0.block$0.value: int
+        │   │   ├──Block $Program.show.block$0.block$1
+        │   │   │   ├──Local $Program.show.block$0.block$1.left: Expr
+        │   │   │   └──Local $Program.show.block$0.block$1.right: Expr
+        │   │   ├──Block $Program.show.block$0.block$2
+        │   │   │   ├──Local $Program.show.block$0.block$2.left: Expr
+        │   │   │   └──Local $Program.show.block$0.block$2.right: Expr
+        │   │   └──Block $Program.show.block$0.block$3
+        │   │       └──Local $Program.show.block$0.block$3.operand: Expr
+        │   ├──Local $Program.show.$1: [missing type]
+        │   ├──Local $Program.show.$2: [missing type]
+        │   ├──Local $Program.show.$3: int
+        │   ├──Local $Program.show.$4: [missing type]
+        │   ├──Local $Program.show.$5: Expr
+        │   ├──Local $Program.show.$6: Expr
+        │   ├──Local $Program.show.$7: [missing type]
+        │   ├──Local $Program.show.$8: Expr
+        │   ├──Local $Program.show.$9: Expr
+        │   ├──Local $Program.show.$10: [missing type]
+        │   ├──Local $Program.show.$11: Expr
+        │   ├──Local $Program.show.$12: [missing type]
+        │   ├──Local $Program.show.$13: [missing type]
+        │   └──Local $Program.show.$14: [missing type]
+        └──Method $Program.main: () -> unit = [body]
+            ├──Local $Program.main.$1: Expr.Add
+            ├──Local $Program.main.$2: Expr.Literal
+            ├──Local $Program.main.$3: int
+            ├──Local $Program.main.$4: Expr.Literal
+            ├──Local $Program.main.$5: int
+            ├──Local $Program.main.$6: Expr.Multiply
+            ├──Local $Program.main.$7: Expr.Literal
+            ├──Local $Program.main.$8: int
+            ├──Local $Program.main.$9: Expr.Add
+            ├──Local $Program.main.$10: Expr.Literal
+            ├──Local $Program.main.$11: int
+            ├──Local $Program.main.$12: Expr.Literal
+            ├──Local $Program.main.$13: int
+            ├──Local $Program.main.$14: Expr.Negate
+            ├──Local $Program.main.$15: Expr.Multiply
+            ├──Local $Program.main.$16: Expr.Literal
+            ├──Local $Program.main.$17: int
+            ├──Local $Program.main.$18: Expr.Literal
+            └──Local $Program.main.$19: int

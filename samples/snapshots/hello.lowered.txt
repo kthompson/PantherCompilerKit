@@ -1,0 +1,97 @@
+Lowered Assembly
+  Entry Point
+    $Program.main: () -> unit
+  Function Bodies:
+    $given$Eq$int.==: (a: int, b: int) -> bool = a == b
+    $given$Eq$int.!=: (a: int, b: int) -> bool = a != b
+    $given$Eq$string.==: (a: string, b: string) -> bool = a == b
+    $given$Eq$string.!=: (a: string, b: string) -> bool = a != b
+    $given$Eq$bool.==: (a: bool, b: bool) -> bool = a == b
+    $given$Eq$bool.!=: (a: bool, b: bool) -> bool = a != b
+    $given$Eq$char.==: (a: char, b: char) -> bool = a == b
+    $given$Eq$char.!=: (a: char, b: char) -> bool = a != b
+    $given$Ord$int.<: (a: int, b: int) -> bool = a < b
+    $given$Ord$int.<=: (a: int, b: int) -> bool = a <= b
+    $given$Ord$int.>: (a: int, b: int) -> bool = a > b
+    $given$Ord$int.>=: (a: int, b: int) -> bool = a >= b
+    $given$Ord$string.<: (a: string, b: string) -> bool = a < b
+    $given$Ord$string.<=: (a: string, b: string) -> bool = a <= b
+    $given$Ord$string.>: (a: string, b: string) -> bool = a > b
+    $given$Ord$string.>=: (a: string, b: string) -> bool = a >= b
+    $given$Ord$char.<: (a: char, b: char) -> bool = a < b
+    $given$Ord$char.<=: (a: char, b: char) -> bool = a <= b
+    $given$Ord$char.>: (a: char, b: char) -> bool = a > b
+    $given$Ord$char.>=: (a: char, b: char) -> bool = a >= b
+    $given$Show$int.show: (value: int) -> string = {
+      var $given$Show$int.show.$1: int = value
+      apply($1)
+    }
+    
+    $given$Show$string.show: (value: string) -> string = {
+      var $given$Show$string.show.$1: string = value
+      apply($1)
+    }
+    
+    $given$Show$bool.show: (value: bool) -> string = {
+      var $given$Show$bool.show.$1: bool = value
+      apply($1)
+    }
+    
+    $given$Show$char.show: (value: char) -> string = {
+      var $given$Show$char.show.$1: char = value
+      apply($1)
+    }
+    
+    $given$Eq$Array.==: (a: Array<$0>, b: Array<$0>) -> bool = {
+      var $given$Eq$Array.==.result: bool = a.length == b.length
+      var $given$Eq$Array.==.i: int = 0
+      label $1_start
+      goto $1_end if result && i < a.length
+      var $given$Eq$Array.==.result: bool = $ev$self[2].==(a[i], b[i])
+      var $given$Eq$Array.==.i: int = i + 1
+      goto $1_start
+      label $1_end
+      result
+    }
+    
+    $given$Eq$Array.!=: (a: Array<$0>, b: Array<$0>) -> bool = {
+      var $given$Eq$Array.!=.$1: Array<$0> = a
+      var $given$Eq$Array.!=.$2: Array<$0> = b
+      var $given$Eq$Array.!=.$3: Array<any> = $ev$self
+      !(==($1, $2, $3))
+    }
+    
+    $given$Show$Array.show: (value: Array<$0>) -> string = {
+      var $given$Show$Array.show.acc: string = "["
+      var $given$Show$Array.show.i: int = 0
+      label $1_start
+      goto $1_end if i < value.length
+      goto $2_then if i == 0
+      var $given$Show$Array.show.$1: [missing type] = ", "
+      goto $2_end
+      label $2_then
+      var $given$Show$Array.show.$1: [missing type] = ""
+      label $2_end
+      var $given$Show$Array.show.acc: string = acc + $1 + $ev$self[1].show(value[i])
+      var $given$Show$Array.show.i: int = i + 1
+      goto $1_start
+      label $1_end
+      acc + "]"
+    }
+    
+    $Program.$runtimeInit: () -> unit = ()
+    $Program.main: () -> unit = {
+      $runtimeInit()
+      var $Program.main.$1: string = any("Hello from Panther")
+      println($1)
+      $Program.name = "world"
+      $Program.version = 1
+      var $Program.main.$2: string = any("hello, " + name + "!")
+      println($2)
+      var $Program.main.$4: int = any(version)
+      var $Program.main.$3: string = any("version " + apply($4))
+      println($3)
+      ()
+    }
+    
+

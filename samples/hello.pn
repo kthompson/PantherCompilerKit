@@ -1,0 +1,12 @@
+// Top-level statements and printing.
+//
+// A Panther file is a program: statements at the top level run in order, with
+// no main to declare. Prints a greeting and a count.
+
+println("Hello from Panther")
+
+val name = "world"
+val version = 1
+
+println("hello, " + name + "!")
+println("version " + string(version))

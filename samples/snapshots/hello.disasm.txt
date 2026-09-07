@@ -1,0 +1,303 @@
+$given$Eq$int.==:
+011B    | ldarg.0
+011C    | ldarg.1
+011D    | ceq
+011E    | ret
+
+$given$Eq$int.!=:
+0115    | ldarg.0
+0116    | ldarg.1
+0117    | ceq
+0118    | ldfalse
+0119    | ceq
+011A    | ret
+
+$given$Eq$string.==:
+0111    | ldarg.0
+0112    | ldarg.1
+0113    | ceq
+0114    | ret
+
+$given$Eq$string.!=:
+010B    | ldarg.0
+010C    | ldarg.1
+010D    | ceq
+010E    | ldfalse
+010F    | ceq
+0110    | ret
+
+$given$Eq$bool.==:
+0107    | ldarg.0
+0108    | ldarg.1
+0109    | ceq
+010A    | ret
+
+$given$Eq$bool.!=:
+0101    | ldarg.0
+0102    | ldarg.1
+0103    | ceq
+0104    | ldfalse
+0105    | ceq
+0106    | ret
+
+$given$Eq$char.==:
+00FD    | ldarg.0
+00FE    | ldarg.1
+00FF    | ceq
+0100    | ret
+
+$given$Eq$char.!=:
+00F7    | ldarg.0
+00F8    | ldarg.1
+00F9    | ceq
+00FA    | ldfalse
+00FB    | ceq
+00FC    | ret
+
+$given$Ord$int.<:
+00F3    | ldarg.0
+00F4    | ldarg.1
+00F5    | clt
+00F6    | ret
+
+$given$Ord$int.<=:
+00ED    | ldarg.0
+00EE    | ldarg.1
+00EF    | cgt
+00F0    | ldfalse
+00F1    | ceq
+00F2    | ret
+
+$given$Ord$int.>:
+00E9    | ldarg.0
+00EA    | ldarg.1
+00EB    | cgt
+00EC    | ret
+
+$given$Ord$int.>=:
+00E3    | ldarg.0
+00E4    | ldarg.1
+00E5    | clt
+00E6    | ldfalse
+00E7    | ceq
+00E8    | ret
+
+$given$Ord$string.<:
+00DF    | ldarg.0
+00E0    | ldarg.1
+00E1    | clt
+00E2    | ret
+
+$given$Ord$string.<=:
+00D9    | ldarg.0
+00DA    | ldarg.1
+00DB    | cgt
+00DC    | ldfalse
+00DD    | ceq
+00DE    | ret
+
+$given$Ord$string.>:
+00D5    | ldarg.0
+00D6    | ldarg.1
+00D7    | cgt
+00D8    | ret
+
+$given$Ord$string.>=:
+00CF    | ldarg.0
+00D0    | ldarg.1
+00D1    | clt
+00D2    | ldfalse
+00D3    | ceq
+00D4    | ret
+
+$given$Ord$char.<:
+00CB    | ldarg.0
+00CC    | ldarg.1
+00CD    | clt
+00CE    | ret
+
+$given$Ord$char.<=:
+00C5    | ldarg.0
+00C6    | ldarg.1
+00C7    | cgt
+00C8    | ldfalse
+00C9    | ceq
+00CA    | ret
+
+$given$Ord$char.>:
+00C1    | ldarg.0
+00C2    | ldarg.1
+00C3    | cgt
+00C4    | ret
+
+$given$Ord$char.>=:
+00BB    | ldarg.0
+00BC    | ldarg.1
+00BD    | clt
+00BE    | ldfalse
+00BF    | ceq
+00C0    | ret
+
+$given$Show$int.show:
+00B5    | ldarg.0
+00B6    | stloc.0
+00B7    | ldloc.0
+00B8    | callx string.apply
+00BA    | ret
+
+$given$Show$string.show:
+00AF    | ldarg.0
+00B0    | stloc.0
+00B1    | ldloc.0
+00B2    | callx string.apply
+00B4    | ret
+
+$given$Show$bool.show:
+00A9    | ldarg.0
+00AA    | stloc.0
+00AB    | ldloc.0
+00AC    | callx string.apply
+00AE    | ret
+
+$given$Show$char.show:
+00A3    | ldarg.0
+00A4    | stloc.0
+00A5    | ldloc.0
+00A6    | callx string.apply(char)
+00A8    | ret
+
+$given$Eq$Array.==:
+0076    | ldarg.0
+0077    | ldlen
+0078    | ldarg.1
+0079    | ldlen
+007A    | ceq
+007B    | stloc.0
+007C    | ldc.i4 0
+007E    | stloc.1
+007F    | ldloc.0
+0080    | ldloc.1
+0081    | ldarg.0
+0082    | ldlen
+0083    | clt
+0084    | and
+0085    | brfalse A1
+0087    | ldarg.0
+0088    | ldloc.1
+0089    | ldelem
+008A    | ldarg.1
+008B    | ldloc.1
+008C    | ldelem
+008D    | ldarg.2
+008E    | ldc.i4 2
+0090    | ldelem
+0091    | ldarg.2
+0092    | ldc.i4 2
+0094    | ldelem
+0095    | ldc.i4 0
+0097    | ldelem
+0098    | calli
+0099    | stloc.0
+009A    | ldloc.1
+009B    | ldc.i4 1
+009D    | add
+009E    | stloc.1
+009F    | br 7F
+00A1    | ldloc.0
+00A2    | ret
+
+$given$Eq$Array.!=:
+0067    | ldarg.0
+0068    | stloc.0
+0069    | ldarg.1
+006A    | stloc.1
+006B    | ldarg.2
+006C    | stloc.2
+006D    | ldloc.0
+006E    | ldloc.1
+006F    | ldloc.2
+0070    | call $given$Eq$Array.==
+0072    | ldc.i4 0
+0074    | ceq
+0075    | ret
+
+$given$Show$Array.show:
+002D    | ldstr "["
+002F    | stloc.0
+0030    | ldc.i4 0
+0032    | stloc.1
+0033    | ldloc.1
+0034    | ldarg.0
+0035    | ldlen
+0036    | clt
+0037    | brfalse 62
+0039    | ldloc.1
+003A    | ldc.i4 0
+003C    | ceq
+003D    | brtrue 44
+003F    | ldstr ", "
+0041    | stloc.2
+0042    | br 47
+0044    | ldstr ""
+0046    | stloc.2
+0047    | ldloc.0
+0048    | ldloc.2
+0049    | add
+004A    | ldarg.0
+004B    | ldloc.1
+004C    | ldelem
+004D    | ldarg.1
+004E    | ldc.i4 1
+0050    | ldelem
+0051    | ldarg.1
+0052    | ldc.i4 1
+0054    | ldelem
+0055    | ldc.i4 0
+0057    | ldelem
+0058    | calli
+0059    | add
+005A    | stloc.0
+005B    | ldloc.1
+005C    | ldc.i4 1
+005E    | add
+005F    | stloc.1
+0060    | br 33
+0062    | ldloc.0
+0063    | ldstr "]"
+0065    | add
+0066    | ret
+
+$Program.$runtimeInit:
+002B   -1 nop
+002C    0 ret
+
+$Program.main:
+0000    0 call $Program.$runtimeInit
+0002    5 ldstr "Hello from Panther"
+0004    | stloc.0
+0005    | ldloc.0
+0006    | callx println
+0008    7 ldstr "world"
+000A    | stsfld $Program.name
+000C    8 ldc.i4 1
+000E    | stsfld $Program.version
+0010   10 ldstr "hello, "
+0012    | ldsfld $Program.name
+0014    | add
+0015    | ldstr "!"
+0017    | add
+0018    | stloc.1
+0019    | ldloc.1
+001A    | callx println
+001C   11 ldsfld $Program.version
+001E    | stloc.2
+001F    | ldstr "version "
+0021    | ldloc.2
+0022    | callx string.apply
+0024    | add
+0025    | stloc.3
+0026    | ldloc.3
+0027    | callx println
+0029   -1 nop
+002A    0 ret
+

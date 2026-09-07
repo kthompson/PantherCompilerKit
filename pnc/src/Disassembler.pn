@@ -1,7 +1,23 @@
 using panther
 
-[derive(Eq, Show)] class Disassembler(chunk: Chunk, metadata: Metadata) {
+/** Writes into a builder rather than to the console directly, so the same
+  * disassembly can be printed as it is produced — which is what tracing does —
+  * or accumulated and handed back, which is what anything comparing it wants.
+  * `IndentedStringBuilder(true)` is the printing one.
+  */
+[derive(Eq, Show)] class Disassembler(
+    chunk: Chunk,
+    metadata: Metadata,
+    sb: IndentedStringBuilder
+) {
   var extra = ""
+
+  def write(value: string): unit = sb.append(value)
+
+  def writeLine(value: string): unit = {
+    sb.append(value)
+    sb.append("\n")
+  }
 
   def disassembleMethod(token: MethodToken): bool = {
     val method = metadata.methods.get(token)
@@ -10,29 +26,29 @@ using panther
     } else {
       var offset = method.address
 
-      println(metadata.getMethodName(token) + ":")
+      writeLine(metadata.getMethodName(token) + ":")
       while (offset < chunk.size && offset != -1) {
         offset = disassembleInstruction(offset)
       }
-      println()
+      writeLine("")
       true
     }
   }
 
   def disassembleInstruction(offset: int): int = {
     // offset
-    print(Pad.left(Hex.toString(offset), 4, '0') + " ")
+    write(Pad.left(Hex.toString(offset), 4, '0') + " ")
 
     // extra
-    print(extra)
+    write(extra)
 
     // line number
     if (offset > 0 && chunk.readLine(offset) == chunk.readLine(offset - 1)) {
-      print("   | ")
+      write("   | ")
     } else {
       val line = chunk.readLine(offset)
       val lineStr = Pad.left(string(line), 4, ' ')
-      print(lineStr + " ")
+      write(lineStr + " ")
     }
 
     // opcode
@@ -158,32 +174,32 @@ using panther
 
   def i4Instruction(chunk: Chunk, offset: int, name: string): int = {
     val value = chunk.readI4(offset + 1)
-    println(name + " " + string(value))
+    writeLine(name + " " + string(value))
     offset + 2
   }
 
   def branchInstruction(name: string, offset: int): int = {
     val target = chunk.readI4(offset + 1)
-    println(name + " " + Hex.toString(target))
+    writeLine(name + " " + Hex.toString(target))
     offset + 2
   }
 
   def simpleInstruction(name: string, offset: int): int = {
-    println(name)
+    writeLine(name)
     offset + 1
   }
 
   def typeTokenInstruction(chunk: Chunk, offset: int, name: string): int = {
     val token = chunk.readI4(offset + 1)
     val typeName = metadata.getTypeName(TypeDefToken(token))
-    println(name + " " + typeName)
+    writeLine(name + " " + typeName)
     offset + 2
   }
 
   def fieldTokenInstruction(chunk: Chunk, offset: int, name: string): int = {
     val token = chunk.readI4(offset + 1)
     val fieldName = metadata.getFieldName(FieldToken(token))
-    println(name + " " + fieldName)
+    writeLine(name + " " + fieldName)
     offset + 2
   }
 
@@ -192,21 +208,21 @@ using panther
     */
   def builtinInstruction(chunk: Chunk, offset: int, name: string): int = {
     val id = chunk.readI4(offset + 1)
-    println(name + " " + Builtin.nameOf(id))
+    writeLine(name + " " + Builtin.nameOf(id))
     offset + 2
   }
 
   def methodTokenInstruction(chunk: Chunk, offset: int, name: string): int = {
     val token = chunk.readI4(offset + 1)
     val methodName = metadata.getMethodName(MethodToken(token))
-    println(name + " " + methodName)
+    writeLine(name + " " + methodName)
     offset + 2
   }
 
   def stringTokenInstruction(chunk: Chunk, offset: int, name: string): int = {
     val token = chunk.readI4(offset + 1)
     val str = metadata.getString(StringToken(token))
-    println(name + " \"" + str + "\"")
+    writeLine(name + " \"" + str + "\"")
     offset + 2
   }
 }

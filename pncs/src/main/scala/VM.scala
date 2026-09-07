@@ -70,7 +70,9 @@ case class VM(
   // static field pointer (portion of the heap)
   var staticp = 0
 
-  val disassembler = new Disassembler(chunk, metadata)
+  // Prints as it goes: tracing interleaves the disassembly with the run.
+  val disassembler =
+    new Disassembler(chunk, metadata, IndentedStringBuilder(true))
 
   // setup metadata (this should be the emitter's job)
   // 1. setup some space for static fields

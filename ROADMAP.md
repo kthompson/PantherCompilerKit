@@ -29,7 +29,7 @@ reproduces the measurement. Re-run them rather than trusting the number.
 sbt pncs/compile && sbt test/test
 ```
 
-Green: 498 tests across the lexer, parser, binder, type checker, VM, metadata
+Green: 523 tests across the lexer, parser, binder, type checker, VM, metadata
 format, transpiler, and args parser.
 
 ### The self-hosted compiler does not
@@ -38,22 +38,22 @@ format, transpiler, and args parser.
 sbt pnc/compile
 ```
 
-Runs to completion and reports **14 diagnostics** against the generated
+Runs to completion and reports **13 diagnostics** against the generated
 `.pn` sources. By message:
 
 | Count | Diagnostic                      |
 | ----: | ------------------------------- |
 |     4 | `Cannot derive Eq`/`Show`       |
-|     4 | argument-count mismatches       |
+|     3 | argument-count mismatches       |
 |     3 | `Symbol X not found for type T` |
 |     2 | `Duplicate definition`          |
 |     1 | `Cannot convert from A to B`    |
 
-**4 of the 14 are derivation, and both types should stay unprovable.**
+**4 of the 13 are derivation, and both types should stay unprovable.**
 They peaked at 222 when the transpiler started emitting `[derive(Eq, Show)]`.
 §1.3a is finished.
 
-**The other 10** were 195 until the `while` fix in §1.3b took six
+**The other 9** were 195 until the `while` fix in §1.3b took six
 `Cannot convert` with it, the wildcard-import cleanup took twenty
 `Type X not defined`, porting `TypeInference` off `scala.collection.mutable`
 took the last six of those along with all 18 `Invalid namespace`, unioning
@@ -73,7 +73,7 @@ with the builtins, and `Cannot convert` went 19 to 1 with the type arguments —
 and that one is an overload, `printNew` resolving to the wrong one, not a
 type-system gap.
 
-What is left is 4 derivation reports that should stay, 4 argument counts, 3
+What is left is 4 derivation reports that should stay, 3 argument counts, 3
 member lookups, 2 overloads and that conversion. **Nothing left is a group,
 and nothing left is a whole class.** The largest file has five, and two of
 those are derivation reports that should stay.
@@ -83,7 +83,7 @@ those are derivation reports that should stay.
 |     5 | `ExprBinder.pn`             |
 |     2 | `LoweredAssemblyPrinter.pn` |
 |     2 | `SymbolPrinter.pn`          |
-|     1 | five files at one           |
+|     1 | four files at one           |
 
 `Ast.pn` and `Binder.pn` were the two largest at 62 and 61 while derivation was
 blocked, being mostly declarations; `Binder.pn` is now at one. `TypeInference.pn`
@@ -135,12 +135,16 @@ The syntax it holds every snippet to:
 | Pattern matching  | `x match { case 1 => ... }`      |
 | String formatting | `"text " + string(n)`            |
 
-### There are no sample programs
+### There are sample programs
 
-There is not one `.pn` file in the repository outside `pnc/src/`, which is
-generated. Nothing shows what a Panther program looks like end to end, and
-nothing blocks one any more: §3.2 runs a program and §3.1 compiles it to an
-image. §3.3 is the only thing between here and a `samples/` directory.
+Four, in `samples/`, each snapshotted four ways — output, symbols, lowered
+assembly and disassembly (§3.3). They are the only end-to-end coverage in the
+repo: everything else tests one stage against a hand-written expectation.
+
+What limits the next few is that **a user program has no standard library**.
+`Option`, `List` and `Dictionary` live in `pnc/src`, which is the transpiled
+compiler, not something a program can reach — only the prelude in `Binder` is
+in scope.
 
 ---
 
@@ -200,12 +204,13 @@ count that decision is made from.
 ### 1.3 Burn down the diagnostics
 
 Ordered by what the counts say, not by what is interesting. This list covers
-the 10 that are not derivation; the 4 derivation reports are §1.3a.
+the 9 that are not derivation; the 4 derivation reports are §1.3a.
 
-1. **Argument counts** — 4. Two are `println()` with no argument, in
-   `Disassembler` and `compilation`, which Scala allows and Panther does not;
-   two are `inferCall(node, scope)` against the three-parameter overload, and
-   go with item 3.
+1. **Argument counts** — 3. One is `println()` with no argument, in
+   `compilation`, which Scala allows and Panther does not; two are
+   `inferCall(node, scope)` against the three-parameter overload, and go with
+   item 3. A second `println()` in `Disassembler` went when that printer
+   started writing into a builder (§3.3).
 2. **Member lookup on a case type** — the 3 remaining
    `Symbol X not found for type T`: `reverse` on `List.Cons<string>` and
    `List.Cons<GenericParameterSyntax>`, `concat` on `Chain.Singleton<$0>`.
@@ -352,7 +357,7 @@ Track the number after every change:
 sbt pnc/compile
 ```
 
-**14 → 0.** Nothing else in this section matters until that number moves.
+**13 → 0.** Nothing else in this section matters until that number moves.
 
 Only the first 20 diagnostics are printed. To see them all, transpile first —
 `pnc/compile` does this implicitly, and the count depends on it — then run the
@@ -673,21 +678,51 @@ The one extern mechanism `callx` does **not** cover is the two extern *fields*,
 
 ### 3.3 Then write the samples
 
-In a new `samples/` directory, each with a comment header saying what it
-demonstrates and what it prints:
+**Started.** Four in `samples/`, each with a comment header saying what it
+demonstrates:
 
-| Sample             | Exercises                                       |
-| ------------------ | ----------------------------------------------- |
-| `hello.pn`         | top-level statements, `println`                 |
-| `fizzbuzz.pn`      | `while`, `if`/`else`, `mod`, string building    |
-| `fib.pn`           | recursion, `int` arithmetic                     |
-| `wordcount.pn`     | `Array`, `List`, `Dictionary`, string handling  |
-| `expr.pn`          | `enum`, pattern matching, recursion over a tree |
-| `option-result.pn` | `Option` and `Result` as error handling         |
+| Sample         | Exercises                                       | Status |
+| -------------- | ----------------------------------------------- | ------ |
+| `hello.pn`     | top-level statements, `println`                 | done   |
+| `fizzbuzz.pn`  | `while`, `if`/`else`, `mod`, string building    | done   |
+| `fib.pn`       | recursion, `int` arithmetic                     | done   |
+| `expr.pn`      | `enum`, pattern matching, recursion over a tree | done   |
+| `wordcount.pn` | `Array`, string handling                        | to do  |
+| `records.pn`   | classes, fields, generics                       | to do  |
 
 `expr.pn` is the important one: a small expression evaluator is the shape of a
 compiler, so it exercises the same features `pnc` needs and doubles as a
 regression test for §1.
+
+**Each sample is snapshotted four ways** by `SampleTests`, which is the only
+end-to-end coverage in the repo — everything else tests one stage against a
+hand-written expectation:
+
+| Snapshot   | What it pins                                             |
+| ---------- | -------------------------------------------------------- |
+| `.out`     | what the program printed, and how it ended                |
+| `.symbols` | every symbol and the type the binder gave it              |
+| `.lowered` | the desugaring: `while` to gotos, arguments to temporaries |
+| `.disasm`  | the instructions                                          |
+
+Regenerate with `UPDATE_SNAPSHOTS=1 sbt "test/testOnly SampleTests"`, and read
+the diff — a snapshot that changed for a reason you cannot state is a
+regression you just accepted. The set earns its keep: reverting the type on
+hoisted argument temporaries (the §3.2a fix) fails twelve of them, and it was
+invisible to every other test in the repo before.
+
+The Scala-to-Panther direction is snapshotted separately by
+`TranspileSnapshotTests` over `test/fixtures/transpile/`, because `pnc/src`
+changes whenever the compiler's own sources do and these do not — so a diff
+there is always about the transpiler.
+
+**There is no standard library for a user program.** `Option`, `List`,
+`Dictionary` and `Result` live in `pnc/src`, which is the transpiled compiler
+rather than anything a program can reach: `val x = Option.Some(1)` in a sample
+reports `Symbol Option not found`. Only the prelude in `Binder` is in scope.
+That is what blocks `option-result.pn` and the `List`/`Dictionary` half of
+`wordcount.pn`, and it wants deciding before more samples: either a stdlib the
+driver compiles alongside the sources, or samples that declare what they use.
 
 ### 3.4 Put the samples in CI
 
@@ -847,7 +882,14 @@ Things that do not belong to one goal but block several.
   blocks in §4.1.
 - **No lexer support for exponents or shifts**
   ([`Lexer.scala:243`](pncs/src/main/scala/Lexer.scala:243)).
-- **Test coverage is stage-shaped, not feature-shaped.** 498 tests, but
+- **No hex literals.** `0x504e4200` lexes as `0` followed by the identifier
+  `x504e4200`, so it binds as a symbol that does not exist rather than failing
+  to lex. Found writing the `.pnb` magic (§3.1), which is spelled in decimal
+  because of it. Bit patterns are exactly where a program wants hex — a magic
+  number, a mask, a flag set — and `& 255` reads worse than `& 0xFF`. Binary
+  (`0b1010`) and digit separators are the same lexer change; shifts above are
+  the natural companion.
+- **Test coverage is stage-shaped, not feature-shaped.** 523 tests, but
   `MetadataTests` has 2 and there is no end-to-end test that takes source all
   the way to output. §3.4 is the fix.
 
@@ -859,7 +901,7 @@ Sequenced so each step makes the next one measurable.
 
 **First — stop flying blind.** Done. The generated tree matches the
 transpiler (§1.1), the exit code is trustworthy (§1.2), and failures come back
-as diagnostics rather than exceptions (§4.2). The 14 counts every error the
+as diagnostics rather than exceptions (§4.2). The 13 counts every error the
 front end finds — none are discarded.
 
 **Second — generics.** Done. The measurement overtook this plan twice before
@@ -867,8 +909,8 @@ catching up with it, and §2.1 then took all 18 remaining `Cannot convert` at
 once. §2.2 through §2.5 are still open, but nothing in the diagnostic count
 is waiting on them.
 
-**There is no third group.** The 10 non-derivation reports are three unrelated
-items of four, three and three, and five of them are one overload pair pulling
+**There is no third group.** The 9 non-derivation reports are three unrelated
+items of three, three and three, and five of them are one overload pair pulling
 its own call sites and conversion along with it. From here the burndown is
 itemised rather than grouped, which is the first time that has been true —
 every named class of diagnostic is now either at zero or down to its last few.
@@ -904,7 +946,7 @@ The three numbers worth putting on a wall:
 
 | Metric                            |         Now | Target | Command                                     |
 | --------------------------------- | ----------: | -----: | ------------------------------------------- |
-| Self-hosting diagnostics          |          14 |      0 | `sbt pnc/compile` (now fails, as it should)  |
+| Self-hosting diagnostics          |          13 |      0 | `sbt pnc/compile` (now fails, as it should)  |
 | — of those, derivation            |           4 |      0 | §1.3a                                       |
 | Doc blocks that fail              | **0 / 201** |      0 | `sbt "doccheck/run docs/src/content/docs"`  |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                    |

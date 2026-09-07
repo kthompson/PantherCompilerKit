@@ -24,7 +24,7 @@ case class SymbolPrinter(
     ast.writeColor(ColorPalette.Comment)
     ast.append(indent)
     ast.append(marker)
-    ast.append(ANSI.Clear)
+    ast.writeClear()
 
     val kind = symbol.kind
     ast.printSymbolKind(kind)
@@ -58,7 +58,7 @@ case class SymbolPrinter(
         ast.writeColor(ColorPalette.Error)
         ast.append("[no body]")
       }
-      ast.append(ANSI.Clear)
+      ast.writeClear()
     }
   }
 

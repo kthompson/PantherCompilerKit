@@ -2,10 +2,11 @@ import panther._
 
 class LoweredAssemblyPrinter(
     binder: Binder,
-    sb: IndentedStringBuilder
+    sb: IndentedStringBuilder,
+    withColor: bool
 ) {
 
-  val ast = new AstPrinter(true, sb)
+  val ast = new AstPrinter(withColor, sb)
   val symbolPrinter = SymbolPrinter(binder, ast)
 
   override def toString(): string = sb.toString()

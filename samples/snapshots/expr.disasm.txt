@@ -1,0 +1,614 @@
+$given$Eq$int.==:
+0301    | ldarg.0
+0302    | ldarg.1
+0303    | ceq
+0304    | ret
+
+$given$Eq$int.!=:
+02FB    | ldarg.0
+02FC    | ldarg.1
+02FD    | ceq
+02FE    | ldfalse
+02FF    | ceq
+0300    | ret
+
+$given$Eq$string.==:
+02F7    | ldarg.0
+02F8    | ldarg.1
+02F9    | ceq
+02FA    | ret
+
+$given$Eq$string.!=:
+02F1    | ldarg.0
+02F2    | ldarg.1
+02F3    | ceq
+02F4    | ldfalse
+02F5    | ceq
+02F6    | ret
+
+$given$Eq$bool.==:
+02ED    | ldarg.0
+02EE    | ldarg.1
+02EF    | ceq
+02F0    | ret
+
+$given$Eq$bool.!=:
+02E7    | ldarg.0
+02E8    | ldarg.1
+02E9    | ceq
+02EA    | ldfalse
+02EB    | ceq
+02EC    | ret
+
+$given$Eq$char.==:
+02E3    | ldarg.0
+02E4    | ldarg.1
+02E5    | ceq
+02E6    | ret
+
+$given$Eq$char.!=:
+02DD    | ldarg.0
+02DE    | ldarg.1
+02DF    | ceq
+02E0    | ldfalse
+02E1    | ceq
+02E2    | ret
+
+$given$Ord$int.<:
+02D9    | ldarg.0
+02DA    | ldarg.1
+02DB    | clt
+02DC    | ret
+
+$given$Ord$int.<=:
+02D3    | ldarg.0
+02D4    | ldarg.1
+02D5    | cgt
+02D6    | ldfalse
+02D7    | ceq
+02D8    | ret
+
+$given$Ord$int.>:
+02CF    | ldarg.0
+02D0    | ldarg.1
+02D1    | cgt
+02D2    | ret
+
+$given$Ord$int.>=:
+02C9    | ldarg.0
+02CA    | ldarg.1
+02CB    | clt
+02CC    | ldfalse
+02CD    | ceq
+02CE    | ret
+
+$given$Ord$string.<:
+02C5    | ldarg.0
+02C6    | ldarg.1
+02C7    | clt
+02C8    | ret
+
+$given$Ord$string.<=:
+02BF    | ldarg.0
+02C0    | ldarg.1
+02C1    | cgt
+02C2    | ldfalse
+02C3    | ceq
+02C4    | ret
+
+$given$Ord$string.>:
+02BB    | ldarg.0
+02BC    | ldarg.1
+02BD    | cgt
+02BE    | ret
+
+$given$Ord$string.>=:
+02B5    | ldarg.0
+02B6    | ldarg.1
+02B7    | clt
+02B8    | ldfalse
+02B9    | ceq
+02BA    | ret
+
+$given$Ord$char.<:
+02B1    | ldarg.0
+02B2    | ldarg.1
+02B3    | clt
+02B4    | ret
+
+$given$Ord$char.<=:
+02AB    | ldarg.0
+02AC    | ldarg.1
+02AD    | cgt
+02AE    | ldfalse
+02AF    | ceq
+02B0    | ret
+
+$given$Ord$char.>:
+02A7    | ldarg.0
+02A8    | ldarg.1
+02A9    | cgt
+02AA    | ret
+
+$given$Ord$char.>=:
+02A1    | ldarg.0
+02A2    | ldarg.1
+02A3    | clt
+02A4    | ldfalse
+02A5    | ceq
+02A6    | ret
+
+$given$Show$int.show:
+029B    | ldarg.0
+029C    | stloc.0
+029D    | ldloc.0
+029E    | callx string.apply
+02A0    | ret
+
+$given$Show$string.show:
+0295    | ldarg.0
+0296    | stloc.0
+0297    | ldloc.0
+0298    | callx string.apply
+029A    | ret
+
+$given$Show$bool.show:
+028F    | ldarg.0
+0290    | stloc.0
+0291    | ldloc.0
+0292    | callx string.apply
+0294    | ret
+
+$given$Show$char.show:
+0289    | ldarg.0
+028A    | stloc.0
+028B    | ldloc.0
+028C    | callx string.apply(char)
+028E    | ret
+
+$given$Eq$Array.==:
+025C    | ldarg.0
+025D    | ldlen
+025E    | ldarg.1
+025F    | ldlen
+0260    | ceq
+0261    | stloc.0
+0262    | ldc.i4 0
+0264    | stloc.1
+0265    | ldloc.0
+0266    | ldloc.1
+0267    | ldarg.0
+0268    | ldlen
+0269    | clt
+026A    | and
+026B    | brfalse 287
+026D    | ldarg.0
+026E    | ldloc.1
+026F    | ldelem
+0270    | ldarg.1
+0271    | ldloc.1
+0272    | ldelem
+0273    | ldarg.2
+0274    | ldc.i4 2
+0276    | ldelem
+0277    | ldarg.2
+0278    | ldc.i4 2
+027A    | ldelem
+027B    | ldc.i4 0
+027D    | ldelem
+027E    | calli
+027F    | stloc.0
+0280    | ldloc.1
+0281    | ldc.i4 1
+0283    | add
+0284    | stloc.1
+0285    | br 265
+0287    | ldloc.0
+0288    | ret
+
+$given$Eq$Array.!=:
+024D    | ldarg.0
+024E    | stloc.0
+024F    | ldarg.1
+0250    | stloc.1
+0251    | ldarg.2
+0252    | stloc.2
+0253    | ldloc.0
+0254    | ldloc.1
+0255    | ldloc.2
+0256    | call $given$Eq$Array.==
+0258    | ldc.i4 0
+025A    | ceq
+025B    | ret
+
+$given$Show$Array.show:
+0213    0 ldstr "["
+0215    | stloc.0
+0216    | ldc.i4 0
+0218    | stloc.1
+0219    | ldloc.1
+021A    | ldarg.0
+021B    | ldlen
+021C    | clt
+021D    | brfalse 248
+021F    | ldloc.1
+0220    | ldc.i4 0
+0222    | ceq
+0223    | brtrue 22A
+0225    | ldstr ", "
+0227    | stloc.2
+0228    | br 22D
+022A    | ldstr ""
+022C    | stloc.2
+022D    | ldloc.0
+022E    | ldloc.2
+022F    | add
+0230    | ldarg.0
+0231    | ldloc.1
+0232    | ldelem
+0233    | ldarg.1
+0234    | ldc.i4 1
+0236    | ldelem
+0237    | ldarg.1
+0238    | ldc.i4 1
+023A    | ldelem
+023B    | ldc.i4 0
+023D    | ldelem
+023E    | calli
+023F    | add
+0240    | stloc.0
+0241    | ldloc.1
+0242    | ldc.i4 1
+0244    | add
+0245    | stloc.1
+0246    | br 219
+0248    | ldloc.0
+0249    | ldstr "]"
+024B    | add
+024C    | ret
+
+Expr.Literal..ctor:
+020C    7 ldarg.0
+020D    | ldarg.1
+020E    | stfld Expr.Literal.value
+0210   -1 nop
+0211    7 ldarg.0
+0212    | ret
+
+Expr.Add..ctor:
+0201    8 ldarg.0
+0202    | ldarg.1
+0203    | stfld Expr.Add.left
+0205    | ldarg.0
+0206    | ldarg.2
+0207    | stfld Expr.Add.right
+0209   -1 nop
+020A    8 ldarg.0
+020B    | ret
+
+Expr.Multiply..ctor:
+01F6    9 ldarg.0
+01F7    | ldarg.1
+01F8    | stfld Expr.Multiply.left
+01FA    | ldarg.0
+01FB    | ldarg.2
+01FC    | stfld Expr.Multiply.right
+01FE   -1 nop
+01FF    9 ldarg.0
+0200    | ret
+
+Expr.Negate..ctor:
+01EF   10 ldarg.0
+01F0    | ldarg.1
+01F1    | stfld Expr.Negate.operand
+01F3   -1 nop
+01F4   10 ldarg.0
+01F5    | ret
+
+$Program.$runtimeInit:
+01ED   -1 nop
+01EE    0 ret
+
+$Program.report:
+01D6   32 ldarg.0
+01D7    | stloc.0
+01D8    | ldarg.0
+01D9    | stloc.1
+01DA    | ldloc.1
+01DB    | call $Program.eval
+01DD    | stloc.2
+01DE    | ldloc.0
+01DF    | call $Program.show
+01E1    | ldstr " = "
+01E3    | add
+01E4    | ldloc.2
+01E5    | callx string.apply
+01E7    | add
+01E8    | stloc.3
+01E9    | ldloc.3
+01EA    | callx println
+01EC   31 ret
+
+$Program.eval:
+0132   23 ldarg.0
+0133    | stloc.0
+0134   24 ldloc.0
+0135    | isinst Expr.Literal
+0137    | brtrue 13D
+0139    | ldfalse
+013A    | stloc.1
+013B    | br 13F
+013D    | ldtrue
+013E    | stloc.1
+013F    | ldloc.1
+0140    | brtrue 1CA
+0142   25 ldloc.0
+0143    | isinst Expr.Add
+0145    | brtrue 14B
+0147    | ldfalse
+0148    | stloc.2
+0149    | br 14D
+014B    | ldtrue
+014C    | stloc.2
+014D    | ldloc.2
+014E    | brtrue 1A7
+0150   26 ldloc.0
+0151    | isinst Expr.Multiply
+0153    | brtrue 159
+0155    | ldfalse
+0156    | stloc.3
+0157    | br 15B
+0159    | ldtrue
+015A    | stloc.3
+015B    | ldloc.3
+015C    | brtrue 184
+015E   27 ldloc.0
+015F    | isinst Expr.Negate
+0161    | brtrue 168
+0163    | ldfalse
+0164    | stlocn 4
+0166    | br 16B
+0168    | ldtrue
+0169    | stlocn 4
+016B    | ldlocn 4
+016D    | brtrue 171
+016F    | br 17F
+0171    | ldloc.0
+0172    | ldfld Expr.Negate.operand
+0174    | stlocn 5
+0176    | ldlocn 5
+0178    | stlocn 6
+017A    | ldlocn 6
+017C    | call $Program.eval
+017E    | neg
+017F   -1 nop
+0180   27 stlocn 7
+0182   26 br 1A1
+0184    | ldloc.0
+0185    | ldfld Expr.Multiply.left
+0187    | stlocn 8
+0189    | ldloc.0
+018A    | ldfld Expr.Multiply.right
+018C    | stlocn 9
+018E    | ldlocn 8
+0190    | stlocn 10
+0192    | ldlocn 9
+0194    | stlocn 11
+0196    | ldlocn 10
+0198    | call $Program.eval
+019A    | ldlocn 11
+019C    | call $Program.eval
+019E    | mul
+019F    | stlocn 7
+01A1    | ldlocn 7
+01A3    | stlocn 12
+01A5   25 br 1C4
+01A7    | ldloc.0
+01A8    | ldfld Expr.Add.left
+01AA    | stlocn 13
+01AC    | ldloc.0
+01AD    | ldfld Expr.Add.right
+01AF    | stlocn 14
+01B1    | ldlocn 13
+01B3    | stlocn 15
+01B5    | ldlocn 14
+01B7    | stlocn 16
+01B9    | ldlocn 15
+01BB    | call $Program.eval
+01BD    | ldlocn 16
+01BF    | call $Program.eval
+01C1    | add
+01C2    | stlocn 12
+01C4    | ldlocn 12
+01C6    | stlocn 17
+01C8   24 br 1D3
+01CA    | ldloc.0
+01CB    | ldfld Expr.Literal.value
+01CD    | stlocn 18
+01CF    | ldlocn 18
+01D1    | stlocn 17
+01D3    | ldlocn 17
+01D5   22 ret
+
+$Program.show:
+0074   14 ldarg.0
+0075    | stloc.0
+0076   15 ldloc.0
+0077    | isinst Expr.Literal
+0079    | brtrue 7F
+007B    | ldfalse
+007C    | stloc.1
+007D    | br 81
+007F    | ldtrue
+0080    | stloc.1
+0081    | ldloc.1
+0082    | brtrue 120
+0084   16 ldloc.0
+0085    | isinst Expr.Add
+0087    | brtrue 8D
+0089    | ldfalse
+008A    | stloc.2
+008B    | br 8F
+008D    | ldtrue
+008E    | stloc.2
+008F    | ldloc.2
+0090    | brtrue F4
+0092   17 ldloc.0
+0093    | isinst Expr.Multiply
+0095    | brtrue 9B
+0097    | ldfalse
+0098    | stloc.3
+0099    | br 9D
+009B    | ldtrue
+009C    | stloc.3
+009D    | ldloc.3
+009E    | brtrue C8
+00A0   18 ldloc.0
+00A1    | isinst Expr.Negate
+00A3    | brtrue AA
+00A5    | ldfalse
+00A6    | stlocn 4
+00A8    | br AD
+00AA    | ldtrue
+00AB    | stlocn 4
+00AD    | ldlocn 4
+00AF    | brtrue B3
+00B1    | br C3
+00B3    | ldloc.0
+00B4    | ldfld Expr.Negate.operand
+00B6    | stlocn 5
+00B8    | ldlocn 5
+00BA    | stlocn 6
+00BC    | ldstr "-"
+00BE    | ldlocn 6
+00C0    | call $Program.show
+00C2    | add
+00C3   -1 nop
+00C4   18 stlocn 7
+00C6   17 br EE
+00C8    | ldloc.0
+00C9    | ldfld Expr.Multiply.left
+00CB    | stlocn 8
+00CD    | ldloc.0
+00CE    | ldfld Expr.Multiply.right
+00D0    | stlocn 9
+00D2    | ldlocn 8
+00D4    | stlocn 10
+00D6    | ldlocn 9
+00D8    | stlocn 11
+00DA    | ldstr "("
+00DC    | ldlocn 10
+00DE    | call $Program.show
+00E0    | add
+00E1    | ldstr " * "
+00E3    | add
+00E4    | ldlocn 11
+00E6    | call $Program.show
+00E8    | add
+00E9    | ldstr ")"
+00EB    | add
+00EC    | stlocn 7
+00EE    | ldlocn 7
+00F0    | stlocn 12
+00F2   16 br 11A
+00F4    | ldloc.0
+00F5    | ldfld Expr.Add.left
+00F7    | stlocn 13
+00F9    | ldloc.0
+00FA    | ldfld Expr.Add.right
+00FC    | stlocn 14
+00FE    | ldlocn 13
+0100    | stlocn 15
+0102    | ldlocn 14
+0104    | stlocn 16
+0106    | ldstr "("
+0108    | ldlocn 15
+010A    | call $Program.show
+010C    | add
+010D    | ldstr " + "
+010F    | add
+0110    | ldlocn 16
+0112    | call $Program.show
+0114    | add
+0115    | ldstr ")"
+0117    | add
+0118    | stlocn 12
+011A    | ldlocn 12
+011C    | stlocn 17
+011E   15 br 12F
+0120    | ldloc.0
+0121    | ldfld Expr.Literal.value
+0123    | stlocn 18
+0125    | ldlocn 18
+0127    | stlocn 19
+0129    | ldlocn 19
+012B    | callx string.apply
+012D    | stlocn 17
+012F    | ldlocn 17
+0131   13 ret
+
+$Program.main:
+0000    0 call $Program.$runtimeInit
+0002   35 ldc.i4 1
+0004    | stloc.0
+0005    | ldloc.0
+0006    | newobj Expr.Literal..ctor
+0008    | stloc.1
+0009    | ldc.i4 2
+000B    | stloc.2
+000C    | ldloc.2
+000D    | newobj Expr.Literal..ctor
+000F    | stloc.3
+0010    | ldloc.1
+0011    | ldloc.3
+0012    | newobj Expr.Add..ctor
+0014    | stlocn 4
+0016    | ldlocn 4
+0018    | call $Program.report
+001A   40 ldc.i4 3
+001C    | stlocn 5
+001E    | ldlocn 5
+0020    | newobj Expr.Literal..ctor
+0022    | stlocn 6
+0024   41 ldc.i4 4
+0026    | stlocn 7
+0028    | ldlocn 7
+002A    | newobj Expr.Literal..ctor
+002C    | stlocn 8
+002E    | ldc.i4 5
+0030    | stlocn 9
+0032    | ldlocn 9
+0034    | newobj Expr.Literal..ctor
+0036    | stlocn 10
+0038    | ldlocn 8
+003A    | ldlocn 10
+003C    | newobj Expr.Add..ctor
+003E    | stlocn 11
+0040   40 ldlocn 6
+0042   41 ldlocn 11
+0044   39 newobj Expr.Multiply..ctor
+0046    | stlocn 12
+0048    | ldlocn 12
+004A   38 call $Program.report
+004C   46 ldc.i4 6
+004E    | stlocn 13
+0050    | ldlocn 13
+0052    | newobj Expr.Literal..ctor
+0054    | stlocn 14
+0056    | ldc.i4 7
+0058    | stlocn 15
+005A    | ldlocn 15
+005C    | newobj Expr.Literal..ctor
+005E    | stlocn 16
+0060    | ldlocn 14
+0062    | ldlocn 16
+0064    | newobj Expr.Multiply..ctor
+0066    | stlocn 17
+0068    | ldlocn 17
+006A    | newobj Expr.Negate..ctor
+006C    | stlocn 18
+006E    | ldlocn 18
+0070    | call $Program.report
+0072   -1 nop
+0073    0 ret
+

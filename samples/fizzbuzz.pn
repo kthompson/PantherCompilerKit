@@ -1,0 +1,22 @@
+// while, if/else, mod, and building strings.
+//
+// Prints the numbers 1 to 15, replacing multiples of three with "fizz",
+// multiples of five with "buzz", and multiples of both with "fizzbuzz".
+
+var i = 1
+while (i <= 15) {
+  val byThree = mod(i, 3) == 0
+  val byFive = mod(i, 5) == 0
+
+  if (byThree && byFive) {
+    println("fizzbuzz")
+  } else if (byThree) {
+    println("fizz")
+  } else if (byFive) {
+    println("buzz")
+  } else {
+    println(string(i))
+  }
+
+  i = i + 1
+}

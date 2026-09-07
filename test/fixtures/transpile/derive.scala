@@ -1,0 +1,11 @@
+// A case class and an enum both get [derive(Eq, Show)]: Scala generates
+// structural equality and printing for each, Panther has one kind of class,
+// and the attribute is what carries the difference across.
+case class Point(x: int, y: int)
+
+class Heap(size: int)
+
+enum Shape {
+  case Circle(radius: int)
+  case Rectangle(width: int, height: int)
+}

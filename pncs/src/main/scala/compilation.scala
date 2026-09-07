@@ -69,30 +69,61 @@ case class Compilation(
 
   def getSymbols(): Chain[Symbol] = SymbolChain.fromList(root.members())
 
-  def printSymbols(): unit = {
-    val sb = IndentedStringBuilder(true)
-    val ast = new AstPrinter(true, sb)
+  /** The printers, as text.
+    *
+    * `withColor` off is what anything that compares the output wants — a
+    * snapshot of a coloured tree is a snapshot of the escape codes. The
+    * builder accumulates rather than printing as it goes, which is the other
+    * half of being able to hand the result back.
+    */
+  def symbolsText(withColor: bool): string = {
+    val sb = IndentedStringBuilder(false)
+    val ast = new AstPrinter(withColor, sb)
     val symbols = SymbolPrinter(binder, ast)
     symbols.printSymbolTree(root)
-    println(sb.toString())
+    sb.toString()
   }
 
-  def printBoundAssembly(): unit = {
-    val sb = IndentedStringBuilder(true)
-    val ast = new AstPrinter(true, sb)
+  def boundAssemblyText(withColor: bool): string = {
+    val sb = IndentedStringBuilder(false)
+    val ast = new AstPrinter(withColor, sb)
     val symbols = SymbolPrinter(binder, ast)
     val printer = new BoundAssemblyPrinter(binder, ast, symbols)
     printer.printAssembly(bound)
-    println(sb.toString())
+    sb.toString()
   }
 
-  def printLoweredAssembly(): unit = {
-    val sb = IndentedStringBuilder(true)
-    val ast = new AstPrinter(true, sb)
-    val printer = new LoweredAssemblyPrinter(binder, sb)
+  def loweredAssemblyText(withColor: bool): string = {
+    val sb = IndentedStringBuilder(false)
+    val printer = new LoweredAssemblyPrinter(binder, sb, withColor)
     printer.printAssembly(assembly)
-    println(sb.toString())
+    sb.toString()
   }
+
+  /** Every method's disassembly, in metadata order.
+    *
+    * Emits nothing for a method with no body — a builtin has no instructions —
+    * which is what `disassembleMethod` reports by answering false.
+    */
+  def disassemblyText(): string = {
+    val emitter = new Emitter(syntaxTrees, root, binder, assembly)
+    val emitResult = emitter.emit()
+    val sb = IndentedStringBuilder(false)
+    val disassembler =
+      new Disassembler(emitResult.chunk, emitResult.metadata, sb)
+
+    for (i <- 0 to (emitResult.metadata.methods.size - 1)) {
+      disassembler.disassembleMethod(MethodToken(i))
+    }
+
+    sb.toString()
+  }
+
+  def printSymbols(): unit = println(symbolsText(true))
+
+  def printBoundAssembly(): unit = println(boundAssemblyText(true))
+
+  def printLoweredAssembly(): unit = println(loweredAssemblyText(true))
 
   /** Emits and writes the image to `output`, which it used to take and ignore.
     */
@@ -105,7 +136,11 @@ case class Compilation(
   def exec(): InterpretResult = {
     val emitter = new Emitter(syntaxTrees, root, binder, assembly)
     val emitResult = emitter.emit()
-    val disassembler = new Disassembler(emitResult.chunk, emitResult.metadata)
+    val disassembler = new Disassembler(
+      emitResult.chunk,
+      emitResult.metadata,
+      IndentedStringBuilder(true)
+    )
 
     val stack = new Array[Value](settings.stackSize)
     val heap = new Array[Value](settings.heapSize)

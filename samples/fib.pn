@@ -1,0 +1,27 @@
+// Recursion and int arithmetic.
+//
+// Prints the first twelve Fibonacci numbers, computed twice: once by the
+// obvious recursion and once by iterating, so the two can be seen to agree.
+
+def fib(n: int): int =
+  if (n < 2) n
+  else fib(n - 1) + fib(n - 2)
+
+def fibIterative(n: int): int = {
+  var a = 0
+  var b = 1
+  var i = 0
+  while (i < n) {
+    val next = a + b
+    a = b
+    b = next
+    i = i + 1
+  }
+  a
+}
+
+var i = 0
+while (i <= 11) {
+  println(string(i) + ": " + string(fib(i)) + " " + string(fibIterative(i)))
+  i = i + 1
+}

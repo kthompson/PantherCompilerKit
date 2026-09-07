@@ -1,0 +1,249 @@
+Lowered Assembly
+  Entry Point
+    $Program.main: () -> unit
+  Function Bodies:
+    $given$Eq$int.==: (a: int, b: int) -> bool = a == b
+    $given$Eq$int.!=: (a: int, b: int) -> bool = a != b
+    $given$Eq$string.==: (a: string, b: string) -> bool = a == b
+    $given$Eq$string.!=: (a: string, b: string) -> bool = a != b
+    $given$Eq$bool.==: (a: bool, b: bool) -> bool = a == b
+    $given$Eq$bool.!=: (a: bool, b: bool) -> bool = a != b
+    $given$Eq$char.==: (a: char, b: char) -> bool = a == b
+    $given$Eq$char.!=: (a: char, b: char) -> bool = a != b
+    $given$Ord$int.<: (a: int, b: int) -> bool = a < b
+    $given$Ord$int.<=: (a: int, b: int) -> bool = a <= b
+    $given$Ord$int.>: (a: int, b: int) -> bool = a > b
+    $given$Ord$int.>=: (a: int, b: int) -> bool = a >= b
+    $given$Ord$string.<: (a: string, b: string) -> bool = a < b
+    $given$Ord$string.<=: (a: string, b: string) -> bool = a <= b
+    $given$Ord$string.>: (a: string, b: string) -> bool = a > b
+    $given$Ord$string.>=: (a: string, b: string) -> bool = a >= b
+    $given$Ord$char.<: (a: char, b: char) -> bool = a < b
+    $given$Ord$char.<=: (a: char, b: char) -> bool = a <= b
+    $given$Ord$char.>: (a: char, b: char) -> bool = a > b
+    $given$Ord$char.>=: (a: char, b: char) -> bool = a >= b
+    $given$Show$int.show: (value: int) -> string = {
+      var $given$Show$int.show.$1: int = value
+      apply($1)
+    }
+    
+    $given$Show$string.show: (value: string) -> string = {
+      var $given$Show$string.show.$1: string = value
+      apply($1)
+    }
+    
+    $given$Show$bool.show: (value: bool) -> string = {
+      var $given$Show$bool.show.$1: bool = value
+      apply($1)
+    }
+    
+    $given$Show$char.show: (value: char) -> string = {
+      var $given$Show$char.show.$1: char = value
+      apply($1)
+    }
+    
+    $given$Eq$Array.==: (a: Array<$0>, b: Array<$0>) -> bool = {
+      var $given$Eq$Array.==.result: bool = a.length == b.length
+      var $given$Eq$Array.==.i: int = 0
+      label $1_start
+      goto $1_end if result && i < a.length
+      var $given$Eq$Array.==.result: bool = $ev$self[2].==(a[i], b[i])
+      var $given$Eq$Array.==.i: int = i + 1
+      goto $1_start
+      label $1_end
+      result
+    }
+    
+    $given$Eq$Array.!=: (a: Array<$0>, b: Array<$0>) -> bool = {
+      var $given$Eq$Array.!=.$1: Array<$0> = a
+      var $given$Eq$Array.!=.$2: Array<$0> = b
+      var $given$Eq$Array.!=.$3: Array<any> = $ev$self
+      !(==($1, $2, $3))
+    }
+    
+    $given$Show$Array.show: (value: Array<$0>) -> string = {
+      var $given$Show$Array.show.acc: string = "["
+      var $given$Show$Array.show.i: int = 0
+      label $1_start
+      goto $1_end if i < value.length
+      goto $2_then if i == 0
+      var $given$Show$Array.show.$1: [missing type] = ", "
+      goto $2_end
+      label $2_then
+      var $given$Show$Array.show.$1: [missing type] = ""
+      label $2_end
+      var $given$Show$Array.show.acc: string = acc + $1 + $ev$self[1].show(value[i])
+      var $given$Show$Array.show.i: int = i + 1
+      goto $1_start
+      label $1_end
+      acc + "]"
+    }
+    
+    $Program.show: (expr: Expr) -> string = {
+      var $Program.show.$1: [missing type] = expr
+      goto $1_then if ($1 is Expr.Literal)
+      var $Program.show.$2: [missing type] = false
+      goto $1_end
+      label $1_then
+      var $Program.show.$2: [missing type] = true
+      label $1_end
+      goto $2_then if $2
+      goto $3_then if ($1 is Expr.Add)
+      var $Program.show.$4: [missing type] = false
+      goto $3_end
+      label $3_then
+      var $Program.show.$4: [missing type] = true
+      label $3_end
+      goto $4_then if $4
+      goto $5_then if ($1 is Expr.Multiply)
+      var $Program.show.$7: [missing type] = false
+      goto $5_end
+      label $5_then
+      var $Program.show.$7: [missing type] = true
+      label $5_end
+      goto $6_then if $7
+      goto $7_then if ($1 is Expr.Negate)
+      var $Program.show.$10: [missing type] = false
+      goto $7_end
+      label $7_then
+      var $Program.show.$10: [missing type] = true
+      label $7_end
+      goto $8_then if $10
+      goto $8_end
+      label $8_then
+      var $Program.show.block$0.block$3.operand: Expr = $1.operand
+      var $Program.show.$11: Expr = operand
+      "-" + show($11)
+      label $8_end
+      var $Program.show.$12: [missing type] = ()
+      goto $6_end
+      label $6_then
+      var $Program.show.block$0.block$2.left: Expr = $1.left
+      var $Program.show.block$0.block$2.right: Expr = $1.right
+      var $Program.show.$8: Expr = left
+      var $Program.show.$9: Expr = right
+      var $Program.show.$12: [missing type] = "(" + show($8) + " * " + show($9) + ")"
+      label $6_end
+      var $Program.show.$13: [missing type] = $12
+      goto $4_end
+      label $4_then
+      var $Program.show.block$0.block$1.left: Expr = $1.left
+      var $Program.show.block$0.block$1.right: Expr = $1.right
+      var $Program.show.$5: Expr = left
+      var $Program.show.$6: Expr = right
+      var $Program.show.$13: [missing type] = "(" + show($5) + " + " + show($6) + ")"
+      label $4_end
+      var $Program.show.$14: [missing type] = $13
+      goto $2_end
+      label $2_then
+      var $Program.show.block$0.block$0.value: int = $1.value
+      var $Program.show.$3: int = any(value)
+      var $Program.show.$14: [missing type] = apply($3)
+      label $2_end
+      $14
+    }
+    
+    $Program.eval: (expr: Expr) -> int = {
+      var $Program.eval.$1: [missing type] = expr
+      goto $1_then if ($1 is Expr.Literal)
+      var $Program.eval.$2: [missing type] = false
+      goto $1_end
+      label $1_then
+      var $Program.eval.$2: [missing type] = true
+      label $1_end
+      goto $2_then if $2
+      goto $3_then if ($1 is Expr.Add)
+      var $Program.eval.$3: [missing type] = false
+      goto $3_end
+      label $3_then
+      var $Program.eval.$3: [missing type] = true
+      label $3_end
+      goto $4_then if $3
+      goto $5_then if ($1 is Expr.Multiply)
+      var $Program.eval.$6: [missing type] = false
+      goto $5_end
+      label $5_then
+      var $Program.eval.$6: [missing type] = true
+      label $5_end
+      goto $6_then if $6
+      goto $7_then if ($1 is Expr.Negate)
+      var $Program.eval.$9: [missing type] = false
+      goto $7_end
+      label $7_then
+      var $Program.eval.$9: [missing type] = true
+      label $7_end
+      goto $8_then if $9
+      goto $8_end
+      label $8_then
+      var $Program.eval.block$0.block$3.operand: Expr = $1.operand
+      var $Program.eval.$10: Expr = operand
+      -(eval($10))
+      label $8_end
+      var $Program.eval.$11: [missing type] = ()
+      goto $6_end
+      label $6_then
+      var $Program.eval.block$0.block$2.left: Expr = $1.left
+      var $Program.eval.block$0.block$2.right: Expr = $1.right
+      var $Program.eval.$7: Expr = left
+      var $Program.eval.$8: Expr = right
+      var $Program.eval.$11: [missing type] = eval($7) * eval($8)
+      label $6_end
+      var $Program.eval.$12: [missing type] = $11
+      goto $4_end
+      label $4_then
+      var $Program.eval.block$0.block$1.left: Expr = $1.left
+      var $Program.eval.block$0.block$1.right: Expr = $1.right
+      var $Program.eval.$4: Expr = left
+      var $Program.eval.$5: Expr = right
+      var $Program.eval.$12: [missing type] = eval($4) + eval($5)
+      label $4_end
+      var $Program.eval.$13: [missing type] = $12
+      goto $2_end
+      label $2_then
+      var $Program.eval.block$0.block$0.value: int = $1.value
+      var $Program.eval.$13: [missing type] = value
+      label $2_end
+      $13
+    }
+    
+    $Program.report: (expr: Expr) -> unit = {
+      var $Program.report.$2: Expr = expr
+      var $Program.report.$4: Expr = expr
+      var $Program.report.$3: int = any(eval($4))
+      var $Program.report.$1: string = any(show($2) + " = " + apply($3))
+      println($1)
+    }
+    
+    Expr.Negate..ctor: (operand: Expr) -> unit = ()
+    Expr.Multiply..ctor: (left: Expr, right: Expr) -> unit = ()
+    Expr.Add..ctor: (left: Expr, right: Expr) -> unit = ()
+    Expr.Literal..ctor: (value: int) -> unit = ()
+    $Program.$runtimeInit: () -> unit = ()
+    $Program.main: () -> unit = {
+      $runtimeInit()
+      var $Program.main.$3: int = 1
+      var $Program.main.$2: Expr.Literal = new Literal($3)
+      var $Program.main.$5: int = 2
+      var $Program.main.$4: Expr.Literal = new Literal($5)
+      var $Program.main.$1: Expr.Add = new Add($2, $4)
+      report($1)
+      var $Program.main.$8: int = 3
+      var $Program.main.$7: Expr.Literal = new Literal($8)
+      var $Program.main.$11: int = 4
+      var $Program.main.$10: Expr.Literal = new Literal($11)
+      var $Program.main.$13: int = 5
+      var $Program.main.$12: Expr.Literal = new Literal($13)
+      var $Program.main.$9: Expr.Add = new Add($10, $12)
+      var $Program.main.$6: Expr.Multiply = new Multiply($7, $9)
+      report($6)
+      var $Program.main.$17: int = 6
+      var $Program.main.$16: Expr.Literal = new Literal($17)
+      var $Program.main.$19: int = 7
+      var $Program.main.$18: Expr.Literal = new Literal($19)
+      var $Program.main.$15: Expr.Multiply = new Multiply($16, $18)
+      var $Program.main.$14: Expr.Negate = new Negate($15)
+      report($14)
+      ()
+    }
+    
+

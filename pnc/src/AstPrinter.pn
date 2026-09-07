@@ -840,7 +840,7 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
         append("This")
     }
 
-    append(ANSI.Clear)
+    writeClear()
   }
 
   def printKindColor(kind: int): unit = {
