@@ -68,6 +68,26 @@ class VmTests extends AnyFunSpec with Matchers {
       assertExecValueBoolWithSetup(setup, "same(3, 4)", false)
     }
 
+    /** An argument bound against the type its parameter declares, run end to
+      * end. `Chain.Empty()` carries no value to infer from, so the parameter is
+      * the only thing that says which chain it is; inferred alone it is
+      * `Chain<any>` and the call does not bind at all.
+      */
+    it("should run a call whose argument its parameter instantiates") {
+      val setup =
+        "enum Chain[T] {\n" +
+          "  case Empty()\n" +
+          "  case One(value: T)\n" +
+          "}\n" +
+          "def total(chain: Chain[int]): int = chain match {\n" +
+          "  case Chain.Empty() => 0\n" +
+          "  case Chain.One(value) => value\n" +
+          "}"
+
+      assertExecValueIntWithSetup(setup, "total(Chain.Empty())", 0)
+      assertExecValueIntWithSetup(setup, "total(Chain.One(7))", 7)
+    }
+
     /** Two givens for the same trait: the call site has to select the record
       * that matches the type argument, not whichever was declared first.
       */

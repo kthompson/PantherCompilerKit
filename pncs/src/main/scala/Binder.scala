@@ -2558,11 +2558,7 @@ case class Binder(
             List.Nil
           case Either.Right(caseSymbol) =>
             val parent = scope.current
-            // annotated: without this the `if` types as
-            // `Type.Class | Type.GenericClass`, and `List.Cons(typ, types)`
-            // then binds its element to that union rather than to `Type`,
-            // because the first argument to fix a type variable wins.
-            val typ: Type =
+            val typ =
               if (
                 genericTypeParameters.isEmpty || enumCase.parameters.isEmpty()
               ) {
@@ -2865,9 +2861,10 @@ case class Binder(
     generics match {
       case List.Nil => List.Nil
       case List.Cons(head, tail) =>
-        // annotated: a bare `Type.Variable` types as the case, not the enum
-        val variable: Type = Type.Variable(head.location, index)
-        List.Cons(variable, typeVariables(tail, index + 1))
+        List.Cons(
+          Type.Variable(head.location, index),
+          typeVariables(tail, index + 1)
+        )
     }
   }
 
@@ -3184,11 +3181,12 @@ case class Binder(
               traitSymbol.lookupMember(memberName) match {
                 case Option.None => Option.None
                 case Option.Some(member) =>
-                  // annotated: a bare `BoundEvidence.Premise` types as the
-                  // case, not the enum
-                  val premise: BoundEvidence =
-                    BoundEvidence.Premise(self, index, constraint)
-                  Option.Some(KeyValue(premise, member))
+                  Option.Some(
+                    KeyValue(
+                      BoundEvidence.Premise(self, index, constraint),
+                      member
+                    )
+                  )
               }
             } else Option.None
           case _ => Option.None
@@ -3256,10 +3254,7 @@ case class Binder(
                   traitSymbol.lookupMember(memberName) match {
                     case Option.None => Option.None
                     case Option.Some(member) =>
-                      // annotated: a bare `BoundEvidence.Held` types as the
-                      // case, not the enum
-                      val held: BoundEvidence = BoundEvidence.Held(head)
-                      Option.Some(KeyValue(held, member))
+                      Option.Some(KeyValue(BoundEvidence.Held(head), member))
                   }
                 } else Option.None
               case _ => Option.None
@@ -3689,10 +3684,7 @@ case class Binder(
     candidates match {
       case List.Nil => Option.None
       case List.Cons(candidate, tail) =>
-        // annotated: the self-hosted compiler infers `Dictionary<any, any>`
-        // for an empty dictionary in argument position
-        val empty: Dictionary[int, Type] = DictionaryModule.empty()
-        matchType(candidate.head, goal, empty) match {
+        matchType(candidate.head, goal, DictionaryModule.empty()) match {
           case Option.None => matchAnyGiven(goal, tail)
           case Option.Some(bindings) =>
             orderBindings(bindings, candidate.generics.length, 0) match {

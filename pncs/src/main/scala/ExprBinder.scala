@@ -322,7 +322,12 @@ case class ExprBinder(
       case Result.Error(error) => error
       case Result.Success(function) =>
         val exprs = fromExpressionList(node.arguments.expressions)
-        val args = bindExpressions(exprs, scope)
+        val args = bindArgumentExpressions(
+          function,
+          exprs,
+          Option.Some(expectedType),
+          scope
+        )
 
         // Try to use expected type for better generic inference
         checkCallLHS(
@@ -1021,11 +1026,11 @@ case class ExprBinder(
         if (parameters.length != 2 || !operandFits(right, parameters))
           Option.None
         else {
-          // annotated: a bare `List.Cons` types as the case, not the enum
-          val operands: List[BoundExpression] =
-            List.Cons(left, ListModule.one(right))
-          val arguments =
-            bindArgumentsToTypes(getParameterTypes(parameters), operands, scope)
+          val arguments = bindArgumentsToTypes(
+            getParameterTypes(parameters),
+            List.Cons(left, ListModule.one(right)),
+            scope
+          )
 
           evidence match {
             case Option.Some(symbol) =>
@@ -1106,10 +1111,161 @@ case class ExprBinder(
 
       case Result.Success(function) =>
         val exprs = fromExpressionList(node.arguments.expressions)
-        val args = bindExpressions(exprs, scope)
+        val args =
+          bindArgumentExpressions(function, exprs, Option.None, scope)
         inferCall(function, args, scope)
     }
   }
+
+  /** Bind a call's arguments, checking each against its parameter's type where
+    * the callee fixes one.
+    *
+    * This is how an expected type reaches a nested call.
+    * `LoweredBlock(Chain.Empty())` only knows to instantiate the chain because
+    * the parameter says `Chain[LoweredStatement]`; inferred on its own the
+    * chain's parameter has nothing to solve it and defaults to `any`.
+    *
+    * `argumentExpectedTypes` answers with either every parameter type or none,
+    * so a short list here means the callee could not say and everything falls
+    * back to inference.
+    */
+  def bindArgumentExpressions(
+      function: BoundLeftHandSide,
+      exprs: List[Expression],
+      expectedType: Option[Type],
+      scope: Scope
+  ): List[BoundExpression] =
+    bindExpressionsToTypes(
+      exprs,
+      argumentExpectedTypes(function, exprs.length, expectedType),
+      scope
+    )
+
+  def bindExpressionsToTypes(
+      exprs: List[Expression],
+      expectedTypes: List[Type],
+      scope: Scope
+  ): List[BoundExpression] =
+    Tuple2(exprs, expectedTypes) match {
+      case Tuple2(List.Cons(expr, exprTail), List.Cons(typ, typeTail)) =>
+        List.Cons(
+          check(expr, typ, scope),
+          bindExpressionsToTypes(exprTail, typeTail, scope)
+        )
+      case _ => bindExpressions(exprs, scope)
+    }
+
+  /** The types a call's arguments are checked against, or `List.Nil` when the
+    * callee cannot fix them.
+    *
+    * All or nothing on purpose. A generic callee's parameter types mention its
+    * own type variables until they are solved, so handing a half-instantiated
+    * parameter type to an argument would check it against a variable. Either
+    * the callee is monomorphic, or the expected type solves every one of its
+    * type parameters, or the arguments are inferred as they were before.
+    */
+  def argumentExpectedTypes(
+      function: BoundLeftHandSide,
+      argCount: int,
+      expectedType: Option[Type]
+  ): List[Type] = {
+    if (isTraitMemberAccess(function)) {
+      // An evidence call passes the receiver as its first argument, so the
+      // parameters do not line up with the list written at the call site.
+      List.Nil
+    } else {
+      getLHSType(function) match {
+        case Type.Function(_, params, _) =>
+          ofMatchingArity(getParameterTypes(params), argCount)
+
+        case gf: Type.GenericFunction =>
+          solvedParameterTypes(
+            gf.generics,
+            getParameterTypes(gf.parameters),
+            gf.returnType,
+            expectedType,
+            argCount
+          )
+
+        case Type.Class(_, _, name, _, symbol) =>
+          // Array and string indexing reach the call path too, and their
+          // callee is not a constructor; the index infers as an int on its
+          // own.
+          if (name == "Array") List.Nil
+          else if (name == "string" && !namesItsOwnType(function, symbol))
+            List.Nil
+          else
+            constructorType(symbol) match {
+              case Option.Some(Type.Function(_, params, _)) =>
+                ofMatchingArity(getParameterTypes(params), argCount)
+              case _ => List.Nil
+            }
+
+        case Type.GenericClass(loc, ns, name, _, symbol) =>
+          constructorType(symbol) match {
+            case Option.Some(
+                  Type.GenericFunction(_, generics, _, params, _)
+                ) =>
+              solvedParameterTypes(
+                generics,
+                getParameterTypes(params),
+                // What the constructor produces with its own parameters left
+                // as variables, which is what the expected type is matched
+                // against.
+                Type.Class(
+                  loc,
+                  ns,
+                  name,
+                  genericsAsVariables(generics, 0),
+                  symbol
+                ),
+                expectedType,
+                argCount
+              )
+            case _ => List.Nil
+          }
+
+        case _ => List.Nil
+      }
+    }
+  }
+
+  def constructorType(symbol: Symbol): Option[Type] =
+    findConstructor(symbol) match {
+      case Option.None       => Option.None
+      case Option.Some(ctor) => binder.tryGetSymbolType(ctor)
+    }
+
+  def solvedParameterTypes(
+      generics: List[GenericTypeParameter],
+      parameterTypes: List[Type],
+      resultType: Type,
+      expectedType: Option[Type],
+      argCount: int
+  ): List[Type] =
+    expectedType match {
+      case Option.None => List.Nil
+      case Option.Some(expected) =>
+        typeInference.solveTypeArgumentsFromExpected(
+          generics,
+          resultType,
+          expected
+        ) match {
+          case Option.None => List.Nil
+          case Option.Some(typeArgs) =>
+            ofMatchingArity(
+              Types.substituteList(parameterTypes, typeArgs),
+              argCount
+            )
+        }
+    }
+
+  /** Parameter types are only usable as expected types when there are as many
+    * of them as there are arguments; otherwise the call is a count mismatch,
+    * which the callee reports on its own.
+    */
+  def ofMatchingArity(types: List[Type], argCount: int): List[Type] =
+    if (types.length == argCount) types else List.Nil
 
   def inferCall(
       function: BoundLeftHandSide,
@@ -1385,6 +1541,41 @@ case class ExprBinder(
     }
   }
 
+  /** Type arguments written at the call site, as in
+    * `DictionaryModule.empty[Symbol, int]()`. Only a member access carries
+    * them: `inferMemberAccess` is the one place a `GenericNameSyntax` is bound
+    * on the way to a call, and it stores the result on the node.
+    */
+  def explicitTypeArguments(function: BoundLeftHandSide): List[Type] =
+    function match {
+      case BoundLeftHandSide.MemberAccess(access) => access.genericArguments
+      case _                                      => List.Nil
+    }
+
+  /** The type arguments a generic call is instantiated with. Ones written at
+    * the call site win, as they do for a generic constructor; a list of the
+    * wrong length is reported and then ignored, because substituting it would
+    * put an argument in the wrong slot or leave a slot unfilled.
+    */
+  def callTypeArguments(
+      function: BoundLeftHandSide,
+      generics: List[GenericTypeParameter],
+      location: TextLocation,
+      inferred: List[Type]
+  ): List[Type] = {
+    val explicit = explicitTypeArguments(function)
+    if (explicit.isEmpty) inferred
+    else if (explicit.length == generics.length) explicit
+    else {
+      diagnosticBag.reportTypeArgumentCountMismatch(
+        location,
+        generics.length,
+        explicit.length
+      )
+      inferred
+    }
+  }
+
   def bindGenericFunctionCall(
       function: BoundLeftHandSide,
       genericFunctionType: Type.GenericFunction,
@@ -1396,10 +1587,15 @@ case class ExprBinder(
     // First, infer type arguments from the call arguments
     val argTypes = binder.getTypes(args)
     val parameterTypes = getParameterTypes(genericFunctionType.parameters)
-    val inferredTypeArgs = typeInference.inferTypeArgumentsFromCall(
+    val inferredTypeArgs = callTypeArguments(
+      function,
       genericFunctionType.generics,
-      parameterTypes,
-      argTypes
+      location,
+      typeInference.inferTypeArgumentsFromCall(
+        genericFunctionType.generics,
+        parameterTypes,
+        argTypes
+      )
     )
 
     // Discharge the callee's context bounds now that the type arguments are
@@ -1490,7 +1686,10 @@ case class ExprBinder(
     val argTypes = binder.getTypes(args)
     val parameterTypes = getParameterTypes(genericFunctionType.parameters)
 
-    val inferredTypeArgs =
+    val inferredTypeArgs = callTypeArguments(
+      function,
+      genericFunctionType.generics,
+      location,
       typeInference.checkTypeArgumentsFromCall(
         genericFunctionType.generics,
         parameterTypes,
@@ -1498,6 +1697,7 @@ case class ExprBinder(
         genericFunctionType.returnType, // The declared return type (may contain type vars)
         expectedType // The expected type from context
       )
+    )
 
     // Discharge the callee's context bounds now that the type arguments are
     // known. Nothing is stored on the call: `BoundExpression.Call` already
@@ -1697,7 +1897,9 @@ case class ExprBinder(
           ns,
           name,
           symbol,
-          List.Nil,
+          // `Chain.Empty[LoweredStatement]()` says which chain it is; without
+          // this the case is only ever instantiated from an expected type.
+          explicitTypeArguments(function),
           args,
           expectedType,
           scope
@@ -2219,7 +2421,8 @@ case class ExprBinder(
       args: List[BoundExpression],
       scope: Scope
   ): Result[BoundExpression.Error, BoundLeftHandSide] = {
-    // annotated: a bare `List.Cons` types as the case, not the enum
+    // annotated: `length` is a member of the enum, and lookup on a bare
+    // `List.Cons` does not consult it
     val allArgs: List[BoundExpression] = List.Cons(receiver, args)
 
     // `memberType` rather than the member's declared type: a conditional

@@ -131,6 +131,18 @@ case class DiagnosticBag(settings: CompilerSettings) {
       "Expected " + string(expected) + " arguments, but got " + string(actual)
     )
 
+  def reportTypeArgumentCountMismatch(
+      location: TextLocation,
+      expected: int,
+      actual: int
+  ): unit =
+    report(
+      location,
+      "Expected " + string(expected) + " type arguments, but got " + string(
+        actual
+      )
+    )
+
   def reportCannotConvert(
       location: TextLocation,
       from: Type,
