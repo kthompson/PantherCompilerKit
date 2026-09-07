@@ -310,6 +310,10 @@ case class VM(
       compareOp()
     } else if (id == Builtin.ReadAllText) {
       readAllTextOp()
+    } else if (id == Builtin.ReadAllBytes) {
+      readAllBytesOp()
+    } else if (id == Builtin.WriteAllBytes) {
+      writeAllBytesOp()
     } else if (id == Builtin.WriteAllText) {
       writeAllTextOp()
     } else if (id == Builtin.PathCombine) {
@@ -497,6 +501,55 @@ case class VM(
         push(Value.String(File.readAllText(file)))
       case _ =>
         runtimeError("Expected string path for readAllText")
+    }
+  }
+
+  /** `File.readAllBytes(path)`, as an `Array[int]` on the heap.
+    *
+    * Laid out the way `Newarr` lays one out — length in the first slot, then
+    * the elements — because `Ldlen` and `Ldelem` read it back the same way
+    * whether the array came from an instruction or from here.
+    */
+  def readAllBytesOp(): InterpretResult = {
+    val path = pop()
+    path match {
+      case Value.String(file) =>
+        val bytes = File.readAllBytes(file)
+        metadata.findTypeDefByName("int") match {
+          case Option.None =>
+            runtimeError("readAllBytes: no type token for int")
+          case Option.Some(elementType) =>
+            val addr = alloc(bytes.length + 1)
+            heap(addr) = Value.Int(bytes.length)
+            for (i <- 0 to (bytes.length - 1)) {
+              heap(addr + 1 + i) = Value.Int(bytes(i))
+            }
+            push(Value.Ref(elementType, addr))
+        }
+      case _ =>
+        runtimeError("Expected string path for readAllBytes")
+    }
+  }
+
+  /** `File.writeAllBytes(path, bytes)`. */
+  def writeAllBytesOp(): InterpretResult = {
+    val arrayRef = pop()
+    val path = pop()
+    Tuple2(path, arrayRef) match {
+      case Tuple2(Value.String(file), Value.Ref(_, addr)) =>
+        heap(addr) match {
+          case Value.Int(count) =>
+            val bytes = new Array[int](count)
+            for (i <- 0 to (count - 1)) {
+              bytes(i) = toInt(heap(addr + 1 + i))
+            }
+            File.writeAllBytes(file, bytes)
+            push(Value.Uninitialized)
+          case _ =>
+            runtimeError("writeAllBytes: array has no length")
+        }
+      case _ =>
+        runtimeError("Expected a string path and an array for writeAllBytes")
     }
   }
 

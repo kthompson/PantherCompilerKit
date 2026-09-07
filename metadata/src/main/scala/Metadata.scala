@@ -196,6 +196,23 @@ case class Metadata() {
     }
   }
 
+  /** The type token for a name, or `None`.
+    *
+    * A linear scan, which is what it costs to build an array from inside the
+    * VM: `Newarr` reads its element type out of the instruction stream, and a
+    * builtin that returns an array has no instruction to read it from.
+    */
+  def findTypeDefByName(name: string): Option[TypeDefToken] = {
+    var found: Option[TypeDefToken] = Option.None
+    for (i <- 0 to (typeDefs.size - 1)) {
+      val token = TypeDefToken(i)
+      if (getTypeName(token) == name) {
+        found = Option.Some(token)
+      }
+    }
+    found
+  }
+
   def getTypeName(token: TypeDefToken): string = {
     val typeDef = typeDefs.get(token)
     val name = strings.get(typeDef.name)
@@ -248,22 +265,28 @@ case class Metadata() {
     nextParamList - paramList
   }
 
+  /** Every table, in an order `read` repeats.
+    *
+    * Strings were left out, which is why nothing could be read back: every
+    * other table refers to one by token, so an image without them has names
+    * for nothing and `Ldstr` has no literal to load.
+    */
   def write(buffer: IntList): unit = {
     typeDefs.write(buffer)
     fields.write(buffer)
     methods.write(buffer)
     params.write(buffer)
-    //    strings.write(buffer)
+    strings.write(buffer)
     signatures.write(buffer)
   }
 
-  def read(buffer: IntList): int = {
-    var offset = 0
+  def read(buffer: IntList, start: int): int = {
+    var offset = start
     offset = typeDefs.read(buffer, offset)
     offset = fields.read(buffer, offset)
     offset = methods.read(buffer, offset)
     offset = params.read(buffer, offset)
-    // offset = strings.read(buffer, offset)
+    offset = strings.read(buffer, offset)
     offset = signatures.read(buffer, offset)
     offset
   }

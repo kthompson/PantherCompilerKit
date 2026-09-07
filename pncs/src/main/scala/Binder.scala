@@ -495,6 +495,29 @@ case class Binder(
     ListModule.one(Tuple2("file", stringType)),
     stringType
   )
+  // The `.pnb` image is ints, so it is written and read as bytes rather than
+  // text: `Array[int]`, one byte per element, which is what the shim does.
+  builtinMethod(
+    fileSymbol,
+    "readAllBytes",
+    ListModule.one(Tuple2("file", stringType)),
+    Type.Class(noLoc, List.Nil, "Array", ListModule.one(intType), arraySymbol)
+  )
+  builtinMethod(
+    fileSymbol,
+    "writeAllBytes",
+    List.Cons(
+      Tuple2("file", stringType),
+      ListModule.one(
+        Tuple2(
+          "bytes",
+          Type.Class(noLoc, List.Nil, "Array", ListModule.one(intType), arraySymbol)
+        )
+      )
+    ),
+    unitType
+  )
+
   builtinMethod(
     fileSymbol,
     "writeAllText",

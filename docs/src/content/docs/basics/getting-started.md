@@ -44,8 +44,9 @@ To compile without running:
 pncs output.pnb source.pn
 ```
 
-Writing the bytecode image to disk and loading it back with a separate `pvm`
-command are not built yet, so `--run` is the way to execute a program today.
+This writes a bytecode image you can keep and run later. A separate `pvm`
+command to load one from the shell does not exist yet, so `--run` is still the
+way to execute a program from source.
 
 ## Next Steps
 

@@ -58,6 +58,38 @@ case class Chunk() {
     content(offset) = value
   }
 
+  /** The instructions and the line each came from.
+    *
+    * Lines are not needed to execute, but they are what a trace and a runtime
+    * error report, so an image without them would run and describe itself
+    * wrongly.
+    */
+  def write(buffer: IntList): unit = {
+    buffer.add(size)
+    for (i <- 0 to (size - 1)) {
+      buffer.add(content(i))
+    }
+    for (i <- 0 to (size - 1)) {
+      buffer.add(lines(i))
+    }
+  }
+
+  def read(buffer: IntList, offset: int): int = {
+    val count = buffer.read(offset)
+    size = 0
+    ensureSpace(count)
+    size = count
+
+    for (i <- 0 to (count - 1)) {
+      content(i) = buffer.read(offset + 1 + i)
+    }
+    for (i <- 0 to (count - 1)) {
+      lines(i) = buffer.read(offset + 1 + count + i)
+    }
+
+    offset + 1 + count + count
+  }
+
   def checkBounds(offset: int): unit =
     assert(offset >= 0 && offset < size, "Invalid offset " + string(offset))
 }

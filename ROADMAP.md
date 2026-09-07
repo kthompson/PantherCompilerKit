@@ -10,11 +10,11 @@ The three things that matter most:
 3. **Sample programs** — someone can write, compile, and _run_ a Panther
    program that does something.
 
-They are not independent, though two of the three knots are now untied:
-generic inference was the single largest thing standing between `pnc` and
-self-hosting until §2.1, and until §3.2 there was no way to run a program at
-all. `pncs --run` executes one today; what caps the samples now is that
-nothing can write or load a bytecode image (§3.1).
+They are not independent, and two of the three are now untied: generic
+inference was the single largest thing standing between `pnc` and self-hosting
+until §2.1, and until §3.2 there was no way to run a program at all. A program
+compiles, runs, and round-trips through a bytecode image today, so what is left
+of the third is writing the samples.
 
 Every number below is measured, not estimated, and every command shown
 reproduces the measurement. Re-run them rather than trusting the number.
@@ -29,7 +29,7 @@ reproduces the measurement. Re-run them rather than trusting the number.
 sbt pncs/compile && sbt test/test
 ```
 
-Green: 482 tests across the lexer, parser, binder, type checker, VM, metadata
+Green: 498 tests across the lexer, parser, binder, type checker, VM, metadata
 format, transpiler, and args parser.
 
 ### The self-hosted compiler does not
@@ -97,23 +97,16 @@ string conversions; `Trim.pn`, `TextLocation.pn`, `SourceFile.pn` and
 remains is shaped by what the binder cannot do rather than by what it cannot
 prove.
 
-### Nothing is ever written to disk
+### Programs compile, run, and round-trip through an image
 
-`Compilation.emit(output)` takes an output path
-([`compilation.scala:97`](pncs/src/main/scala/compilation.scala:97)) and
-ignores it. `Emitter.emit()` builds a chunk and metadata tables in memory and
-returns them ([`Emitter.scala:156`](pncs/src/main/scala/Emitter.scala:156));
-the only code in the repo that writes files is the transpiler.
+`pncs --run source.pn` compiles and executes in one step (§3.2).
+`pncs out.pnb source.pn` writes a bytecode image, and `ImageRunner.exec` loads
+one and runs it (§3.1) — so a program can be compiled once and run later, and
+what comes back out of an image behaves the same as what went in.
 
-So `pncs output.pnb source.pn` — the invocation in the README, in
-`ArgsParser.printUsage()`, and in the docs — produces no `output.pnb`, and
-there is no `.pnb` reader either. That is §3.1, and it is what still blocks
-`pvm`.
-
-**Executing a program no longer waits on it.** `pncs --run source.pn`
-compiles and runs in one step (§3.2), so the VM is reachable from the command
-line and not only from `VmTests`. Nothing is written to disk on that path
-because nothing needs to be.
+What is left of the original gap is the `pvm` command itself: loading and
+running an image is a function with tests, not yet a command line. That is the
+rest of §3.2, and it is now wiring rather than work.
 
 ### The docs compile
 
@@ -145,8 +138,9 @@ The syntax it holds every snippet to:
 ### There are no sample programs
 
 There is not one `.pn` file in the repository outside `pnc/src/`, which is
-generated. Nothing shows what a Panther program looks like end to end — though
-as of §3.2 one would now run if it did, which is what §3.3 is waiting on.
+generated. Nothing shows what a Panther program looks like end to end, and
+nothing blocks one any more: §3.2 runs a program and §3.1 compiles it to an
+image. §3.3 is the only thing between here and a `samples/` directory.
 
 ---
 
@@ -554,17 +548,51 @@ Blocked on output. A sample that cannot be run is a code listing.
 
 ### 3.1 Write and read `.pnb`
 
-The metadata tables already have the shape for this — `BlobTable.write`,
-`SignatureBuilder`, `IntList` — but there is no whole-image writer and no
-reader. Needed:
+**Done.** `pncs out.pnb source.pn` writes an image, and `ImageRunner.exec`
+loads one and runs it. `Compilation.emit(output)` honours its argument, which
+it used to take and ignore.
 
-- A serializer for `EmitResult` (chunk + metadata) to a `.pnb` file.
-- A deserializer that reconstitutes it.
-- A round-trip test: emit, write, read, execute, compare against
-  `Compilation.exec()` on the same source.
+The format is a list of ints — every table already serialized to one — written
+four bytes per int, most significant first, behind a `PNB\0` magic and a
+version:
 
-Once this exists, `Compilation.emit(output)` can honour its argument and the
-README stops documenting a command that does nothing.
+```
+magic     one int, "PNB\0"
+version   one int
+entry     one int, the entry method's token, or -1
+chunk     size, then that many instructions, then that many lines
+metadata  typeDefs, fields, methods, params, strings, signatures
+```
+
+Bytes rather than text because the values are tokens, addresses and opcodes
+rather than anything anyone reads. The magic and version are checked on read:
+an image from a different version is refused rather than misread, which matters
+because the tables have changed shape twice.
+
+**None of the existing serialization worked.** It was written, never called,
+and wrong in two ways. `FieldTable.write` put four ints per record and
+`FieldTable.read` strode three, so it both mis-read every record after the
+first and ran one past the end of the last. `StringTable` had no `write` or
+`read` at all, which is why `Metadata.write` had `strings.write` commented
+out — and every other table refers to a string by token, so an image without
+them has names for nothing and `Ldstr` has no literal to load. `Chunk` had no
+serializer either.
+
+Two things that took finding:
+
+- **A byte read back off disk is signed.** `readAllBytes` hands back -1 for
+  0xFF, which floods every bit above it unless masked. The round-trip tests on
+  whole programs did **not** catch this — no test program happened to contain a
+  value with a high middle byte — so the encoding is tested on its own, through
+  an actual file, with values chosen to have one.
+- **Panther has no hex literals.** `0x504e4200` lexes as `0` followed by an
+  identifier, which the self-hosted compiler reported and the Scala one
+  accepted. The magic is spelled in decimal.
+
+`File.readAllBytes` and `File.writeAllBytes` are builtins now, declared
+alongside the text pair — `compilation.pn` calls them, so they have to bind.
+Adding them cost one table entry and one VM case each, which is what §3.2a
+bought.
 
 ### 3.2 Add a runner
 
@@ -819,7 +847,7 @@ Things that do not belong to one goal but block several.
   blocks in §4.1.
 - **No lexer support for exponents or shifts**
   ([`Lexer.scala:243`](pncs/src/main/scala/Lexer.scala:243)).
-- **Test coverage is stage-shaped, not feature-shaped.** 482 tests, but
+- **Test coverage is stage-shaped, not feature-shaped.** 498 tests, but
   `MetadataTests` has 2 and there is no end-to-end test that takes source all
   the way to output. §3.4 is the fix.
 
@@ -850,19 +878,18 @@ every named class of diagnostic is now either at zero or down to its last few.
 diagnostic count and blocked every sample. What is left there is `pvm`, and
 that waits on §3.1.
 
-**So the next step is §3.1, then §3.3.** Writing and reading a `.pnb` is now
-the only thing between here and samples that run in CI, and the samples are
-what would keep the ten honest.
+**So the next step is §3.3, the samples.** Nothing blocks them any more: a
+program can be written, compiled, and run. The samples are what would keep the
+remaining ten diagnostics honest, and §3.4 puts them in CI.
 
 Derivation was the exception, and it is finished: 222 down to 4, over
 [ADR 0006](docs/architecture/adr/0006-conditional-givens.md) and the passes
 listed in §1.3a.
 
-**Third — make programs runnable.**
-§3.2's runner is done: `pncs --run source.pn` compiles and executes, and the
-prelude intrinsics it needed run with it. §3.1 `.pnb` read/write is what is
-left, and it unblocks `pvm`, the stage-3 bootstrap comparison, and
-output-checked docs.
+**Third — make programs runnable.** Done. `pncs --run` executes a program
+(§3.2), the prelude intrinsics it needed run with it (§3.2a), and images write
+and read (§3.1). What remains is the `pvm` command line, which is wiring over
+`ImageRunner`.
 
 **Fourth — samples and the rest of the docs.**
 §3.3 the samples, §3.4 samples in CI, §4.3 the duplicated `guides/` tree. The

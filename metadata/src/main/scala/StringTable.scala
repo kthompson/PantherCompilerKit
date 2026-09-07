@@ -32,4 +32,45 @@ case class StringTable() {
   }
 
   def get(token: StringToken): string = strings(token.token)
+
+  /** Strings are the one table whose records vary in length, so each carries
+    * its own, and `read` returns where it stopped rather than computing the end
+    * from a fixed stride.
+    *
+    * A string goes out as its character codes. Everything else in an image is
+    * already an int, and this keeps the whole file one kind of thing.
+    */
+  def write(buffer: IntList): unit = {
+    buffer.add(size)
+    for (i <- 0 to (size - 1)) {
+      val value = strings(i)
+      buffer.add(value.length)
+      for (j <- 0 to (value.length - 1)) {
+        buffer.add(int(value(j)))
+      }
+    }
+  }
+
+  def read(buffer: IntList, offset: int): int = {
+    val tableSize = buffer.read(offset)
+    size = 0
+    ensureSpace(tableSize)
+    size = tableSize
+
+    var cursor = offset + 1
+    for (i <- 0 to (tableSize - 1)) {
+      val length = buffer.read(cursor)
+      cursor = cursor + 1
+
+      var value = ""
+      for (j <- 0 to (length - 1)) {
+        value = value + string(char(buffer.read(cursor + j)))
+      }
+
+      cursor = cursor + length
+      strings(i) = value
+    }
+
+    cursor
+  }
 }

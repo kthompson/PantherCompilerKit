@@ -60,6 +60,8 @@ object Builtin {
   val WriteAllText = 16
   val PathCombine = 17
   val PathName = 18
+  val ReadAllBytes = 20
+  val WriteAllBytes = 21
 
   /** The id for a method's qualified name, or `None` if it names no builtin. */
   def idOf(qualifiedName: string): int = {
@@ -79,6 +81,8 @@ object Builtin {
       case "string.compareTo"           => StringCompareTo
       case "int.compareTo"              => IntCompareTo
       case "File.readAllText"           => ReadAllText
+      case "File.readAllBytes"          => ReadAllBytes
+      case "File.writeAllBytes"         => WriteAllBytes
       case "File.writeAllText"          => WriteAllText
       case "Path.combine"               => PathCombine
       case "Path.nameWithoutExtension"  => PathName
@@ -123,6 +127,10 @@ object Builtin {
       "Path.combine"
     } else if (id == PathName) {
       "Path.nameWithoutExtension"
+    } else if (id == ReadAllBytes) {
+      "File.readAllBytes"
+    } else if (id == WriteAllBytes) {
+      "File.writeAllBytes"
     } else if (id == CharToString) {
       "string.apply(char)"
     } else {

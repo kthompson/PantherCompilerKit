@@ -94,9 +94,12 @@ case class Compilation(
     println(sb.toString())
   }
 
+  /** Emits and writes the image to `output`, which it used to take and ignore.
+    */
   def emit(output: string): unit = {
     val emitter = new Emitter(syntaxTrees, root, binder, assembly)
-    emitter.emit()
+    val result = emitter.emit()
+    PnbFile.write(output, result.chunk, result.metadata, result.entry)
   }
 
   def exec(): InterpretResult = {
@@ -131,5 +134,25 @@ case class Compilation(
   def transpile(outputPath: string): unit = {
     val transpiler = new Transpiler(syntaxTrees, outputPath)
     transpiler.transpile()
+  }
+}
+
+/** Runs a compiled image, which is what `pvm` will be once it has a command
+  * line (§3.2).
+  *
+  * Deliberately knows nothing about a `Compilation`: an image is the whole of
+  * what the VM needs, and nothing here should be able to reach the syntax trees
+  * that produced it — that is the property a bootstrap comparison rests on.
+  */
+object ImageRunner {
+  def exec(path: string, settings: CompilerSettings): InterpretResult = {
+    val image = PnbFile.read(path)
+
+    val stack = new Array[Value](settings.stackSize)
+    val heap = new Array[Value](settings.heapSize)
+
+    val vm =
+      VM(image.chunk, image.metadata, image.entry, stack, heap, settings)
+    vm.run()
   }
 }
