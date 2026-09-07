@@ -25,23 +25,27 @@ println("Welcome to " + name)
 println("Version: " + string(version))
 ```
 
+## Running Your Program
+
+Compile and run in one step:
+
+```bash
+pncs --run source.pn
+```
+
+This compiles `source.pn` and executes it immediately, printing its output.
+If your program calls `exit`, that code becomes the exit code of `pncs`.
+
 ## Compiling Your Code
 
-Use the Panther compiler to compile your code:
+To compile without running:
 
 ```bash
 pncs output.pnb source.pn
 ```
 
-This compiles `source.pn` to bytecode in `output.pnb`.
-
-## Running Your Program
-
-After compilation, run your program with the PVM (Panther Virtual Machine):
-
-```bash
-pvm output.pnb
-```
+Writing the bytecode image to disk and loading it back with a separate `pvm`
+command are not built yet, so `--run` is the way to execute a program today.
 
 ## Next Steps
 

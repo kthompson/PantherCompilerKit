@@ -721,6 +721,23 @@ object TestHelpers {
     }
   }
 
+  /** The raw result, for programs that do not end by evaluating to something —
+    * `exit` and `panic` both stop the run without returning a value.
+    */
+  def execResult(program: string): InterpretResult =
+    mkCompilation(program).exec()
+
+  /** What the program wrote to stdout, which for `print` and `println` is the
+    * whole of what they do.
+    */
+  def execOutput(program: string): String = {
+    val buffer = new java.io.ByteArrayOutputStream()
+    Console.withOut(buffer) {
+      mkCompilation(program).exec()
+    }
+    buffer.toString("utf-8")
+  }
+
   def assertValueInt(value: Value, expected: int): Unit = {
     value match {
       case Value.Int(v) =>

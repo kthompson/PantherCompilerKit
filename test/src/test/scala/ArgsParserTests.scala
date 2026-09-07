@@ -232,5 +232,57 @@ class ArgsParserTests extends AnyFunSpec with Matchers {
       result.settings.debug shouldBe false // not explicitly set
       result.outputFile shouldBe "output_dir/"
     }
+
+    it("should parse the run flag") {
+      val long = ArgsParser.parse(Array("--run", "source.pn"))
+      long.error shouldBe Option.None
+      long.settings.run shouldBe true
+
+      val short = ArgsParser.parse(Array("-r", "source.pn"))
+      short.error shouldBe Option.None
+      short.settings.run shouldBe true
+    }
+
+    /** There is no output file to name in run mode, so the first positional is
+      * a source like every other one.
+      */
+    it("should treat every positional as a source in run mode") {
+      val result = ArgsParser.parse(Array("--run", "a.pn", "b.pn"))
+      result.error shouldBe Option.None
+      result.outputFile shouldBe ""
+      result.sourceFiles match {
+        case List.Cons("a.pn", List.Cons("b.pn", List.Nil)) => // Success
+        case other => fail("Expected two source files, got " + other)
+      }
+    }
+
+    /** What the first positional means depends on `--run`, so the flag is
+      * resolved after the whole argument list rather than as it is read.
+      */
+    it("should accept the run flag after the sources") {
+      val result = ArgsParser.parse(Array("a.pn", "b.pn", "--run"))
+      result.error shouldBe Option.None
+      result.outputFile shouldBe ""
+      result.sourceFiles match {
+        case List.Cons("a.pn", List.Cons("b.pn", List.Nil)) => // Success
+        case other => fail("Expected two source files, got " + other)
+      }
+    }
+
+    it("should require a source in run mode") {
+      val result = ArgsParser.parse(Array("--run"))
+      result.error shouldBe Option.Some("at least one source file is required")
+    }
+
+    it("should reject run together with transpile") {
+      val result = ArgsParser.parse(Array("--run", "--transpile", "a.pn"))
+      result.error shouldBe
+        Option.Some("--run and --transpile are mutually exclusive")
+    }
+
+    it("should still require an output file when not running") {
+      val result = ArgsParser.parse(Array("only-one.pn"))
+      result.error shouldBe Option.Some("at least one source file is required")
+    }
   }
 }

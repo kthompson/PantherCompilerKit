@@ -1438,6 +1438,80 @@ class VmTests extends AnyFunSpec with Matchers {
       * through `Ldlen` the way an array's does. Reading it as a field failed
       * outright, which nothing exercised until these.
       */
+    /** The prelude intrinsics. Every one of these used to panic the emitter
+      * with `unknown extern`, so a program calling any of them could be bound
+      * and never run.
+      */
+    it("should execute println and print") {
+      execOutput("println(\"hi\")") shouldBe "hi\n"
+      execOutput("print(\"a\")\nprint(\"b\")") shouldBe "ab"
+      // `println(x)` and `println(string(x))` agree, because `ConvStr` and
+      // this share one way of reading a value as text
+      execOutput("println(42)") shouldBe "42\n"
+      execOutput("println(true)") shouldBe "true\n"
+      execOutput("println(string(42))") shouldBe "42\n"
+    }
+
+    it("should execute exit") {
+      execResult("exit(0)") shouldBe InterpretResult.Exit(0)
+      execResult("exit(3)") shouldBe InterpretResult.Exit(3)
+      // Ends the run rather than a frame, so nothing after it happens
+      execOutput("exit(0)\nprintln(\"after\")") shouldBe ""
+    }
+
+    it("should execute panic") {
+      execResult("panic(\"boom\")") shouldBe InterpretResult.RuntimeError
+      execOutput("panic(\"boom\")") should include("boom")
+    }
+
+    it("should execute assert") {
+      assertExecValueInt("assert(true, \"unused\")\n1", 1)
+      execResult("assert(false, \"failed\")") shouldBe
+        InterpretResult.RuntimeError
+      execOutput("assert(false, \"failed\")") should include("failed")
+    }
+
+    it("should execute mod") {
+      assertExecValueInt("mod(7, 3)", 1)
+      assertExecValueInt("mod(9, 3)", 0)
+      // The sign follows the dividend, as `%` does
+      assertExecValueInt("mod(-7, 3)", -1)
+      execResult("mod(1, 0)") shouldBe InterpretResult.RuntimeError
+    }
+
+    /** Asserted against the host's separator rather than a literal `/`, because
+      * that is what `Path` is defined in terms of and the answer differs by
+      * platform.
+      */
+    it("should execute the path intrinsics") {
+      val sep = java.io.File.separator
+      assertExecValueString("Path.combine(\"a\", \"b\")", "a" + sep + "b")
+      assertExecValueString("Path.combine(\"\", \"b\")", "b")
+      assertExecValueString("Path.combine(\"a\", \"\")", "a")
+      assertExecValueString(
+        "Path.nameWithoutExtension(\"a" + sep + "b.pn\")",
+        "b"
+      )
+      assertExecValueString("Path.nameWithoutExtension(\"b.pn\")", "b")
+    }
+
+    /** Round-tripped through a real file, because reading and writing go
+      * through the same host shim the Scala compiler calls — that agreement is
+      * the whole point of them being intrinsics.
+      */
+    it("should execute the file intrinsics") {
+      val file = java.io.File.createTempFile("panther-vm-test", ".txt")
+      file.deleteOnExit()
+      val path = file.getAbsolutePath.replace("\\", "\\\\")
+
+      assertExecValueString(
+        "File.writeAllText(\"" + path + "\", \"round trip\")\n" +
+          "File.readAllText(\"" + path + "\")",
+        "round trip"
+      )
+      assert(scala.io.Source.fromFile(file, "utf-8").mkString == "round trip")
+    }
+
     it("should execute string length") {
       assertExecValueIntWithSetup("val s = \"hello\"", "s.length", 5)
       assertExecValueIntWithSetup("val s = \"\"", "s.length", 0)

@@ -1,4 +1,6 @@
 import panther._
+import system.io.File
+import system.io.Path
 
 enum InterpretResult {
   case Continue // will continue running
@@ -6,6 +8,13 @@ enum InterpretResult {
   case OkValue(
       value: Value
   ) // completed running the program and returned a value
+  /** The program called `exit(code)`.
+    *
+    * Distinct from `OkValue`, which carries the value the program evaluated
+    * to: `exit(3)` and a program whose last expression is `3` mean different
+    * things to whatever launched it, and only the first one chose its code.
+    */
+  case Exit(code: int)
   case CompileError
   case RuntimeError
 }
@@ -236,6 +245,25 @@ case class VM(
     }
   }
 
+  /** How a value reads as text.
+    *
+    * `ConvStr` and `println` have to agree — `println(x)` and
+    * `println(string(x))` print the same thing — so they share this rather than
+    * matching on the value twice.
+    */
+  def valueToString(value: Value): string = {
+    value match {
+      case Value.Bool(b)       => string(b)
+      case Value.Int(i)        => string(i)
+      case Value.String(s)     => s
+      case Value.Uninitialized => "unit"
+      // A reference prints as its type, there being no `Show` to reach from
+      // here — the evidence a derived given carries is a front-end notion and
+      // the VM only has the token.
+      case ref: Value.Ref => metadata.getTypeName(ref.token)
+    }
+  }
+
   /** `compareTo` for every type that has an ordering.
     *
     * Answers the sign rather than the difference, so that the two orderings can
@@ -277,6 +305,74 @@ case class VM(
         }
       case _ =>
         runtimeError("Expected string for substring")
+    }
+  }
+
+  /** `mod(a, b)`.
+    *
+    * The same answer as the `%` operator, which is `Rem`: the sign follows the
+    * dividend. Separate from `Rem` only because it is reached as a call.
+    */
+  def modOp(): InterpretResult = {
+    val b = popInt()
+    val a = popInt()
+    if (b == 0) {
+      runtimeError("Division by zero in mod")
+    } else {
+      push(Value.Int(a % b))
+    }
+  }
+
+  /** `File.readAllText(path)`.
+    *
+    * Reads through the host, which is the same shim the Scala compiler calls,
+    * so a self-hosted `pnc` reading a file and `pncs` reading it agree by
+    * construction. This is the bootstrap floor, as `str.substring` calling the
+    * host's substring is.
+    */
+  def readAllTextOp(): InterpretResult = {
+    val path = pop()
+    path match {
+      case Value.String(file) =>
+        push(Value.String(File.readAllText(file)))
+      case _ =>
+        runtimeError("Expected string path for readAllText")
+    }
+  }
+
+  /** `File.writeAllText(path, text)`. */
+  def writeAllTextOp(): InterpretResult = {
+    val text = pop()
+    val path = pop()
+    Tuple2(path, text) match {
+      case Tuple2(Value.String(file), Value.String(contents)) =>
+        File.writeAllText(file, contents)
+        push(Value.Uninitialized)
+      case _ =>
+        runtimeError("Expected string path and text for writeAllText")
+    }
+  }
+
+  /** `Path.combine(path1, path2)`. */
+  def pathCombineOp(): InterpretResult = {
+    val second = pop()
+    val first = pop()
+    Tuple2(first, second) match {
+      case Tuple2(Value.String(path1), Value.String(path2)) =>
+        push(Value.String(Path.combine(path1, path2)))
+      case _ =>
+        runtimeError("Expected two string paths for combine")
+    }
+  }
+
+  /** `Path.nameWithoutExtension(path)`. */
+  def pathNameOp(): InterpretResult = {
+    val value = pop()
+    value match {
+      case Value.String(path) =>
+        push(Value.String(Path.nameWithoutExtension(path)))
+      case _ =>
+        runtimeError("Expected string path for nameWithoutExtension")
     }
   }
 
@@ -669,26 +765,7 @@ case class VM(
 
       // conversion ops
       case Opcode.ConvStr =>
-        val a = pop()
-        a match {
-          case Value.Bool(b) =>
-            push(Value.String(string(b)))
-            InterpretResult.Continue
-          case Value.Int(i) =>
-            // TODO: may need native function here
-            push(Value.String(string(i)))
-            InterpretResult.Continue
-          case Value.String(s) =>
-            push(Value.String(s))
-            InterpretResult.Continue
-          case Value.Uninitialized =>
-            push(Value.String("unit"))
-            InterpretResult.Continue
-          case ref: Value.Ref =>
-            val fullName = metadata.getTypeName(ref.token)
-            push(Value.String(fullName))
-            InterpretResult.Continue
-        }
+        push(Value.String(valueToString(pop())))
 
       case Opcode.ConvBool =>
         val a = pop()
@@ -904,6 +981,45 @@ case class VM(
         substringOp()
       case Opcode.EndsWith =>
         endsWithOp()
+
+      // Prelude intrinsics
+      case Opcode.Print =>
+        print(valueToString(pop()))
+        push(Value.Uninitialized)
+      case Opcode.Println =>
+        println(valueToString(pop()))
+        push(Value.Uninitialized)
+
+      // `panic` and `exit` both end the run, which is why neither pushes: the
+      // result they are declared to have is `never`, so nothing reads it.
+      case Opcode.Panic =>
+        runtimeError(valueToString(pop()))
+      // Ends the run rather than a frame, so there is no `Ret` and no stack to
+      // unwind: `run` stops as soon as this is not `Continue`.
+      case Opcode.Exit =>
+        InterpretResult.Exit(popInt())
+
+      case Opcode.Assert =>
+        val message = pop()
+        val condition = pop()
+        condition match {
+          case Value.Bool(true)  => push(Value.Uninitialized)
+          case Value.Bool(false) => runtimeError(valueToString(message))
+          case _ => runtimeError("Expected bool condition for assert")
+        }
+
+      case Opcode.Mod =>
+        modOp()
+
+      // File and path intrinsics
+      case Opcode.ReadAllText =>
+        readAllTextOp()
+      case Opcode.WriteAllText =>
+        writeAllTextOp()
+      case Opcode.PathCombine =>
+        pathCombineOp()
+      case Opcode.PathName =>
+        pathNameOp()
 
       case Opcode.Ldelem =>
         // Pop the index and array reference from the stack

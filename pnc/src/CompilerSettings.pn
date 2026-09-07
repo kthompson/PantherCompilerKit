@@ -23,7 +23,11 @@ using panther
     printSymbols: bool,
     printBoundAssembly: bool,
     printLoweredAssembly: bool,
-    transpile: bool
+    transpile: bool,
+    /** Compile and execute in one step, instead of emitting. There is no
+      * output file in this mode — every positional argument is a source.
+      */
+    run: bool
 )
 
 object CompilerSettingsFactory {
@@ -43,6 +47,7 @@ object CompilerSettingsFactory {
     false, // printSymbols
     false, // printBoundAssembly
     false, // printLoweredAssembly
-    false // transpile
+    false, // transpile
+    false // run
   )
 }

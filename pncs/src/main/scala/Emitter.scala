@@ -991,6 +991,26 @@ case class Emitter(
       // Both the `string` and the `int` member land here: `Cmp` tells them
       // apart by the values it pops.
       chunk.emitOpcode(Opcode.Cmp, line)
+    } else if (method.name == "print") {
+      chunk.emitOpcode(Opcode.Print, line)
+    } else if (method.name == "println") {
+      chunk.emitOpcode(Opcode.Println, line)
+    } else if (method.name == "panic") {
+      chunk.emitOpcode(Opcode.Panic, line)
+    } else if (method.name == "exit") {
+      chunk.emitOpcode(Opcode.Exit, line)
+    } else if (method.name == "assert") {
+      chunk.emitOpcode(Opcode.Assert, line)
+    } else if (method.name == "mod") {
+      chunk.emitOpcode(Opcode.Mod, line)
+    } else if (method.name == "readAllText") {
+      chunk.emitOpcode(Opcode.ReadAllText, line)
+    } else if (method.name == "writeAllText") {
+      chunk.emitOpcode(Opcode.WriteAllText, line)
+    } else if (method.name == "combine") {
+      chunk.emitOpcode(Opcode.PathCombine, line)
+    } else if (method.name == "nameWithoutExtension") {
+      chunk.emitOpcode(Opcode.PathName, line)
     } else {
       panic("emitExternCall: unknown extern " + method.name)
     }

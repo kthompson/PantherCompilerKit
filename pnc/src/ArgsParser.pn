@@ -30,9 +30,14 @@ object ArgsParser {
       var printBoundAssembly = settings.printBoundAssembly
       var printLoweredAssembly = settings.printLoweredAssembly
       var transpile = settings.transpile
+      var run = settings.run
 
       var outputFile = ""
       var sourceFiles: List[string] = List.Nil
+      // Collected as they are seen and split into output and sources after the
+      // loop, because what the first one means depends on `--run`, which may
+      // not have been read yet.
+      var positionals: List[string] = List.Nil
       var currentIndex = 0
       var showHelp = false
       var error: Option[string] = Option.None
@@ -45,6 +50,9 @@ object ArgsParser {
           currentIndex = currentIndex + 1
         } else if (arg == "--transpile" || arg == "-t") {
           transpile = true
+          currentIndex = currentIndex + 1
+        } else if (arg == "--run" || arg == "-r") {
+          run = true
           currentIndex = currentIndex + 1
         } else if (arg == "--debug") {
           debug = true
@@ -126,21 +134,32 @@ object ArgsParser {
           error = Option.Some("unknown option: " + arg)
         } else {
           // This is a positional argument (output file or source file)
-          if (outputFile == "") {
-            outputFile = arg
-          } else {
-            sourceFiles = List.Cons(arg, sourceFiles)
-          }
+          positionals = List.Cons(arg, positionals)
           currentIndex = currentIndex + 1
         }
       }
 
-      // Reverse source files list to maintain original order
-      sourceFiles = reverseList(sourceFiles)
+      // Reverse to maintain original order
+      positionals = reverseList(positionals)
+
+      // `--run` executes rather than emits, so there is nothing to name an
+      // output file and every positional is a source.
+      if (run) {
+        sourceFiles = positionals
+      } else {
+        positionals match {
+          case List.Nil => ()
+          case List.Cons(head, tail) =>
+            outputFile = head
+            sourceFiles = tail
+        }
+      }
 
       // Validate required arguments
       if (!showHelp && error == Option.None) {
-        if (outputFile == "") {
+        if (run && transpile) {
+          error = Option.Some("--run and --transpile are mutually exclusive")
+        } else if (!run && outputFile == "") {
           error = Option.Some("output file is required")
         } else if (sourceFiles == List.Nil) {
           error = Option.Some("at least one source file is required")
@@ -158,7 +177,8 @@ object ArgsParser {
           printSymbols,
           printBoundAssembly,
           printLoweredAssembly,
-          transpile
+          transpile,
+          run
         ),
         outputFile,
         sourceFiles,
@@ -170,11 +190,15 @@ object ArgsParser {
 
   def printUsage(): unit = {
     println("Usage: pncs [options] <output> <sources...>")
+    println("       pncs --run [options] <sources...>")
     println("")
     println("Options:")
     println("  -h, --help                    Show this help message")
     println(
       "  -t, --transpile              Transpile mode (output to directory)"
+    )
+    println(
+      "  -r, --run                    Compile and execute, with no output file"
     )
     println("  --debug                      Enable all debug options")
     println("  --trace                      Enable execution tracing")
@@ -193,6 +217,7 @@ object ArgsParser {
     println("Examples:")
     println("  pncs output.pnb source1.scala source2.scala")
     println("  pncs --transpile output/ source1.scala source2.scala")
+    println("  pncs --run hello.pn")
     println("  pncs --debug --trace output.pnb source.scala")
   }
 

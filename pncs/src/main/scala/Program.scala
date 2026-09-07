@@ -1,5 +1,18 @@
 import panther._
 
+/** What a `pncs` invocation ended up doing, which decides the process exit
+  * code.
+  *
+  * Two cases rather than one number, because the two numbers do not mean the
+  * same thing: a diagnostic count is a tally and any non-zero tally is one
+  * failure, while an exit code was chosen by the program and has to survive
+  * unchanged. Collapsing them made `exit(3)` leave as 1.
+  */
+enum RunResult {
+  case Diagnostics(count: int)
+  case Executed(exitCode: int)
+}
+
 object Program {
   def main(args: Array[String]): Unit = {
     val parseResult = ArgsParser.parse(args)
@@ -13,15 +26,19 @@ object Program {
         if (parseResult.showHelp) {
           ArgsParser.printUsage()
         } else {
-          val diagnostics = run(
+          val result = run(
             parseResult.settings,
             parseResult.outputFile,
             parseResult.sourceFiles
           )
           // Anything downstream - CI, scripts, an editor - reads the exit
-          // code, so a compile that reported diagnostics has to fail.
-          if (diagnostics > 0) {
-            exit(1)
+          // code, so a compile that reported diagnostics has to fail, and a
+          // program that picked its own code has to keep it.
+          result match {
+            case RunResult.Diagnostics(0) => ()
+            case RunResult.Diagnostics(_) => exit(1)
+            case RunResult.Executed(0)    => ()
+            case RunResult.Executed(code) => exit(code)
           }
         }
     }
@@ -42,7 +59,7 @@ object Program {
       settings: CompilerSettings,
       outputFile: string,
       sourceFiles: List[string]
-  ): int = {
+  ): RunResult = {
     printLogo()
     var trees: List[SyntaxTree] = List.Nil
 
@@ -73,11 +90,11 @@ object Program {
         }
       }
       println("found " + string(parseErrors) + " diagnostics")
-      parseErrors
+      RunResult.Diagnostics(parseErrors)
     } else if (settings.transpile) {
       val transpiler = new Transpiler(trees, outputFile)
       transpiler.transpile()
-      0
+      RunResult.Diagnostics(0)
     } else {
       val compilation = MakeCompilation.create(trees, settings)
       if (settings.printSymbols) {
@@ -94,15 +111,36 @@ object Program {
 
       compilation.diagnostics match {
         case Diagnostics.Empty =>
-          println("emitting to " + outputFile + "...")
-          compilation.emit(outputFile)
-          0
+          if (settings.run) {
+            RunResult.Executed(execute(compilation))
+          } else {
+            println("emitting to " + outputFile + "...")
+            compilation.emit(outputFile)
+            RunResult.Diagnostics(0)
+          }
 
         case diags =>
           val count = diags.printDiagnostics(settings.diagnosticsToPrint)
           println("found " + string(count) + " diagnostics")
-          count
+          RunResult.Diagnostics(count)
       }
+    }
+  }
+
+  /** Runs a clean compilation and answers the code the process should end
+    * with.
+    *
+    * A program that chose its own code reports that code; one that failed at
+    * runtime reports 1, there being no code to honour.
+    */
+  def execute(compilation: Compilation): int = {
+    compilation.exec() match {
+      case InterpretResult.Exit(code) => code
+      case InterpretResult.RuntimeError => 1
+      case InterpretResult.CompileError => 1
+      // `Ok` and `OkValue` are both a program that ran to the end. What it
+      // evaluated to is not an exit code — a program ending in `2` succeeded.
+      case _ => 0
     }
   }
 

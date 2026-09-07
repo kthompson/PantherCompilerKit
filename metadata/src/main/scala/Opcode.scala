@@ -113,6 +113,23 @@ object Opcode {
   val Substr = 130 // (str, start, end) -> str, end exclusive
   val EndsWith = 131 // (str, suffix) -> bool
 
+  // prelude intrinsics
+  //
+  // The rest of what `panther.scala` shims and the transpiler skips. These are
+  // host services rather than operations on values — writing to a console,
+  // ending the process, reading a file — but they are opcodes for the same
+  // reason `Substr` is: an `extern` method has no body to call into.
+  val Print = 140 // (value) -> unit, no newline
+  val Println = 141 // (value) -> unit
+  val Panic = 142 // (message) -> never
+  val Exit = 143 // (code) -> never
+  val Assert = 144 // (condition, message) -> unit
+  val Mod = 145 // (a, b) -> int, sign follows the dividend as `Rem` does
+  val ReadAllText = 146 // (path) -> str
+  val WriteAllText = 147 // (path, text) -> unit
+  val PathCombine = 148 // (path1, path2) -> str
+  val PathName = 149 // (path) -> str, no directory and no extension
+
   def nameOf(opcode: int): string = {
     if (opcode == Nop) {
       "nop"
@@ -238,6 +255,26 @@ object Opcode {
       "substr"
     } else if (opcode == EndsWith) {
       "endswith"
+    } else if (opcode == Print) {
+      "print"
+    } else if (opcode == Println) {
+      "println"
+    } else if (opcode == Panic) {
+      "panic"
+    } else if (opcode == Exit) {
+      "exit"
+    } else if (opcode == Assert) {
+      "assert"
+    } else if (opcode == Mod) {
+      "mod"
+    } else if (opcode == ReadAllText) {
+      "readalltext"
+    } else if (opcode == WriteAllText) {
+      "writealltext"
+    } else if (opcode == PathCombine) {
+      "pathcombine"
+    } else if (opcode == PathName) {
+      "pathname"
     } else {
       panic("Unknown opcode: " + string(opcode))
     }

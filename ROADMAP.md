@@ -10,9 +10,11 @@ The three things that matter most:
 3. **Sample programs** — someone can write, compile, and _run_ a Panther
    program that does something.
 
-They are not independent. Generic inference is the single largest thing
-standing between `pnc` and self-hosting, and there is currently no way to run a
-compiled program at all, which caps how convincing any sample can be.
+They are not independent, though two of the three knots are now untied:
+generic inference was the single largest thing standing between `pnc` and
+self-hosting until §2.1, and until §3.2 there was no way to run a program at
+all. `pncs --run` executes one today; what caps the samples now is that
+nothing can write or load a bytecode image (§3.1).
 
 Every number below is measured, not estimated, and every command shown
 reproduces the measurement. Re-run them rather than trusting the number.
@@ -27,7 +29,7 @@ reproduces the measurement. Re-run them rather than trusting the number.
 sbt pncs/compile && sbt test/test
 ```
 
-Green: 459 tests across the lexer, parser, binder, type checker, VM, metadata
+Green: 476 tests across the lexer, parser, binder, type checker, VM, metadata
 format, transpiler, and args parser.
 
 ### The self-hosted compiler does not
@@ -104,9 +106,14 @@ returns them ([`Emitter.scala:156`](pncs/src/main/scala/Emitter.scala:156));
 the only code in the repo that writes files is the transpiler.
 
 So `pncs output.pnb source.pn` — the invocation in the README, in
-`ArgsParser.printUsage()`, and in the docs — produces no `output.pnb`. There is
-no `.pnb` reader either, and no CLI path to `Compilation.exec()`, even though
-the VM works and `VmTests` drives it in-process for 76 tests.
+`ArgsParser.printUsage()`, and in the docs — produces no `output.pnb`, and
+there is no `.pnb` reader either. That is §3.1, and it is what still blocks
+`pvm`.
+
+**Executing a program no longer waits on it.** `pncs --run source.pn`
+compiles and runs in one step (§3.2), so the VM is reachable from the command
+line and not only from `VmTests`. Nothing is written to disk on that path
+because nothing needs to be.
 
 ### The docs compile
 
@@ -138,8 +145,8 @@ The syntax it holds every snippet to:
 ### There are no sample programs
 
 There is not one `.pn` file in the repository outside `pnc/src/`, which is
-generated. Nothing shows what a Panther program looks like end to end, and
-nothing would run if it did.
+generated. Nothing shows what a Panther program looks like end to end — though
+as of §3.2 one would now run if it did, which is what §3.3 is waiting on.
 
 ---
 
@@ -563,22 +570,42 @@ README stops documenting a command that does nothing.
 
 ### 3.2 Add a runner
 
-`Compilation.exec()` already runs the VM in-process and `VmTests` leans on it.
-Expose it:
+**`pncs --run source.pn` works.** It compiles and executes in one step, and a
+Panther program can now print, loop, branch and choose its own exit code:
 
-- `pncs --run source.pn` — compile and execute in one step.
-- `pvm output.pnb` — load and execute a compiled image. This is the command in
-  the Getting Started docs; today it does not exist.
+```bash
+pncs --run hello.pn
+```
 
-Both need the prelude intrinsics to exist at runtime first. `println`, `print`,
-`panic`, `exit`, `File` and `Path` are all bound and marked `extern`, and
-`emitCallExpression` has no case for any of them — it reaches
-`emitExternCall`, which handles the conversions and the string members and
-panics on everything else. So `println("hi")` type-checks and then crashes the
-emitter, which is why there is no `hello.pn` in §3.3 yet. They need an opcode
-or a native-call mechanism, and one decision covers all six; the string
-builtins settled the shape (§1.3), and the file members are the only ones that
-need real I/O.
+`pvm output.pnb` — load and execute a compiled image — is still missing, and
+is blocked on §3.1 rather than on anything here: there is no image to load
+until something writes one.
+
+**The prelude intrinsics run.** They were the prerequisite: `println`, `print`,
+`panic`, `exit`, `assert`, `mod`, and the four `File`/`Path` members were all
+bound, marked `extern`, and had no case anywhere in the emitter, so
+`println("hi")` type-checked and then panicked `emitExternCall` with
+`unknown extern`. Each is now its own opcode, the shape the string builtins
+settled on (§1.3) — ten of them, `Print` through `PathName`. `panic` and
+`assert` report a runtime error; `exit` ends the run rather than a frame, so
+there is no stack to unwind.
+
+Two things this settled that the count could not see:
+
+- **`println(x)` and `println(string(x))` agree**, because `ConvStr` and
+  `Println` now share one `valueToString` rather than matching on the value
+  twice. A reference prints as its type; there is no `Show` to reach from
+  inside the VM, which only holds the token.
+- **An exit code is not a diagnostic count.** `Program.run` returned an `int`
+  meaning "diagnostics", and `main` turned any non-zero into `exit(1)`, so a
+  program calling `exit(3)` left with 1. It returns a `RunResult` now —
+  `Diagnostics(count)` or `Executed(code)` — because a tally and a code do not
+  compose: any number of diagnostics is one failure, while a code was chosen
+  and has to survive.
+
+`--run` takes no output file, so every positional is a source. The flag is
+resolved after the whole argument list rather than as it is read, because what
+the first positional means depends on a flag that may come after it.
 
 ### 3.3 Then write the samples
 
@@ -756,7 +783,7 @@ Things that do not belong to one goal but block several.
   blocks in §4.1.
 - **No lexer support for exponents or shifts**
   ([`Lexer.scala:243`](pncs/src/main/scala/Lexer.scala:243)).
-- **Test coverage is stage-shaped, not feature-shaped.** 459 tests, but
+- **Test coverage is stage-shaped, not feature-shaped.** 476 tests, but
   `MetadataTests` has 2 and there is no end-to-end test that takes source all
   the way to output. §3.4 is the fix.
 
@@ -782,18 +809,24 @@ its own call sites and conversion along with it. From here the burndown is
 itemised rather than grouped, which is the first time that has been true —
 every named class of diagnostic is now either at zero or down to its last few.
 
-**The next real step is §3.2, not §1.3.** Six prelude intrinsics — `println`,
-`print`, `panic`, `exit`, `File` and `Path` — are bound and not runnable, and
-`emitCallExpression` panics on any of them. That is invisible to the
-diagnostic count and blocks every sample program, so it outranks the ten.
+**§3.2's first half is done.** The prelude intrinsics run and
+`pncs --run source.pn` executes a program, which was invisible to the
+diagnostic count and blocked every sample. What is left there is `pvm`, and
+that waits on §3.1.
+
+**So the next step is §3.1, then §3.3.** Writing and reading a `.pnb` is now
+the only thing between here and samples that run in CI, and the samples are
+what would keep the ten honest.
 
 Derivation was the exception, and it is finished: 222 down to 4, over
 [ADR 0006](docs/architecture/adr/0006-conditional-givens.md) and the passes
 listed in §1.3a.
 
 **Third — make programs runnable.**
-§3.1 `.pnb` read/write, §3.2 the runner. Unblocks samples, output-checked docs,
-and the stage-3 bootstrap comparison.
+§3.2's runner is done: `pncs --run source.pn` compiles and executes, and the
+prelude intrinsics it needed run with it. §3.1 `.pnb` read/write is what is
+left, and it unblocks `pvm`, the stage-3 bootstrap comparison, and
+output-checked docs.
 
 **Fourth — samples and the rest of the docs.**
 §3.3 the samples, §3.4 samples in CI, §4.3 the duplicated `guides/` tree. The
