@@ -943,24 +943,8 @@ params: Dictionary[Symbol, int]
 
     val startLine = expr.location.startLine
 
-    // Check for built-in conversion functions and emit appropriate conversion opcodes
     if (expr.method.extern) {
-      if (expr.method.name == "apply") {
-        expr.method.parent.get().name match {
-          case "string" =>
-            chunk.emitOpcode(Opcode.ConvStr, startLine)
-          case "bool" =>
-            chunk.emitOpcode(Opcode.ConvBool, startLine)
-          case "int" =>
-            chunk.emitOpcode(Opcode.ConvI4, startLine)
-          case "char" =>
-            chunk.emitOpcode(Opcode.ConvChar, startLine)
-          case _ =>
-            panic("emitCallExpression: unknown extern " + expr.method.name)
-        }
-      } else {
-        panic("emitCallExpression: unknown extern " + expr.method.name)
-      }
+      emitExternCall(expr.method, startLine)
     } else {
       // Evidence arrives after the declared arguments, so it is pushed here,
       // once the arguments are on the stack (ADR 0005, decision A). The goals
@@ -976,6 +960,38 @@ params: Dictionary[Symbol, int]
           chunk.emitOpcode(Opcode.Call, startLine)
           chunk.emitI4(token.token, startLine)
       }
+    }
+  }
+
+  /** A builtin member has no body to call into, so each one is its own opcode.
+    *
+    * The receiver and then the arguments are already on the stack, which is the
+    * order these opcodes pop them in.
+    */
+  def emitExternCall(method: Symbol, line: int): unit = {
+    if (method.name == "apply") {
+      method.parent.get().name match {
+        case "string" =>
+          chunk.emitOpcode(Opcode.ConvStr, line)
+        case "bool" =>
+          chunk.emitOpcode(Opcode.ConvBool, line)
+        case "int" =>
+          chunk.emitOpcode(Opcode.ConvI4, line)
+        case "char" =>
+          chunk.emitOpcode(Opcode.ConvChar, line)
+        case _ =>
+          panic("emitExternCall: unknown extern " + method.name)
+      }
+    } else if (method.name == "substring") {
+      chunk.emitOpcode(Opcode.Substr, line)
+    } else if (method.name == "endsWith") {
+      chunk.emitOpcode(Opcode.EndsWith, line)
+    } else if (method.name == "compareTo") {
+      // Both the `string` and the `int` member land here: `Cmp` tells them
+      // apart by the values it pops.
+      chunk.emitOpcode(Opcode.Cmp, line)
+    } else {
+      panic("emitExternCall: unknown extern " + method.name)
     }
   }
 
@@ -1089,10 +1105,14 @@ params: Dictionary[Symbol, int]
         case Option.None =>
           panic("emitMemberAccess: no method token for " + string(expr.symbol))
       }
-    } else if (expr.symbol == binder.arrayLength) {
+    } else if (
+      expr.symbol == binder.arrayLength || expr.symbol == binder.stringLength
+    ) {
       // An array's length is a header slot rather than a field: it is written
       // by `Newarr` and there is no field token for it. Reading it as a field
-      // landed on element 0 and silently answered with whatever was there.
+      // landed on element 0 and silently answered with whatever was there. A
+      // string's length is not stored anywhere at all, and reading it as a
+      // field failed outright, so both go through `Ldlen`.
       emitLHS(expr.left, context)
       chunk.emitOpcode(Opcode.Ldlen, expr.location.startLine)
     } else if (expr.symbol.kind == SymbolKind.Field) {

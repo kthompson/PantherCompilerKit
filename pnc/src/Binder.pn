@@ -299,13 +299,52 @@ using panther
     )
   )
 
-  //  string.length: int
-  setSymbolType(
-    stringSymbol.defineField(
-      "length",
-      noLoc,
-      true
+  // string.length: int
+  //
+  // Held in a val for the same reason `arrayLength` is: it is not a field the
+  // emitter can find a token for, so it has to be recognised by identity.
+  val stringLength: Symbol = stringSymbol.defineField(
+    "length",
+    noLoc,
+    true
+  )
+  stringLength.extern = true
+  setSymbolType(stringLength, intType)
+
+  // "abc".substring(start, end): string
+  //
+  // The two-argument form only. Java has a one-argument overload and Panther
+  // has no overloading, so the callers that wanted it pass the length.
+  builtinMethod(
+    stringSymbol,
+    "substring",
+    List.Cons(
+      Tuple2("start", intType),
+      ListModule.one(Tuple2("end", intType))
     ),
+    stringType
+  )
+
+  // "abc".endsWith(suffix): bool
+  builtinMethod(
+    stringSymbol,
+    "endsWith",
+    ListModule.one(Tuple2("suffix", stringType)),
+    boolType
+  )
+
+  // "a".compareTo("b"): int and 1.compareTo(2): int — both emit `Cmp`, which
+  // dispatches on the values rather than needing an opcode per type.
+  builtinMethod(
+    stringSymbol,
+    "compareTo",
+    ListModule.one(Tuple2("other", stringType)),
+    intType
+  )
+  builtinMethod(
+    intSymbol,
+    "compareTo",
+    ListModule.one(Tuple2("other", intType)),
     intType
   )
 
@@ -1165,6 +1204,40 @@ using panther
       case List.Nil => panic("builtinShowGiven: show has no parameter")
     }
   }
+
+  /** An instance method on a builtin type, named by the parameters it takes.
+    *
+    * Extern, because there is no body: the emitter turns each of these into its
+    * own opcode, the way it already turns `string(value)` into `ConvStr`. The
+    * parameters are defined after the method so that they can be its children,
+    * which is why they arrive as names and types rather than as symbols.
+    */
+  def builtinMethod(
+      owner: Symbol,
+      name: string,
+      parameters: List[Tuple2[string, Type]],
+      returnType: Type
+  ): Symbol = {
+    val symbol = method(owner, name)
+    setSymbolType(
+      symbol,
+      Type.Function(noLoc, builtinParameters(symbol, parameters), returnType)
+    )
+    symbol
+  }
+
+  def builtinParameters(
+      owner: Symbol,
+      parameters: List[Tuple2[string, Type]]
+  ): List[BoundParameter] =
+    parameters match {
+      case List.Nil => List.Nil
+      case List.Cons(Tuple2(name, typ), rest) =>
+        // The head is defined before the tail is walked, so the parameters end
+        // up in the order they were written.
+        val head = BoundParameter(param(owner, name, typ), typ)
+        List.Cons(head, builtinParameters(owner, rest))
+    }
 
   def conversionMethod(symbol: Symbol, returnType: Type): unit = {
     val apply = method(symbol, "apply")

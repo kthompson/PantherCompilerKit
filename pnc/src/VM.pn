@@ -236,6 +236,64 @@ a ret instruction pops values off the stack in the following order:
     }
   }
 
+  /** `compareTo` for every type that has an ordering.
+    *
+    * Answers the sign rather than the difference, so that the two orderings can
+    * agree on an answer: strings have no difference to subtract, and an int one
+    * would overflow.
+    */
+  def compareOp(): InterpretResult = {
+    val b = pop()
+    val a = pop()
+
+    Tuple2(a, b) match {
+      case Tuple2(Value.String(aStr), Value.String(bStr)) =>
+        push(Value.Int(if (aStr < bStr) -1 else if (aStr > bStr) 1 else 0))
+        InterpretResult.Continue
+      case Tuple2(Value.Int(aInt), Value.Int(bInt)) =>
+        push(Value.Int(if (aInt < bInt) -1 else if (aInt > bInt) 1 else 0))
+        InterpretResult.Continue
+      case _ =>
+        runtimeError("Cannot compare " + string(a) + " and " + string(b))
+    }
+  }
+
+  /** `str.substring(start, end)`, with `end` exclusive. */
+  def substringOp(): InterpretResult = {
+    val end = popInt()
+    val start = popInt()
+    val value = pop()
+
+    value match {
+      case Value.String(str) =>
+        if (start < 0 || end > str.length || start > end) {
+          runtimeError(
+            "Substring " + string(start) + ".." + string(end) +
+              " out of range for string of length " + string(str.length)
+          )
+        } else {
+          push(Value.String(str.substring(start, end)))
+          InterpretResult.Continue
+        }
+      case _ =>
+        runtimeError("Expected string for substring")
+    }
+  }
+
+  /** `str.endsWith(suffix)`. */
+  def endsWithOp(): InterpretResult = {
+    val suffix = pop()
+    val value = pop()
+
+    Tuple2(value, suffix) match {
+      case Tuple2(Value.String(str), Value.String(suffixStr)) =>
+        pushBool(str.endsWith(suffixStr))
+        InterpretResult.Continue
+      case _ =>
+        runtimeError("Expected strings for endsWith")
+    }
+  }
+
   def binaryIntOp(op: int, opName: string): InterpretResult = {
     val b = popInt()
     val a = popInt()
@@ -387,7 +445,7 @@ a ret instruction pops values off the stack in the following order:
         targetTypeName match {
           case "bool"   => value // identity cast
           case "int"    => Value.Int(if (b) 1 else 0)
-          case "string" => Value.String(b.toString())
+          case "string" => Value.String(string(b))
           case "any"    => value // cast to any preserves the value
           case _ =>
             runtimeError("Cannot cast bool to " + targetTypeName)
@@ -586,6 +644,8 @@ a ret instruction pops values off the stack in the following order:
         binaryIntBoolOp(Opcode.Cgt, "cgt")
       case Opcode.Clt =>
         binaryIntBoolOp(Opcode.Clt, "clt")
+      case Opcode.Cmp =>
+        compareOp()
 
       // unary ops
       case Opcode.Not =>
@@ -830,9 +890,20 @@ a ret instruction pops values off the stack in the following order:
           case Value.Ref(_, addr) =>
             push(heap(addr))
             InterpretResult.Continue
+          // A string has a length too, and answers it directly rather than out
+          // of a header slot, for the same reason `Ldelem` indexes one.
+          case Value.String(str) =>
+            push(Value.Int(str.length))
+            InterpretResult.Continue
           case _ =>
             runtimeError("Expected array reference for length")
         }
+
+      // String operations
+      case Opcode.Substr =>
+        substringOp()
+      case Opcode.EndsWith =>
+        endsWithOp()
 
       case Opcode.Ldelem =>
         // Pop the index and array reference from the stack

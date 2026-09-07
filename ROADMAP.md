@@ -27,7 +27,7 @@ reproduces the measurement. Re-run them rather than trusting the number.
 sbt pncs/compile && sbt test/test
 ```
 
-Green: 447 tests across the lexer, parser, binder, type checker, VM, metadata
+Green: 451 tests across the lexer, parser, binder, type checker, VM, metadata
 format, transpiler, and args parser.
 
 ### The self-hosted compiler does not
@@ -36,60 +36,62 @@ format, transpiler, and args parser.
 sbt pnc/compile
 ```
 
-Runs to completion and reports **50 diagnostics** against the generated
+Runs to completion and reports **37 diagnostics** against the generated
 `.pn` sources. By message:
 
 | Count | Diagnostic                      |
 | ----: | ------------------------------- |
 |    19 | `Cannot convert from A to B`    |
-|    16 | `Symbol X not found for type T` |
 |     5 | `Symbol X not found`            |
 |     4 | `Cannot derive Eq`/`Show`       |
 |     4 | argument-count mismatches       |
+|     3 | `Symbol X not found for type T` |
 |     2 | `Duplicate definition`          |
 
-**4 of the 50 are derivation, and both types should stay unprovable.**
+**4 of the 37 are derivation, and both types should stay unprovable.**
 They peaked at 222 when the transpiler started emitting `[derive(Eq, Show)]`.
 §1.3a is finished.
 
-**The other 46** were 195 until the `while` fix in §1.3b took six
+**The other 33** were 195 until the `while` fix in §1.3b took six
 `Cannot convert` with it, the wildcard-import cleanup took twenty
 `Type X not defined`, porting `TypeInference` off `scala.collection.mutable`
 took the last six of those along with all 18 `Invalid namespace`, unioning
 the branches of an `if` took twenty-one more `Cannot convert`, string
-indexing took eighteen across both, and writing the string conversions out by
-hand took the last 47 `No operator`. 2 of them mention an unsolved type
-variable (`$0`, `$1`, …) — a generic parameter the binder gave up on. Name
-resolution is done apart from the five bare `Symbol X not found`, which are all
-`File` and `Path` from `using system.io`.
+indexing took eighteen across both, writing the string conversions out by
+hand took the last 47 `No operator`, and the string and int builtins took
+thirteen more. 2 of them mention an unsolved type variable (`$0`, `$1`, …) — a
+generic parameter the binder gave up on. Name resolution is done apart from the
+five bare `Symbol X not found`, which are all `File` and `Path` from
+`using system.io`.
 
 **`No operator` is at zero, and it was the largest class on the board for
-most of this effort.** What is left is 19 conversions, 21 member lookups, 4
-derivation reports that should stay, 4 argument counts and 2 overloads.
+most of this effort. `Symbol X not found for type T` went from 16 to 3 with
+the builtins.** What is left is 19 conversions, 4 derivation reports that
+should stay, 4 argument counts, 3 member lookups and 2 overloads.
 
-Nothing left is concentrated. The largest single group is five
-`Symbol substring not found for type string`; the largest file has six.
+`Cannot convert` is now more than half the board and 13 of the 19 are generic
+inference, so for the first time since this count started there is a single
+group worth attacking: §2.1.
 
-| Count | File               |
-| ----: | ------------------ |
-|     6 | `ExprBinder.pn`    |
-|     6 | `Binder.pn`        |
-|     5 | `Lowered.pn`       |
-|     4 | `Trim.pn`          |
-|     4 | `Transpiler.pn`    |
-|     4 | `Emitter.pn`       |
-|     3 | `TextLocation.pn`  |
-|     3 | `SourceFile.pn`    |
-|     3 | `compilation.pn`   |
-|     2 | five files at two  |
+| Count | File                        |
+| ----: | --------------------------- |
+|     6 | `Binder.pn`                 |
+|     6 | `ExprBinder.pn`             |
+|     5 | `Lowered.pn`                |
+|     4 | `Emitter.pn`                |
+|     4 | `Transpiler.pn`             |
+|     3 | `compilation.pn`            |
+|     2 | four files at two           |
+|     1 | three files at one          |
 
 `Ast.pn` and `Binder.pn` were the two largest at 62 and 61 while derivation was
 blocked, being mostly declarations. `TypeInference.pn` was the largest at 24
 and is now at zero; `Parser.pn` was 26 until the wildcard imports came out, and
 is at one; `TextLineParser.pn` and `ArgsParser.pn` went to zero with string
 indexing; `DiagnosticBag.pn` and `VM.pn` were 8 and 7 until the string
-conversions. What remains is shaped by what the binder cannot do rather than by
-what it cannot prove.
+conversions; `Trim.pn`, `TextLocation.pn`, `SourceFile.pn` and
+`IndentedStringBuilder.pn` went to zero with the builtins. What remains is
+shaped by what the binder cannot do rather than by what it cannot prove.
 
 ### Nothing is ever written to disk
 
@@ -195,16 +197,9 @@ count that decision is made from.
 ### 1.3 Burn down the diagnostics
 
 Ordered by what the counts say, not by what is interesting. This list covers
-the 46 that are not derivation; the 4 derivation reports are §1.3a.
+the 33 that are not derivation; the 4 derivation reports are §1.3a.
 
-1. **String and int builtins with no implementation** — 16
-   `Symbol X not found for type T`, of which 13 are `substring` (5),
-   `compareTo` (4), `nonEmpty` (2), `endsWith` and `toString` on `bool`. Each
-   needs a member on the builtin symbol in `Binder` and an opcode or an
-   intrinsic in the VM. The other 3 are `reverse` and `concat` on a case type
-   (`List.Cons<string>`, `Chain.Singleton<$0>`), which is member lookup never
-   consulting the enum.
-2. **Generic inference** (see §2). 13 diagnostics: 2 reference an unsolved type
+1. **Generic inference** (see §2). 13 diagnostics: 2 reference an unsolved type
    variable, 11 a parameter that defaulted to `any` — `Dictionary<any, any>`
    and `Chain.Empty<any>` are most of them, and both come from a call with
    explicit type arguments that the binder does not apply. Two annotations
@@ -213,12 +208,36 @@ the 46 that are not derivation; the 4 derivation reports are §1.3a.
    ([`Binder.scala:2486`](pncs/src/main/scala/Binder.scala:2486)), and
    `bindFunction` has to state `val genTypeParams: List[GenericTypeParameter]`
    because a `match` does not widen its branches.
-3. **`File` and `Path`** — the five bare `Symbol X not found`, all from
+2. **`File` and `Path`** — the five bare `Symbol X not found`, all from
    `using system.io`, which exists only in the Scala runtime.
+3. **Member lookup on a case type** — the 3 remaining
+   `Symbol X not found for type T`: `reverse` on `List.Cons<string>` and
+   `List.Cons<GenericParameterSyntax>`, `concat` on `Chain.Singleton<$0>`.
+   A case knows its enum; lookup never asks it.
 4. **Overloads** — the 2 `Duplicate definition`, `inferCall` and `printNew`.
    Either rename them or add overload resolution. See §1.1.
 
-Five items are closed. **`string + T` is at zero, written out by hand.**
+Six items are closed. **The string and int builtins are done, 13 of them.**
+`substring` (5), `compareTo` on `string` (2) and on `int` (2), `nonEmpty` (2),
+`endsWith` and `toString` on `bool`. Three needed no builtin at all: `nonEmpty`
+is `!= ""`, following `.isEmpty` becoming `== ""` in the pass before, and
+`b.toString()` is `string(b)`, which already emitted `ConvStr`. The other four
+are members on the builtin symbol emitted as their own opcode, the way
+`string(value)` is `ConvStr` rather than a call — `Substr`, `EndsWith`, and
+`Cmp` for both `compareTo`s, dispatching on the values it pops the way `Ceq`
+and `Clt` already do. `substring` is the two-argument form only, because
+Panther has no overloading, so the two callers that wanted Java's one-argument
+overload now pass the length.
+
+Doing it turned up a runtime hole the diagnostics could not see: **`"abc".length`
+bound cleanly and crashed**, because a string's length is not a field there is a
+token for, so it emitted `Ldfld` against a `Value.String`. Nothing had ever
+executed it. `Ldlen` answers it now, the way it already did for an array and
+the way `Ldelem` was extended to index one. Both callers of `substring` read
+`.length` in the same expression, so the builtins would have been unrunnable
+without it.
+
+**`string + T` is at zero, written out by hand.**
 Scala coerces the right operand of `+` through `toString`; Panther declares
 only `string + string` and expects `string(x)`. Rather than paper over that in
 the operator table or the transpiler, all 47 call sites now say what they
@@ -232,7 +251,7 @@ Doing it by hand surfaced seven more errors the `+` failures had been masking,
 all of them the same kind of Scala-ism: `s.length()` called a field, `.isEmpty`
 on a string does not exist, and a `match` whose branches do not widen. Those
 are fixed too. Two `Cannot convert from any to int` are left, and they are
-item 2.
+item 1.
 
 **String indexing yields `char`.** `str(0)` used to
 fall through to `apply`, which is the `string(…)` conversion, so it typed as
@@ -306,7 +325,7 @@ Track the number after every change:
 sbt pnc/compile
 ```
 
-**50 → 0.** Nothing else in this section matters until that number moves.
+**37 → 0.** Nothing else in this section matters until that number moves.
 
 Only the first 20 diagnostics are printed. To see them all, transpile first —
 `pnc/compile` does this implicitly, and the count depends on it — then run the
@@ -667,7 +686,7 @@ Things that do not belong to one goal but block several.
   blocks in §4.1.
 - **No lexer support for exponents or shifts**
   ([`Lexer.scala:243`](pncs/src/main/scala/Lexer.scala:243)).
-- **Test coverage is stage-shaped, not feature-shaped.** 447 tests, but
+- **Test coverage is stage-shaped, not feature-shaped.** 451 tests, but
   `MetadataTests` has 2 and there is no end-to-end test that takes source all
   the way to output. §3.4 is the fix.
 
@@ -679,18 +698,15 @@ Sequenced so each step makes the next one measurable.
 
 **First — stop flying blind.** Done. The generated tree matches the
 transpiler (§1.1), the exit code is trustworthy (§1.2), and failures come back
-as diagnostics rather than exceptions (§4.2). The 50 counts every error the
+as diagnostics rather than exceptions (§4.2). The 37 counts every error the
 front end finds — none are discarded.
 
-**Second — generics.** The measurement overtook this plan twice and has now
-caught up with it. **13 of the non-derivation 46 are generics**, the largest
-group left: 2 mention a type variable, 11 a parameter that defaulted to `any`.
-§2.1 and §2.2 are finally the right next thing, and §1.3 item 2 is the same
-work seen from the diagnostics side.
-
-The other pole is §1.3 item 1 — 16 member lookups, mostly string and int
-builtins with no implementation. That is independent of §2 and needs VM work
-as much as binder work, so the two can go in either order or in parallel.
+**Second — generics.** The measurement overtook this plan twice, caught up
+with it, and the builtins have now cleared the other pole out of the way.
+**13 of the non-derivation 33 are generics**, and with `Symbol X not found for
+type T` down to 3 they are the only group left worth calling a group: 2 mention
+a type variable, 11 a parameter that defaulted to `any`. §2.1 and §2.2 are the
+next thing, and §1.3 item 1 is the same work seen from the diagnostics side.
 
 Derivation was the exception, and it is finished: 222 down to 4, over
 [ADR 0006](docs/architecture/adr/0006-conditional-givens.md) and the passes
@@ -713,7 +729,7 @@ The three numbers worth putting on a wall:
 
 | Metric                            |         Now | Target | Command                                     |
 | --------------------------------- | ----------: | -----: | ------------------------------------------- |
-| Self-hosting diagnostics          |          50 |      0 | `sbt pnc/compile` (now fails, as it should)  |
+| Self-hosting diagnostics          |          37 |      0 | `sbt pnc/compile` (now fails, as it should)  |
 | — of those, derivation            |           4 |      0 | §1.3a                                       |
 | Doc blocks that fail              | **0 / 201** |      0 | `sbt "doccheck/run docs/src/content/docs"`  |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                    |

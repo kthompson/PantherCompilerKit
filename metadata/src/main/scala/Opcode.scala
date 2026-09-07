@@ -89,6 +89,13 @@ object Opcode {
   val Cgt = 101
   val Clt = 102
 
+  /** Three-way compare: pops two values and pushes -1, 0 or 1.
+    *
+    * One opcode for every type that has an ordering, dispatching on the values
+    * it pops the way `Ceq` and `Clt` already do, rather than one per type.
+    */
+  val Cmp = 103
+
   // conversion
   val ConvI4 = 110
   val ConvStr = 111
@@ -98,6 +105,13 @@ object Opcode {
   // type checking
   val IsInst = 120
   val Cast = 121
+
+  // string
+  //
+  // A builtin member has no body to call into, so each one is its own opcode,
+  // the same way `string(value)` is `ConvStr` rather than a call.
+  val Substr = 130 // (str, start, end) -> str, end exclusive
+  val EndsWith = 131 // (str, suffix) -> bool
 
   def nameOf(opcode: int): string = {
     if (opcode == Nop) {
@@ -206,6 +220,8 @@ object Opcode {
       "cgt"
     } else if (opcode == Clt) {
       "clt"
+    } else if (opcode == Cmp) {
+      "cmp"
     } else if (opcode == ConvI4) {
       "conv.i4"
     } else if (opcode == ConvStr) {
@@ -218,6 +234,10 @@ object Opcode {
       "isinst"
     } else if (opcode == Cast) {
       "cast"
+    } else if (opcode == Substr) {
+      "substr"
+    } else if (opcode == EndsWith) {
+      "endswith"
     } else {
       panic("Unknown opcode: " + string(opcode))
     }

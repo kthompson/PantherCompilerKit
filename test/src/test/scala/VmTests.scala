@@ -1414,6 +1414,45 @@ class VmTests extends AnyFunSpec with Matchers {
       assertExecValueIntWithSetup("val s = \"42\"", "s(0) - '0'", 4)
     }
 
+    /** A string's length is not a field it can be read out of, so it goes
+      * through `Ldlen` the way an array's does. Reading it as a field failed
+      * outright, which nothing exercised until these.
+      */
+    it("should execute string length") {
+      assertExecValueIntWithSetup("val s = \"hello\"", "s.length", 5)
+      assertExecValueIntWithSetup("val s = \"\"", "s.length", 0)
+      assertExecValueIntWithSetup("val s = \"hello\"", "s(s.length - 1)", 111)
+    }
+
+    it("should execute substring") {
+      assertExecValueStringWithSetup("val s = \"hello\"", "s.substring(1, 3)", "el")
+      assertExecValueStringWithSetup("val s = \"hello\"", "s.substring(0, 5)", "hello")
+      assertExecValueStringWithSetup("val s = \"hello\"", "s.substring(2, 2)", "")
+      assertExecValueStringWithSetup(
+        "val s = \"hello\"",
+        "s.substring(1, s.length)",
+        "ello"
+      )
+    }
+
+    it("should execute endsWith") {
+      assertExecValueBoolWithSetup("val s = \"a.scala\"", "s.endsWith(\".scala\")", true)
+      assertExecValueBoolWithSetup("val s = \"a.scala\"", "s.endsWith(\".pn\")", false)
+      assertExecValueBoolWithSetup("val s = \"a.scala\"", "s.endsWith(\"\")", true)
+    }
+
+    /** `compareTo` answers the sign, not the difference, and one opcode serves
+      * both types.
+      */
+    it("should execute compareTo") {
+      assertExecValueIntWithSetup("val s = \"a\"", "s.compareTo(\"b\")", -1)
+      assertExecValueIntWithSetup("val s = \"b\"", "s.compareTo(\"a\")", 1)
+      assertExecValueIntWithSetup("val s = \"a\"", "s.compareTo(\"a\")", 0)
+      assertExecValueIntWithSetup("val n = 1", "n.compareTo(2)", -1)
+      assertExecValueIntWithSetup("val n = 2", "n.compareTo(1)", 1)
+      assertExecValueIntWithSetup("val n = 2", "n.compareTo(2)", 0)
+    }
+
     it("should execute string indexing") {
       assertExecValueIntWithSetup("val s = \"hello\"", "s(0)", 104)
       assertExecValueIntWithSetup("val s = \"hello\"", "s(4)", 111)

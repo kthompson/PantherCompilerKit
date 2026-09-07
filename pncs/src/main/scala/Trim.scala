@@ -2,10 +2,12 @@ import panther._
 
 object Trim {
 
+  // annotated: Panther has no `nonEmpty` on a string, and no overloading, so
+  // the emptiness test is a comparison and `substring` always takes both ends
   def left(value: string): string = {
     var trimmed = value
-    while (trimmed.nonEmpty && trimmed(0) == ' ') {
-      trimmed = trimmed.substring(1)
+    while (trimmed != "" && trimmed(0) == ' ') {
+      trimmed = trimmed.substring(1, trimmed.length)
     }
 
     trimmed
@@ -13,7 +15,7 @@ object Trim {
 
   def right(value: string): string = {
     var trimmed = value
-    while (trimmed.nonEmpty && trimmed(trimmed.length - 1) == ' ') {
+    while (trimmed != "" && trimmed(trimmed.length - 1) == ' ') {
       trimmed = trimmed.substring(0, trimmed.length - 1)
     }
 

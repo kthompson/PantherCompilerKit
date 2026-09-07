@@ -43,9 +43,11 @@ case class SourceFile(content: string, fileName: string) {
   def substringFromSpan(span: TextSpan): string =
     substring(span.start, span.length)
 
+  // annotated: Panther has no overloading, so its `substring` is the
+  // two-argument one only and the clamped case passes the length explicitly
   def substring(start: int, length: int): string =
     if (start + length > content.length) {
-      content.substring(start)
+      content.substring(start, content.length)
     } else {
       content.substring(start, start + length)
     }
