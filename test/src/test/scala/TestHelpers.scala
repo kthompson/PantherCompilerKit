@@ -544,6 +544,8 @@ object TestHelpers {
     "exit",
     "assert",
     "mod",
+    "File",
+    "Path",
     "Eq",
     "Ord",
     "Show"

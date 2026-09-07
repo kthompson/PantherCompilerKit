@@ -467,6 +467,63 @@ using panther
     )
   )
 
+  /** `system.io`, which the Scala side shims in
+    * [`panther.scala`](../../../../runtime/src/main/scala/panther.scala) — the
+    * one file `sbt pncs/transpile` skips ([`build.sbt:43`](../../../../build.sbt:43)),
+    * so there is no generated `.pn` for these to bind to and they have to be
+    * declared here like the rest of the prelude.
+    *
+    * At the root rather than under a `system.io` namespace, because the binder
+    * does not bind `using` directives at all: they are parsed, printed and
+    * transpiled, and never brought into scope, so a namespaced definition would
+    * be unreachable. `println` and `panic` sit at the root for the same reason,
+    * and the `pantherNamespace` TODO above covers moving all of them together.
+    *
+    * Only the four members the compiler actually calls. `panther.scala` also
+    * shims `readAllBytes`, `writeAllBytes`, `directoryName` and `separator`;
+    * they can be declared when something needs them, and `writeAllBytes` is
+    * what §3.1 will want for `.pnb`.
+    */
+  // Typed like the object a declaration would have produced, which is what
+  // naming one on the left of a dot reads.
+  val fileSymbol: Symbol = predef.defineObject("File", noLoc)
+  setSymbolType(fileSymbol, classType("File", fileSymbol))
+
+  builtinMethod(
+    fileSymbol,
+    "readAllText",
+    ListModule.one(Tuple2("file", stringType)),
+    stringType
+  )
+  builtinMethod(
+    fileSymbol,
+    "writeAllText",
+    List.Cons(
+      Tuple2("file", stringType),
+      ListModule.one(Tuple2("text", stringType))
+    ),
+    unitType
+  )
+
+  val pathSymbol: Symbol = predef.defineObject("Path", noLoc)
+  setSymbolType(pathSymbol, classType("Path", pathSymbol))
+
+  builtinMethod(
+    pathSymbol,
+    "combine",
+    List.Cons(
+      Tuple2("path1", stringType),
+      ListModule.one(Tuple2("path2", stringType))
+    ),
+    stringType
+  )
+  builtinMethod(
+    pathSymbol,
+    "nameWithoutExtension",
+    ListModule.one(Tuple2("path", stringType)),
+    stringType
+  )
+
   /** These are the methods and fields that need to be bound/symbolized
     */
   var membersToBind: Dictionary[Symbol, List[BindingMember]] =

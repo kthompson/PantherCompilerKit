@@ -27,7 +27,7 @@ reproduces the measurement. Re-run them rather than trusting the number.
 sbt pncs/compile && sbt test/test
 ```
 
-Green: 458 tests across the lexer, parser, binder, type checker, VM, metadata
+Green: 459 tests across the lexer, parser, binder, type checker, VM, metadata
 format, transpiler, and args parser.
 
 ### The self-hosted compiler does not
@@ -36,23 +36,22 @@ format, transpiler, and args parser.
 sbt pnc/compile
 ```
 
-Runs to completion and reports **19 diagnostics** against the generated
+Runs to completion and reports **14 diagnostics** against the generated
 `.pn` sources. By message:
 
 | Count | Diagnostic                      |
 | ----: | ------------------------------- |
-|     5 | `Symbol X not found`            |
 |     4 | `Cannot derive Eq`/`Show`       |
 |     4 | argument-count mismatches       |
 |     3 | `Symbol X not found for type T` |
 |     2 | `Duplicate definition`          |
 |     1 | `Cannot convert from A to B`    |
 
-**4 of the 19 are derivation, and both types should stay unprovable.**
+**4 of the 14 are derivation, and both types should stay unprovable.**
 They peaked at 222 when the transpiler started emitting `[derive(Eq, Show)]`.
 §1.3a is finished.
 
-**The other 15** were 195 until the `while` fix in §1.3b took six
+**The other 10** were 195 until the `while` fix in §1.3b took six
 `Cannot convert` with it, the wildcard-import cleanup took twenty
 `Type X not defined`, porting `TypeInference` off `scala.collection.mutable`
 took the last six of those along with all 18 `Invalid namespace`, unioning
@@ -60,29 +59,29 @@ the branches of an `if` took twenty-one more `Cannot convert`, string
 indexing took eighteen across both, writing the string conversions out by
 hand took the last 47 `No operator`, the string and int builtins took thirteen
 `Symbol X not found for type T`, and applying a call's type arguments took the
-last eighteen `Cannot convert` (§2.1). Nothing mentions an unsolved type
-variable any more. Name resolution is done apart from the five bare
-`Symbol X not found`, which are all `File` and `Path` from `using system.io`.
+last eighteen `Cannot convert` (§2.1), and declaring `File` and `Path` took the
+last five bare `Symbol X not found`. Nothing mentions an unsolved type variable
+any more.
 
-**Two of the three largest classes went to zero in the same pass.**
-`No operator` was the biggest on the board for most of this effort and is at
-zero. `Symbol X not found for type T` went 16 to 3 with the builtins, and
-`Cannot convert` went 19 to 1 with the type arguments — and that one is an
-overload, `printNew` resolving to the wrong one, not a type-system gap.
+**Name resolution is done.** Every name in the generated tree resolves, and
+`Symbol X not found` is at zero. So are `No operator`, which was the biggest
+class on the board for most of this effort, and `Type X not defined` and
+`Invalid namespace` before it. `Symbol X not found for type T` went 16 to 3
+with the builtins, and `Cannot convert` went 19 to 1 with the type arguments —
+and that one is an overload, `printNew` resolving to the wrong one, not a
+type-system gap.
 
-What is left is 5 unresolved names, 4 derivation reports that should stay, 4
-argument counts, 3 member lookups, 2 overloads and that conversion. **Nothing
-left is a group.** The largest is the five `File`/`Path` names, and they are
-one missing module rather than a compiler gap; the largest file has five, and
-two of those are derivation reports that should stay.
+What is left is 4 derivation reports that should stay, 4 argument counts, 3
+member lookups, 2 overloads and that conversion. **Nothing left is a group,
+and nothing left is a whole class.** The largest file has five, and two of
+those are derivation reports that should stay.
 
 | Count | File                        |
 | ----: | --------------------------- |
 |     5 | `ExprBinder.pn`             |
-|     4 | `Transpiler.pn`             |
 |     2 | `LoweredAssemblyPrinter.pn` |
 |     2 | `SymbolPrinter.pn`          |
-|     1 | six files at one            |
+|     1 | five files at one           |
 
 `Ast.pn` and `Binder.pn` were the two largest at 62 and 61 while derivation was
 blocked, being mostly declarations; `Binder.pn` is now at one. `TypeInference.pn`
@@ -91,9 +90,10 @@ imports came out, and is at one; `TextLineParser.pn` and `ArgsParser.pn` went to
 zero with string indexing; `DiagnosticBag.pn` and `VM.pn` were 8 and 7 until the
 string conversions; `Trim.pn`, `TextLocation.pn`, `SourceFile.pn` and
 `IndentedStringBuilder.pn` went to zero with the builtins; `Lowered.pn`,
-`Emitter.pn` and `compilation.pn` were 5, 4 and 3 until the type arguments.
-What remains is shaped by what the binder cannot do rather than by what it
-cannot prove.
+`Emitter.pn` and `compilation.pn` were 5, 4 and 3 until the type arguments;
+`Transpiler.pn` was 4 and `MakeSourceFile.pn` 1 until `File` and `Path`. What
+remains is shaped by what the binder cannot do rather than by what it cannot
+prove.
 
 ### Nothing is ever written to disk
 
@@ -199,23 +199,41 @@ count that decision is made from.
 ### 1.3 Burn down the diagnostics
 
 Ordered by what the counts say, not by what is interesting. This list covers
-the 15 that are not derivation; the 4 derivation reports are §1.3a.
+the 10 that are not derivation; the 4 derivation reports are §1.3a.
 
-1. **`File` and `Path`** — the five bare `Symbol X not found`, all from
-   `using system.io`, which exists only in the Scala runtime.
-2. **Argument counts** — 4, in `Disassembler`, `compilation` and two in
-   `ExprBinder`.
-3. **Member lookup on a case type** — the 3 remaining
+1. **Argument counts** — 4. Two are `println()` with no argument, in
+   `Disassembler` and `compilation`, which Scala allows and Panther does not;
+   two are `inferCall(node, scope)` against the three-parameter overload, and
+   go with item 3.
+2. **Member lookup on a case type** — the 3 remaining
    `Symbol X not found for type T`: `reverse` on `List.Cons<string>` and
    `List.Cons<GenericParameterSyntax>`, `concat` on `Chain.Singleton<$0>`.
    A case knows its enum; lookup never asks it.
-4. **Overloads** — the 2 `Duplicate definition`, `inferCall` and `printNew`,
+3. **Overloads** — the 2 `Duplicate definition`, `inferCall` and `printNew`,
    plus the one remaining `Cannot convert`, which is `printNew(left)` picking
    the `LoweredExpression.New` overload for a `LoweredLeftHandSide.New`.
    Either rename them or add overload resolution. See §1.1.
 
-Seven items are closed. **Generic inference is at zero** — see §2.1 for what
+Eight items are closed. **Generic inference is at zero** — see §2.1 for what
 applying a call's type arguments took with it.
+
+**`File` and `Path` are declared, and name resolution is at zero with them.**
+`system.io` is shimmed in `panther.scala`, which is the one file
+`sbt pncs/transpile` skips ([`build.sbt:43`](build.sbt:43)), so there was no
+generated `.pn` for the five call sites to bind to. They are declared in
+`Binder` now, alongside `println` and `panic`, with the four members the
+compiler actually calls.
+
+Two things worth knowing about that shape. They sit at the **root**, not under
+a `system.io` namespace, because the binder does not bind `using` directives at
+all — they are parsed, printed and transpiled, and never brought into scope, so
+a namespaced definition would be unreachable; the `pantherNamespace` TODO
+covers moving the whole prelude together. And like `println`, `print`, `panic`
+and `exit`, they are **extern with no emitter or VM support** — bound, not
+runnable. Nothing can reach them today, and §3.2 is where that gets fixed for
+all six at once. Declaring the object symbol is not enough on its own: without
+a `setSymbolType` giving it the `Type.Class` a declaration would have produced,
+the name resolves and then reports `Bug: type could not be determined`.
 
 **The string and int builtins are done, 13 of them.**
 `substring` (5), `compareTo` on `string` (2) and on `int` (2), `nonEmpty` (2),
@@ -335,7 +353,7 @@ Track the number after every change:
 sbt pnc/compile
 ```
 
-**19 → 0.** Nothing else in this section matters until that number moves.
+**14 → 0.** Nothing else in this section matters until that number moves.
 
 Only the first 20 diagnostics are printed. To see them all, transpile first —
 `pnc/compile` does this implicitly, and the count depends on it — then run the
@@ -552,6 +570,16 @@ Expose it:
 - `pvm output.pnb` — load and execute a compiled image. This is the command in
   the Getting Started docs; today it does not exist.
 
+Both need the prelude intrinsics to exist at runtime first. `println`, `print`,
+`panic`, `exit`, `File` and `Path` are all bound and marked `extern`, and
+`emitCallExpression` has no case for any of them — it reaches
+`emitExternCall`, which handles the conversions and the string members and
+panics on everything else. So `println("hi")` type-checks and then crashes the
+emitter, which is why there is no `hello.pn` in §3.3 yet. They need an opcode
+or a native-call mechanism, and one decision covers all six; the string
+builtins settled the shape (§1.3), and the file members are the only ones that
+need real I/O.
+
 ### 3.3 Then write the samples
 
 In a new `samples/` directory, each with a comment header saying what it
@@ -728,7 +756,7 @@ Things that do not belong to one goal but block several.
   blocks in §4.1.
 - **No lexer support for exponents or shifts**
   ([`Lexer.scala:243`](pncs/src/main/scala/Lexer.scala:243)).
-- **Test coverage is stage-shaped, not feature-shaped.** 458 tests, but
+- **Test coverage is stage-shaped, not feature-shaped.** 459 tests, but
   `MetadataTests` has 2 and there is no end-to-end test that takes source all
   the way to output. §3.4 is the fix.
 
@@ -740,7 +768,7 @@ Sequenced so each step makes the next one measurable.
 
 **First — stop flying blind.** Done. The generated tree matches the
 transpiler (§1.1), the exit code is trustworthy (§1.2), and failures come back
-as diagnostics rather than exceptions (§4.2). The 19 counts every error the
+as diagnostics rather than exceptions (§4.2). The 14 counts every error the
 front end finds — none are discarded.
 
 **Second — generics.** Done. The measurement overtook this plan twice before
@@ -748,10 +776,16 @@ catching up with it, and §2.1 then took all 18 remaining `Cannot convert` at
 once. §2.2 through §2.5 are still open, but nothing in the diagnostic count
 is waiting on them.
 
-**There is no third group.** The 15 non-derivation reports are four unrelated
-items of five, four, three and three, and the largest — `File` and `Path` — is
-a missing module rather than a compiler gap. From here the burndown is
-itemised rather than grouped, which is the first time that has been true.
+**There is no third group.** The 10 non-derivation reports are three unrelated
+items of four, three and three, and five of them are one overload pair pulling
+its own call sites and conversion along with it. From here the burndown is
+itemised rather than grouped, which is the first time that has been true —
+every named class of diagnostic is now either at zero or down to its last few.
+
+**The next real step is §3.2, not §1.3.** Six prelude intrinsics — `println`,
+`print`, `panic`, `exit`, `File` and `Path` — are bound and not runnable, and
+`emitCallExpression` panics on any of them. That is invisible to the
+diagnostic count and blocks every sample program, so it outranks the ten.
 
 Derivation was the exception, and it is finished: 222 down to 4, over
 [ADR 0006](docs/architecture/adr/0006-conditional-givens.md) and the passes
@@ -774,7 +808,7 @@ The three numbers worth putting on a wall:
 
 | Metric                            |         Now | Target | Command                                     |
 | --------------------------------- | ----------: | -----: | ------------------------------------------- |
-| Self-hosting diagnostics          |          19 |      0 | `sbt pnc/compile` (now fails, as it should)  |
+| Self-hosting diagnostics          |          14 |      0 | `sbt pnc/compile` (now fails, as it should)  |
 | — of those, derivation            |           4 |      0 | §1.3a                                       |
 | Doc blocks that fail              | **0 / 201** |      0 | `sbt "doccheck/run docs/src/content/docs"`  |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                    |

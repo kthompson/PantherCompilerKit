@@ -50,7 +50,30 @@ class BinderTests extends AnyFunSpec with Matchers {
       assertSymbol(symbols, SymbolKind.Method, "mod")
       assertSymbol(symbols, SymbolKind.Parameter, "a")
       assertSymbol(symbols, SymbolKind.Parameter, "b")
+      assertSymbol(symbols, SymbolKind.Object, "File")
+      assertSymbol(symbols, SymbolKind.Method, "readAllText")
+      assertSymbol(symbols, SymbolKind.Parameter, "file")
+      assertSymbol(symbols, SymbolKind.Method, "writeAllText")
+      assertSymbol(symbols, SymbolKind.Parameter, "file")
+      assertSymbol(symbols, SymbolKind.Parameter, "text")
+      assertSymbol(symbols, SymbolKind.Object, "Path")
+      assertSymbol(symbols, SymbolKind.Method, "combine")
+      assertSymbol(symbols, SymbolKind.Parameter, "path1")
+      assertSymbol(symbols, SymbolKind.Parameter, "path2")
+      assertSymbol(symbols, SymbolKind.Method, "nameWithoutExtension")
+      assertSymbol(symbols, SymbolKind.Parameter, "path")
       // the prelude's traits and givens follow; they have their own test
+    }
+
+    /** `system.io` is shimmed in `panther.scala`, the one file the transpiler
+      * skips, so these have no generated `.pn` to bind to and the prelude has
+      * to declare them. The types are what the shim's signatures say.
+      */
+    it("should bind the system.io members") {
+      assertInferExprType("File.readAllText(\"a.pn\")", "string")
+      assertInferExprType("File.writeAllText(\"a.pn\", \"x\")", "unit")
+      assertInferExprType("Path.combine(\"a\", \"b\")", "string")
+      assertInferExprType("Path.nameWithoutExtension(\"a.pn\")", "string")
     }
 
     /** The prelude's traits and givens (ADR 0004). Asserted against the root's
