@@ -5,6 +5,24 @@ import org.scalatest.matchers.should.Matchers
 
 class TypeTests extends AnyFunSpec with Matchers {
 
+  /** An invariant two-parameter container and a module that builds an empty
+    * one. Invariance is the point: `Dict<any, any>` converts to no
+    * instantiation, so a dropped type argument shows up as a diagnostic rather
+    * than passing on `any`.
+    */
+  private val dictSetup = "class Dict[K, V](count: int)\n" +
+    "object DictModule {\n" +
+    "  def empty[K, V](): Dict[K, V] = new Dict[K, V](0)\n" +
+    "}"
+
+  /** An invariant enum with a case that carries no value, so nothing about the
+    * case says what T is.
+    */
+  private val chainSetup = "enum Chain[T] {\n" +
+    "  case Empty()\n" +
+    "  case One(value: T)\n" +
+    "}"
+
   describe("Type checker") {
     it("should infer primitive types") {
       assertInferExprType("12", "int")
@@ -760,6 +778,91 @@ class TypeTests extends AnyFunSpec with Matchers {
         "new Bag[string](List.Nil)",
         "Bag<string>"
       )
+    }
+
+    /** The same for a generic function, which used to drop the annotation and
+      * infer from the arguments alone — of which `empty()` has none, so both
+      * parameters defaulted to `any`.
+      */
+    it("should keep type arguments written at a generic function's call site") {
+      val setup = dictSetup
+
+      assertInferExprTypeWithSetup(
+        setup,
+        "DictModule.empty[string, int]()",
+        "Dict<string, int>"
+      )
+      assertInferExprTypeWithSetup(
+        setup,
+        "DictModule.empty[int, bool]()",
+        "Dict<int, bool>"
+      )
+    }
+
+    it("should keep type arguments written on an enum case") {
+      val setup = chainSetup
+
+      assertInferExprTypeWithSetup(
+        setup,
+        "Chain.Empty[int]()",
+        "Chain.Empty<int>"
+      )
+      assertAssignableToWithSetup(setup, "Chain.Empty[int]()", "Chain[int]")
+    }
+
+    /** A list of the wrong length cannot be substituted — every argument after
+      * the missing one would land in the wrong slot — so it is reported rather
+      * than used.
+      */
+    it("should report a type argument list of the wrong length") {
+      val messages = diagnosticMessages(
+        mkFailingCompilation(
+          dictSetup + "\n\nval d = DictModule.empty[string]()"
+        )
+      )
+      messages should contain("Expected 2 type arguments, but got 1")
+    }
+
+    /** An argument is checked against the type its parameter declares, which is
+      * how an expected type reaches a nested call. `empty()` says nothing on
+      * its own: inferred alone it is `Dict<any, any>`, which converts to no
+      * instantiation at all because `Dict` is invariant.
+      */
+    it("should bind an argument against the type its parameter declares") {
+      val setup = dictSetup +
+        "\nclass Table(entries: Dict[string, int])\n" +
+        "def sizeOf(entries: Dict[string, int]): int = 0"
+
+      assertInferExprTypeWithSetup(setup, "Table(DictModule.empty())", "Table")
+      assertInferExprTypeWithSetup(setup, "sizeOf(DictModule.empty())", "int")
+    }
+
+    /** And through a generic callee, once the expected type has fixed every one
+      * of its parameters — the shape `Option.Some(Tuple2(x, Chain.Empty()))`
+      * has in the compiler's own sources.
+      */
+    it("should bind an argument through a generic callee's parameter") {
+      val setup = chainSetup + "\nclass Pair[A, B](first: A, second: B)"
+
+      assertAssignableToWithSetup(
+        setup,
+        "Pair(1, Chain.Empty())",
+        "Pair[int, Chain[int]]"
+      )
+    }
+
+    /** An argument's type is a lower bound on its parameter, not the parameter
+      * itself, so a call in check position takes its type arguments from the
+      * expected type first and the arguments only fill in what is left. Reading
+      * the arguments first answers `Pair<int, Chain.One<int>>`, which is not
+      * what the annotation asked for.
+      */
+    it("should let the expected type outrank an argument's own type") {
+      val setup = chainSetup + "\nclass Pair[A, B](first: A, second: B)\n" +
+        "val one = Chain.One(1)"
+
+      assertInferExprTypeWithSetup(setup, "one", "Chain.One<int>")
+      assertAssignableToWithSetup(setup, "Pair(1, one)", "Pair[int, Chain[int]]")
     }
 
     it("should infer constructor type arguments from the expected type") {

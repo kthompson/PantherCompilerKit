@@ -31,21 +31,66 @@ case class TypeInference(binder: Binder) {
       returnType: Type,
       expectedType: Type
   ): List[Type] = {
-    // First, infer from parameter/argument pairs (same as before)
-    val fromArguments = inferFromParameterArgumentPairs(
+    // The expected type goes first, and first binding wins: a call in check
+    // position is being asked for that type, so it fixes what it can and the
+    // arguments fill in the rest. Reading the arguments first would let
+    // `Tuple2(value, Chain.Empty())` answer `Tuple2<T, Chain.Empty<T>>` where
+    // the context asked for `Tuple2<T, Chain<T>>` — an argument's type is a
+    // lower bound on its parameter, not the parameter itself.
+    val fromExpected =
+      inferTypeFromPair(returnType, expectedType, emptyTypeMap())
+
+    val typeMap = inferFromParameterArgumentPairs(
       parameterTypes,
       argumentTypes,
-      emptyTypeMap()
+      fromExpected
     )
-
-    // NEW: Also infer from return type vs expected type
-    // This helps when the return type contains type variables
-    // Example: identity<T>(x: T): T called with expected type string
-    val typeMap = inferTypeFromPair(returnType, expectedType, fromArguments)
 
     // Convert to list of types in the order of generic parameters
     mapGenericParamsToTypes(genericParams, typeMap)
   }
+
+  /** The type arguments the expected type alone fixes, or `Option.None` when it
+    * leaves any of them open.
+    *
+    * Runs before the arguments are bound, so that a parameter type can be the
+    * expected type of the argument written in that position. A partial solution
+    * is no use there: an unsolved slot stays a `Type.Variable`, and a variable
+    * of the callee cannot be told from one the enclosing method declared,
+    * because both are numbered by position (ADR 0001).
+    */
+  def solveTypeArgumentsFromExpected(
+      genericParams: List[GenericTypeParameter],
+      resultType: Type,
+      expectedType: Type
+  ): Option[List[Type]] = {
+    resultType match {
+      case Type.Variable(_, _) =>
+        // A bare variable matches whatever it is paired with, so the expected
+        // type would fix the callee's parameter without saying anything about
+        // it. Only a result with structure is evidence.
+        Option.None
+      case _ =>
+        val typeMap = inferTypeFromPair(resultType, expectedType, emptyTypeMap())
+        if (allSolved(genericParams, typeMap, 0)) {
+          Option.Some(mapGenericParamsToTypes(genericParams, typeMap))
+        } else {
+          Option.None
+        }
+    }
+  }
+
+  def allSolved(
+      genericParams: List[GenericTypeParameter],
+      typeMap: Dictionary[int, Type],
+      index: int
+  ): bool =
+    genericParams match {
+      case List.Nil => true
+      case List.Cons(_, tail) =>
+        if (typeMap.contains(index)) allSolved(tail, typeMap, index + 1)
+        else false
+    }
 
   /** What each type variable has been inferred to be so far, keyed by the
     * variable's id.

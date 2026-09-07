@@ -27,7 +27,7 @@ reproduces the measurement. Re-run them rather than trusting the number.
 sbt pncs/compile && sbt test/test
 ```
 
-Green: 447 tests across the lexer, parser, binder, type checker, VM, metadata
+Green: 454 tests across the lexer, parser, binder, type checker, VM, metadata
 format, transpiler, and args parser.
 
 ### The self-hosted compiler does not
@@ -36,60 +36,62 @@ format, transpiler, and args parser.
 sbt pnc/compile
 ```
 
-Runs to completion and reports **50 diagnostics** against the generated
+Runs to completion and reports **32 diagnostics** against the generated
 `.pn` sources. By message:
 
 | Count | Diagnostic                      |
 | ----: | ------------------------------- |
-|    19 | `Cannot convert from A to B`    |
 |    16 | `Symbol X not found for type T` |
 |     5 | `Symbol X not found`            |
 |     4 | `Cannot derive Eq`/`Show`       |
 |     4 | argument-count mismatches       |
 |     2 | `Duplicate definition`          |
+|     1 | `Cannot convert from A to B`    |
 
-**4 of the 50 are derivation, and both types should stay unprovable.**
+**4 of the 32 are derivation, and both types should stay unprovable.**
 They peaked at 222 when the transpiler started emitting `[derive(Eq, Show)]`.
 §1.3a is finished.
 
-**The other 46** were 195 until the `while` fix in §1.3b took six
+**The other 28** were 195 until the `while` fix in §1.3b took six
 `Cannot convert` with it, the wildcard-import cleanup took twenty
 `Type X not defined`, porting `TypeInference` off `scala.collection.mutable`
 took the last six of those along with all 18 `Invalid namespace`, unioning
 the branches of an `if` took twenty-one more `Cannot convert`, string
-indexing took eighteen across both, and writing the string conversions out by
-hand took the last 47 `No operator`. 2 of them mention an unsolved type
-variable (`$0`, `$1`, …) — a generic parameter the binder gave up on. Name
-resolution is done apart from the five bare `Symbol X not found`, which are all
-`File` and `Path` from `using system.io`.
+indexing took eighteen across both, writing the string conversions out by
+hand took the last 47 `No operator`, and applying a call's type arguments
+took the last eighteen `Cannot convert` (§2.1). Nothing mentions an unsolved
+type variable any more. Name resolution is done apart from the five bare
+`Symbol X not found`, which are all `File` and `Path` from `using system.io`.
 
 **`No operator` is at zero, and it was the largest class on the board for
-most of this effort.** What is left is 19 conversions, 21 member lookups, 4
-derivation reports that should stay, 4 argument counts and 2 overloads.
+most of this effort. `Cannot convert` is down to one, and that one is an
+overload.** What is left is 21 member lookups, 4 derivation reports that
+should stay, 4 argument counts and 2 overloads — plus the single conversion,
+which is `printNew` resolving to the wrong overload rather than a type-system
+gap.
 
 Nothing left is concentrated. The largest single group is five
-`Symbol substring not found for type string`; the largest file has six.
+`Symbol substring not found for type string`; the largest file has five.
 
-| Count | File               |
-| ----: | ------------------ |
-|     6 | `ExprBinder.pn`    |
-|     6 | `Binder.pn`        |
-|     5 | `Lowered.pn`       |
-|     4 | `Trim.pn`          |
-|     4 | `Transpiler.pn`    |
-|     4 | `Emitter.pn`       |
-|     3 | `TextLocation.pn`  |
-|     3 | `SourceFile.pn`    |
-|     3 | `compilation.pn`   |
-|     2 | five files at two  |
+| Count | File                        |
+| ----: | --------------------------- |
+|     5 | `ExprBinder.pn`             |
+|     4 | `Trim.pn`                   |
+|     4 | `Transpiler.pn`             |
+|     3 | `TextLocation.pn`           |
+|     3 | `SourceFile.pn`             |
+|     2 | `LoweredAssemblyPrinter.pn` |
+|     2 | `SymbolPrinter.pn`          |
+|     1 | nine files at one           |
 
 `Ast.pn` and `Binder.pn` were the two largest at 62 and 61 while derivation was
-blocked, being mostly declarations. `TypeInference.pn` was the largest at 24
-and is now at zero; `Parser.pn` was 26 until the wildcard imports came out, and
-is at one; `TextLineParser.pn` and `ArgsParser.pn` went to zero with string
-indexing; `DiagnosticBag.pn` and `VM.pn` were 8 and 7 until the string
-conversions. What remains is shaped by what the binder cannot do rather than by
-what it cannot prove.
+blocked, being mostly declarations; `Binder.pn` is now at one. `TypeInference.pn`
+was the largest at 24 and is now at zero; `Parser.pn` was 26 until the wildcard
+imports came out, and is at one; `TextLineParser.pn` and `ArgsParser.pn` went to
+zero with string indexing; `DiagnosticBag.pn` and `VM.pn` were 8 and 7 until the
+string conversions; `Lowered.pn`, `Emitter.pn` and `compilation.pn` were 5, 4 and
+3 until the type arguments. What remains is shaped by what the binder cannot do
+rather than by what it cannot prove.
 
 ### Nothing is ever written to disk
 
@@ -195,7 +197,7 @@ count that decision is made from.
 ### 1.3 Burn down the diagnostics
 
 Ordered by what the counts say, not by what is interesting. This list covers
-the 46 that are not derivation; the 4 derivation reports are §1.3a.
+the 28 that are not derivation; the 4 derivation reports are §1.3a.
 
 1. **String and int builtins with no implementation** — 16
    `Symbol X not found for type T`, of which 13 are `substring` (5),
@@ -204,21 +206,16 @@ the 46 that are not derivation; the 4 derivation reports are §1.3a.
    intrinsic in the VM. The other 3 are `reverse` and `concat` on a case type
    (`List.Cons<string>`, `Chain.Singleton<$0>`), which is member lookup never
    consulting the enum.
-2. **Generic inference** (see §2). 13 diagnostics: 2 reference an unsolved type
-   variable, 11 a parameter that defaulted to `any` — `Dictionary<any, any>`
-   and `Chain.Empty<any>` are most of them, and both come from a call with
-   explicit type arguments that the binder does not apply. Two annotations
-   trace to this: `bindEnumCases` has to state `val typ: Type` because the
-   first argument to fix a type variable wins
-   ([`Binder.scala:2486`](pncs/src/main/scala/Binder.scala:2486)), and
-   `bindFunction` has to state `val genTypeParams: List[GenericTypeParameter]`
-   because a `match` does not widen its branches.
-3. **`File` and `Path`** — the five bare `Symbol X not found`, all from
+2. **`File` and `Path`** — the five bare `Symbol X not found`, all from
    `using system.io`, which exists only in the Scala runtime.
-4. **Overloads** — the 2 `Duplicate definition`, `inferCall` and `printNew`.
+3. **Overloads** — the 2 `Duplicate definition`, `inferCall` and `printNew`,
+   plus the one remaining `Cannot convert`, which is `printNew(left)` picking
+   the `LoweredExpression.New` overload for a `LoweredLeftHandSide.New`.
    Either rename them or add overload resolution. See §1.1.
 
-Five items are closed. **`string + T` is at zero, written out by hand.**
+Six items are closed. **Generic inference is at zero** — see §2.1 for what
+applying a call's type arguments took with it. **`string + T` is at zero,
+written out by hand.**
 Scala coerces the right operand of `+` through `toString`; Panther declares
 only `string + string` and expects `string(x)`. Rather than paper over that in
 the operator table or the transpiler, all 47 call sites now say what they
@@ -231,8 +228,18 @@ concatenate a function.
 Doing it by hand surfaced seven more errors the `+` failures had been masking,
 all of them the same kind of Scala-ism: `s.length()` called a field, `.isEmpty`
 on a string does not exist, and a `match` whose branches do not widen. Those
-are fixed too. Two `Cannot convert from any to int` are left, and they are
-item 2.
+are fixed too. Two `Cannot convert from any to int` were left, and both were
+generic inference reading through a `Dictionary<any, any>`; they went with
+§2.1.
+
+**A call's type arguments are applied.** `DictionaryModule.empty[Symbol, int]()`
+used to parse its annotation and then throw it away, so both parameters
+defaulted to `any`; and an argument used to be inferred on its own rather than
+checked against the type its parameter declares, so `LoweredBlock(Chain.Empty())`
+had nothing to say which chain it was. Fixing both, and letting the expected
+type outrank the arguments when a call is in check position, took all 18
+remaining `Cannot convert` and retired seven `// annotated:` comments. See
+§2.1.
 
 **String indexing yields `char`.** `str(0)` used to
 fall through to `apply`, which is the `string(…)` conversion, so it typed as
@@ -306,7 +313,7 @@ Track the number after every change:
 sbt pnc/compile
 ```
 
-**50 → 0.** Nothing else in this section matters until that number moves.
+**32 → 0.** Nothing else in this section matters until that number moves.
 
 Only the first 20 diagnostics are printed. To see them all, transpile first —
 `pnc/compile` does this implicitly, and the count depends on it — then run the
@@ -416,9 +423,41 @@ head match {
 solves what the arguments cannot, and an unsolved covariant parameter defaults
 to `never` so `Result.Error(e)` satisfies any `Result[E, B]`.
 
-Two diagnostics still mention a type variable and 11 a parameter that
-defaulted to `any`. The next lever is the positional-id constraint recorded in
-ADR 0001: a generic method on a generic class shares `$0` with its class.
+**At zero.** The 13 that were left came from three gaps, all in the call path:
+
+1. **Type arguments written at the call site were parsed and dropped.**
+   `inferMemberAccess` bound them onto the node and nothing read them back, so
+   `DictionaryModule.empty[Symbol, int]()` inferred from its arguments — of
+   which it has none — and both parameters defaulted to `any`. `Dictionary` is
+   invariant, so `Dictionary<any, any>` converts to no instantiation at all,
+   and each site cost a diagnostic where it was built and another wherever the
+   value was read back out. A list of the wrong length is now reported rather
+   than silently ignored; substituting it would put every argument after the
+   gap in the wrong slot.
+2. **Arguments were inferred rather than checked.** A call bound its arguments
+   before it looked at the callee, so `LoweredBlock(Chain.Empty())` had nothing
+   to say which chain it was. They are now bound against the parameter type
+   when the callee fixes one — either it is monomorphic, or the expected type
+   solves every one of its type parameters. All or nothing, because a
+   half-instantiated parameter type still mentions the callee's variables and,
+   by the positional-id constraint below, those cannot be told from ones the
+   enclosing method declared.
+3. **The arguments outranked the expected type.** `checkTypeArgumentsFromCall`
+   read the arguments first and first binding wins, so
+   `Tuple2(value, Chain.Empty())` answered `Tuple2<T, Chain.Empty<T>>` where
+   the context asked for `Tuple2<T, Chain<T>>`. An argument's type is a lower
+   bound on its parameter, not the parameter itself; a call in check position
+   now takes what the expected type fixes and the arguments fill in the rest.
+
+That took the 13 and five more `Cannot convert` that were the same shape — a
+case type winning a slot the enum should hold — and retired seven
+`// annotated:` comments, `bindEnumCases` among them. Five are left, and none
+of them is this: three are branch widening in a `match` or an `if`, one is
+`.length` on a case type, and one is Panther having no `return`.
+
+The next lever remains the positional-id constraint recorded in ADR 0001: a
+generic method on a generic class shares `$0` with its class, which is exactly
+why item 2 has to be all or nothing.
 
 ### 2.2 Upper bounds
 

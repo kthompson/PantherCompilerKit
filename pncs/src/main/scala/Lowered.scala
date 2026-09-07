@@ -586,12 +586,10 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       context: LoweredBlock
   ): LoweredBlock = {
     checkUnusedExpr(context)
-    // annotated: an empty chain in argument position infers `Chain<any>`
-    val empty: Chain[LoweredExpression] = Chain.Empty()
     lowerEvidenceCallArguments(
       expr,
       expr.arguments,
-      empty,
+      Chain.Empty(),
       context.statements
     )
   }
