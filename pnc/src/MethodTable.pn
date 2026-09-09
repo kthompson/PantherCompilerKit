@@ -1,6 +1,7 @@
 using panther
 
-[derive(Eq, Show)] class MethodTable() {
+[derive(Eq, Show)]
+class MethodTable() {
   var methods = new Array[MethodMetadata](0)
   var capacity = 0
   var size = 0

@@ -112,6 +112,20 @@ case class Transpiler(
     }
   }
 
+  /** The whitespace a token's leading trivia carries since its last line
+    * break — i.e. the indentation the token itself sits at. Used to put a
+    * synthesized line back at that same indentation.
+    */
+  def currentLineIndentation(leading: Array[SyntaxTrivia]): string = {
+    var result = ""
+    for (x <- 0 to (leading.length - 1)) {
+      val trivia = leading(x)
+      if (trivia.kind == SyntaxKind.EndOfLineTrivia) result = ""
+      else result = result + trivia.text
+    }
+    result
+  }
+
   def transpileMembers(
       members: List[MemberSyntax],
       context: TranspilerContext
@@ -327,10 +341,13 @@ case class Transpiler(
       case Option.Some(value) =>
         // `case` carried structural equality and printing in Scala; the
         // attribute is what carries them in Panther, so it is written exactly
-        // where `case` was, keeping the trivia on either side of it.
+        // where `case` was, keeping its leading trivia (indentation, any doc
+        // comment). `class` moves to its own line, at that same indentation,
+        // rather than reusing `case`'s trailing trivia (a single space).
         transpileTrivia(value.leading, context)
         context.sb.append("[derive(Eq, Show)]")
-        transpileTrivia(value.trailing, context)
+        context.sb.append("\n")
+        context.sb.append(currentLineIndentation(value.leading))
       case _ =>
     }
     transpileDeriveAttribute(decl.derives, context)

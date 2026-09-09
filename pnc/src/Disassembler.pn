@@ -5,7 +5,8 @@ using panther
   * or accumulated and handed back, which is what anything comparing it wants.
   * `IndentedStringBuilder(true)` is the printing one.
   */
-[derive(Eq, Show)] class Disassembler(
+[derive(Eq, Show)]
+class Disassembler(
     chunk: Chunk,
     metadata: Metadata,
     sb: IndentedStringBuilder

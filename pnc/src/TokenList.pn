@@ -1,6 +1,7 @@
 using panther
 
-[derive(Eq, Show)] class TokenList() {
+[derive(Eq, Show)]
+class TokenList() {
   var _items: Array[SyntaxToken] = new Array[SyntaxToken](0)
   var _size = 0
 

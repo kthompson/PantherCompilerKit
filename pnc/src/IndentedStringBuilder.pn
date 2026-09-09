@@ -1,6 +1,7 @@
 using panther
 
-[derive(Eq, Show)] class IndentedStringBuilder(useConsole: bool) {
+[derive(Eq, Show)]
+class IndentedStringBuilder(useConsole: bool) {
   val indentValue: string = "  "
 
   var currentIndent: string = ""

@@ -6,7 +6,8 @@ using panther
   * @param variance
   * @param upperBound
   */
-[derive(Eq, Show)] class GenericTypeParameter(
+[derive(Eq, Show)]
+class GenericTypeParameter(
     location: TextLocation,
     name: string,
     variance: Variance,

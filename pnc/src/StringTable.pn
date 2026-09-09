@@ -1,6 +1,7 @@
 using panther
 
-[derive(Eq, Show)] class StringTable() {
+[derive(Eq, Show)]
+class StringTable() {
   var strings = new Array[string](0)
   var capacity = 0
   var size = 0

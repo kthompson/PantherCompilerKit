@@ -2,13 +2,16 @@ using BoundExpression.Block
 using LoweredStatement.ExpressionStatement
 using panther
 
-[derive(Eq, Show)] class LoweredAssembly(
+[derive(Eq, Show)]
+class LoweredAssembly(
     functionBodies: Dictionary[Symbol, LoweredBlock],
     entryPoint: Option[Symbol]
 )
 
-[derive(Eq, Show)] class Label(name: string)
-[derive(Eq, Show)] class LabelToken(id: int)
+[derive(Eq, Show)]
+class Label(name: string)
+[derive(Eq, Show)]
+class LabelToken(id: int)
 
 [derive(Eq, Show)] enum LoweredStatement {
   case Error
@@ -57,7 +60,8 @@ using panther
 //  )
 }
 
-[derive(Eq, Show)] class LoweredLeftHandSideBlock(
+[derive(Eq, Show)]
+class LoweredLeftHandSideBlock(
     statements: Chain[LoweredStatement],
     expression: LoweredLeftHandSide
 )
@@ -200,7 +204,8 @@ using panther
   }
 }
 
-[derive(Eq, Show)] class LoweredBlock(
+[derive(Eq, Show)]
+class LoweredBlock(
     statements: Chain[LoweredStatement],
     expression: LoweredExpression
 )

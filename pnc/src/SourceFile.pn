@@ -1,6 +1,7 @@
 using panther
 
-[derive(Eq, Show)] class SourceFile(content: string, fileName: string) {
+[derive(Eq, Show)]
+class SourceFile(content: string, fileName: string) {
   val _lines: Array[TextLine] = TextLineParser.parse(content)
 
   val lineCount: int = _lines.length

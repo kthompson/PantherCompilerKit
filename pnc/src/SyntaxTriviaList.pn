@@ -1,6 +1,7 @@
 using panther.unit
 
-[derive(Eq, Show)] class SyntaxTriviaList() {
+[derive(Eq, Show)]
+class SyntaxTriviaList() {
   var _items: List[SyntaxTrivia] = List.Nil
 
   def add(trivia: SyntaxTrivia): unit = {

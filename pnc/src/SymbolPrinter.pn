@@ -1,6 +1,7 @@
 using panther
 
-[derive(Eq, Show)] class SymbolPrinter(
+[derive(Eq, Show)]
+class SymbolPrinter(
     binder: Binder,
     ast: AstPrinter
 ) {

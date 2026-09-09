@@ -1,6 +1,7 @@
 // Generic parameters, variance annotations and context bounds all survive the
 // walk unchanged.
-[derive(Eq, Show)] class Box[T](value: T)
+[derive(Eq, Show)]
+class Box[T](value: T)
 
 [derive(Eq, Show)] enum Tree[out T] {
   case Leaf

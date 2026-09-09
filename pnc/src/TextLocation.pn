@@ -1,6 +1,7 @@
 using panther
 
-[derive(Eq, Show)] class TextLocation(sourceFile: SourceFile, span: TextSpan) {
+[derive(Eq, Show)]
+class TextLocation(sourceFile: SourceFile, span: TextSpan) {
   val fileName: string = sourceFile.fileName
   val startLine: int = sourceFile.getLineIndex(span.start)
   val startCharacter: int = span.start - sourceFile.lineToOffset(startLine)
