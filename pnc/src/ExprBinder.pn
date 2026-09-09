@@ -63,9 +63,11 @@ using panther
 
 // will be connected to a Declaration or an Expression
 
-[derive(Eq, Show)] class TypePair(t1: Type, t2: Type)
+[derive(Eq, Show)]
+class TypePair(t1: Type, t2: Type)
 
-[derive(Eq, Show)] class ExprBinder(
+[derive(Eq, Show)]
+class ExprBinder(
     rootSymbol: Symbol,
     binder: Binder,
     conversionClassifier: ConversionClassifier,

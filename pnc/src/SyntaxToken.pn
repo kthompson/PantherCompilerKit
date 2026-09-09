@@ -1,6 +1,7 @@
 using panther
 
-[derive(Eq, Show)] class SyntaxToken(
+[derive(Eq, Show)]
+class SyntaxToken(
     sourceFile: SourceFile,
     kind: int,
     start: int,

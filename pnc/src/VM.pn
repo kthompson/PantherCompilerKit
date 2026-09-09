@@ -53,7 +53,8 @@ a ret instruction pops values off the stack in the following order:
   4. parameters
  */
 
-[derive(Eq, Show)] class VM(
+[derive(Eq, Show)]
+class VM(
     chunk: Chunk,
     metadata: Metadata,
     entry: Option[MethodToken],

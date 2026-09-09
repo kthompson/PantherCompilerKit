@@ -1,6 +1,7 @@
 using panther
 
-[derive(Eq, Show)] class Parser(
+[derive(Eq, Show)]
+class Parser(
     sourceFile: SourceFile,
     diagnostics: DiagnosticBag,
     settings: CompilerSettings

@@ -57,7 +57,8 @@ object MakeCompilation {
   }
 }
 
-[derive(Eq, Show)] class Compilation(
+[derive(Eq, Show)]
+class Compilation(
     syntaxTrees: List[SyntaxTree],
     diagnostics: Diagnostics,
     root: Symbol,

@@ -1,6 +1,7 @@
 using panther
 
-[derive(Eq, Show)] class ArgsParseResult(
+[derive(Eq, Show)]
+class ArgsParseResult(
     settings: CompilerSettings,
     outputFile: string,
     sourceFiles: List[string],

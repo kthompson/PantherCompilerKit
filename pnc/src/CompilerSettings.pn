@@ -1,6 +1,7 @@
 using panther
 
-[derive(Eq, Show)] class CompilerSettings(
+[derive(Eq, Show)]
+class CompilerSettings(
     kindRecoveryAttempts: int,
     diagnosticsToPrint: int,
     /** The VM's value stack, in slots rather than frames. A call occupies its

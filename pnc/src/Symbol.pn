@@ -1,6 +1,7 @@
 using panther
 
-[derive(Eq, Show)] class Symbol(
+[derive(Eq, Show)]
+class Symbol(
     name: string,
     location: TextLocation,
     kind: SymbolKind,

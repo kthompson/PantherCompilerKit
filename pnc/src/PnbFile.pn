@@ -115,7 +115,8 @@ object PnbFile {
   }
 }
 
-[derive(Eq, Show)] class PnbImage(
+[derive(Eq, Show)]
+class PnbImage(
     chunk: Chunk,
     metadata: Metadata,
     entry: Option[MethodToken]

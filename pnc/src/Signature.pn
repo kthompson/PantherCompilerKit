@@ -1,3 +1,4 @@
 using panther
 
-[derive(Eq, Show)] class Signature(value: Array[int])
+[derive(Eq, Show)]
+class Signature(value: Array[int])

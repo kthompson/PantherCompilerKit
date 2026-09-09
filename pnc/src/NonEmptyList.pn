@@ -1,6 +1,7 @@
 using panther
 
-[derive(Eq, Show)] class NonEmptyList[T](head: T, tail: List[T]) {
+[derive(Eq, Show)]
+class NonEmptyList[T](head: T, tail: List[T]) {
   val length: int = 1 + tail.length
 
   def last(): T =

@@ -1,6 +1,7 @@
 using panther
 
-[derive(Eq, Show)] class TypeInference(binder: Binder) {
+[derive(Eq, Show)]
+class TypeInference(binder: Binder) {
 
   /** Infers type arguments for a generic function call based on parameter and
     * argument types

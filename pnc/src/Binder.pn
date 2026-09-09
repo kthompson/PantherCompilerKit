@@ -1,6 +1,7 @@
 using panther
 
-[derive(Eq, Show)] class Members(
+[derive(Eq, Show)]
+class Members(
     objects: List[Namespaced[MemberSyntax.ObjectDeclarationSyntax]],
     classes: List[Namespaced[MemberSyntax.ClassDeclarationSyntax]],
     functions: List[MemberSyntax.FunctionDeclarationSyntax],
@@ -14,7 +15,8 @@ using panther
     globalStatements: List[MemberSyntax.GlobalStatementSyntax]
 )
 
-[derive(Eq, Show)] class Namespaced[A](ns: List[string], value: A)
+[derive(Eq, Show)]
+class Namespaced[A](ns: List[string], value: A)
 
 [derive(Eq, Show)] enum BindingMember {
   case Method(value: MemberSyntax.FunctionDeclarationSyntax)
@@ -51,7 +53,8 @@ using panther
   * and name the records the dependency half points at — `Eq[List[Symbol]]`
   * holding a reference to `Eq[Symbol]`, which is ADR 0005's recursive evidence.
   */
-[derive(Eq, Show)] class BoundEvidenceRecord(
+[derive(Eq, Show)]
+class BoundEvidenceRecord(
     goal: Type,
     candidate: BoundGiven,
     typeArguments: List[Type],
@@ -75,7 +78,8 @@ using panther
   * given's member is declared in that given's own type variables, so a caller
   * has to substitute before it can check operands against the signature.
   */
-[derive(Eq, Show)] class GivenMember(
+[derive(Eq, Show)]
+class GivenMember(
     member: Symbol,
     record: Symbol,
     typeArguments: List[Type]
@@ -88,7 +92,8 @@ using panther
   * `constraints` are that given's context bounds, the premises of the
   * implication.
   */
-[derive(Eq, Show)] class BoundGiven(
+[derive(Eq, Show)]
+class BoundGiven(
     symbol: Symbol,
     head: Type,
     generics: List[GenericTypeParameter],
@@ -119,7 +124,8 @@ using panther
   * parameters' field types, which are not bound until later
   * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
   */
-[derive(Eq, Show)] class Derivation(
+[derive(Eq, Show)]
+class Derivation(
     typeSymbol: Symbol,
     typ: Type,
     traitSymbol: Symbol,
@@ -137,19 +143,22 @@ using panther
   * parameter
   * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
   */
-[derive(Eq, Show)] class DerivedCase(
+[derive(Eq, Show)]
+class DerivedCase(
     symbol: Symbol,
     typ: Type,
     parameterNames: List[string]
 )
 
-[derive(Eq, Show)] class ConstructorParams(
+[derive(Eq, Show)]
+class ConstructorParams(
     genericTypeParameters: List[GenericTypeParameter],
     constraints: List[Type],
     parameters: List[ParameterSyntax]
 )
 
-[derive(Eq, Show)] class Binder(
+[derive(Eq, Show)]
+class Binder(
     trees: List[SyntaxTree],
     rootSymbol: Symbol,
     diagnosticBag: DiagnosticBag

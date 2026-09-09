@@ -1,6 +1,7 @@
 using panther
 
-[derive(Eq, Show)] class Scope(current: Symbol, imports: List[Symbol]) {
+[derive(Eq, Show)]
+class Scope(current: Symbol, imports: List[Symbol]) {
 
   /** create or define a namespace
     *

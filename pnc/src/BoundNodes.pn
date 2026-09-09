@@ -1,6 +1,7 @@
 using panther
 
-[derive(Eq, Show)] class BoundAssembly(
+[derive(Eq, Show)]
+class BoundAssembly(
     diagnostics: Diagnostics,
     functionBodies: Dictionary[Symbol, BoundExpression],
     entryPoint: Option[Symbol]
@@ -22,7 +23,8 @@ using panther
   )
 }
 
-[derive(Eq, Show)] class BoundParameter(symbol: Symbol, typ: Type)
+[derive(Eq, Show)]
+class BoundParameter(symbol: Symbol, typ: Type)
 
 /** Where the evidence a call dispatches through comes from.
   *
@@ -87,7 +89,8 @@ using panther
   case Discard
 }
 
-[derive(Eq, Show)] class BoundMatchCase(
+[derive(Eq, Show)]
+class BoundMatchCase(
     location: TextLocation,
     pattern: BoundPattern,
     result: BoundExpression

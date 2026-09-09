@@ -1,6 +1,7 @@
 using panther
 
-[derive(Eq, Show)] class SimpleToken(
+[derive(Eq, Show)]
+class SimpleToken(
     kind: int,
     start: int,
     text: string,
