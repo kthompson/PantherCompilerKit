@@ -67,7 +67,7 @@ case class Dictionary[K, V](list: List[KeyValue[K, V]]) {
 
     while (!rest.isEmpty) {
       rest match {
-        case List.Nil => rest = List.Nil
+        case List.Nil            => rest = List.Nil
         case List.Cons(kv, next) =>
           // guarded so only the first match goes, matching the recursive
           // version this replaced

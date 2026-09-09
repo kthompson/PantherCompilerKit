@@ -130,8 +130,8 @@ class BinderTests extends AnyFunSpec with Matchers {
       ) shouldBe Seq("Method:==", "Method:!=")
     }
 
-    /** Only `Eq` and `Ord` claim tokens. `Show` declares no operator, so
-      * `show` stays an ordinary contextual extension (ADR 0004).
+    /** Only `Eq` and `Ord` claim tokens. `Show` declares no operator, so `show`
+      * stays an ordinary contextual extension (ADR 0004).
       */
     it("should claim the comparison tokens for the prelude traits") {
       val comp = mkCompilation("")
@@ -673,9 +673,10 @@ class BinderTests extends AnyFunSpec with Matchers {
       givenHeads(comp) shouldBe Seq("Eqv<int>")
     }
 
-    /** Overlap is unification, not equality: `Ranked[Box[T]]` and `Ranked[Box[int]]`
-      * are two givens for one pair as soon as `T` can be `int`. Comparing type
-      * arguments structurally would let this pair through.
+    /** Overlap is unification, not equality: `Ranked[Box[T]]` and
+      * `Ranked[Box[int]]` are two givens for one pair as soon as `T` can be
+      * `int`. Comparing type arguments structurally would let this pair
+      * through.
       */
     it("should reject a concrete given overlapping a conditional one") {
       val comp = mkFailingCompilation(
@@ -737,12 +738,16 @@ class BinderTests extends AnyFunSpec with Matchers {
 
     it("should report a constrained call with no matching given") {
       val comp =
-        mkFailingCompilation(eqTrait + eqInt + same + "val r = same(true, false)")
+        mkFailingCompilation(
+          eqTrait + eqInt + same + "val r = same(true, false)"
+        )
       diagnosticMessages(comp) should contain("No given instance for Eqv<bool>")
     }
 
     it("should leave unconstrained generics alone") {
-      mkCompilation(eqTrait + eqInt + "def id[K](a: K): K = a\nval r = id(true)")
+      mkCompilation(
+        eqTrait + eqInt + "def id[K](a: K): K = a\nval r = id(true)"
+      )
     }
 
     /** `TypeInference` carries what it has learned in an immutable
@@ -777,8 +782,8 @@ class BinderTests extends AnyFunSpec with Matchers {
       )
     }
 
-    /** A constrained class resolves at the `new` site, where its type
-      * arguments are concrete (ADR 0005, decision B).
+    /** A constrained class resolves at the `new` site, where its type arguments
+      * are concrete (ADR 0005, decision B).
       */
     it("should resolve evidence for a constrained constructor") {
       val setup = eqTrait + eqInt + "class Box[T: Eqv](value: T)\n"
@@ -797,7 +802,8 @@ class BinderTests extends AnyFunSpec with Matchers {
         "  def compare(a: Box[T], b: Box[T]): int = 0\n" +
         "}\n" +
         "def srt[K: Ranked](a: K): int = 0\n"
-      val ordInt = "given Ranked[int] { def compare(a: int, b: int): int = 0 }\n"
+      val ordInt =
+        "given Ranked[int] { def compare(a: int, b: int): int = 0 }\n"
 
       mkCompilation(boxOrd + ordInt + "val r = srt(new Box[int](1))")
 
@@ -805,7 +811,9 @@ class BinderTests extends AnyFunSpec with Matchers {
       // reported rather than the outer one
       val comp =
         mkFailingCompilation(boxOrd + "val r = srt(new Box[int](1))")
-      diagnosticMessages(comp) should contain("No given instance for Ranked<int>")
+      diagnosticMessages(comp) should contain(
+        "No given instance for Ranked<int>"
+      )
     }
 
     /** A record is per ground goal, not per given (ADR 0006, decision B), so
@@ -866,11 +874,12 @@ class BinderTests extends AnyFunSpec with Matchers {
     }
 
     /** A context bound becomes a parameter appended after the declared ones, so
-      * every declared parameter keeps the argument slot it already had
-      * (ADR 0005, decision A).
+      * every declared parameter keeps the argument slot it already had (ADR
+      * 0005, decision A).
       */
     it("should append an evidence parameter for a context bound") {
-      val comp = mkCompilation(eqTrait + "def same[K: Eqv](a: K, b: K): bool = true")
+      val comp =
+        mkCompilation(eqTrait + "def same[K: Eqv](a: K, b: K): bool = true")
       val program = assertSome(comp.root.lookup("$Program"))
       val same = assertSome(program.lookup("same"))
 
@@ -1065,8 +1074,8 @@ class BinderTests extends AnyFunSpec with Matchers {
     }
 
     /** A given supplies the implementation for a token its trait already owns,
-      * so it claims nothing of its own — otherwise the second given for a
-      * trait would collide with the first.
+      * so it claims nothing of its own — otherwise the second given for a trait
+      * would collide with the first.
       */
     it("should not let a given claim a token") {
       mkCompilation(
@@ -1098,8 +1107,8 @@ class BinderTests extends AnyFunSpec with Matchers {
       * not asked for evidence and should not be told about it.
       *
       * `<` rather than `==`: ADR 0003's identity rule accepts `==` between two
-      * unconstrained type parameters, which predates this change and is left
-      * as it is here.
+      * unconstrained type parameters, which predates this change and is left as
+      * it is here.
       */
     it("should reject an operator on an unconstrained type parameter") {
       val comp = mkFailingCompilation("def lt[T](a: T, b: T): bool = a < b")
@@ -1142,8 +1151,8 @@ class BinderTests extends AnyFunSpec with Matchers {
     }
 
     /** ADR 0004's derivation. The attribute declares a given for each trait it
-      * names, owned by the type's own declaration — which is what satisfies
-      * the ownership half of coherence for free.
+      * names, owned by the type's own declaration — which is what satisfies the
+      * ownership half of coherence for free.
       */
     it("should register a given for each derived trait") {
       val comp = mkCompilation(
@@ -1160,8 +1169,8 @@ class BinderTests extends AnyFunSpec with Matchers {
       ) shouldBe Seq("Method:<", "Method:<=", "Method:>", "Method:>=")
     }
 
-    /** Nothing is derived without the attribute, so `a == b` on a class with
-      * no `Eq` still means identity rather than a silent structural compare.
+    /** Nothing is derived without the attribute, so `a == b` on a class with no
+      * `Eq` still means identity rather than a silent structural compare.
       */
     it("should derive nothing without the attribute") {
       val comp = mkCompilation("class Point(x: int, y: int)")
@@ -1337,8 +1346,8 @@ class BinderTests extends AnyFunSpec with Matchers {
       givenHeads(comp) shouldBe Seq("Eq<Chain<$0>>")
     }
 
-    /** The instantiation still has to have evidence for what it substitutes
-      * in, and it is the premise that reports when it does not.
+    /** The instantiation still has to have evidence for what it substitutes in,
+      * and it is the premise that reports when it does not.
       *
       * The annotation is load-bearing: a bare `Opt.Has(true)` infers the case
       * type, and only the operator and extension paths widen a case to its
@@ -1417,9 +1426,8 @@ class BinderTests extends AnyFunSpec with Matchers {
       mkCompilation(shape + "val r = Shape.Circle(1).show()")
     }
 
-    /** A type whose parameter is another derived type composes: the inner
-      * given is registered before any body is built, so the outer one finds
-      * it.
+    /** A type whose parameter is another derived type composes: the inner given
+      * is registered before any body is built, so the outer one finds it.
       */
     it("should derive over a parameter that is itself derived") {
       mkCompilation(

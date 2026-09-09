@@ -482,8 +482,8 @@ case class Parser(
 
   /** A context bound: the `Eq` of `[K: Eq]`, meaning the declaration requires
     * evidence satisfying `Eq[K]`. One bound per parameter — a parameter needing
-    * two capabilities is not expressible yet
-    * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+    * two capabilities is not expressible yet ([ADR
+    * 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
     */
   def parseGenericBounds(): Option[GenericBoundsSyntax] = {
     debugPrint("parseGenericBounds")
@@ -497,9 +497,9 @@ case class Parser(
 
   /** `[derive(Eq, Ord, Show)]`, when the member starts with one.
     *
-    * Unambiguous at member position: no expression in the language starts
-    * with `[` — generic arguments and indexing are both postfix — so a
-    * bracket here can only open an attribute.
+    * Unambiguous at member position: no expression in the language starts with
+    * `[` — generic arguments and indexing are both postfix — so a bracket here
+    * can only open an attribute.
     */
   def parseDeriveAttribute(): Option[DeriveAttributeSyntax] = {
     if (currentKind() != SyntaxKind.OpenBracketToken) Option.None
@@ -1306,9 +1306,9 @@ case class Parser(
     * `operator` is a contextual keyword, not a reserved one. It cannot be
     * reserved: the compiler's own sources use `operator` as an identifier 71
     * times — `BinaryOperator.operator`, `node.operator` — and `pncs` has to
-    * compile its own transpiled twin. Three tokens settle it without
-    * ambiguity, because no member or statement position in those sources
-    * begins with `operator` followed by an operator token.
+    * compile its own transpiled twin. Three tokens settle it without ambiguity,
+    * because no member or statement position in those sources begins with
+    * `operator` followed by an operator token.
     */
   def isOperatorDeclaration(): bool =
     current().kind == SyntaxKind.IdentifierToken &&
@@ -1319,10 +1319,10 @@ case class Parser(
   /** `operator ==(a: T, b: T): bool` inside a trait or a given.
     *
     * The result is an ordinary `FunctionDeclarationSyntax` whose name is the
-    * operator's own text, so the member binds, types and emits like any other
-    * — what makes it an operator is which token a trait claims, not a
-    * different kind of declaration
-    * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+    * operator's own text, so the member binds, types and emits like any other —
+    * what makes it an operator is which token a trait claims, not a different
+    * kind of declaration ([ADR
+    * 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
     */
   def parseOperatorDeclaration(): MemberSyntax = {
     debugPrint("parseOperatorDeclaration")

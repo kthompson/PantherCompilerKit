@@ -212,7 +212,7 @@ case class Emitter(
       map: Dictionary[Symbol, int]
   ): Dictionary[Symbol, int] = {
     symbols match {
-      case List.Nil => map
+      case List.Nil              => map
       case List.Cons(head, tail) =>
         // Evidence takes an argument slot like a declared parameter; it is a
         // separate kind only so printers and arity checks can tell them apart.
@@ -285,7 +285,7 @@ case class Emitter(
 
   def emitMethod(symbol: Symbol, context: EmitContext): bool = {
     assembly.functionBodies.get(symbol) match {
-      case Option.None => false
+      case Option.None        => false
       case Option.Some(value) =>
         // Evidence records first: they are method tokens, so this is the
         // earliest point they can be built, and everything that reads one runs
@@ -381,8 +381,7 @@ case class Emitter(
     * method tokens, laid out in the trait's declaration order so the reading
     * side can index it without knowing which given it came from.
     */
-  /** Builds each parameterless enum case once and parks it in its static
-    * field.
+  /** Builds each parameterless enum case once and parks it in its static field.
     *
     * `Color.Red` names a value rather than making one, so every mention has to
     * be the same object — otherwise reference identity, which is what `==`
@@ -433,8 +432,9 @@ case class Emitter(
     * The two passes are what make a cycle work rather than an optimisation:
     * `Eq[Symbol]` points at `Eq[List[Symbol]]`, which points back. Filling as
     * it goes would need one of them to load a field that has not been stored
-    * yet ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
-    * decision E).
+    * yet ([ADR
+    * 0006](../../../docs/architecture/adr/0006-conditional-givens.md), decision
+    * E).
     */
   def emitEvidenceRecords(
       records: List[BoundEvidenceRecord],
@@ -504,7 +504,7 @@ case class Emitter(
 
   def evidenceTraitMembers(candidate: BoundGiven): List[Symbol] = {
     binder.getTypeSymbol(candidate.head) match {
-      case Option.None            => List.Nil
+      case Option.None              => List.Nil
       case Option.Some(traitSymbol) => binder.traitMembers(traitSymbol)
     }
   }
@@ -846,9 +846,9 @@ case class Emitter(
     * `Calli` dispatches on the token that comes back.
     *
     * The record is loaded twice — once as the member's own trailing argument,
-    * once to read the token out of
-    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
-    * decision C). The first is what a conditional given reads its premise from.
+    * once to read the token out of ([ADR
+    * 0006](../../../docs/architecture/adr/0006-conditional-givens.md), decision
+    * C). The first is what a conditional given reads its premise from.
     */
   def emitEvidenceCall(
       expr: LoweredExpression.EvidenceCall,
@@ -892,9 +892,9 @@ case class Emitter(
   /** Evidence reaches a method as its own parameter, as a field on the receiver
     * in an instance method of a constrained class, or — for a conditional given
     * reading its own premise — out of the dependency half of the record it was
-    * reached through
-    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
-    * decision D).
+    * reached through ([ADR
+    * 0006](../../../docs/architecture/adr/0006-conditional-givens.md), decision
+    * D).
     */
   def emitEvidenceValue(
       evidence: BoundEvidence,
@@ -1012,16 +1012,17 @@ case class Emitter(
     */
   def isCharExpression(expr: LoweredExpression): bool = {
     expr match {
-      case _: LoweredExpression.Character            => true
-      case value: LoweredExpression.ArrayAccess      => isCharType(value.resultType)
-      case value: LoweredExpression.BinaryExpression => isCharType(value.resultType)
-      case value: LoweredExpression.Cast             => isCharType(value.resultType)
-      case value: LoweredExpression.Call             => isCharType(value.resultType)
-      case value: LoweredExpression.EvidenceCall     => isCharType(value.resultType)
-      case value: LoweredExpression.Unary            => isCharType(value.resultType)
-      case value: LoweredExpression.Variable         => isCharSymbol(value.symbol)
-      case value: LoweredExpression.MemberAccess     => isCharSymbol(value.symbol)
-      case _                                         => false
+      case _: LoweredExpression.Character       => true
+      case value: LoweredExpression.ArrayAccess => isCharType(value.resultType)
+      case value: LoweredExpression.BinaryExpression =>
+        isCharType(value.resultType)
+      case value: LoweredExpression.Cast         => isCharType(value.resultType)
+      case value: LoweredExpression.Call         => isCharType(value.resultType)
+      case value: LoweredExpression.EvidenceCall => isCharType(value.resultType)
+      case value: LoweredExpression.Unary        => isCharType(value.resultType)
+      case value: LoweredExpression.Variable     => isCharSymbol(value.symbol)
+      case value: LoweredExpression.MemberAccess => isCharSymbol(value.symbol)
+      case _                                     => false
     }
   }
 
@@ -1329,7 +1330,10 @@ case class Emitter(
       expr: LoweredExpression.Variable,
       context: EmitContext
   ): unit =
-    emitLoadArgument(context.getParamIndex(expr.symbol), expr.location.startLine)
+    emitLoadArgument(
+      context.getParamIndex(expr.symbol),
+      expr.location.startLine
+    )
 
   def emitLoadArgument(index: int, line: int): unit = {
     if (index < 4) {

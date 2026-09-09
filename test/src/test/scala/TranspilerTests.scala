@@ -7,8 +7,8 @@ import org.scalatest.matchers.should.Matchers
   * handful of places it rewrites rather than copies. Derivation is the largest
   * of them: Scala generates structural equality and printing for `case class`
   * and `enum` alike, Panther has one kind of class, and `[derive(Eq, Show)]` is
-  * what carries the difference across
-  * ([ADR 0004](../../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+  * what carries the difference across ([ADR
+  * 0004](../../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
   */
 class TranspilerTests extends AnyFunSpec with Matchers {
 
@@ -70,8 +70,8 @@ class TranspilerTests extends AnyFunSpec with Matchers {
         "object Shapes {\n  /** a colour */\n  [derive(Eq, Show)] enum Color {\n    case Red\n  }\n}"
     }
 
-    /** Scala's names for the builtins are not Panther's. Only the type
-      * position is rewritten.
+    /** Scala's names for the builtins are not Panther's. Only the type position
+      * is rewritten.
       */
     it("should rewrite Scala's builtin type names") {
       mkTranspiled("def f(a: String, b: Boolean): Unit = ()") shouldBe
@@ -82,10 +82,10 @@ class TranspilerTests extends AnyFunSpec with Matchers {
         "[derive(Eq, Show)]\nclass Label(name: string)"
     }
 
-    /** The hard half. `String`, `Boolean` and `Unit` are also the names of
-      * enum cases all over the AST, so rewriting the token wherever it appeared
-      * — or even the last segment of a qualified type — would rename the
-      * compiler's own types out from under it.
+    /** The hard half. `String`, `Boolean` and `Unit` are also the names of enum
+      * cases all over the AST, so rewriting the token wherever it appeared — or
+      * even the last segment of a qualified type — would rename the compiler's
+      * own types out from under it.
       */
     it("should leave a case named String or Unit alone") {
       mkTranspiled(

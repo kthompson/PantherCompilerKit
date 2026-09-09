@@ -104,9 +104,9 @@ class VmTests extends AnyFunSpec with Matchers {
       assertExecValueBoolWithSetup(setup, "same(\"ab\", \"cd\")", false)
     }
 
-    /** A record has one slot per trait member, so calling the second member
-      * has to read slot 1. Getting the layout wrong would silently call the
-      * other method, which is why both are exercised.
+    /** A record has one slot per trait member, so calling the second member has
+      * to read slot 1. Getting the layout wrong would silently call the other
+      * method, which is why both are exercised.
       */
     it("should index the right member of a multi-member trait") {
       val setup =
@@ -227,8 +227,8 @@ class VmTests extends AnyFunSpec with Matchers {
     }
 
     /** One trait, four tokens. Each has to reach its own member, which is the
-      * record-layout question again — with `<` and `>` a swap is visible
-      * rather than silent.
+      * record-layout question again — with `<` and `>` a swap is visible rather
+      * than silent.
       */
     it("should run each prelude comparison operator") {
       val setup =
@@ -247,8 +247,8 @@ class VmTests extends AnyFunSpec with Matchers {
       assertExecValueBoolWithSetup(setup, "ge(2, 9)", false)
     }
 
-    /** `Show` claims no token, so `show` is reached as a contextual extension
-      * — and its body is the conversion the language already has.
+    /** `Show` claims no token, so `show` is reached as a contextual extension —
+      * and its body is the conversion the language already has.
       */
     it("should run show through prelude evidence") {
       val setup = "def render[T: Show](value: T): string = value.show()"
@@ -262,9 +262,9 @@ class VmTests extends AnyFunSpec with Matchers {
       * static, so this compiles to an ordinary call rather than a record read.
       * Both paths have to produce the same answer.
       *
-      * This is also what settles evidence beating ADR 0003's identity rule:
-      * two separately constructed `Box(4)` are different objects, so identity
-      * would call them unequal.
+      * This is also what settles evidence beating ADR 0003's identity rule: two
+      * separately constructed `Box(4)` are different objects, so identity would
+      * call them unequal.
       */
     it("should run == through a given for a ground type") {
       val setup =
@@ -280,22 +280,42 @@ class VmTests extends AnyFunSpec with Matchers {
     }
 
     /** ADR 0004's derivation, end to end. `Eq` opens with reference identity
-      * and then compares parameter by parameter, so two separately
-      * constructed `Point(1, 2)` are equal where identity alone would say no.
+      * and then compares parameter by parameter, so two separately constructed
+      * `Point(1, 2)` are equal where identity alone would say no.
       */
     it("should run a derived Eq") {
       val setup = "[derive(Eq)]\nclass Point(x: int, y: int)"
 
-      assertExecValueBoolWithSetup(setup, "new Point(1, 2) == new Point(1, 2)", true)
-      assertExecValueBoolWithSetup(setup, "new Point(1, 2) == new Point(1, 3)", false)
-      assertExecValueBoolWithSetup(setup, "new Point(1, 2) == new Point(9, 2)", false)
-      assertExecValueBoolWithSetup(setup, "new Point(1, 2) != new Point(1, 3)", true)
-      assertExecValueBoolWithSetup(setup, "new Point(1, 2) != new Point(1, 2)", false)
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Point(1, 2) == new Point(1, 2)",
+        true
+      )
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Point(1, 2) == new Point(1, 3)",
+        false
+      )
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Point(1, 2) == new Point(9, 2)",
+        false
+      )
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Point(1, 2) != new Point(1, 3)",
+        true
+      )
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Point(1, 2) != new Point(1, 2)",
+        false
+      )
     }
 
     /** ADR 0006 step 5: derivation over a generic type. The given is
-      * conditional, so its body reaches `Eq[T]` through a premise rather than
-      * a static record, and one declaration serves every instantiation.
+      * conditional, so its body reaches `Eq[T]` through a premise rather than a
+      * static record, and one declaration serves every instantiation.
       */
     it("should run a derived Eq over a generic type") {
       val setup = "[derive(Eq)]\nclass Box[T](value: T)"
@@ -362,19 +382,51 @@ class VmTests extends AnyFunSpec with Matchers {
     it("should run a derived Ord") {
       val setup = "[derive(Ord)]\nclass Point(x: int, y: int)"
 
-      assertExecValueBoolWithSetup(setup, "new Point(1, 2) < new Point(1, 3)", true)
-      assertExecValueBoolWithSetup(setup, "new Point(1, 3) < new Point(1, 2)", false)
-      assertExecValueBoolWithSetup(setup, "new Point(1, 9) < new Point(2, 0)", true)
-      assertExecValueBoolWithSetup(setup, "new Point(2, 2) < new Point(1, 3)", false)
-      assertExecValueBoolWithSetup(setup, "new Point(1, 2) <= new Point(1, 2)", true)
-      assertExecValueBoolWithSetup(setup, "new Point(1, 3) > new Point(1, 2)", true)
-      assertExecValueBoolWithSetup(setup, "new Point(1, 2) >= new Point(1, 2)", true)
-      assertExecValueBoolWithSetup(setup, "new Point(1, 2) >= new Point(1, 3)", false)
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Point(1, 2) < new Point(1, 3)",
+        true
+      )
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Point(1, 3) < new Point(1, 2)",
+        false
+      )
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Point(1, 9) < new Point(2, 0)",
+        true
+      )
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Point(2, 2) < new Point(1, 3)",
+        false
+      )
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Point(1, 2) <= new Point(1, 2)",
+        true
+      )
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Point(1, 3) > new Point(1, 2)",
+        true
+      )
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Point(1, 2) >= new Point(1, 2)",
+        true
+      )
+      assertExecValueBoolWithSetup(
+        setup,
+        "new Point(1, 2) >= new Point(1, 3)",
+        false
+      )
     }
 
     /** `"Name(" + show(p1) + ", " + … + ")"`, reached through a constrained
-      * generic — `Show` claims no token, and a contextual extension on a
-      * ground type is a gap ADR 0004 records.
+      * generic — `Show` claims no token, and a contextual extension on a ground
+      * type is a gap ADR 0004 records.
       */
     it("should run a derived Show") {
       val render = "def render[T: Show](v: T): string = v.show()\n"
@@ -566,10 +618,10 @@ class VmTests extends AnyFunSpec with Matchers {
       )
     }
 
-    /** A parameter whose type is a composite over the type variable —
-      * `Lst[T]` inside `Holder[T]` — is neither ground nor a declared premise,
-      * so it becomes a premise of its own, filled per instantiation. This is
-      * the shape the AST's own containers have.
+    /** A parameter whose type is a composite over the type variable — `Lst[T]`
+      * inside `Holder[T]` — is neither ground nor a declared premise, so it
+      * becomes a premise of its own, filled per instantiation. This is the
+      * shape the AST's own containers have.
       */
     it("should run a derived Eq over a composite of a type parameter") {
       val setup = "[derive(Eq)]\n" +
@@ -699,14 +751,22 @@ class VmTests extends AnyFunSpec with Matchers {
       * `Shape(7)`.
       */
     it("should run a derived Show over an enum") {
-      assertExecValueStringWithSetup(shape, "Shape.Circle(7).show()", "Circle(7)")
-      assertExecValueStringWithSetup(shape, "Shape.Rect(1, 2).show()", "Rect(1, 2)")
+      assertExecValueStringWithSetup(
+        shape,
+        "Shape.Circle(7).show()",
+        "Circle(7)"
+      )
+      assertExecValueStringWithSetup(
+        shape,
+        "Shape.Rect(1, 2).show()",
+        "Rect(1, 2)"
+      )
     }
 
-    /** A case with no parameters is one value, not a constructor: every
-      * mention of `Color.Red` is the same object, built once in
-      * `$runtimeInit`. Without that, reference identity — which is what `==`
-      * falls back to with no evidence — would call two of them different.
+    /** A case with no parameters is one value, not a constructor: every mention
+      * of `Color.Red` is the same object, built once in `$runtimeInit`. Without
+      * that, reference identity — which is what `==` falls back to with no
+      * evidence — would call two of them different.
       */
     val color = "enum Color {\n  case Red\n  case Green\n  case Blue\n}\n"
 
@@ -1076,8 +1136,8 @@ class VmTests extends AnyFunSpec with Matchers {
       )
     }
 
-    /** A bare name binds the scrutinee and always matches, so it is a
-      * catch-all that can also be read.
+    /** A bare name binds the scrutinee and always matches, so it is a catch-all
+      * that can also be read.
       */
     it("should bind a variable pattern to the scrutinee") {
       assertExecValueIntWithSetup(
@@ -1158,19 +1218,20 @@ class VmTests extends AnyFunSpec with Matchers {
       * its binding reads a field of a field.
       */
     it("should match a nested extract pattern") {
-      val setup = "enum Option[out T] {\n  case Some(value: T)\n  case None\n}\n" +
-        "def f(o: Option[Option[int]]): int = o match {\n" +
-        "  case Option.Some(Option.Some(v)) => v\n" +
-        "  case Option.Some(Option.None) => -1\n" +
-        "  case Option.None => -2\n}\n"
+      val setup =
+        "enum Option[out T] {\n  case Some(value: T)\n  case None\n}\n" +
+          "def f(o: Option[Option[int]]): int = o match {\n" +
+          "  case Option.Some(Option.Some(v)) => v\n" +
+          "  case Option.Some(Option.None) => -1\n" +
+          "  case Option.None => -2\n}\n"
 
       assertExecValueIntWithSetup(setup, "f(Option.Some(Option.Some(5)))", 5)
       assertExecValueIntWithSetup(setup, "f(Option.Some(Option.None))", -1)
       assertExecValueIntWithSetup(setup, "f(Option.None)", -2)
     }
 
-    /** The annotation on `case x: int` is a test as well as a type. Without
-      * it the first annotated case caught everything.
+    /** The annotation on `case x: int` is a test as well as a type. Without it
+      * the first annotated case caught everything.
       */
     it("should test a type assertion pattern") {
       val setup = "def f(v: any): string = v match {\n" +
@@ -1444,8 +1505,8 @@ class VmTests extends AnyFunSpec with Matchers {
       * runs, so it cannot tell them apart from the value — the emitter picks
       * between two builtins by the static type. Before that, `string('a')`
       * answered "97", which quietly broke every string built a character at a
-      * time: `StringBuilder.appendChar`, `Hex.toString`, and the lexer's
-      * escape handling.
+      * time: `StringBuilder.appendChar`, `Hex.toString`, and the lexer's escape
+      * handling.
       */
     it("should convert a char to the character it names") {
       assertExecValueString("string('a')", "a")
@@ -1575,9 +1636,21 @@ class VmTests extends AnyFunSpec with Matchers {
     }
 
     it("should execute substring") {
-      assertExecValueStringWithSetup("val s = \"hello\"", "s.substring(1, 3)", "el")
-      assertExecValueStringWithSetup("val s = \"hello\"", "s.substring(0, 5)", "hello")
-      assertExecValueStringWithSetup("val s = \"hello\"", "s.substring(2, 2)", "")
+      assertExecValueStringWithSetup(
+        "val s = \"hello\"",
+        "s.substring(1, 3)",
+        "el"
+      )
+      assertExecValueStringWithSetup(
+        "val s = \"hello\"",
+        "s.substring(0, 5)",
+        "hello"
+      )
+      assertExecValueStringWithSetup(
+        "val s = \"hello\"",
+        "s.substring(2, 2)",
+        ""
+      )
       assertExecValueStringWithSetup(
         "val s = \"hello\"",
         "s.substring(1, s.length)",
@@ -1586,9 +1659,21 @@ class VmTests extends AnyFunSpec with Matchers {
     }
 
     it("should execute endsWith") {
-      assertExecValueBoolWithSetup("val s = \"a.scala\"", "s.endsWith(\".scala\")", true)
-      assertExecValueBoolWithSetup("val s = \"a.scala\"", "s.endsWith(\".pn\")", false)
-      assertExecValueBoolWithSetup("val s = \"a.scala\"", "s.endsWith(\"\")", true)
+      assertExecValueBoolWithSetup(
+        "val s = \"a.scala\"",
+        "s.endsWith(\".scala\")",
+        true
+      )
+      assertExecValueBoolWithSetup(
+        "val s = \"a.scala\"",
+        "s.endsWith(\".pn\")",
+        false
+      )
+      assertExecValueBoolWithSetup(
+        "val s = \"a.scala\"",
+        "s.endsWith(\"\")",
+        true
+      )
     }
 
     /** `compareTo` answers the sign, not the difference, and one opcode serves

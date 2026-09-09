@@ -985,7 +985,10 @@ case class ExprBinder(
   /** Whether the right operand widens to the operator member's second
     * parameter.
     */
-  def operandFits(right: BoundExpression, parameters: List[BoundParameter]): bool = {
+  def operandFits(
+      right: BoundExpression,
+      parameters: List[BoundParameter]
+  ): bool = {
     parameters match {
       case List.Cons(_, List.Cons(second, _)) =>
         conversionClassifier.widensTo(binder.getType(right), second.typ)
@@ -997,10 +1000,9 @@ case class ExprBinder(
     *
     * `evidence` decides the node: `Some` for a record the caller has to load,
     * `None` for a static call on the given itself. `record` is the static field
-    * that call has to pass on as the member's trailing argument
-    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
-    * decision C); the `EvidenceCall` shape loads its own, so the two are never
-    * both set.
+    * that call has to pass on as the member's trailing argument ([ADR
+    * 0006](../../../docs/architecture/adr/0006-conditional-givens.md), decision
+    * C); the `EvidenceCall` shape loads its own, so the two are never both set.
     */
   def bindOperatorCall(
       location: TextLocation,
@@ -1799,7 +1801,9 @@ case class ExprBinder(
           args,
           scope
         )
-      case Option.Some(Type.GenericFunction(loc, generics, traits, params, _)) =>
+      case Option.Some(
+            Type.GenericFunction(loc, generics, traits, params, _)
+          ) =>
         val typeArgs =
           if (!explicitTypeArgs.isEmpty) explicitTypeArgs
           else {

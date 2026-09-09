@@ -862,7 +862,11 @@ class TypeTests extends AnyFunSpec with Matchers {
         "val one = Chain.One(1)"
 
       assertInferExprTypeWithSetup(setup, "one", "Chain.One<int>")
-      assertAssignableToWithSetup(setup, "Pair(1, one)", "Pair[int, Chain[int]]")
+      assertAssignableToWithSetup(
+        setup,
+        "Pair(1, one)",
+        "Pair[int, Chain[int]]"
+      )
     }
 
     it("should infer constructor type arguments from the expected type") {

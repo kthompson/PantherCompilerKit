@@ -465,7 +465,8 @@ class ParserTests extends AnyFunSpec with Matchers {
       * language starts with `[` (ADR 0004).
       */
     it("should parse a derive attribute on a class") {
-      val decl = mkClassMember("[derive(Eq, Ord, Show)]\nclass Point(x: int, y: int)")
+      val decl =
+        mkClassMember("[derive(Eq, Ord, Show)]\nclass Point(x: int, y: int)")
       val attribute = assertSome(decl.derives)
 
       assertTokenKind(SyntaxKind.OpenBracketToken, attribute.openBracketToken)

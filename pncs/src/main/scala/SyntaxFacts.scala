@@ -134,11 +134,11 @@ object SyntaxFacts {
   def isKeywordKind(kind: int): bool =
     kind >= SyntaxKind.FirstKeyword && kind <= SyntaxKind.LastKeyword
 
-  /** Every token in the operator block, which is wider than
-    * `isBinaryOperator`: `=`, `:`, `.` and `~` are operator tokens that no
-    * binary expression uses. The parser needs the wider set to recognise
-    * `operator ~(…)` as an operator declaration at all, so that it can report
-    * the token as undeclarable rather than fail on a stray member.
+  /** Every token in the operator block, which is wider than `isBinaryOperator`:
+    * `=`, `:`, `.` and `~` are operator tokens that no binary expression uses.
+    * The parser needs the wider set to recognise `operator ~(…)` as an operator
+    * declaration at all, so that it can report the token as undeclarable rather
+    * than fail on a stray member.
     */
   def isOperatorKind(kind: int): bool =
     kind >= SyntaxKind.AmpersandAmpersandToken &&

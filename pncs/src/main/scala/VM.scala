@@ -10,9 +10,9 @@ enum InterpretResult {
   ) // completed running the program and returned a value
   /** The program called `exit(code)`.
     *
-    * Distinct from `OkValue`, which carries the value the program evaluated
-    * to: `exit(3)` and a program whose last expression is `3` mean different
-    * things to whatever launched it, and only the first one chose its code.
+    * Distinct from `OkValue`, which carries the value the program evaluated to:
+    * `exit(3)` and a program whose last expression is `3` mean different things
+    * to whatever launched it, and only the first one chose its code.
     */
   case Exit(code: int)
   case CompileError
@@ -334,13 +334,13 @@ case class VM(
     condition match {
       case Value.Bool(true)  => push(Value.Uninitialized)
       case Value.Bool(false) => runtimeError(valueToString(message))
-      case _                 => runtimeError("Expected bool condition for assert")
+      case _ => runtimeError("Expected bool condition for assert")
     }
   }
 
   /** `string(value)`. */
   def stringApplyOp(): InterpretResult = {
-      push(Value.String(valueToString(pop())))
+    push(Value.String(valueToString(pop())))
   }
 
   /** `string(c)` where `c` is a char — the character itself, not its code.
@@ -360,74 +360,74 @@ case class VM(
 
   /** `bool(value)`. */
   def boolApplyOp(): InterpretResult = {
-      val a = pop()
-      a match {
-        case Value.Int(0) =>
-          pushBool(false)
-          InterpretResult.Continue
-        case Value.Int(_) =>
-          pushBool(true)
-          InterpretResult.Continue
-        case Value.Bool(b) =>
-          pushBool(b)
-          InterpretResult.Continue
-        case _ =>
-          runtimeError("Cannot convert value to bool: " + string(a))
-      }
+    val a = pop()
+    a match {
+      case Value.Int(0) =>
+        pushBool(false)
+        InterpretResult.Continue
+      case Value.Int(_) =>
+        pushBool(true)
+        InterpretResult.Continue
+      case Value.Bool(b) =>
+        pushBool(b)
+        InterpretResult.Continue
+      case _ =>
+        runtimeError("Cannot convert value to bool: " + string(a))
+    }
   }
 
   /** `int(value)`. */
   def intApplyOp(): InterpretResult = {
-      val a = pop()
-      a match {
-        case Value.Int(i) =>
-          push(Value.Int(i))
-          InterpretResult.Continue
-        case Value.Bool(true) =>
-          push(Value.Int(1))
-          InterpretResult.Continue
-        case Value.Bool(false) =>
-          push(Value.Int(0))
-          InterpretResult.Continue
-        case Value.String(s) =>
-          if (s.length == 0) {
-            runtimeError("Cannot convert empty string to int")
-          } else if (s(0) == '-') {
-            atoi(s, 1, 0) match {
-              case Option.None => runtimeError("Cannot convert string to int")
-              case Option.Some(value) => push(Value.Int(-value))
-            }
-          } else {
-            atoi(s, 0, 0) match {
-              case Option.None => runtimeError("Cannot convert string to int")
-              case Option.Some(value) => push(Value.Int(value))
-            }
+    val a = pop()
+    a match {
+      case Value.Int(i) =>
+        push(Value.Int(i))
+        InterpretResult.Continue
+      case Value.Bool(true) =>
+        push(Value.Int(1))
+        InterpretResult.Continue
+      case Value.Bool(false) =>
+        push(Value.Int(0))
+        InterpretResult.Continue
+      case Value.String(s) =>
+        if (s.length == 0) {
+          runtimeError("Cannot convert empty string to int")
+        } else if (s(0) == '-') {
+          atoi(s, 1, 0) match {
+            case Option.None => runtimeError("Cannot convert string to int")
+            case Option.Some(value) => push(Value.Int(-value))
           }
+        } else {
+          atoi(s, 0, 0) match {
+            case Option.None => runtimeError("Cannot convert string to int")
+            case Option.Some(value) => push(Value.Int(value))
+          }
+        }
 
-        case _ =>
-          runtimeError("Cannot convert value to int")
-      }
+      case _ =>
+        runtimeError("Cannot convert value to int")
+    }
   }
 
   /** `char(value)`. */
   def charApplyOp(): InterpretResult = {
-      val a = pop()
-      a match {
-        case Value.Int(i) =>
-          push(Value.Int(i))
+    val a = pop()
+    a match {
+      case Value.Int(i) =>
+        push(Value.Int(i))
+        InterpretResult.Continue
+      case Value.String(s) =>
+        if (s.length == 1) {
+          push(Value.Int(s(0)))
           InterpretResult.Continue
-        case Value.String(s) =>
-          if (s.length == 1) {
-            push(Value.Int(s(0)))
-            InterpretResult.Continue
-          } else {
-            runtimeError(
-              "Cannot convert string of length " + string(s.length) + " to char"
-            )
-          }
-        case _ =>
-          runtimeError("Cannot convert value to char")
-      }
+        } else {
+          runtimeError(
+            "Cannot convert string of length " + string(s.length) + " to char"
+          )
+        }
+      case _ =>
+        runtimeError("Cannot convert value to char")
+    }
   }
 
   /** `compareTo` for every type that has an ordering.

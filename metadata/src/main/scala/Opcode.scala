@@ -63,9 +63,9 @@ object Opcode {
 
   /** Call a builtin, whose id is the operand.
     *
-    * A builtin is an `extern` method with no body to call into. One
-    * instruction rather than one per builtin: the id says which, so declaring
-    * a builtin does not grow the instruction set. See `Builtin`.
+    * A builtin is an `extern` method with no body to call into. One instruction
+    * rather than one per builtin: the id says which, so declaring a builtin
+    * does not grow the instruction set. See `Builtin`.
     */
   val Callx = 62
 
