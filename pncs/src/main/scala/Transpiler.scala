@@ -112,9 +112,9 @@ case class Transpiler(
     }
   }
 
-  /** The whitespace a token's leading trivia carries since its last line
-    * break — i.e. the indentation the token itself sits at. Used to put a
-    * synthesized line back at that same indentation.
+  /** The whitespace a token's leading trivia carries since its last line break
+    * — i.e. the indentation the token itself sits at. Used to put a synthesized
+    * line back at that same indentation.
     */
   def currentLineIndentation(leading: Array[SyntaxTrivia]): string = {
     var result = ""
