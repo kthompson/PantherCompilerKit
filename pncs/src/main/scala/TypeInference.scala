@@ -71,7 +71,8 @@ case class TypeInference(binder: Binder) {
         // it. Only a result with structure is evidence.
         Option.None
       case _ =>
-        val typeMap = inferTypeFromPair(resultType, expectedType, emptyTypeMap())
+        val typeMap =
+          inferTypeFromPair(resultType, expectedType, emptyTypeMap())
         if (allSolved(genericParams, typeMap, 0)) {
           Option.Some(mapGenericParamsToTypes(genericParams, typeMap))
         } else {

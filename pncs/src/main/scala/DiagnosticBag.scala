@@ -248,16 +248,16 @@ case class DiagnosticBag(settings: CompilerSettings) {
 
   /** `operator ~(…)`. Only a token the language already parses as a binary
     * operator may be declared — new syntax comes from a language change, not
-    * from a library
-    * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+    * from a library ([ADR
+    * 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
     */
   /** `[trace(…)]`. `derive` is the only attribute the language has. */
   def reportUnknownAttribute(location: TextLocation, name: string): unit =
     report(location, name + " is not an attribute")
 
   /** `[derive(Eq)] def f() = 1`. Derivation is over constructor parameters, so
-    * only a class or an enum has anything to derive
-    * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+    * only a class or an enum has anything to derive ([ADR
+    * 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
     */
   def reportDeriveNotSupported(location: TextLocation, what: string): unit =
     report(location, "derive cannot be applied to " + what)
@@ -272,9 +272,9 @@ case class DiagnosticBag(settings: CompilerSettings) {
       name + " cannot be derived; only Eq, Ord and Show can"
     )
 
-  /** A generic type's derived given is conditional — `Eq[Box[T]]` given
-    * `Eq[T]` — and a conditional given cannot reach its own premise yet
-    * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+  /** A generic type's derived given is conditional — `Eq[Box[T]]` given `Eq[T]`
+    * — and a conditional given cannot reach its own premise yet ([ADR
+    * 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
     */
   def reportDeriveOnGenericType(location: TextLocation, name: string): unit =
     report(location, "Cannot derive for " + name + ": it has type parameters")
@@ -301,8 +301,8 @@ case class DiagnosticBag(settings: CompilerSettings) {
 
   /** A token belongs to one trait. Without that rule `a == b` would need
     * overload resolution across traits, and the point of the design is that a
-    * use site resolves to one piece of evidence
-    * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+    * use site resolves to one piece of evidence ([ADR
+    * 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
     */
   def reportOperatorAlreadyClaimed(
       location: TextLocation,

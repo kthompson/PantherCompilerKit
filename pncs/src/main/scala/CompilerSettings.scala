@@ -24,8 +24,8 @@ case class CompilerSettings(
     printBoundAssembly: bool,
     printLoweredAssembly: bool,
     transpile: bool,
-    /** Compile and execute in one step, instead of emitting. There is no
-      * output file in this mode — every positional argument is a source.
+    /** Compile and execute in one step, instead of emitting. There is no output
+      * file in this mode — every positional argument is a source.
       */
     run: bool
 )

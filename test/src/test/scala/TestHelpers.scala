@@ -559,9 +559,9 @@ object TestHelpers {
       symbol.name.startsWith("$given$Ord$") ||
       symbol.name.startsWith("$given$Show$")
 
-  /** A static field the binder synthesizes on `$Program`: an evidence record
-    * or an enum case's singleton. Both are placement details rather than
-    * anything the source declared.
+  /** A static field the binder synthesizes on `$Program`: an evidence record or
+    * an enum case's singleton. Both are placement details rather than anything
+    * the source declared.
     */
   private def isSynthesizedField(symbol: Symbol): Boolean =
     symbol.name.startsWith("$case$")
@@ -570,8 +570,8 @@ object TestHelpers {
     * removed.
     *
     * Skipping it rather than asserting past it is what keeps a test about
-    * `val x = 12` from having to be updated whenever the prelude gains a
-    * given. The prelude has its own tests for what it defines.
+    * `val x = 12` from having to be updated whenever the prelude gains a given.
+    * The prelude has its own tests for what it defines.
     *
     * The root's own members are matched by name; below the root only the
     * synthesized fields on `$Program` are, so a source that declares a method

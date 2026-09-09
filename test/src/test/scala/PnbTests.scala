@@ -36,8 +36,8 @@ class PnbTests extends AnyFunSpec with Matchers {
 
   /** The int-to-bytes encoding, on its own.
     *
-    * A whole program only happens to contain the values that would expose a
-    * bad one — a middle byte of 0xFF in an otherwise small number corrupts
+    * A whole program only happens to contain the values that would expose a bad
+    * one — a middle byte of 0xFF in an otherwise small number corrupts
     * everything above it if the sign is not masked off, and no test program
     * reliably contains one.
     */
@@ -139,8 +139,8 @@ class PnbTests extends AnyFunSpec with Matchers {
       assertSameThroughImage("true")
     }
 
-    /** Strings are the table that had no serializer at all, so an image used
-      * to come back with names for nothing and no literals to load.
+    /** Strings are the table that had no serializer at all, so an image used to
+      * come back with names for nothing and no literals to load.
       */
     it("should round-trip string literals") {
       assertSameThroughImage("\"hello\"")
@@ -158,8 +158,8 @@ class PnbTests extends AnyFunSpec with Matchers {
       assertSameThroughImage("if (1 < 2) 10 else 20")
     }
 
-    /** Fields are the table whose reader strode three ints through
-      * four-int records.
+    /** Fields are the table whose reader strode three ints through four-int
+      * records.
       */
     it("should round-trip a program with classes and fields") {
       assertSameThroughImage(

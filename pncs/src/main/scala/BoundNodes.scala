@@ -68,6 +68,7 @@ enum BoundLiteral {
 enum BoundPattern {
   case Literal(literal: BoundLiteral)
   case Variable(symbol: Symbol)
+
   /** `case Color.Red =>` — a case named without destructuring it. It binds
     * nothing, but it is a test, which is why it cannot be a `Discard`.
     *
@@ -75,6 +76,7 @@ enum BoundPattern {
     * name everywhere this enum is matched on.
     */
   case TypeTest(typ: Type)
+
   /** `case x: int =>` — a test on the annotation, and then whatever the inner
     * pattern does. Without the test the annotation would be a claim the match
     * never checks, and `case x: int` would catch everything.
@@ -115,6 +117,7 @@ enum BoundExpression {
   )
   case Block(statements: List[BoundStatement], expression: BoundExpression)
   case Boolean(location: TextLocation, value: bool)
+
   /** A trait member called through evidence.
     *
     * Distinct from `Call` because the dispatch target is not a token in the
@@ -130,13 +133,14 @@ enum BoundExpression {
       arguments: List[BoundExpression],
       resultType: Type
   )
+
   /** The static field holding the evidence record that proves a goal.
     *
-    * Every call to a given's member carries one as its trailing argument
-    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
-    * decision C). Distinct from a member access because there is no receiver to
-    * name: the record lives on the program object and the binder holds the
-    * field directly.
+    * Every call to a given's member carries one as its trailing argument ([ADR
+    * 0006](../../../docs/architecture/adr/0006-conditional-givens.md), decision
+    * C). Distinct from a member access because there is no receiver to name:
+    * the record lives on the program object and the binder holds the field
+    * directly.
     */
   case EvidenceRecord(location: TextLocation, field: Symbol, resultType: Type)
   case Call(

@@ -252,8 +252,8 @@ case class GenericParametersSyntax(
 
 case class SeparatedSyntaxList[T](items: List[T], separators: List[SyntaxToken])
 
-/** One trait named inside a `derive` attribute, with the comma that follows
-  * it, if any — the same shape `ParameterSyntax` uses for its list.
+/** One trait named inside a `derive` attribute, with the comma that follows it,
+  * if any — the same shape `ParameterSyntax` uses for its list.
   */
 case class DerivedTraitSyntax(
     name: SyntaxToken,
@@ -262,9 +262,9 @@ case class DerivedTraitSyntax(
 
 /** `[derive(Eq, Ord, Show)]` ahead of a class or enum.
   *
-  * Derivation is opt-in: a type with no attribute gets no evidence, so `a ==
-  * b` on it is a diagnostic rather than a silent identity comparison
-  * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+  * Derivation is opt-in: a type with no attribute gets no evidence, so `a == b`
+  * on it is a diagnostic rather than a silent identity comparison ([ADR
+  * 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
   */
 case class DeriveAttributeSyntax(
     openBracketToken: SyntaxToken,
@@ -302,10 +302,12 @@ enum MemberSyntax {
       typeAnnotation: Option[TypeAnnotationSyntax],
       body: Option[FunctionBodySyntax]
   )
+
   /** A trait declares a capability: a name, its type parameters, and the
     * members an instance has to supply. It has no constructor parameters
     * because a trait is never instantiated — evidence for it comes from a
-    * `given` ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+    * `given` ([ADR
+    * 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
     */
   case TraitDeclarationSyntax(
       traitKeyword: SyntaxToken,
@@ -313,13 +315,15 @@ enum MemberSyntax {
       genericParameters: Option[GenericParametersSyntax],
       template: TemplateSyntax
   )
+
   /** `given Eq[int] { … }`, or with a premise,
     * `given [T: Ord] => Ord[List[T]] { … }`.
     *
     * The type parameters and the `=>` travel together: a given with nothing to
     * bind has neither. There is no name — under global coherence there is one
     * given per `(trait, type)` pair, so a name would have nothing to select
-    * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+    * ([ADR
+    * 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
     */
   case GivenDeclarationSyntax(
       givenKeyword: SyntaxToken,
@@ -542,13 +546,13 @@ object AstUtils {
         locationOfBoundExpression(left).merge(locationOfBoundExpression(right))
       case BoundExpression.Block(statements, expression) =>
         locationOfBoundExpression(expression)
-      case BoundExpression.Boolean(location, _)          => location
-      case BoundExpression.Call(location, _, _, _, _, _) => location
+      case BoundExpression.Boolean(location, _)               => location
+      case BoundExpression.Call(location, _, _, _, _, _)      => location
       case BoundExpression.EvidenceCall(location, _, _, _, _) => location
       case BoundExpression.EvidenceRecord(location, _, _)     => location
-      case BoundExpression.Cast(location, expression, _) => location
-      case BoundExpression.Character(location, _)        => location
-      case BoundExpression.For(location, _, _, _, _)     => location
+      case BoundExpression.Cast(location, expression, _)      => location
+      case BoundExpression.Character(location, _)             => location
+      case BoundExpression.For(location, _, _, _, _)          => location
       case BoundExpression.If(
             location,
             cond,

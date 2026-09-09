@@ -126,6 +126,7 @@ enum LoweredExpression {
       arguments: Chain[LoweredExpression],
       resultType: Type
   )
+
   /** A trait member called through evidence. The emitter loads the evidence,
     * loads the member's token from it, and issues `Calli`; `arguments` already
     * has the receiver prepended, because a trait declares both operands as
@@ -138,6 +139,7 @@ enum LoweredExpression {
       arguments: Chain[LoweredExpression],
       resultType: Type
   )
+
   /** The static field holding an evidence record, loaded as the trailing
     * argument of a call to a given's member (ADR 0006, decision C).
     */
@@ -614,7 +616,10 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
         )
       case List.Cons(head, tail) =>
         val block =
-          lowerExpression(head, LoweredBlock(statements, LoweredExpression.Unit))
+          lowerExpression(
+            head,
+            LoweredBlock(statements, LoweredExpression.Unit)
+          )
         lowerEvidenceCallArguments(
           call,
           tail,
@@ -1286,9 +1291,9 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
 
   /** One case, as `if (<test>) { <bindings>; <result> } else <the rest>`.
     *
-    * An irrefutable pattern — `case _` or `case x` — has no test, so it
-    * becomes the body directly and whatever follows it is unreachable, which
-    * is what a catch-all means.
+    * An irrefutable pattern — `case _` or `case x` — has no test, so it becomes
+    * the body directly and whatever follows it is unreachable, which is what a
+    * catch-all means.
     */
   def boundMatchCaseToExpression(
       variable: Symbol,
@@ -1299,7 +1304,8 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
     val scrutinee: BoundExpression =
       BoundExpression.Variable(matchCase.location, variable, Option.None)
 
-    val bindings = patternBindings(scrutinee, matchCase.pattern, matchCase.location)
+    val bindings =
+      patternBindings(scrutinee, matchCase.pattern, matchCase.location)
     val body: BoundExpression =
       if (bindings.isEmpty) matchCase.result
       else BoundExpression.Block(bindings, matchCase.result)
@@ -1350,7 +1356,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
         val test = BoundExpression.Is(location, scrutinee, typ)
 
         patternTest(scrutinee, inner, location) match {
-          case Option.None => Option.Some(test)
+          case Option.None            => Option.Some(test)
           case Option.Some(innerTest) =>
             // nested, not `&&`-ed: the inner pattern may read the value as the
             // annotated type, which only the outer test establishes
@@ -1408,7 +1414,8 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
     fields match {
       case List.Nil => BoundExpression.Boolean(location, true)
       case List.Cons(field, tail) =>
-        val rest = subPatternTests(scrutinee, tail, patterns, index + 1, location)
+        val rest =
+          subPatternTests(scrutinee, tail, patterns, index + 1, location)
 
         if (index >= patterns.length) rest
         else
@@ -1511,13 +1518,13 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
     */
   def constructorCaseType(constructor: Symbol): Option[Type] = {
     constructor.parent match {
-      case Option.None         => Option.None
+      case Option.None        => Option.None
       case Option.Some(owner) => binder.tryGetSymbolType(owner)
     }
   }
 
-  /** The fields a constructor pattern destructures, in the order its
-    * parameters are declared.
+  /** The fields a constructor pattern destructures, in the order its parameters
+    * are declared.
     *
     * Taken from the constructor's parameters rather than from the type's
     * fields, because a pattern is positional and `members()` gives a class's
@@ -1562,8 +1569,8 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       binder.getSymbolType(field)
     )
 
-  /** A scrutinee as something a member access can hang off. Only the two
-    * shapes `patternTest` builds ever reach this.
+  /** A scrutinee as something a member access can hang off. Only the two shapes
+    * `patternTest` builds ever reach this.
     */
   def asLeftHandSide(expr: BoundExpression): BoundLeftHandSide = {
     expr match {

@@ -17,9 +17,9 @@ enum SymbolKind {
   /** A synthesized parameter carrying the evidence for one context bound.
     *
     * Its own kind rather than `Parameter` so printers and arity diagnostics can
-    * tell it from something the user wrote, while the emitter still allots it an
-    * argument slot — the mirror of the `This` problem below, which needed to be
-    * skipped rather than counted.
+    * tell it from something the user wrote, while the emitter still allots it
+    * an argument slot — the mirror of the `This` problem below, which needed to
+    * be skipped rather than counted.
     */
   case Evidence
   case Alias

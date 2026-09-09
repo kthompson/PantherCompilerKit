@@ -3,9 +3,8 @@ import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 
 /** `Calli` is exercised directly against a hand-built chunk. The emitter does
-  * not produce one yet, and this is the instruction every call through
-  * evidence will go through, so it is worth pinning independently of the
-  * front end.
+  * not produce one yet, and this is the instruction every call through evidence
+  * will go through, so it is worth pinning independently of the front end.
   */
 class CalliTests extends AnyFunSpec with Matchers {
 
@@ -61,7 +60,7 @@ class CalliTests extends AnyFunSpec with Matchers {
 
       value match {
         case Value.Int(i) => i shouldBe 42
-        case other        => throw new AssertionError("expected int, got " + other)
+        case other => throw new AssertionError("expected int, got " + other)
       }
     }
 

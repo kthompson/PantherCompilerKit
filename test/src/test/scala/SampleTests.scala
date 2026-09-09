@@ -52,7 +52,11 @@ class SampleTests extends AnyFunSpec with Matchers {
     * no recorded output is untested, and the fix is to run with
     * `UPDATE_SNAPSHOTS=1` and read what it wrote.
     */
-  private def checkSnapshot(name: String, kind: String, actual: String): Unit = {
+  private def checkSnapshot(
+      name: String,
+      kind: String,
+      actual: String
+  ): Unit = {
     val file = snapshotsDir.resolve(name + "." + kind + ".txt")
     if (updating) {
       Files.createDirectories(snapshotsDir)
@@ -77,11 +81,11 @@ class SampleTests extends AnyFunSpec with Matchers {
     }
 
     val ending = result match {
-      case InterpretResult.Exit(code) => "exit " + code
-      case InterpretResult.RuntimeError => "runtime error"
-      case InterpretResult.CompileError => "compile error"
+      case InterpretResult.Exit(code)     => "exit " + code
+      case InterpretResult.RuntimeError   => "runtime error"
+      case InterpretResult.CompileError   => "compile error"
       case InterpretResult.OkValue(value) => "ok"
-      case _ => "ok"
+      case _                              => "ok"
     }
 
     buffer.toString("utf-8") + "--- " + ending + "\n"
@@ -109,11 +113,15 @@ class SampleTests extends AnyFunSpec with Matchers {
           checkSnapshot(name, "out", runSample(source))
         }
 
-        /** The binder's answer: every symbol and the type it was given. This
-          * is where a type that went missing shows up.
+        /** The binder's answer: every symbol and the type it was given. This is
+          * where a type that went missing shows up.
           */
         it("should produce the expected symbols") {
-          checkSnapshot(name, "symbols", mkCompilation(source).symbolsText(false))
+          checkSnapshot(
+            name,
+            "symbols",
+            mkCompilation(source).symbolsText(false)
+          )
         }
 
         /** The desugaring: `while` to labels and gotos, `match` to tests,

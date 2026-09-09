@@ -127,15 +127,14 @@ object Program {
     }
   }
 
-  /** Runs a clean compilation and answers the code the process should end
-    * with.
+  /** Runs a clean compilation and answers the code the process should end with.
     *
     * A program that chose its own code reports that code; one that failed at
     * runtime reports 1, there being no code to honour.
     */
   def execute(compilation: Compilation): int = {
     compilation.exec() match {
-      case InterpretResult.Exit(code) => code
+      case InterpretResult.Exit(code)   => code
       case InterpretResult.RuntimeError => 1
       case InterpretResult.CompileError => 1
       // `Ok` and `OkValue` are both a program that ran to the end. What it

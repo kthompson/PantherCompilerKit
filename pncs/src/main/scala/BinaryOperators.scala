@@ -115,8 +115,8 @@ case class BinaryOperators(binder: Binder) {
     * question the caller asks last, because evidence has to come first: a type
     * with `Eq` evidence must compare through that evidence rather than by
     * identity, and folding the identity rule in here would answer before the
-    * evidence was ever consulted
-    * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+    * evidence was ever consulted ([ADR
+    * 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
     */
   def checkBinary(
       left: Type,
@@ -124,7 +124,8 @@ case class BinaryOperators(binder: Binder) {
       operator: BinaryOperatorKind
   ): Type = _checkBinary(binaryOps, left, right, operator)
 
-  /** [ADR 0003](../../../docs/architecture/adr/0003-equality-on-reference-types.md)'s
+  /** [ADR
+    * 0003](../../../docs/architecture/adr/0003-equality-on-reference-types.md)'s
     * rule, now the last resort rather than part of the table lookup.
     */
   def referenceEquality(
