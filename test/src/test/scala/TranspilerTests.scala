@@ -15,7 +15,7 @@ class TranspilerTests extends AnyFunSpec with Matchers {
   describe("Transpiler") {
     it("should derive Eq and Show for a case class") {
       mkTranspiled("case class Point(x: int, y: int)") shouldBe
-        "[derive(Eq, Show)] class Point(x: int, y: int)"
+        "[derive(Eq, Show)]\nclass Point(x: int, y: int)"
     }
 
     it("should leave a plain class without an attribute") {
@@ -28,7 +28,8 @@ class TranspilerTests extends AnyFunSpec with Matchers {
     it("should keep a case class's surroundings") {
       mkTranspiled(
         "object Shapes {\n  case class Circle(r: int)\n}"
-      ) shouldBe "object Shapes {\n  [derive(Eq, Show)] class Circle(r: int)\n}"
+      ) shouldBe
+        "object Shapes {\n  [derive(Eq, Show)]\n  class Circle(r: int)\n}"
     }
 
     /** A `[` opening a line is an attribute, not the type arguments of the name
@@ -39,7 +40,7 @@ class TranspilerTests extends AnyFunSpec with Matchers {
       val transpiled = mkTranspiled(
         "import panther._\n\ncase class TextSpan(start: int)"
       )
-      transpiled should include("[derive(Eq, Show)] class TextSpan")
+      transpiled should include("[derive(Eq, Show)]\nclass TextSpan")
       treeDiagnosticMessages(mkSyntaxTree(transpiled)) shouldBe empty
     }
 
@@ -78,7 +79,7 @@ class TranspilerTests extends AnyFunSpec with Matchers {
       mkTranspiled("def f(a: Array[String]): Unit = ()") shouldBe
         "def f(a: Array[string]): unit = ()"
       mkTranspiled("case class Label(name: String)") shouldBe
-        "[derive(Eq, Show)] class Label(name: string)"
+        "[derive(Eq, Show)]\nclass Label(name: string)"
     }
 
     /** The hard half. `String`, `Boolean` and `Unit` are also the names of
@@ -95,7 +96,7 @@ class TranspilerTests extends AnyFunSpec with Matchers {
 
     it("should leave a qualified type ending in String alone") {
       mkTranspiled("case class Holder(e: E.String)") shouldBe
-        "[derive(Eq, Show)] class Holder(e: E.String)"
+        "[derive(Eq, Show)]\nclass Holder(e: E.String)"
     }
 
     /** What the transpiled sources are made of: the attribute has to survive a
