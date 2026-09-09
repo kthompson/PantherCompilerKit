@@ -2498,6 +2498,41 @@ using panther
     )
   }
 
+  /** A case's own members, then its enum's. `List.Cons` declares `head` and
+    * `tail`; `reverse` is declared once, on `List`, and every case shares it.
+    * `Symbol.lookupMember` only looks at `_children`, so a case's symbol never
+    * saw the enum's members on its own — the case wins when both declare a
+    * name, because this only reaches the enum when the case lookup fails.
+    */
+  def lookupMemberOrEnum(symbol: Symbol, name: string): Option[Symbol] = {
+    symbol.lookupMember(name) match {
+      case Option.Some(member) => Option.Some(member)
+      case Option.None         => lookupEnumMember(symbol, name)
+    }
+  }
+
+  /** `symbol` is an enum case exactly when it is a `Class` defined directly
+    * inside an `Alias` — `bindEnumCases` calls `defineClass` on the scope
+    * `bindEnum` entered on the enum's own symbol, which is what makes the case
+    * a child of it. Anything else — an ordinary class, a type parameter's
+    * symbol — has no enum to fall back to.
+    */
+  def lookupEnumMember(symbol: Symbol, name: string): Option[Symbol] = {
+    if (symbol.kind == SymbolKind.Class) {
+      symbol.parent match {
+        case Option.None => Option.None
+        case Option.Some(parent) =>
+          if (parent.kind == SymbolKind.Alias) {
+            parent.lookupMember(name)
+          } else {
+            Option.None
+          }
+      }
+    } else {
+      Option.None
+    }
+  }
+
   def bindMemberForSymbolAndType(
       leftType: Type,
       right: SyntaxToken,
@@ -2523,7 +2558,7 @@ using panther
             )
         }
       case Option.Some(symbol) =>
-        symbol.lookupMember(right.text) match {
+        lookupMemberOrEnum(symbol, right.text) match {
           case Option.None =>
             // The type has members but not this one, so a given may still
             // supply it as a contextual extension. Reached only after the
