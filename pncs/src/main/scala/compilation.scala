@@ -151,7 +151,7 @@ case class Compilation(
         val token = MethodToken(i)
         disassembler.disassembleMethod(token)
       }
-      println()
+      println("")
     }
 
     val vm =

@@ -190,11 +190,11 @@ class LoweredAssemblyPrinter(
       case left: LoweredLeftHandSide.MemberAccess =>
         printMemberAccess(left)
       case left: LoweredLeftHandSide.New =>
-        printNew(left)
+        printNewLeftHandSide(left)
     }
   }
 
-  def printNew(value: LoweredLeftHandSide.New): unit = {
+  def printNewLeftHandSide(value: LoweredLeftHandSide.New): unit = {
     ast.writeWithColor(ColorPalette.Keyword, "new ")
     ast.append(value.constructor.parent.get().name)
     ast.writeWithColor(ColorPalette.Punctuation, "(")
@@ -231,7 +231,7 @@ class LoweredAssemblyPrinter(
       case expr: LoweredExpression.MemberAccess =>
         printMemberAccessExpression(expr)
       case expr: LoweredExpression.New =>
-        printNew(expr)
+        printNewExpr(expr)
       case expr: LoweredExpression.String =>
         printStringLiteral(expr)
       case expr: LoweredExpression.This =>
@@ -259,7 +259,7 @@ class LoweredAssemblyPrinter(
     ast.append(value.symbol.name)
   }
 
-  def printNew(value: LoweredExpression.New): unit = {
+  def printNewExpr(value: LoweredExpression.New): unit = {
     ast.writeWithColor(ColorPalette.Keyword, "new ")
     ast.append(value.constructor.parent.get().name)
     ast.writeWithColor(ColorPalette.Punctuation, "(")

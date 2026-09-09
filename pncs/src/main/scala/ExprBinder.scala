@@ -401,7 +401,7 @@ case class ExprBinder(
 
         case _ =>
           // Fall back to regular inference
-          inferCall(function, args, scope)
+          inferCallBound(function, args, scope)
       }
     }
   }
@@ -582,7 +582,7 @@ case class ExprBinder(
         inferBinary(node, scope)
       case node: Expression.Block => inferBlock(node, scope)
       case node: Expression.Call =>
-        inferCall(node, scope) match {
+        inferCallNode(node, scope) match {
           case Result.Error(value)   => value
           case Result.Success(value) => convertLHSToExpression(value)
         }
@@ -634,7 +634,7 @@ case class ExprBinder(
             Result.Success(BoundLeftHandSide.MemberAccess(value))
         }
       case node: Expression.Call =>
-        inferCall(node, scope) match {
+        inferCallNode(node, scope) match {
           case Result.Error(value)   => Result.Error(value)
           case Result.Success(value) => Result.Success(value)
         }
@@ -644,12 +644,10 @@ case class ExprBinder(
           case Result.Success(value) => Result.Success(value)
         }
       case _ =>
-        panic(
-          "bindLHS called with non-LHS expression: " + expr.toString()
-        )
+        panic("bindLHS called with non-LHS expression")
         Result.Error(
           BoundExpression.Error(
-            "Expected left-hand side expression but got: " + expr.toString()
+            "Expected left-hand side expression"
           )
         )
     }
@@ -1099,7 +1097,7 @@ case class ExprBinder(
     }
   }
 
-  def inferCall(
+  def inferCallNode(
       node: Expression.Call,
       scope: Scope
   ): Result[
@@ -1113,7 +1111,7 @@ case class ExprBinder(
         val exprs = fromExpressionList(node.arguments.expressions)
         val args =
           bindArgumentExpressions(function, exprs, Option.None, scope)
-        inferCall(function, args, scope)
+        inferCallBound(function, args, scope)
     }
   }
 
@@ -1267,7 +1265,7 @@ case class ExprBinder(
   def ofMatchingArity(types: List[Type], argCount: int): List[Type] =
     if (types.length == argCount) types else List.Nil
 
-  def inferCall(
+  def inferCallBound(
       function: BoundLeftHandSide,
       args: List[BoundExpression],
       scope: Scope

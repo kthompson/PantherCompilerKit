@@ -151,7 +151,7 @@ object MakeCompilation {
         val token = MethodToken(i)
         disassembler.disassembleMethod(token)
       }
-      println()
+      println("")
     }
 
     val vm =

@@ -4,7 +4,7 @@ Where the compiler kit is going, and what has to be true before it gets there.
 
 The three things that matter most:
 
-1. **Self-hosting** — `pnc` compiles itself without help from Scala. 10
+1. **Self-hosting** — `pnc` compiles itself without help from Scala. 4
    diagnostics stand between here and there, all itemized below.
 2. **Generics** — inference is done (§2.1); upper bounds, variance
    enforcement, and generic aliases/unions are not (§2.2–§2.5).
@@ -27,7 +27,7 @@ sbt pncs/compile && sbt test/test
 Green: 523 tests across the lexer, parser, binder, type checker, VM, metadata
 format, transpiler, and args parser.
 
-### The self-hosted compiler is 10 diagnostics from clean
+### The self-hosted compiler is 4 diagnostics from clean
 
 ```bash
 sbt pnc/compile
@@ -36,16 +36,12 @@ sbt pnc/compile
 | Count | Diagnostic                      |
 | ----: | -------------------------------- |
 |     4 | `Cannot derive Eq`/`Show`        |
-|     3 | argument-count mismatches        |
-|     2 | `Duplicate definition`           |
-|     1 | `Cannot convert from A to B`     |
 
-All ten trace back to one thing, tracked in full at §1.3: Panther has no
-overload resolution, and `inferCall` (`ExprBinder.scala`) and `printNew`
-(`LoweredAssemblyPrinter.scala`) are each declared twice with different
-signatures in the Scala source. Every name in the generated tree resolves,
-every operator has a match, and no diagnostic mentions an unsolved type
-variable — this is the whole list.
+The overload pair (`inferCall`/`printNew`, each declared twice with different
+signatures) and the stray zero-arg `println()` are resolved — see §1.3 items
+1–2. `inferCall` is now `inferCallNode`/`inferCallBound`, and `printNew` is
+now `printNewLeftHandSide`/`printNewExpr`. What's left is the 4 derivation
+reports at §1.3 item 3, which are a call-site fix, not a rename.
 
 `sbt pnc/compile` fails the build on this count (`build.sbt:146`), by design
 (§1.2). **It is not run in CI** — only `pncs/compile` and `test/test` are —
@@ -117,15 +113,19 @@ runs it.
 
 ### 1.3 Burn down the diagnostics
 
-1. **Overloads** — the 2 `Duplicate definition` (`inferCall`, `printNew`),
-   the 2 argument-count mismatches that are `inferCall(node, scope)` called
-   against its three-parameter overload, and the 1 `Cannot convert`, which is
-   `printNew(left)` picking the `LoweredExpression.New` overload for a
-   `LoweredLeftHandSide.New`. Panther has no overload resolution; either
-   rename the two pairs to distinct names or add it.
-2. **A stray argument count** — `println()` with no argument, in
-   `compilation.pn:154`, which Scala allows (an overload) and Panther does
-   not.
+1. ~~**Overloads**~~ — done. Panther has no overload resolution, so
+   `inferCall` split into `inferCallNode` (the two-argument, AST-based form)
+   and `inferCallBound` (the three-argument, already-bound form), and
+   `printNew` split into `printNewLeftHandSide` and `printNewExpr`. Fixing the
+   `inferCall` shadowing let the checker reach a previously-unreached `panic`
+   branch in `inferLHS`, which called `expr.toString()` — not a real method on
+   either side, since `[derive(Eq, Show)]` only gives Panther a `show()`, and
+   Scala's case-class `toString()` has no Panther counterpart at all. Dropped
+   the interpolated expression from that message instead of picking a method
+   that would work in one language and not the other.
+2. ~~**A stray argument count**~~ — done. `println()` with no argument in
+   `compilation.pn:154` became `println("")`, which Scala allows (an
+   overload) and Panther does not.
 3. **4 derivation reports that should stay** — `Cannot derive Eq`/`Show` for
    `ConversionClassifier` (a field of `ExprBinder`) and `AstPrinter` (a field
    of `SymbolPrinter`). Both types genuinely have no meaningful equality or
@@ -425,10 +425,9 @@ moved.
 
 ## What's left, roughly in order
 
-1. **§1.3** — resolve the `inferCall`/`printNew` overload pair (rename or add
-   overload resolution) and the stray `println()` in `compilation.pn`. That's
-   6 of the 10 diagnostics; the other 4 (derivation) need a call-site fix, not
-   a diagnostics-count fix.
+1. **§1.3** — the `inferCall`/`printNew` overload pair and the stray
+   `println()` in `compilation.pn` are resolved. What's left is 4 derivation
+   diagnostics that need a call-site fix, not a diagnostics-count fix.
 2. **Gate `sbt pnc/compile` in CI.** It isn't run there today, so the count
    above isn't actually protected from regressing.
 3. **§1.4** — close the 36 `unimplemented` panics, starting with
@@ -448,7 +447,7 @@ moved.
 
 | Metric                            |         Now | Target | Command                                     |
 | --------------------------------- | ----------: | -----: | -------------------------------------------- |
-| Self-hosting diagnostics          |          10 |      0 | `sbt pnc/compile` (fails on non-zero; not yet run in CI) |
+| Self-hosting diagnostics          |           4 |      0 | `sbt pnc/compile` (fails on non-zero; not yet run in CI) |
 | — of those, derivation             |           4 |      0 | §1.3 item 3                                  |
 | Doc blocks that fail              | **0 / 201** |      0 | `sbt "doccheck/run docs/src/content/docs"`   |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                     |
