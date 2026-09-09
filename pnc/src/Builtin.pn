@@ -66,27 +66,27 @@ object Builtin {
   /** The id for a method's qualified name, or `None` if it names no builtin. */
   def idOf(qualifiedName: string): int = {
     qualifiedName match {
-      case "println"                    => Println
-      case "print"                      => Print
-      case "panic"                      => Panic
-      case "exit"                       => Exit
-      case "assert"                     => Assert
-      case "mod"                        => Mod
-      case "string.apply"               => StringApply
-      case "int.apply"                  => IntApply
-      case "bool.apply"                 => BoolApply
-      case "char.apply"                 => CharApply
-      case "string.substring"           => Substring
-      case "string.endsWith"            => EndsWith
-      case "string.compareTo"           => StringCompareTo
-      case "int.compareTo"              => IntCompareTo
-      case "File.readAllText"           => ReadAllText
-      case "File.readAllBytes"          => ReadAllBytes
-      case "File.writeAllBytes"         => WriteAllBytes
-      case "File.writeAllText"          => WriteAllText
-      case "Path.combine"               => PathCombine
-      case "Path.nameWithoutExtension"  => PathName
-      case _                            => None
+      case "println"                   => Println
+      case "print"                     => Print
+      case "panic"                     => Panic
+      case "exit"                      => Exit
+      case "assert"                    => Assert
+      case "mod"                       => Mod
+      case "string.apply"              => StringApply
+      case "int.apply"                 => IntApply
+      case "bool.apply"                => BoolApply
+      case "char.apply"                => CharApply
+      case "string.substring"          => Substring
+      case "string.endsWith"           => EndsWith
+      case "string.compareTo"          => StringCompareTo
+      case "int.compareTo"             => IntCompareTo
+      case "File.readAllText"          => ReadAllText
+      case "File.readAllBytes"         => ReadAllBytes
+      case "File.writeAllBytes"        => WriteAllBytes
+      case "File.writeAllText"         => WriteAllText
+      case "Path.combine"              => PathCombine
+      case "Path.nameWithoutExtension" => PathName
+      case _                           => None
     }
   }
 

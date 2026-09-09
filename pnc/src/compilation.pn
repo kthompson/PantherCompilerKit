@@ -73,9 +73,9 @@ class Compilation(
   /** The printers, as text.
     *
     * `withColor` off is what anything that compares the output wants — a
-    * snapshot of a coloured tree is a snapshot of the escape codes. The
-    * builder accumulates rather than printing as it goes, which is the other
-    * half of being able to hand the result back.
+    * snapshot of a coloured tree is a snapshot of the escape codes. The builder
+    * accumulates rather than printing as it goes, which is the other half of
+    * being able to hand the result back.
     */
   def symbolsText(withColor: bool): string = {
     val sb = IndentedStringBuilder(false)
