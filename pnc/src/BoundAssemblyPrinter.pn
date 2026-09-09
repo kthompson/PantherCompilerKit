@@ -73,21 +73,21 @@ class BoundAssemblyPrinter(
       case expr: BoundExpression.EvidenceCall  => printEvidenceCall(expr)
       case expr: BoundExpression.EvidenceRecord =>
         printEvidenceRecord(expr)
-      case expr: BoundExpression.Cast          => printCastExpression(expr)
-      case expr: BoundExpression.Character     => printCharacterLiteral(expr)
-      case expr: BoundExpression.For           => printForExpression(expr)
-      case expr: BoundExpression.If            => printIfExpression(expr)
-      case expr: BoundExpression.Index         => printIndexExpression(expr)
-      case expr: BoundExpression.Int           => printIntLiteral(expr)
-      case expr: BoundExpression.Is            => printIsExpression(expr)
-      case expr: BoundExpression.MemberAccess  => printMemberAccess(expr)
-      case expr: BoundExpression.New           => printNewExpression(expr)
-      case expr: BoundExpression.String        => printStringLiteral(expr)
-      case expr: BoundExpression.Unary         => printUnaryExpression(expr)
-      case expr: BoundExpression.Unit          => printUnitExpression(expr)
-      case expr: BoundExpression.Variable      => printVariable(expr)
-      case expr: BoundExpression.While         => printWhileExpression(expr)
-      case expr: BoundExpression.Match         => printMatchExpression(expr)
+      case expr: BoundExpression.Cast         => printCastExpression(expr)
+      case expr: BoundExpression.Character    => printCharacterLiteral(expr)
+      case expr: BoundExpression.For          => printForExpression(expr)
+      case expr: BoundExpression.If           => printIfExpression(expr)
+      case expr: BoundExpression.Index        => printIndexExpression(expr)
+      case expr: BoundExpression.Int          => printIntLiteral(expr)
+      case expr: BoundExpression.Is           => printIsExpression(expr)
+      case expr: BoundExpression.MemberAccess => printMemberAccess(expr)
+      case expr: BoundExpression.New          => printNewExpression(expr)
+      case expr: BoundExpression.String       => printStringLiteral(expr)
+      case expr: BoundExpression.Unary        => printUnaryExpression(expr)
+      case expr: BoundExpression.Unit         => printUnitExpression(expr)
+      case expr: BoundExpression.Variable     => printVariable(expr)
+      case expr: BoundExpression.While        => printWhileExpression(expr)
+      case expr: BoundExpression.Match        => printMatchExpression(expr)
     }
   }
 
@@ -181,6 +181,7 @@ class BoundAssemblyPrinter(
     printExpressions(expr.arguments)
     writeWithColor(ColorPalette.Punctuation, ")")
   }
+
   /** Printed as `$ev$K$Eq.equals(a, b)` so the evidence the call dispatches
     * through is visible, unlike an ordinary call where the target is the name.
     */

@@ -307,8 +307,8 @@ class LoweredAssemblyPrinter(
     ast.writeWithColor(ColorPalette.String, "'" + string(expr.value) + "'")
   }
 
-  /** `$ev$K$Eq.equals(a, b)` — the evidence is shown because it is the
-    * dispatch target, not a receiver.
+  /** `$ev$K$Eq.equals(a, b)` — the evidence is shown because it is the dispatch
+    * target, not a receiver.
     */
   def printEvidenceCall(call: LoweredExpression.EvidenceCall): unit = {
     ast.append(evidenceName(call.evidence))

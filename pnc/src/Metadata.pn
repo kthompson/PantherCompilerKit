@@ -275,8 +275,8 @@ class Metadata() {
   /** Every table, in an order `read` repeats.
     *
     * Strings were left out, which is why nothing could be read back: every
-    * other table refers to one by token, so an image without them has names
-    * for nothing and `Ldstr` has no literal to load.
+    * other table refers to one by token, so an image without them has names for
+    * nothing and `Ldstr` has no literal to load.
     */
   def write(buffer: IntList): unit = {
     typeDefs.write(buffer)

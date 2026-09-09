@@ -46,12 +46,12 @@ class Namespaced[A](ns: List[string], value: A)
 /** A resolved proof, and the static field its record lives in.
   *
   * One per ground goal rather than one per given, because a conditional given
-  * proves a different thing at every instantiation
-  * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
-  * decision B). `premises` are the given's constraints with this
-  * instantiation's type arguments substituted in, so they are ground goals too
-  * and name the records the dependency half points at — `Eq[List[Symbol]]`
-  * holding a reference to `Eq[Symbol]`, which is ADR 0005's recursive evidence.
+  * proves a different thing at every instantiation ([ADR
+  * 0006](../../../docs/architecture/adr/0006-conditional-givens.md), decision
+  * B). `premises` are the given's constraints with this instantiation's type
+  * arguments substituted in, so they are ground goals too and name the records
+  * the dependency half points at — `Eq[List[Symbol]]` holding a reference to
+  * `Eq[Symbol]`, which is ADR 0005's recursive evidence.
   */
 [derive(Eq, Show)]
 class BoundEvidenceRecord(
@@ -72,11 +72,11 @@ class BoundEvidenceRecord(
 /** A given's member, resolved for a particular goal.
   *
   * `record` is what proves that goal, which the caller passes as the member's
-  * trailing argument
-  * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
-  * decision C). `typeArguments` are what instantiated the given: a conditional
-  * given's member is declared in that given's own type variables, so a caller
-  * has to substitute before it can check operands against the signature.
+  * trailing argument ([ADR
+  * 0006](../../../docs/architecture/adr/0006-conditional-givens.md), decision
+  * C). `typeArguments` are what instantiated the given: a conditional given's
+  * member is declared in that given's own type variables, so a caller has to
+  * substitute before it can check operands against the signature.
   */
 [derive(Eq, Show)]
 class GivenMember(
@@ -107,8 +107,8 @@ class BoundGiven(
     * A derived body over `items: List[T]` needs `Eq[List[$0]]`, which is
     * neither ground — so no static record proves it — nor one of the declared
     * premises. It becomes a dependency of this given instead, resolved per
-    * instantiation exactly as a premise is
-    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md)).
+    * instantiation exactly as a premise is ([ADR
+    * 0006](../../../docs/architecture/adr/0006-conditional-givens.md)).
     *
     * Growable, and read rather than snapshotted everywhere, because a body is
     * built after the records that will hold its slots have been interned.
@@ -121,8 +121,8 @@ class BoundGiven(
   * The two halves happen in different passes because they need different
   * things: registering needs only the type, so that coherence sees the given
   * and evidence records can be laid out, while a body reads the constructor
-  * parameters' field types, which are not bound until later
-  * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+  * parameters' field types, which are not bound until later ([ADR
+  * 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
   */
 [derive(Eq, Show)]
 class Derivation(
@@ -138,10 +138,9 @@ class Derivation(
 /** One case of an enum being derived for, in declaration order.
   *
   * A class's derivation has no cases and reads `parameterNames`; an enum's has
-  * a case per alternative and no parameters of its own. The order is the
-  * enum's own, which is what `Ord` compares by before it looks at any
-  * parameter
-  * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+  * a case per alternative and no parameters of its own. The order is the enum's
+  * own, which is what `Ord` compares by before it looks at any parameter ([ADR
+  * 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
   */
 [derive(Eq, Show)]
 class DerivedCase(
@@ -478,9 +477,10 @@ class Binder(
 
   /** `system.io`, which the Scala side shims in
     * [`panther.scala`](../../../../runtime/src/main/scala/panther.scala) — the
-    * one file `sbt pncs/transpile` skips ([`build.sbt:43`](../../../../build.sbt:43)),
-    * so there is no generated `.pn` for these to bind to and they have to be
-    * declared here like the rest of the prelude.
+    * one file `sbt pncs/transpile` skips
+    * ([`build.sbt:43`](../../../../build.sbt:43)), so there is no generated
+    * `.pn` for these to bind to and they have to be declared here like the rest
+    * of the prelude.
     *
     * At the root rather than under a `system.io` namespace, because the binder
     * does not bind `using` directives at all: they are parsed, printed and
@@ -520,7 +520,13 @@ class Binder(
       ListModule.one(
         Tuple2(
           "bytes",
-          Type.Class(noLoc, List.Nil, "Array", ListModule.one(intType), arraySymbol)
+          Type.Class(
+            noLoc,
+            List.Nil,
+            "Array",
+            ListModule.one(intType),
+            arraySymbol
+          )
         )
       )
     ),
@@ -613,7 +619,8 @@ class Binder(
     *
     * A token may be claimed by at most one trait, so that `a == b` resolves to
     * one piece of evidence rather than needing overload resolution across
-    * traits ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+    * traits ([ADR
+    * 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
     *
     * Keyed by token kind rather than by text: a kind has exactly one spelling,
     * while `SyntaxFacts.getBinaryOperatorText` gives `&&` for both `LogicalAnd`
@@ -624,10 +631,10 @@ class Binder(
   /** Every evidence record the program needs, in reverse discovery order.
     *
     * Interned as resolution reaches each ground goal, rather than laid out once
-    * per given: a conditional given has no single record to lay out
-    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
-    * decision B). Discovery order is a function of the source, which is what
-    * stage 3 needs — the field order is part of the bytecode.
+    * per given: a conditional given has no single record to lay out ([ADR
+    * 0006](../../../docs/architecture/adr/0006-conditional-givens.md), decision
+    * B). Discovery order is a function of the source, which is what stage 3
+    * needs — the field order is part of the bytecode.
     *
     * Each holds a static field on the program object; the emitter fills the
     * slots, being the first place method tokens are known.
@@ -669,10 +676,10 @@ class Binder(
 
   /** The record's element type is `any` rather than `int` because the slots
     * hold two kinds of thing: a method token in the token half, and a reference
-    * to another record in the dependency half
-    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
-    * decision A). The VM's array is untyped — the element type only picks a
-    * default value — so this costs nothing at runtime.
+    * to another record in the dependency half ([ADR
+    * 0006](../../../docs/architecture/adr/0006-conditional-givens.md), decision
+    * A). The VM's array is untyped — the element type only picks a default
+    * value — so this costs nothing at runtime.
     */
   val evidenceRecordType: Type =
     Type.Class(
@@ -789,16 +796,20 @@ class Binder(
     val value = param(symbol, "value", operand)
     setSymbolType(
       symbol,
-      Type.Function(noLoc, ListModule.one(BoundParameter(value, operand)), result)
+      Type.Function(
+        noLoc,
+        ListModule.one(BoundParameter(value, operand)),
+        result
+      )
     )
     defineSelfEvidence(symbol)
     symbol
   }
 
   /** Every member of a given takes the record it was reached through, whether
-    * or not that given has premises
-    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
-    * decision C).
+    * or not that given has premises ([ADR
+    * 0006](../../../docs/architecture/adr/0006-conditional-givens.md), decision
+    * C).
     *
     * Uniform because `Calli` is: the VM reads the argument count from the
     * *callee's* metadata, and a caller dispatching on a token it read out of a
@@ -810,8 +821,8 @@ class Binder(
     * in `Type.Function.parameters` both leave it out — the arity a diagnostic
     * reports is still the one the source wrote (ADR 0005, decision E).
     *
-    * A trait's own members go through the same two builders and are not
-    * given members, which is what the owner check is for.
+    * A trait's own members go through the same two builders and are not given
+    * members, which is what the owner check is for.
     */
   def defineSelfEvidence(member: Symbol): unit = {
     member.parent match {
@@ -819,7 +830,7 @@ class Binder(
       case Option.Some(owner) =>
         if (owner.kind == SymbolKind.Given) {
           member.tryDefineEvidence(selfEvidenceName, member.location) match {
-            case Either.Left(_) => ()
+            case Either.Left(_)       => ()
             case Either.Right(symbol) =>
               // Typed as what the given proves, not as the record's own
               // `Array[any]`. The value is the same either way — the emitter
@@ -848,8 +859,8 @@ class Binder(
   /** Registers a prelude given and returns its symbol.
     *
     * Named after what it proves rather than numbered. `bindGiven` numbers the
-    * givens it binds so that the numbering is deterministic across compilers;
-    * a prelude given is already deterministic, and a name keeps the user's
+    * givens it binds so that the numbering is deterministic across compilers; a
+    * prelude given is already deterministic, and a name keeps the user's
     * `$given$0` the first one they wrote.
     */
   def builtinGiven(traitSymbol: Symbol, typ: Type, typeName: string): Symbol = {
@@ -874,9 +885,9 @@ class Binder(
   /** A prelude given's member, whose body is the operator the builtin table
     * already has a row for: `Eq[int].==` is `a == b` on two ints.
     *
-    * The body is a bound expression rather than parsed source, so it skips
-    * type checking — which is the point, since the check it would go through
-    * is the one that sends `a == b` back here looking for evidence.
+    * The body is a bound expression rather than parsed source, so it skips type
+    * checking — which is the point, since the check it would go through is the
+    * one that sends `a == b` back here looking for evidence.
     */
   def builtinBinaryBody(
       owner: Symbol,
@@ -992,7 +1003,11 @@ class Binder(
       )
     )
 
-  def declareLocal(symbol: Symbol, typ: Type, init: BoundExpression): BoundStatement =
+  def declareLocal(
+      symbol: Symbol,
+      typ: Type,
+      init: BoundExpression
+  ): BoundStatement =
     BoundStatement.VariableDeclaration(symbol, false, typ, init)
 
   def arrayLengthOf(array: Symbol): BoundExpression =
@@ -1254,7 +1269,13 @@ class Binder(
       BinaryOperatorKind.LessThanOrEqual,
       boolType
     )
-    builtinBinaryBody(symbol, ">", typ, BinaryOperatorKind.GreaterThan, boolType)
+    builtinBinaryBody(
+      symbol,
+      ">",
+      typ,
+      BinaryOperatorKind.GreaterThan,
+      boolType
+    )
     builtinBinaryBody(
       symbol,
       ">=",
@@ -1325,7 +1346,7 @@ class Binder(
       parameters: List[Tuple2[string, Type]]
   ): List[BoundParameter] =
     parameters match {
-      case List.Nil => List.Nil
+      case List.Nil                           => List.Nil
       case List.Cons(Tuple2(name, typ), rest) =>
         // The head is defined before the tail is walked, so the parameters end
         // up in the order they were written.
@@ -1809,19 +1830,19 @@ class Binder(
       case _: BoundExpression.Unit       => unitType
       case _: BoundExpression.While      => unitType
 
-      case expr: BoundExpression.ArrayCreation => expr.resultType
+      case expr: BoundExpression.ArrayCreation  => expr.resultType
       case expr: BoundExpression.EvidenceCall   => expr.resultType
       case expr: BoundExpression.EvidenceRecord => expr.resultType
-      case expr: BoundExpression.Binary        => expr.resultType
-      case expr: BoundExpression.Block         => getType(expr.expression)
-      case expr: BoundExpression.Call          => expr.resultType
-      case expr: BoundExpression.Cast          => expr.targetType
-      case expr: BoundExpression.Index         => expr.resultType
-      case expr: BoundExpression.If            => expr.resultType
-      case expr: BoundExpression.Match         => expr.resultType
-      case expr: BoundExpression.MemberAccess  => expr.resultType
-      case expr: BoundExpression.New           => expr.resultType
-      case expr: BoundExpression.Unary         => expr.resultType
+      case expr: BoundExpression.Binary         => expr.resultType
+      case expr: BoundExpression.Block          => getType(expr.expression)
+      case expr: BoundExpression.Call           => expr.resultType
+      case expr: BoundExpression.Cast           => expr.targetType
+      case expr: BoundExpression.Index          => expr.resultType
+      case expr: BoundExpression.If             => expr.resultType
+      case expr: BoundExpression.Match          => expr.resultType
+      case expr: BoundExpression.MemberAccess   => expr.resultType
+      case expr: BoundExpression.New            => expr.resultType
+      case expr: BoundExpression.Unary          => expr.resultType
       case expr: BoundExpression.Variable =>
         expr.resultType match {
           case Option.None        => getSymbolType(expr.symbol)
@@ -2885,9 +2906,9 @@ class Binder(
     }
   }
 
-  /** Only the prelude's three traits can be derived: derivation is a rule
-    * about what each of them means over a list of parameters, and there is no
-    * such rule for a trait the compiler has never seen.
+  /** Only the prelude's three traits can be derived: derivation is a rule about
+    * what each of them means over a list of parameters, and there is no such
+    * rule for a trait the compiler has never seen.
     */
   def derivableTrait(name: string): Option[Symbol] = {
     if (name == "Eq") Option.Some(eqSymbol)
@@ -3211,10 +3232,10 @@ class Binder(
     * for `leftType`.
     *
     * The premise is not a symbol — it is a slot in the dependency half of the
-    * record the member was reached through
-    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
-    * decision D), which is what `scanEvidenceMembers` cannot find by walking
-    * members. Inside `given [T: Ord] => Ord[Box[T]]`, `a.value.compare(b.value)`
+    * record the member was reached through ([ADR
+    * 0006](../../../docs/architecture/adr/0006-conditional-givens.md), decision
+    * D), which is what `scanEvidenceMembers` cannot find by walking members.
+    * Inside `given [T: Ord] => Ord[Box[T]]`, `a.value.compare(b.value)`
     * resolves `compare` here.
     *
     * Only a method directly inside a given has one, which is what the
@@ -3311,7 +3332,7 @@ class Binder(
     */
   def evidenceGoal(evidence: BoundEvidence): Type = {
     evidence match {
-      case BoundEvidence.Held(symbol)      => getSymbolType(symbol)
+      case BoundEvidence.Held(symbol)        => getSymbolType(symbol)
       case BoundEvidence.Premise(_, _, goal) => goal
     }
   }
@@ -3322,7 +3343,7 @@ class Binder(
       members: List[Symbol]
   ): Option[KeyValue[BoundEvidence, Symbol]] = {
     members match {
-      case List.Nil => Option.None
+      case List.Nil              => Option.None
       case List.Cons(head, tail) =>
         // Evidence reaches a body two ways: as its own parameter, or as the
         // field a constrained class stores its constructor's evidence in. The
@@ -3333,9 +3354,8 @@ class Binder(
         // annotated: the self-hosted compiler does not widen the branches of
         // an `if` to their common supertype
         val found: Option[KeyValue[BoundEvidence, Symbol]] =
-          if (
-            head.kind != SymbolKind.Evidence && head.kind != SymbolKind.Field
-          ) Option.None
+          if (head.kind != SymbolKind.Evidence && head.kind != SymbolKind.Field)
+            Option.None
           else
             tryGetSymbolType(head) match {
               case Option.Some(
@@ -3368,8 +3388,8 @@ class Binder(
     * last and both `getMethodParameterMap` and metadata emission give them the
     * trailing argument slots. Appending rather than prepending is what keeps
     * every declared parameter at the slot it already had — the VM reserves slot
-    * 0 for the receiver and numbers declared parameters from 1
-    * ([ADR 0005](../../../docs/architecture/adr/0005-evidence-representation.md),
+    * 0 for the receiver and numbers declared parameters from 1 ([ADR
+    * 0005](../../../docs/architecture/adr/0005-evidence-representation.md),
     * decision A).
     *
     * Order is type-parameter declaration order, which `bindGenericConstraints`
@@ -3383,7 +3403,7 @@ class Binder(
       scope: Scope
   ): List[Symbol] = {
     constraints match {
-      case List.Nil => List.Nil
+      case List.Nil                    => List.Nil
       case List.Cons(constraint, tail) =>
         // define before recursing: `symbol.members()` is in definition order,
         // and that order is the argument slot order
@@ -3526,7 +3546,11 @@ class Binder(
       case List.Nil => acc
       case List.Cons(head, tail) =>
         val separator = if (acc == "") "" else ", "
-        renderGoalList(tail, generics, acc + separator + renderGoal(head, generics))
+        renderGoalList(
+          tail,
+          generics,
+          acc + separator + renderGoal(head, generics)
+        )
     }
   }
 
@@ -3605,11 +3629,11 @@ class Binder(
 
   def isGroundType(typ: Type): bool = {
     typ match {
-      case Type.Variable(_, _)         => false
-      case Type.Class(_, _, _, args, _) => isGroundTypeList(args)
+      case Type.Variable(_, _)             => false
+      case Type.Class(_, _, _, args, _)    => isGroundTypeList(args)
       case Type.Alias(_, _, _, args, _, _) => isGroundTypeList(args)
-      case Type.Union(_, cases)        => isGroundTypeList(cases)
-      case _                           => true
+      case Type.Union(_, cases)            => isGroundTypeList(cases)
+      case _                               => true
     }
   }
 
@@ -3632,9 +3656,9 @@ class Binder(
     * needs `Eq[List[Symbol]]`, which needs `Eq[Symbol]` again and finds the
     * record already being built. ADR 0005 asks for exactly that rule, and it
     * costs nothing here because a record is an array — a reference to one that
-    * is allocated but not yet filled is still a usable reference
-    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
-    * decision E).
+    * is allocated but not yet filled is still a usable reference ([ADR
+    * 0006](../../../docs/architecture/adr/0006-conditional-givens.md), decision
+    * E).
     */
   def resolveEvidence(
       rawGoal: Type,
@@ -3791,9 +3815,9 @@ class Binder(
   }
 
   /** One-way match: `pattern` comes from a given's head and may contain type
-    * variables, `goal` is ground. Unlike `typesOverlap`, which only answers
-    * yes or no for the coherence check, this records what each variable had to
-    * be — a conditional given needs those bindings to instantiate its premise.
+    * variables, `goal` is ground. Unlike `typesOverlap`, which only answers yes
+    * or no for the coherence check, this records what each variable had to be —
+    * a conditional given needs those bindings to instantiate its premise.
     */
   def matchType(
       pattern: Type,
@@ -3996,8 +4020,8 @@ class Binder(
     }
   }
 
-  /** The two operands of a derived binary member, which
-    * `builtinBinaryMember` defined as `a` and `b`.
+  /** The two operands of a derived binary member, which `builtinBinaryMember`
+    * defined as `a` and `b`.
     */
   def derivedOperands(member: Symbol): Tuple2[Symbol, Symbol] = {
     filterParameters(member.members()) match {
@@ -4035,9 +4059,9 @@ class Binder(
     )
 
   /** A call to a given's member. `evidence` is the record it was reached
-    * through, which every given's member takes as its trailing argument
-    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
-    * decision C).
+    * through, which every given's member takes as its trailing argument ([ADR
+    * 0006](../../../docs/architecture/adr/0006-conditional-givens.md), decision
+    * C).
     */
   def derivedCall(
       member: Symbol,
@@ -4084,9 +4108,9 @@ class Binder(
     BoundExpression.EvidenceRecord(noLoc, field, evidenceRecordType)
 
   /** `arguments` with the record appended, which every direct call to a given's
-    * member needs
-    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
-    * decision C).
+    * member needs ([ADR
+    * 0006](../../../docs/architecture/adr/0006-conditional-givens.md), decision
+    * C).
     *
     * `None` means resolution failed and reported; the argument is appended
     * anyway, as an error, so the arity still matches what the callee declares
@@ -4114,7 +4138,9 @@ class Binder(
       case Option.Some(symbol) =>
         BoundExpression.Variable(noLoc, symbol, Option.Some(evidenceRecordType))
       case Option.None =>
-        panic("buildDerivedBody: " + member.name + " has no " + selfEvidenceName)
+        panic(
+          "buildDerivedBody: " + member.name + " has no " + selfEvidenceName
+        )
     }
   }
 
@@ -4123,10 +4149,10 @@ class Binder(
     * `Ground` is the case that has always existed: the parameter's type is
     * concrete, a given proves it outright, and the body calls that given's
     * member directly with its record. `Through` is what a *generic* type's
-    * derivation needs — the goal mentions the given's own type variables, so
-    * it is discharged by the record the member was reached through, and the
-    * call dispatches rather than naming a target
-    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md)).
+    * derivation needs — the goal mentions the given's own type variables, so it
+    * is discharged by the record the member was reached through, and the call
+    * dispatches rather than naming a target ([ADR
+    * 0006](../../../docs/architecture/adr/0006-conditional-givens.md)).
     */
   [derive(Eq, Show)] enum DerivedEvidence {
     case Ground(member: Symbol, record: Symbol)
@@ -4248,8 +4274,7 @@ class Binder(
       case Option.Some(index) => base + index
       case Option.None =>
         val index = candidate.dependencies.length
-        candidate.dependencies =
-          appendConstraint(candidate.dependencies, goal)
+        candidate.dependencies = appendConstraint(candidate.dependencies, goal)
         base + index
     }
   }
@@ -4860,8 +4885,8 @@ class Binder(
     * coherence a given in a sibling namespace is still the only candidate, so
     * it has to be reachable. The declaration site is kept on `BoundGiven` but
     * does not limit visibility yet — restricting it is what relaxing to true
-    * lexical scoping would turn on
-    * ([ADR 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
+    * lexical scoping would turn on ([ADR
+    * 0004](../../../docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)).
     */
   def registerGiven(candidate: BoundGiven): unit = {
     findOverlappingGiven(candidate, givens) match {
@@ -4912,7 +4937,7 @@ class Binder(
     */
   def evidenceTypes(typ: Type): List[Type] = {
     enclosingEnumType(typ) match {
-      case Option.None         => ListModule.one(typ)
+      case Option.None          => ListModule.one(typ)
       case Option.Some(enumTyp) => List.Cons(typ, ListModule.one(enumTyp))
     }
   }
@@ -4934,10 +4959,10 @@ class Binder(
     *
     * `enclosingEnumType` answers with the enum as declared, which is enough for
     * the operator paths: they compare it against a ground receiver and never
-    * instantiate it. A goal has to keep the arguments —
-    * `Eq[List.Cons<int>]` widens to `Eq[List<int>]`, not to `Eq[List]` — and a
-    * case's type parameters are the enum's, in order, because `bindEnumCases`
-    * passes them straight through.
+    * instantiate it. A goal has to keep the arguments — `Eq[List.Cons<int>]`
+    * widens to `Eq[List<int>]`, not to `Eq[List]` — and a case's type
+    * parameters are the enum's, in order, because `bindEnumCases` passes them
+    * straight through.
     */
   def widenedEnumType(typ: Type): Option[Type] = {
     val args = typ match {
@@ -5016,7 +5041,13 @@ class Binder(
               ) =>
             if (args.length == 1) {
               Option.Some(
-                Type.Class(loc, ns, traitName, ListModule.one(operandType), symbol)
+                Type.Class(
+                  loc,
+                  ns,
+                  traitName,
+                  ListModule.one(operandType),
+                  symbol
+                )
               )
             } else Option.None
           case _ => Option.None
@@ -5028,16 +5059,16 @@ class Binder(
     * proves it.
     *
     * The ground half of operator resolution: where `findEvidenceMember` finds
-    * evidence held by an enclosing declaration, this finds the given itself.
-    * A given is a singleton whose members are static, so the caller emits an
+    * evidence held by an enclosing declaration, this finds the given itself. A
+    * given is a singleton whose members are static, so the caller emits an
     * ordinary call rather than dispatching through the record — the record
     * exists to defer a choice, and here there is nothing left to defer.
     *
     * The record still comes back, because the member takes one as its trailing
-    * argument whether the caller needed it to choose or not
-    * ([ADR 0006](../../../docs/architecture/adr/0006-conditional-givens.md),
-    * decision C). Resolving is what interns it: a ground call site is a use,
-    * and a goal nothing uses gets no record.
+    * argument whether the caller needed it to choose or not ([ADR
+    * 0006](../../../docs/architecture/adr/0006-conditional-givens.md), decision
+    * C). Resolving is what interns it: a ground call site is a use, and a goal
+    * nothing uses gets no record.
     */
   def findGivenMember(
       rawGoal: Type,
@@ -5078,8 +5109,8 @@ class Binder(
     * holds — this answers for a type the givens name directly, so
     * `value.show()` works on a `Point` and not only inside `[T: Show]`.
     *
-    * Only reached once an ordinary lookup has failed, which is what settles
-    * the shadowing question: a member a type declares itself always wins.
+    * Only reached once an ordinary lookup has failed, which is what settles the
+    * shadowing question: a member a type declares itself always wins.
     */
   def findGivenExtension(
       leftType: Type,
@@ -5093,10 +5124,10 @@ class Binder(
     * trait applied to `leftType`.
     *
     * Matching the head structurally would miss every conditional given, whose
-    * head holds a type variable: `Show[Box[$0]]` does not equal `Show[Box<int>]`
-    * and only unification relates them. Going through `findGivenMember` also
-    * means one place decides which given wins, and one place interns the
-    * record.
+    * head holds a type variable: `Show[Box[$0]]` does not equal
+    * `Show[Box<int>]` and only unification relates them. Going through
+    * `findGivenMember` also means one place decides which given wins, and one
+    * place interns the record.
     */
   def scanGivenExtensions(
       leftType: Type,
@@ -5184,8 +5215,8 @@ class Binder(
     * `K`. Applying the trait to the variable rather than recording the pair
     * separately is what lets `Types.substitute` do the work later: substituting
     * `int` for `$0` turns the constraint into `Eq[int]`, which is exactly the
-    * goal evidence resolution has to satisfy
-    * ([ADR 0005](../../../docs/architecture/adr/0005-evidence-representation.md),
+    * goal evidence resolution has to satisfy ([ADR
+    * 0005](../../../docs/architecture/adr/0005-evidence-representation.md),
     * decision E).
     *
     * Run this after `bindGenericTypeParameters`, which is what defines the
@@ -5212,7 +5243,7 @@ class Binder(
           case Option.None => rest
           case Option.Some(GenericBoundsSyntax(_, name)) =>
             bindContextBound(name, identifier.location, index, scope) match {
-              case Option.None            => rest
+              case Option.None             => rest
               case Option.Some(constraint) => List.Cons(constraint, rest)
             }
         }
@@ -5367,11 +5398,10 @@ class Binder(
 
         // Register this object for static constructor creation if it has initialization statements or fields
         if (allStatements.length > 0 || members.fields.length > 0) {
-          ctorsToBind =
-            ctorsToBind.put(
-              symbol,
-              ConstructorParams(List.Nil, List.Nil, List.Nil)
-            )
+          ctorsToBind = ctorsToBind.put(
+            symbol,
+            ConstructorParams(List.Nil, List.Nil, List.Nil)
+          )
         }
     }
   }

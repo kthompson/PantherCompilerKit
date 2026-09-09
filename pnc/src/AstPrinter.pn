@@ -137,8 +137,9 @@ class AstPrinter(withColor: bool, buffer: IndentedStringBuilder) {
       case Option.Some(value) => printGenericParameters(value)
     }
     node.arrowToken match {
-      case Option.None        => ()
-      case Option.Some(value) => printTokenWithColor(value, ColorPalette.Keyword)
+      case Option.None => ()
+      case Option.Some(value) =>
+        printTokenWithColor(value, ColorPalette.Keyword)
     }
     printName(node.name)
     printTemplate(node.template)
