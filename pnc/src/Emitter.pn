@@ -1304,8 +1304,37 @@ class Emitter(
       emitLocal(expr, context)
     } else if (expr.symbol.kind == SymbolKind.Field) {
       emitField(expr, context)
+    } else if (expr.symbol.kind == SymbolKind.Class) {
+      emitClassVariable(expr, context)
     } else {
       panic("emitVariable: unsupported symbol kind " + string(expr.symbol.kind))
+    }
+  }
+
+  def emitClassVariable(
+      expr: LoweredExpression.Variable,
+      context: EmitContext
+  ): unit = {
+    if (isEnumSingleton(expr.symbol)) {
+      // A bare enum case name, e.g. `Red` rather than `Color.Red`, names the
+      // one instance `$runtimeInit` built — same singleton field load as the
+      // `Color.Red` member-access form.
+      binder.singletonFields.get(expr.symbol) match {
+        case Option.Some(field) =>
+          fieldTokens.get(field) match {
+            case Option.Some(token) =>
+              chunk.emitOpcode(Opcode.Ldsfld, expr.location.startLine)
+              chunk.emitI4(token.token, expr.location.startLine)
+            case Option.None =>
+              panic("emitVariable: no field token for " + expr.symbol.name)
+          }
+        case Option.None =>
+          panic("emitVariable: no singleton for " + expr.symbol.name)
+      }
+    } else {
+      // A class named as a value on its own, e.g. the receiver of a static
+      // call, contributes nothing to the stack — there is no instance to load.
+      chunk.emitOpcode(Opcode.Nop, expr.location.startLine)
     }
   }
 

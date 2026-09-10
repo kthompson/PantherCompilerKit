@@ -28,24 +28,51 @@ sbt pncs/compile && sbt test/test
 Green: 528 tests across the lexer, parser, binder, type checker, VM, metadata
 format, transpiler, and args parser.
 
-### The self-hosted compiler has zero diagnostics, and is now blocked on emission
+### The self-hosted compiler emits, and produces a `.pnb`
 
 ```bash
 sbt pnc/compile
 ```
 
-**0 diagnostics.** §1.3 is closed: the overload pair (`inferCall`/`printNew`,
-item 1), the stray zero-arg `println()` (item 2), and the 4 derivation
-reports (item 3) are all resolved.
+**0 diagnostics**, and now a completed build: `sbt pnc/compile` succeeds and
+writes `pnc/target/pnc.pnb`. §1.3 is closed: the overload pair
+(`inferCall`/`printNew`, item 1), the stray zero-arg `println()` (item 2), and
+the 4 derivation reports (item 3) are all resolved.
 
-`sbt pnc/compile` still fails, but past all of lowering now — every
-`unimplemented` panic in `Lowered.scala` is closed (§1.4). Compilation
-reaches emission and panics on `emitVariable: unsupported symbol kind Class`
-([`Emitter.scala:1305`](pncs/src/main/scala/Emitter.scala:1305)) — a separate,
+Emission used to panic on `emitVariable: unsupported symbol kind Class`
+([`Emitter.scala:1305`](pncs/src/main/scala/Emitter.scala:1305)) — an
 untracked bug, not one of the 26 `panic("unimplemented: …")` calls tracked at
-§1.4. It fails the build either way (`build.sbt:146`), by design (§1.2). **It
-is not run in CI** — only `pncs/compile` and `test/test` are — so a
-regression here would not be caught automatically.
+§1.4. `LoweredExpression.Variable` had no case for a bare reference to a
+class or parameterless enum case (e.g. naming an enum case without its
+enum's qualifier); `emitVariable` now handles it the same way
+`emitMemberAccess` already handled the qualified form — load the case's
+singleton static field, or emit nothing for an ordinary class named as a
+pseudo-value (`Emitter.scala:1290-1323`).
+
+Fixing that surfaced a second, related panic one level up:
+`emitMemberAccess: unsupported symbol kind Class`, from
+`if (expr == BoundExpression.Error)` in `ExprBinder.scala` (three call
+sites: `checkBlock`, `bindConversionExpr`, `inferBlock`). `Error` takes a
+`message: string`, so referencing it bare names the case's constructor, not
+a value — comparing an actual `BoundExpression` to it with `==` was never
+meaningful, only silently `false` in Scala and a hard panic once the
+self-hosted emitter had to generate real code for it. Rewritten as
+`expr match { case _: BoundExpression.Error => expr; case _ => ... }`,
+matching the `_: BoundExpression.Error` pattern already used a few lines
+away in the same file. This is unrelated to the tracked `==`/`!=` runtime
+bug at §1.3 (reference equality on two real instances) — pattern matching
+doesn't go through that codegen path at all.
+
+`build.sbt`'s `pnc/compile` task also passed its own `target/` directory as
+the compiler's output *file* path, which only surfaced once emission stopped
+panicking first; fixed to pass `target/pnc.pnb` instead
+(`build.sbt`).
+
+**It is not run in CI** — only `pncs/compile` and `test/test` are — so a
+regression here would not be caught automatically. Producing a `.pnb`
+without panicking is not the same as self-hosting: stage 3, `pnc`-compiled-
+by-`pnc` matching `pnc`-compiled-by-`pncs` byte-for-byte, is still
+unverified (§1.5).
 
 ### The docs compile
 
@@ -465,9 +492,9 @@ moved.
 2. **Gate `sbt pnc/compile` in CI.** It isn't run there today, so the count
    above isn't actually protected from regressing.
 3. **§1.4** — close the remaining 26 `unimplemented` panics. `Lowered.scala`
-   is fully done; `pnc/compile` now reaches emission and panics there on an
-   unrelated, untracked bug (`emitVariable`, `Emitter.scala:1305`) before it
-   would even reach the next tracked one.
+   is fully done; the untracked `emitVariable`/`emitMemberAccess` panic that
+   used to block emission before reaching any of the 26 is fixed, and
+   `pnc/compile` now completes and writes a `.pnb`.
 4. **§1.5** — stage 3, the self-hosting fixed point.
 5. **Decide the stdlib-in-scope question** (§3.3/§4.4) — it's the one thing
    blocking the last 2 samples and doccheck's biggest gap simultaneously.

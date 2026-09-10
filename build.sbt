@@ -130,16 +130,21 @@ lazy val pnc = project
         if (pnFiles.isEmpty) {
           log.warn("No .pn files found to compile.")
         } else {
-          val outDir = target.value.getAbsolutePath
+          val outFile = (target.value / "pnc.pnb").getAbsolutePath
 
           log.info(
-            s"Compiling ${pnFiles.size} .pn files to $outDir using $mainCls"
+            s"Compiling ${pnFiles.size} .pn files to $outFile using $mainCls"
           )
 
           val result = Fork.java
             .fork(
               ForkOptions().withWorkingDirectory(baseDirectory.value),
-              Seq("-cp", cp, mainCls, outDir) ++ pnFiles.map(_.getAbsolutePath)
+              Seq(
+                "-cp",
+                cp,
+                mainCls,
+                outFile
+              ) ++ pnFiles.map(_.getAbsolutePath)
             )
             .exitValue()
 

@@ -312,10 +312,9 @@ class ExprBinder(
       case Option.Some(value) => check(value, expectedType, block)
     }
 
-    if (expr == BoundExpression.Error) {
-      expr
-    } else {
-      BoundExpression.Block(statements, expr)
+    expr match {
+      case _: BoundExpression.Error => expr
+      case _                        => BoundExpression.Block(statements, expr)
     }
   }
 
@@ -667,10 +666,9 @@ class ExprBinder(
       scope: Scope
   ): BoundExpression = {
     val bound = infer(expr, scope)
-    if (bound == BoundExpression.Error) {
-      bound
-    } else {
-      bindConversion(bound, toType, false)
+    bound match {
+      case _: BoundExpression.Error => bound
+      case _                        => bindConversion(bound, toType, false)
     }
   }
 
@@ -1088,10 +1086,9 @@ class ExprBinder(
       case Option.Some(value) => infer(value, block)
     }
 
-    if (expr == BoundExpression.Error) {
-      expr
-    } else {
-      BoundExpression.Block(statements, expr)
+    expr match {
+      case _: BoundExpression.Error => expr
+      case _                        => BoundExpression.Block(statements, expr)
     }
   }
 
