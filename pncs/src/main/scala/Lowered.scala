@@ -411,7 +411,18 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       case BoundLeftHandSide.Index(expression) =>
         lowerIndexAssignment(expression, block)
       case BoundLeftHandSide.MemberAccess(expression) =>
-        panic("unimplemented: lowerAssignment")
+        val receiver = lowerLeftHandSide(expression.receiver, block)
+        LoweredBlock(
+          receiver.statements.append(
+            LoweredStatement.AssignField(
+              expression.location,
+              receiver.expression,
+              expression.member,
+              block.expression
+            )
+          ),
+          LoweredExpression.Unit
+        )
       case BoundLeftHandSide.New(expression) =>
         panic("unimplemented: lowerAssignment")
       case BoundLeftHandSide.Variable(location, symbol) =>
@@ -1011,11 +1022,33 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       case BoundLeftHandSide.ArrayCreation(expression) =>
         panic("unimplemented: lowerLeftHandSide")
       case BoundLeftHandSide.Call(expression) =>
-        panic("unimplemented: lowerLeftHandSide")
+        val block = lowerCallExpression(expression, context)
+        val temp = createTemporary()
+        LoweredLeftHandSideBlock(
+          block.statements.append(
+            LoweredStatement.AssignLocal(
+              expression.location,
+              temp,
+              block.expression
+            )
+          ),
+          LoweredLeftHandSide.Variable(expression.location, temp)
+        )
       case BoundLeftHandSide.EvidenceCall(expression) =>
         panic("unimplemented: lowerLeftHandSide")
       case BoundLeftHandSide.Index(expression) =>
-        panic("unimplemented: lowerLeftHandSide")
+        val block = lowerIndexExpression(expression, context)
+        val temp = createTemporary()
+        LoweredLeftHandSideBlock(
+          block.statements.append(
+            LoweredStatement.AssignLocal(
+              expression.location,
+              temp,
+              block.expression
+            )
+          ),
+          LoweredLeftHandSide.Variable(expression.location, temp)
+        )
       case BoundLeftHandSide.New(expression) =>
         lowerNewExpression(expression, context)
       case BoundLeftHandSide.MemberAccess(expression) =>

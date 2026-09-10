@@ -1402,18 +1402,7 @@ class ExprBinder(
     args match {
       case List.Cons(indexArg, List.Nil) =>
         val boundIndex = bindConversion(indexArg, binder.intType, false)
-        val receiver = function match {
-          case BoundLeftHandSide.Variable(loc, sym) =>
-            BoundExpression.Variable(
-              loc,
-              sym,
-              binder.tryGetSymbolType(sym)
-            )
-          case BoundLeftHandSide.MemberAccess(memberAccess) =>
-            memberAccess
-          case _ =>
-            BoundExpression.Error("Unsupported array expression type")
-        }
+        val receiver = convertLHSToExpression(function)
         val indexExpr = new BoundExpression.Index(
           location,
           receiver,
