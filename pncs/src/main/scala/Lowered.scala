@@ -403,11 +403,15 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
 
     expr.receiver match {
       case BoundLeftHandSide.ArrayCreation(expression) =>
-        panic("unimplemented: lowerAssignment")
+        panic(
+          "lowerAssignment: an array creation is not a valid assignment target"
+        )
       case BoundLeftHandSide.Call(expression) =>
-        panic("unimplemented: lowerAssignment")
+        panic("lowerAssignment: a call result is not a valid assignment target")
       case BoundLeftHandSide.EvidenceCall(expression) =>
-        panic("unimplemented: lowerAssignment")
+        panic(
+          "lowerAssignment: an evidence call result is not a valid assignment target"
+        )
       case BoundLeftHandSide.Index(expression) =>
         lowerIndexAssignment(expression, block)
       case BoundLeftHandSide.MemberAccess(expression) =>
@@ -424,7 +428,9 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
           LoweredExpression.Unit
         )
       case BoundLeftHandSide.New(expression) =>
-        panic("unimplemented: lowerAssignment")
+        panic(
+          "lowerAssignment: a constructor call is not a valid assignment target"
+        )
       case BoundLeftHandSide.Variable(location, symbol) =>
         if (symbol.kind == SymbolKind.Field) {
           lowerFieldAssignment(symbol, block)
@@ -1020,7 +1026,18 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
   ): LoweredLeftHandSideBlock = {
     lhs match {
       case BoundLeftHandSide.ArrayCreation(expression) =>
-        panic("unimplemented: lowerLeftHandSide")
+        val block = lowerArrayCreation(expression, context)
+        val temp = createTemporary()
+        LoweredLeftHandSideBlock(
+          block.statements.append(
+            LoweredStatement.AssignLocal(
+              expression.location,
+              temp,
+              block.expression
+            )
+          ),
+          LoweredLeftHandSide.Variable(expression.location, temp)
+        )
       case BoundLeftHandSide.Call(expression) =>
         val block = lowerCallExpression(expression, context)
         val temp = createTemporary()
@@ -1035,7 +1052,18 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
           LoweredLeftHandSide.Variable(expression.location, temp)
         )
       case BoundLeftHandSide.EvidenceCall(expression) =>
-        panic("unimplemented: lowerLeftHandSide")
+        val block = lowerEvidenceCall(expression, context)
+        val temp = createTemporary()
+        LoweredLeftHandSideBlock(
+          block.statements.append(
+            LoweredStatement.AssignLocal(
+              expression.location,
+              temp,
+              block.expression
+            )
+          ),
+          LoweredLeftHandSide.Variable(expression.location, temp)
+        )
       case BoundLeftHandSide.Index(expression) =>
         val block = lowerIndexExpression(expression, context)
         val temp = createTemporary()
@@ -1632,7 +1660,10 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       context: LoweredBlock
   ): LoweredBlock = {
     statement match {
-      case BoundStatement.Error => panic("unimplemented: lowerStatement")
+      case BoundStatement.Error =>
+        // Already reported at bind time (e.g. break/continue, a duplicate
+        // declaration) — nothing to lower.
+        context
       case statement: BoundStatement.ExpressionStatement =>
         lowerExpressionStatement(statement, context)
       case statement: BoundStatement.VariableDeclaration =>

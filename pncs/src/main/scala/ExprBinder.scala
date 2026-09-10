@@ -262,15 +262,23 @@ class ExprBinder(
       case Tuple2(_, BoundExpression.Error(_)) =>
         rhs
       case Tuple2(Result.Success(lhs), rhs) =>
-        reportIfReadOnly(lhs)
-        getLHSType(lhs) match {
-          case Type.Error(message) => BoundExpression.Error(message)
-          case lhsType =>
-            BoundExpression.Assignment(
-              AstUtils.locationOfExpression(expr),
-              lhs,
-              bindConversion(rhs, lhsType, false)
-            )
+        if (!isAssignableLHS(lhs)) {
+          val location = AstUtils.locationOfExpression(expr.left)
+          diagnosticBag.reportExpressionIsNotAssignable(location)
+          BoundExpression.Error(
+            "Expression is not assignable: " + string(location)
+          )
+        } else {
+          reportIfReadOnly(lhs)
+          getLHSType(lhs) match {
+            case Type.Error(message) => BoundExpression.Error(message)
+            case lhsType =>
+              BoundExpression.Assignment(
+                AstUtils.locationOfExpression(expr),
+                lhs,
+                bindConversion(rhs, lhsType, false)
+              )
+          }
         }
 
       case _ =>
@@ -803,16 +811,24 @@ class ExprBinder(
     inferLHS(node.left, scope) match {
       case Result.Error(value) => value
       case Result.Success(lhs) =>
-        reportIfReadOnly(lhs)
-        getLHSType(lhs) match {
-          case Type.Error(message) => BoundExpression.Error(message)
-          case lhsType =>
-            val rhs = check(node.right, lhsType, scope)
-            BoundExpression.Assignment(
-              AstUtils.locationOfExpression(node),
-              lhs,
-              rhs
-            )
+        if (!isAssignableLHS(lhs)) {
+          val location = AstUtils.locationOfExpression(node.left)
+          diagnosticBag.reportExpressionIsNotAssignable(location)
+          BoundExpression.Error(
+            "Expression is not assignable: " + string(location)
+          )
+        } else {
+          reportIfReadOnly(lhs)
+          getLHSType(lhs) match {
+            case Type.Error(message) => BoundExpression.Error(message)
+            case lhsType =>
+              val rhs = check(node.right, lhsType, scope)
+              BoundExpression.Assignment(
+                AstUtils.locationOfExpression(node),
+                lhs,
+                rhs
+              )
+          }
         }
     }
   }
@@ -2191,6 +2207,22 @@ class ExprBinder(
         BoundExpression.Error("unexpected literal expression")
     }
   }
+
+  /** `x`, `obj.field`, and `arr[i]` name a storage location; a call, a
+    * constructor invocation, or an evidence-dispatched call do not, even though
+    * they can appear syntactically on the left of `=` (`inferLHS` binds
+    * `Expression.Call`/`Expression.New` structurally, not semantically).
+    */
+  def isAssignableLHS(lhs: BoundLeftHandSide): bool =
+    lhs match {
+      case _: BoundLeftHandSide.Variable      => true
+      case _: BoundLeftHandSide.MemberAccess  => true
+      case _: BoundLeftHandSide.Index         => true
+      case _: BoundLeftHandSide.ArrayCreation => false
+      case _: BoundLeftHandSide.Call          => false
+      case _: BoundLeftHandSide.EvidenceCall  => false
+      case _: BoundLeftHandSide.New           => false
+    }
 
   def getLHSType(lhs: BoundLeftHandSide): Type = {
     lhs match {

@@ -5,8 +5,8 @@ Where the compiler kit is going, and what has to be true before it gets there.
 The three things that matter most:
 
 1. **Self-hosting** — `pnc` compiles itself without help from Scala.
-   Diagnostics are at zero; 36 `unimplemented` panics in lowering and
-   emission stand between here and there now, itemized at §1.4.
+   Diagnostics are at zero; 26 `unimplemented` panics stand between here and
+   there now, itemized at §1.4. Lowering itself is fully closed.
 2. **Generics** — inference is done (§2.1); upper bounds, variance
    enforcement, and generic aliases/unions are not (§2.2–§2.5).
 3. **Sample programs** — a program can be written, compiled, and run. 4 of 6
@@ -25,10 +25,10 @@ reproduces the measurement. Re-run them rather than trusting the number.
 sbt pncs/compile && sbt test/test
 ```
 
-Green: 523 tests across the lexer, parser, binder, type checker, VM, metadata
+Green: 528 tests across the lexer, parser, binder, type checker, VM, metadata
 format, transpiler, and args parser.
 
-### The self-hosted compiler has zero diagnostics, and is blocked on lowering
+### The self-hosted compiler has zero diagnostics, and is now blocked on emission
 
 ```bash
 sbt pnc/compile
@@ -38,13 +38,14 @@ sbt pnc/compile
 item 1), the stray zero-arg `println()` (item 2), and the 4 derivation
 reports (item 3) are all resolved.
 
-`sbt pnc/compile` still fails, but past binding now — compilation reaches
-lowering and panics on `unimplemented: lowerAssignment`
-([`Lowered.scala:414`](pncs/src/main/scala/Lowered.scala:414)), the first of the 36
-`panic("unimplemented: …")` calls tracked at §1.4. It fails the build either
-way (`build.sbt:146`), by design (§1.2). **It is not run in CI** — only
-`pncs/compile` and `test/test` are — so a regression here would not be
-caught automatically.
+`sbt pnc/compile` still fails, but past all of lowering now — every
+`unimplemented` panic in `Lowered.scala` is closed (§1.4). Compilation
+reaches emission and panics on `emitVariable: unsupported symbol kind Class`
+([`Emitter.scala:1305`](pncs/src/main/scala/Emitter.scala:1305)) — a separate,
+untracked bug, not one of the 26 `panic("unimplemented: …")` calls tracked at
+§1.4. It fails the build either way (`build.sbt:146`), by design (§1.2). **It
+is not run in CI** — only `pncs/compile` and `test/test` are — so a
+regression here would not be caught automatically.
 
 ### The docs compile
 
@@ -186,20 +187,48 @@ function. Three things worth trying, in order of expected payoff:
 
 ### 1.4 Close the unimplemented holes
 
-36 `panic("unimplemented: …")` calls remain in paths the self-hosted compiler
-will eventually walk: 12 in `ExprBinder.scala`, 10 in `Lowered.scala`, 8 in
-`Emitter.scala`, 3 in `Transpiler.scala`, 2 in `Binder.scala`, 1 in
-`LoweredAssemblyPrinter.scala`. `grep unimplemented` finds them all. Each is a
-crash waiting for the first program that hits it — they can stay until the
-diagnostics are down, but not through stage 2.
+26 `panic("unimplemented: …")` calls remain in paths the self-hosted compiler
+will eventually walk: 12 in `ExprBinder.scala`, 8 in `Emitter.scala`, 3 in
+`Transpiler.scala`, 2 in `Binder.scala`, 1 in `LoweredAssemblyPrinter.scala`.
+`grep unimplemented` finds them all. Each is a crash waiting for the first
+program that hits it — they can stay until the diagnostics are down, but not
+through stage 2.
 
-Five of the ten in `lowerAssignment` alone
-([`Lowered.scala:396`](pncs/src/main/scala/Lowered.scala:396)) are
-unimplemented: assigning through `ArrayCreation`, `Call`, `EvidenceCall`,
-`MemberAccess`, and `New` left-hand-sides all panic. Only `Index` and a plain
-`Variable` are lowered. `obj.field = x` binds, then hits the `MemberAccess`
-case — the reason `val` enforcement can only be tested end to end on the
-rejecting side.
+~~`Lowered.scala`~~ — done, all 10. Two different fixes, depending on whether
+the panic was actually reachable:
+
+- `lowerAssignment`'s `ArrayCreation`, `Call`, `EvidenceCall`, and `New`
+  cases panicked because the binder let `foo() = x`, `new Foo() = x`, and
+  similar non-lvalues bind as valid assignments with no diagnostic —
+  `reportIfReadOnly`/`getLHSType` only special-cased `Variable` and
+  `MemberAccess`. The fix is in `ExprBinder.scala`, not the lowerer: a new
+  `isAssignableLHS` check rejects them at bind time with "expression is not
+  assignable", the same diagnostic that already existed
+  ([`DiagnosticBag.scala:118`](pncs/src/main/scala/DiagnosticBag.scala:118))
+  but had no reachable call site. That makes the four `lowerAssignment` cases
+  genuinely unreachable, the same as the existing
+  `panic("bindLHS called with non-LHS expression")`
+  ([`ExprBinder.scala:647`](pncs/src/main/scala/ExprBinder.scala:647)).
+- `lowerLeftHandSide`'s `ArrayCreation` and `EvidenceCall` cases were real
+  gaps: `new Array[int](5).length`, or a trait member called through
+  evidence used as the receiver of further member access, both bind cleanly
+  and used to crash. Both now lower the same way the adjacent `Call`/`Index`
+  cases already did — stash the result in a temporary local.
+- `lowerStatement`'s `BoundStatement.Error` case panicked on `break`,
+  `continue`, and a duplicate declaration, each of which already reports its
+  own diagnostic and returns `Error` specifically so the compiler doesn't go
+  down (see the comment on `bindBreakStatement`). Lowering now honors that
+  intent and skips the statement instead of panicking — currently
+  unreachable in practice, since `MakeCompilation.create` skips lowering
+  entirely whenever binding leaves any diagnostic, but correct if that gate
+  ever changes.
+
+`obj.field = x` (`MemberAccess`) and array/index assignment were already
+lowered before this pass. A `var` field assigned through member access is
+now covered end to end by
+[`BinderTests.scala`](test/src/test/scala/BinderTests.scala) ("should allow
+assigning to a var field through member access") — the positive case the
+`val` rejection test used to have no counterpart for.
 
 ### 1.5 Run the stages
 
@@ -425,7 +454,7 @@ moved.
 - **The `==`/`!=` runtime bug** at §1.3: reference equality on distinct
   instances evaluates `true` today.
 - **Test coverage is stage-shaped, not feature-shaped** outside of
-  `SampleTests` — 523 tests, but most pin one stage against a hand-written
+  `SampleTests` — 528 tests, but most pin one stage against a hand-written
   expectation rather than source-to-output.
 
 ---
@@ -435,8 +464,10 @@ moved.
 1. ~~**§1.3**~~ — done. Self-hosting diagnostics are at zero.
 2. **Gate `sbt pnc/compile` in CI.** It isn't run there today, so the count
    above isn't actually protected from regressing.
-3. **§1.4** — close the 36 `unimplemented` panics. `pnc/compile` now reaches
-   the first one, `lowerAssignment`'s five, straight off of zero diagnostics.
+3. **§1.4** — close the remaining 26 `unimplemented` panics. `Lowered.scala`
+   is fully done; `pnc/compile` now reaches emission and panics there on an
+   unrelated, untracked bug (`emitVariable`, `Emitter.scala:1305`) before it
+   would even reach the next tracked one.
 4. **§1.5** — stage 3, the self-hosting fixed point.
 5. **Decide the stdlib-in-scope question** (§3.3/§4.4) — it's the one thing
    blocking the last 2 samples and doccheck's biggest gap simultaneously.
@@ -453,7 +484,7 @@ moved.
 | Metric                            |         Now | Target | Command                                     |
 | --------------------------------- | ----------: | -----: | -------------------------------------------- |
 | Self-hosting diagnostics          |           0 |      0 | `sbt pnc/compile` (fails on non-zero; not yet run in CI) |
-| Self-hosting `unimplemented` panics |         36 |      0 | §1.4; `grep unimplemented`                   |
+| Self-hosting `unimplemented` panics |         26 |      0 | §1.4; `grep unimplemented`                   |
 | Doc blocks that fail              | **0 / 201** |      0 | `sbt "doccheck/run docs/src/content/docs"`   |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                     |
 | Samples written / passing in CI   |         4/6 |    6/6 | `sbt "test/testOnly SampleTests"`            |

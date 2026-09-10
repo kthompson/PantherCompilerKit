@@ -333,10 +333,47 @@ class BinderTests extends AnyFunSpec with Matchers {
       diagnosticMessages(comp) shouldEqual Seq("reassignment to val fixed")
     }
 
-    // The positive case - assigning to a `var` field through member access -
-    // cannot be covered end to end yet: the binder accepts it and the lowerer
-    // then hits the unimplemented panic in Lowered.scala lowerAssignment. The val case below
-    // works because reporting a diagnostic stops the pipeline before lowering.
+    it("should allow assigning to a var field through member access") {
+      val comp = mkCompilation(
+        "class Box(v: int) {\n  var mutable: int = v\n}\n" +
+          "val b = new Box(3)\nb.mutable = 5"
+      )
+      // Exercises lowerAssignment's MemberAccess case end to end (no
+      // diagnostics, so the pipeline actually lowers this).
+      comp.loweredAssemblyText(false)
+    }
+
+    it("should reject assigning to a constructor call result") {
+      val comp =
+        mkFailingCompilation("class Box(v: int)\nnew Box(3) = 5")
+      diagnosticMessages(comp) shouldEqual Seq("expression is not assignable")
+    }
+
+    it("should reject assigning to a call result") {
+      val comp = mkFailingCompilation(
+        "def make(): int = 1\nmake() = 5"
+      )
+      diagnosticMessages(comp) shouldEqual Seq("expression is not assignable")
+    }
+
+    it("should lower a member access off a freshly created array") {
+      // Exercises lowerLeftHandSide's ArrayCreation case: the array itself
+      // is never bound to a variable, only its `.length` is read.
+      val comp = mkCompilation("val n = new Array[int](5).length")
+      comp.loweredAssemblyText(false)
+    }
+
+    it("should lower a member access off an evidence call result") {
+      // Exercises lowerLeftHandSide's EvidenceCall case: `a.wrap()`'s result
+      // (dispatched through the `Boxed[int]` given) is never bound to a
+      // variable, only its `.length` is read off of it.
+      val comp = mkCompilation(
+        "trait Boxed[T] { def wrap(self: T): Array[int] }\n" +
+          "given Boxed[int] { def wrap(self: int): Array[int] = new Array[int](self) }\n" +
+          "def f(a: int): int = a.wrap().length"
+      )
+      comp.loweredAssemblyText(false)
+    }
 
     it("should reject assigning to a builtin read-only field") {
       val comp =
