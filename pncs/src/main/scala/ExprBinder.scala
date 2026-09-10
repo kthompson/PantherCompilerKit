@@ -65,7 +65,7 @@ import panther.*
 
 case class TypePair(t1: Type, t2: Type)
 
-case class ExprBinder(
+class ExprBinder(
     rootSymbol: Symbol,
     binder: Binder,
     conversionClassifier: ConversionClassifier,

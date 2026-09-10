@@ -4,8 +4,9 @@ Where the compiler kit is going, and what has to be true before it gets there.
 
 The three things that matter most:
 
-1. **Self-hosting** — `pnc` compiles itself without help from Scala. 4
-   diagnostics stand between here and there, all itemized below.
+1. **Self-hosting** — `pnc` compiles itself without help from Scala.
+   Diagnostics are at zero; 36 `unimplemented` panics in lowering and
+   emission stand between here and there now, itemized at §1.4.
 2. **Generics** — inference is done (§2.1); upper bounds, variance
    enforcement, and generic aliases/unions are not (§2.2–§2.5).
 3. **Sample programs** — a program can be written, compiled, and run. 4 of 6
@@ -27,26 +28,23 @@ sbt pncs/compile && sbt test/test
 Green: 523 tests across the lexer, parser, binder, type checker, VM, metadata
 format, transpiler, and args parser.
 
-### The self-hosted compiler is 4 diagnostics from clean
+### The self-hosted compiler has zero diagnostics, and is blocked on lowering
 
 ```bash
 sbt pnc/compile
 ```
 
-| Count | Diagnostic                      |
-| ----: | -------------------------------- |
-|     4 | `Cannot derive Eq`/`Show`        |
+**0 diagnostics.** §1.3 is closed: the overload pair (`inferCall`/`printNew`,
+item 1), the stray zero-arg `println()` (item 2), and the 4 derivation
+reports (item 3) are all resolved.
 
-The overload pair (`inferCall`/`printNew`, each declared twice with different
-signatures) and the stray zero-arg `println()` are resolved — see §1.3 items
-1–2. `inferCall` is now `inferCallNode`/`inferCallBound`, and `printNew` is
-now `printNewLeftHandSide`/`printNewExpr`. What's left is the 4 derivation
-reports at §1.3 item 3, which are a call-site fix, not a rename.
-
-`sbt pnc/compile` fails the build on this count (`build.sbt:146`), by design
-(§1.2). **It is not run in CI** — only `pncs/compile` and `test/test` are —
-so a regression here would not be caught automatically. Worth fixing before
-relying on the count.
+`sbt pnc/compile` still fails, but past binding now — compilation reaches
+lowering and panics on `unimplemented: lowerAssignment`
+([`Lowered.scala:414`](pncs/src/main/scala/Lowered.scala:414)), the first of the 36
+`panic("unimplemented: …")` calls tracked at §1.4. It fails the build either
+way (`build.sbt:146`), by design (§1.2). **It is not run in CI** — only
+`pncs/compile` and `test/test` are — so a regression here would not be
+caught automatically.
 
 ### The docs compile
 
@@ -126,13 +124,22 @@ runs it.
 2. ~~**A stray argument count**~~ — done. `println()` with no argument in
    `compilation.pn:154` became `println("")`, which Scala allows (an
    overload) and Panther does not.
-3. **4 derivation reports that should stay** — `Cannot derive Eq`/`Show` for
-   `ConversionClassifier` (a field of `ExprBinder`) and `AstPrinter` (a field
-   of `SymbolPrinter`). Both types genuinely have no meaningful equality or
-   string form. The fix is at the two call sites — give them a hand-written
-   instance, or stop deriving there — not in derivation itself. See the
-   fourth pass of [ADR 0004](docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)
-   for why a reference-identity fallback would be wrong.
+3. ~~**4 derivation reports that should stay**~~ — done. `Cannot derive
+   Eq`/`Show` for `ConversionClassifier` (a field of `ExprBinder`) and
+   `AstPrinter` (a field of `SymbolPrinter`) — both types genuinely have no
+   meaningful equality or string form, per the fourth pass of
+   [ADR 0004](docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md).
+   The fix was at the two call sites, not in derivation itself:
+   `ExprBinder` and `SymbolPrinter` are `case class` in Scala, so the
+   transpiler correctly gave them `[derive(Eq, Show)]` — but both are
+   stateful services nothing ever compares or prints, exactly like
+   `ConversionClassifier` and `AstPrinter` themselves. Changed both to plain
+   `class` in `pncs/src/main/scala/{ExprBinder,SymbolPrinter}.scala` and
+   regenerated `pnc/src` with `sbt pncs/transpile`, which dropped the
+   attribute — the same shape `ConversionClassifier` and `AstPrinter` already
+   had. Neither of those two types was touched; deriving reference identity
+   for them would have been wrong, which is why a hand-written instance was
+   never the right call here.
 
 Track the number after every change:
 
@@ -425,13 +432,11 @@ moved.
 
 ## What's left, roughly in order
 
-1. **§1.3** — the `inferCall`/`printNew` overload pair and the stray
-   `println()` in `compilation.pn` are resolved. What's left is 4 derivation
-   diagnostics that need a call-site fix, not a diagnostics-count fix.
+1. ~~**§1.3**~~ — done. Self-hosting diagnostics are at zero.
 2. **Gate `sbt pnc/compile` in CI.** It isn't run there today, so the count
    above isn't actually protected from regressing.
-3. **§1.4** — close the 36 `unimplemented` panics, starting with
-   `lowerAssignment`'s five.
+3. **§1.4** — close the 36 `unimplemented` panics. `pnc/compile` now reaches
+   the first one, `lowerAssignment`'s five, straight off of zero diagnostics.
 4. **§1.5** — stage 3, the self-hosting fixed point.
 5. **Decide the stdlib-in-scope question** (§3.3/§4.4) — it's the one thing
    blocking the last 2 samples and doccheck's biggest gap simultaneously.
@@ -447,8 +452,8 @@ moved.
 
 | Metric                            |         Now | Target | Command                                     |
 | --------------------------------- | ----------: | -----: | -------------------------------------------- |
-| Self-hosting diagnostics          |           4 |      0 | `sbt pnc/compile` (fails on non-zero; not yet run in CI) |
-| — of those, derivation             |           4 |      0 | §1.3 item 3                                  |
+| Self-hosting diagnostics          |           0 |      0 | `sbt pnc/compile` (fails on non-zero; not yet run in CI) |
+| Self-hosting `unimplemented` panics |         36 |      0 | §1.4; `grep unimplemented`                   |
 | Doc blocks that fail              | **0 / 201** |      0 | `sbt "doccheck/run docs/src/content/docs"`   |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                     |
 | Samples written / passing in CI   |         4/6 |    6/6 | `sbt "test/testOnly SampleTests"`            |

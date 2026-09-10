@@ -66,7 +66,6 @@ using panther
 [derive(Eq, Show)]
 class TypePair(t1: Type, t2: Type)
 
-[derive(Eq, Show)]
 class ExprBinder(
     rootSymbol: Symbol,
     binder: Binder,

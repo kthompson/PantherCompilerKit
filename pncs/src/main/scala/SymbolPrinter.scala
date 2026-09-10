@@ -1,6 +1,6 @@
 import panther._
 
-case class SymbolPrinter(
+class SymbolPrinter(
     binder: Binder,
     ast: AstPrinter
 ) {
