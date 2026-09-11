@@ -107,8 +107,14 @@ class LoweredAssemblyPrinter(
         printLabelDeclaration(stmt)
 
       case stmt: LoweredStatement.Return =>
-        panic("unimplemented: printStatement")
+        printReturn(stmt)
     }
+  }
+
+  def printReturn(statement: LoweredStatement.Return): unit = {
+    ast.writeWithColor(ColorPalette.Keyword, "return ")
+    printExpression(statement.expression)
+    sb.appendLine("")
   }
 
   def printExpressionStatement(

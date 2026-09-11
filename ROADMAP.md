@@ -5,8 +5,8 @@ Where the compiler kit is going, and what has to be true before it gets there.
 The three things that matter most:
 
 1. **Self-hosting** — `pnc` compiles itself without help from Scala.
-   Diagnostics are at zero; 26 `unimplemented` panics stand between here and
-   there now, itemized at §1.4. Lowering itself is fully closed.
+   Diagnostics and the tracked `unimplemented` panics are both at zero.
+   Stage 3, the byte-for-byte fixed point, is the remaining proof (§1.5).
 2. **Generics** — inference is done (§2.1); upper bounds, variance
    enforcement, and generic aliases/unions are not (§2.2–§2.5).
 3. **Sample programs** — a program can be written, compiled, and run. 4 of 6
@@ -25,7 +25,7 @@ reproduces the measurement. Re-run them rather than trusting the number.
 sbt pncs/compile && sbt test/test
 ```
 
-Green: 528 tests across the lexer, parser, binder, type checker, VM, metadata
+Green: 534 tests across the lexer, parser, binder, type checker, VM, metadata
 format, transpiler, and args parser.
 
 ### The self-hosted compiler emits, and produces a `.pnb`
@@ -191,7 +191,8 @@ That second one left a real runtime gap, not a diagnostic: **the bytecode is
 wrong**. `a == b` on two distinct instances evaluates to `true`, because the
 instance never reaches the stack as a `Value.Ref` — the ADR 0002 constructor
 hole, observable through the operator. Deciding reference vs. structural
-equality and fixing the codegen is back-end work, tracked at §1.4/§3.
+equality and fixing the codegen is separate back-end work, tracked under the
+cross-cutting gaps below.
 
 ### 1.3b Make derivation cheaper on the stack
 
@@ -214,12 +215,32 @@ function. Three things worth trying, in order of expected payoff:
 
 ### 1.4 Close the unimplemented holes
 
-26 `panic("unimplemented: …")` calls remain in paths the self-hosted compiler
-will eventually walk: 12 in `ExprBinder.scala`, 8 in `Emitter.scala`, 3 in
-`Transpiler.scala`, 2 in `Binder.scala`, 1 in `LoweredAssemblyPrinter.scala`.
-`grep unimplemented` finds them all. Each is a crash waiting for the first
-program that hits it — they can stay until the diagnostics are down, but not
-through stage 2.
+Done. The 26 tracked `panic("unimplemented: …")` calls are gone from both the
+Scala compiler and its generated Panther sources. The closing pass handled
+five groups:
+
+- `ExprBinder` now checks array creation against an expected type, treats a
+  generic simple name as the symbol it names, reports invalid aliases as
+  diagnostics, and rejects function-typed left-hand-side shapes that have no
+  direct-call bytecode form as "expression is not callable".
+- `Transpiler` rewrites Scala import aliases (`{name => alias}`) to Panther's
+  `name as alias` and preserves Panther-style aliases.
+- `Binder` turns the impossible "symbol exists but has no registered type"
+  state into an internal diagnostic and an error type, so malformed input does
+  not take the compiler down.
+- `Emitter` emits an early lowered return as its value plus `Ret`. Missing
+  metadata tokens and error operators are compiler invariants, so their old
+  placeholder panics now identify the exact broken invariant and symbol.
+- `LoweredAssemblyPrinter` prints lowered return statements.
+
+Reproduce the count with:
+
+```bash
+rg 'panic\("unimplemented:' pncs/src/main/scala pnc/src
+```
+
+It prints nothing. `sbt pnc/compile` remains green after regenerating
+`pnc/src`.
 
 ~~`Lowered.scala`~~ — done, all 10. Two different fixes, depending on whether
 the panic was actually reachable:
@@ -481,7 +502,7 @@ moved.
 - **The `==`/`!=` runtime bug** at §1.3: reference equality on distinct
   instances evaluates `true` today.
 - **Test coverage is stage-shaped, not feature-shaped** outside of
-  `SampleTests` — 528 tests, but most pin one stage against a hand-written
+  `SampleTests` — 534 tests, but most pin one stage against a hand-written
   expectation rather than source-to-output.
 
 ---
@@ -492,10 +513,8 @@ moved.
 2. ~~**Gate `sbt pnc/compile` in CI.**~~ — done. It now runs as its own job
    in [`.github/workflows/ci.yml`](.github/workflows/ci.yml), so the count
    above is protected from regressing.
-3. **§1.4** — close the remaining 26 `unimplemented` panics. `Lowered.scala`
-   is fully done; the untracked `emitVariable`/`emitMemberAccess` panic that
-   used to block emission before reaching any of the 26 is fixed, and
-   `pnc/compile` now completes and writes a `.pnb`.
+3. ~~**§1.4**~~ — done. All 26 tracked `unimplemented` panics are closed and
+   `pnc/compile` completes and writes a `.pnb`.
 4. **§1.5** — stage 3, the self-hosting fixed point.
 5. **Decide the stdlib-in-scope question** (§3.3/§4.4) — it's the one thing
    blocking the last 2 samples and doccheck's biggest gap simultaneously.
@@ -512,7 +531,7 @@ moved.
 | Metric                            |         Now | Target | Command                                     |
 | --------------------------------- | ----------: | -----: | -------------------------------------------- |
 | Self-hosting diagnostics          |           0 |      0 | `sbt pnc/compile` (fails on non-zero; gated in CI) |
-| Self-hosting `unimplemented` panics |         26 |      0 | §1.4; `grep unimplemented`                   |
+| Self-hosting `unimplemented` panics |          0 |      0 | §1.4; `rg 'panic\("unimplemented:' pncs/src/main/scala pnc/src` |
 | Doc blocks that fail              | **0 / 201** |      0 | `sbt "doccheck/run docs/src/content/docs"`   |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                     |
 | Samples written / passing in CI   |         4/6 |    6/6 | `sbt "test/testOnly SampleTests"`            |

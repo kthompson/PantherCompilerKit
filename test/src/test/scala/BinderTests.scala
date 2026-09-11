@@ -363,6 +363,12 @@ class BinderTests extends AnyFunSpec with Matchers {
       comp.loweredAssemblyText(false)
     }
 
+    it("should check array creation against an expected type") {
+      // A typed initializer takes the check path rather than inference.
+      val comp = mkCompilation("val values: Array[int] = new Array[int](5)")
+      comp.loweredAssemblyText(false)
+    }
+
     it("should lower a member access off an evidence call result") {
       // Exercises lowerLeftHandSide's EvidenceCall case: `a.wrap()`'s result
       // (dispatched through the `Boxed[int]` given) is never bound to a

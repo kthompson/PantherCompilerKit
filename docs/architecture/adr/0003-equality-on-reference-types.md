@@ -122,7 +122,8 @@ equality on `Type` or `Symbol` is a deep recursive walk that no opcode performs.
 `Ceq` on two `Value.Ref`s cannot answer it, and `VM.toInt` panics on a `Ref`
 rather than trying.
 
-Deciding that, and implementing it, is back-end work tracked under §1.4 and §3.
+Deciding that, and implementing it, remains separate back-end work; §1.4 only
+tracks the explicit `unimplemented` panic burn-down.
 Binding is a prerequisite for it either way: nothing downstream can be built or
 tested while the front end rejects the expression.
 

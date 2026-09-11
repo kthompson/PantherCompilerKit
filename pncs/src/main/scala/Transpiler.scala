@@ -932,9 +932,15 @@ case class Transpiler(
       case value: SimpleNameSyntax.IdentifierNameSyntax =>
         transpileIdentifierName(value, context)
       case value: SimpleNameSyntax.AliasSyntax =>
-        panic("unimplemented: transpileSimpleName") // todo
+        transpileToken(value.name, context)
+        transpileToken(value.asKeyword, context)
+        transpileToken(value.alias, context)
       case value: SimpleNameSyntax.ScalaAliasSyntax =>
-        panic("unimplemented: transpileSimpleName") // todo
+        transpileTokenWithText(value.open, "", context)
+        transpileToken(value.name, context)
+        transpileTokenWithText(value.arrow, "as", context)
+        transpileToken(value.alias, context)
+        transpileTokenWithText(value.close, "", context)
     }
   }
 
@@ -981,7 +987,8 @@ case class Transpiler(
           transpileSimpleName(name.right, context)
         }
       case alias: SimpleNameSyntax.AliasSyntax =>
-        panic("unimplemented: transpileQualifiedName")
+        transpileToken(name.dotToken, context)
+        transpileSimpleName(alias, context)
       case alias: SimpleNameSyntax.ScalaAliasSyntax =>
         transpileToken(name.dotToken, context)
         transpileTokenWithText(alias.open, "", context)

@@ -172,8 +172,7 @@ case class Emitter(
       case Option.Some(entry) =>
         methodTokens.get(entry) match {
           case Option.None =>
-            println(string(entry))
-            panic("unimplemented: emit")
+            panic("emit: no method token for entry point " + entry.fullName())
           case Option.Some(value) => Option.Some(value)
         }
     }
@@ -233,7 +232,8 @@ case class Emitter(
 
     if (symbol.kind == SymbolKind.Field) {
       fieldTokens.get(symbol) match {
-        case Option.None => panic("unimplemented: buildSignature")
+        case Option.None =>
+          panic("buildSignature: no field token for " + symbol.fullName())
         case Option.Some(value) =>
           metadata.fields.fields(value.token).fieldSig = sigId
       }
@@ -242,8 +242,7 @@ case class Emitter(
     ) {
       methodTokens.get(symbol) match {
         case Option.None =>
-          println("buildSignature: no method token for " + string(symbol))
-          panic("unimplemented: buildSignature")
+          panic("buildSignature: no method token for " + symbol.fullName())
         case Option.Some(value) =>
           metadata.methods.methods(value.token).methodSig = sigId
       }
@@ -251,12 +250,16 @@ case class Emitter(
       symbol.kind == SymbolKind.Parameter || symbol.kind == SymbolKind.Evidence
     ) {
       paramTokens.get(symbol) match {
-        case Option.None => panic("unimplemented: buildSignature")
+        case Option.None =>
+          panic("buildSignature: no parameter token for " + symbol.fullName())
         case Option.Some(value) =>
           metadata.params.params(value.token).paramSig = sigId
       }
     } else {
-      panic("unimplemented: buildSignature")
+      panic(
+        "buildSignature: unsupported symbol kind " + string(symbol.kind) +
+          " for " + symbol.fullName()
+      )
     }
   }
 
@@ -792,7 +795,7 @@ case class Emitter(
         chunk.emitOpcode(Opcode.Shr, expr.location.startLine)
 
       case BinaryOperatorKind.Error =>
-        panic("unimplemented: emitBinaryExpression")
+        panic("emitBinaryExpression: error operator reached emission")
     }
   }
 
@@ -1259,7 +1262,7 @@ case class Emitter(
         chunk.emitOpcode(Opcode.Not, expr.location.startLine)
 
       case UnaryOperatorKind.Error =>
-        panic("unimplemented: emitUnaryExpression")
+        panic("emitUnaryExpression: error operator reached emission")
     }
   }
 
@@ -1468,7 +1471,8 @@ case class Emitter(
       statement: LoweredStatement.Return,
       context: EmitContext
   ): unit = {
-    panic("unimplemented: emitReturnStatement")
+    emitExpression(statement.expression, context)
+    chunk.emitOpcode(Opcode.Ret, statement.location.startLine)
   }
 
   def emitExpressionStatement(

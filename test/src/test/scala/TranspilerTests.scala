@@ -99,6 +99,22 @@ class TranspilerTests extends AnyFunSpec with Matchers {
         "[derive(Eq, Show)]\nclass Holder(e: E.String)"
     }
 
+    it("should rewrite a Scala import alias") {
+      mkTranspiled("import panther.{assert => panthAssert}") shouldBe
+        "using panther.assert as panthAssert"
+    }
+
+    it("should preserve a Panther-style import alias") {
+      val transpiler = new Transpiler(List.Nil, "")
+      val context = new TranspilerContext(new StringBuilder())
+      val tree = MakeSyntaxTree.parseContent(
+        "using panther.assert as panthAssert",
+        CompilerSettingsFactory.default
+      )
+      transpiler.transpileRoot(tree.root, context)
+      context.sb.toString() shouldBe "using panther.assert as panthAssert"
+    }
+
     /** What the transpiled sources are made of: the attribute has to survive a
       * round trip through the Panther parser it is written for.
       */

@@ -2221,10 +2221,11 @@ case class Binder(
 
             tryGetSymbolType(symbol) match {
               case Option.None =>
-                // if we found the symbol but not the type then something
-                // funky happened and that shouldn't be possible panic for
-                // now
-                panic("unimplemented: bindTypeSimpleName")
+                diagnosticBag.reportInternalError(
+                  identifier.location,
+                  "no type registered for symbol " + symbol.fullName()
+                )
+                Type.Error("No type registered for symbol " + symbol.fullName())
               case Option.Some(
                     Type.Class(location, ns, name, _, symbol)
                   ) =>
@@ -2282,10 +2283,13 @@ case class Binder(
             case Option.Some(symbol) =>
               tryGetSymbolType(symbol) match {
                 case Option.None =>
-                  // if we found the symbol but not the type then something
-                  // funky happened and that shouldn't be possible panic for
-                  // now
-                  panic("unimplemented: bindTypeSimpleName")
+                  diagnosticBag.reportInternalError(
+                    identifier.location,
+                    "no type registered for symbol " + symbol.fullName()
+                  )
+                  Type.Error(
+                    "No type registered for symbol " + symbol.fullName()
+                  )
                 case Option.Some(typ) => typ
               }
           }

@@ -247,7 +247,8 @@ class ExprBinder(
       expr: Expression.ArrayCreation,
       expectedType: Type,
       scope: Scope
-  ): BoundExpression = panic("unimplemented: checkArrayCreation")
+  ): BoundExpression =
+    subsume(inferArrayCreationExpression(expr, scope), expectedType)
 
   def checkAssignment(
       expr: Expression.Assignment,
@@ -340,6 +341,7 @@ class ExprBinder(
         checkCallLHS(
           function,
           args,
+          explicitCallTypeArguments(node.name, scope),
           expectedType,
           scope
         ) match {
@@ -354,6 +356,7 @@ class ExprBinder(
   def checkCallLHS(
       function: BoundLeftHandSide,
       args: List[BoundExpression],
+      writtenTypeArguments: List[Type],
       expectedType: Type,
       scope: Scope
   ): Result[BoundExpression.Error, BoundLeftHandSide] = {
@@ -386,6 +389,7 @@ class ExprBinder(
             function,
             gf,
             args,
+            writtenTypeArguments,
             expectedType,
             scope
           ) match {
@@ -408,7 +412,7 @@ class ExprBinder(
 
         case _ =>
           // Fall back to regular inference
-          inferCallBound(function, args, scope)
+          inferCallBound(function, args, writtenTypeArguments, scope)
       }
     }
   }
@@ -1126,7 +1130,12 @@ class ExprBinder(
         val exprs = fromExpressionList(node.arguments.expressions)
         val args =
           bindArgumentExpressions(function, exprs, Option.None, scope)
-        inferCallBound(function, args, scope)
+        inferCallBound(
+          function,
+          args,
+          explicitCallTypeArguments(node.name, scope),
+          scope
+        )
     }
   }
 
@@ -1283,6 +1292,7 @@ class ExprBinder(
   def inferCallBound(
       function: BoundLeftHandSide,
       args: List[BoundExpression],
+      writtenTypeArguments: List[Type],
       scope: Scope
   ): Result[
     BoundExpression.Error,
@@ -1316,7 +1326,13 @@ class ExprBinder(
           }
 
         case gf: Type.GenericFunction =>
-          bindGenericFunctionCall(function, gf, args, scope) match {
+          bindGenericFunctionCall(
+            function,
+            gf,
+            args,
+            writtenTypeArguments,
+            scope
+          ) match {
             case Result.Error(value) => Result.Error(value)
             case Result.Success(value) =>
               Result.Success(BoundLeftHandSide.Call(value))
@@ -1509,8 +1525,6 @@ class ExprBinder(
       val boundArgs = bindArguments(functionType.parameters, args, scope)
 
       function match {
-        case BoundLeftHandSide.Index(expression) =>
-          panic("unimplemented: bindFunctionCall")
         case BoundLeftHandSide.MemberAccess(access) =>
           val receiver = if (access.member.isStatic()) {
             Option.None
@@ -1538,7 +1552,7 @@ class ExprBinder(
               functionType.returnType
             )
           )
-        case _ => panic("unimplemented: bindFunctionCall")
+        case _ => invalidFunctionTarget(location)
       }
     }
   }
@@ -1554,6 +1568,21 @@ class ExprBinder(
       case _                                      => List.Nil
     }
 
+  /** Type arguments on an unqualified callee live on its syntax node. Member
+    * calls retain theirs on `BoundExpression.MemberAccess` instead.
+    */
+  def explicitCallTypeArguments(
+      function: Expression,
+      scope: Scope
+  ): List[Type] =
+    function match {
+      case Expression.IdentifierName(
+            SimpleNameSyntax.GenericNameSyntax(_, arguments)
+          ) =>
+        binder.bindTypeArgumentList(arguments.arguments, scope)
+      case _ => List.Nil
+    }
+
   /** The type arguments a generic call is instantiated with. Ones written at
     * the call site win, as they do for a generic constructor; a list of the
     * wrong length is reported and then ignored, because substituting it would
@@ -1563,9 +1592,11 @@ class ExprBinder(
       function: BoundLeftHandSide,
       generics: List[GenericTypeParameter],
       location: TextLocation,
+      written: List[Type],
       inferred: List[Type]
   ): List[Type] = {
-    val explicit = explicitTypeArguments(function)
+    val explicit =
+      if (written.isEmpty) explicitTypeArguments(function) else written
     if (explicit.isEmpty) inferred
     else if (explicit.length == generics.length) explicit
     else {
@@ -1582,6 +1613,7 @@ class ExprBinder(
       function: BoundLeftHandSide,
       genericFunctionType: Type.GenericFunction,
       args: List[BoundExpression],
+      writtenTypeArguments: List[Type],
       scope: Scope
   ): Result[BoundExpression.Error, BoundExpression.Call] = {
     val location = AstUtils.locationOfBoundLeftHandSide(function)
@@ -1593,6 +1625,7 @@ class ExprBinder(
       function,
       genericFunctionType.generics,
       location,
+      writtenTypeArguments,
       typeInference.inferTypeArgumentsFromCall(
         genericFunctionType.generics,
         parameterTypes,
@@ -1638,8 +1671,6 @@ class ExprBinder(
         bindArgumentsToTypes(instantiatedParameterTypes, args, scope)
 
       function match {
-        case BoundLeftHandSide.Index(expression) =>
-          panic("unimplemented: bindGenericFunctionCall")
         case BoundLeftHandSide.MemberAccess(access) =>
           val receiver = if (access.member.isStatic()) {
             Option.None
@@ -1667,7 +1698,7 @@ class ExprBinder(
               instantiatedReturnType
             )
           )
-        case _ => panic("unimplemented: bindGenericFunctionCall")
+        case _ => invalidFunctionTarget(location)
       }
     }
   }
@@ -1679,6 +1710,7 @@ class ExprBinder(
       function: BoundLeftHandSide,
       genericFunctionType: Type.GenericFunction,
       args: List[BoundExpression],
+      writtenTypeArguments: List[Type],
       expectedType: Type,
       scope: Scope
   ): Result[BoundExpression.Error, BoundExpression.Call] = {
@@ -1692,6 +1724,7 @@ class ExprBinder(
       function,
       genericFunctionType.generics,
       location,
+      writtenTypeArguments,
       typeInference.checkTypeArgumentsFromCall(
         genericFunctionType.generics,
         parameterTypes,
@@ -1739,8 +1772,6 @@ class ExprBinder(
         bindArgumentsToTypes(instantiatedParameterTypes, args, scope)
 
       function match {
-        case BoundLeftHandSide.Index(expression) =>
-          panic("unimplemented: checkGenericFunctionCall")
         case BoundLeftHandSide.MemberAccess(access) =>
           val receiver = if (access.member.isStatic()) {
             Option.None
@@ -1768,9 +1799,21 @@ class ExprBinder(
               instantiatedReturnType
             )
           )
-        case _ => panic("unimplemented: checkGenericFunctionCall")
+        case _ => invalidFunctionTarget(location)
       }
     }
+  }
+
+  /** Direct calls currently have bytecode forms only for a named function or
+    * method. Other left-hand-side shapes can acquire a function type through
+    * error recovery (and, eventually, first-class functions); reject those at
+    * the language boundary instead of letting binding crash.
+    */
+  def invalidFunctionTarget(
+      location: TextLocation
+  ): Result[BoundExpression.Error, BoundExpression.Call] = {
+    diagnosticBag.reportNotCallable(location)
+    Result.Error(BoundExpression.Error("Expression is not callable"))
   }
 
   /** A call to a generic class's constructor, with or without `new`. Type
@@ -2100,12 +2143,21 @@ class ExprBinder(
     node.value match {
       case SimpleNameSyntax.IdentifierNameSyntax(identifier) =>
         bindIdentifier(identifier, scope)
-      case generic: SimpleNameSyntax.GenericNameSyntax =>
-        panic("unimplemented: inferIdentifierName")
+      case SimpleNameSyntax.GenericNameSyntax(identifier, _) =>
+        // The identifier still names the same symbol. Explicit type arguments
+        // are consumed by member calls today; retaining them on a free
+        // function requires first-class generic function values.
+        bindIdentifier(identifier, scope)
       case SimpleNameSyntax.ScalaAliasSyntax(open, name, arrow, alias, close) =>
-        panic("unimplemented: inferIdentifierName")
+        diagnosticBag.reportInvalidNamespace(
+          open.location.merge(close.location)
+        )
+        Result.Error(BoundExpression.Error("Invalid alias in expression"))
       case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) =>
-        panic("unimplemented: inferIdentifierName")
+        diagnosticBag.reportInvalidNamespace(
+          name.location.merge(alias.location)
+        )
+        Result.Error(BoundExpression.Error("Invalid alias in expression"))
     }
   }
 
@@ -2310,9 +2362,19 @@ class ExprBinder(
                     alias,
                     close
                   ) =>
-                panic("unimplemented: inferMemberAccess")
+                diagnosticBag.reportInvalidNamespace(
+                  open.location.merge(close.location)
+                )
+                Result.Error(
+                  BoundExpression.Error("Invalid alias in member access")
+                )
               case SimpleNameSyntax.AliasSyntax(name, asKeyword, alias) =>
-                panic("unimplemented: inferMemberAccess")
+                diagnosticBag.reportInvalidNamespace(
+                  name.location.merge(alias.location)
+                )
+                Result.Error(
+                  BoundExpression.Error("Invalid alias in member access")
+                )
               case SimpleNameSyntax.IdentifierNameSyntax(right) =>
                 bindMemberForSymbolAndType(leftType, right, scope) match {
                   case Either.Left(message) =>

@@ -799,6 +799,13 @@ class TypeTests extends AnyFunSpec with Matchers {
       )
     }
 
+    it("should keep type arguments on an unqualified generic function call") {
+      val setup = "def make[T](): T = panic(\"not executed\")"
+
+      assertInferExprTypeWithSetup(setup, "make[int]()", "int")
+      assertInferExprTypeWithSetup(setup, "make[string]()", "string")
+    }
+
     it("should keep type arguments written on an enum case") {
       val setup = chainSetup
 
