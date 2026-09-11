@@ -25,6 +25,26 @@ jobs:
     - name: test
       run: sbt test/test
 
+  pnc:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup JDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Setup SBT
+      uses: sbt/setup-sbt@v1
+
+    # Fails on any diagnostic from the self-hosted compiler (build.sbt:146),
+    # not just a crash — see ROADMAP.md §1.2/§1.3.
+    - name: pnc compile
+      run: sbt pnc/compile
+
   transpile:
     runs-on: ubuntu-latest
     steps:

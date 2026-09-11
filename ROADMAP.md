@@ -68,11 +68,11 @@ the compiler's output *file* path, which only surfaced once emission stopped
 panicking first; fixed to pass `target/pnc.pnb` instead
 (`build.sbt`).
 
-**It is not run in CI** — only `pncs/compile` and `test/test` are — so a
-regression here would not be caught automatically. Producing a `.pnb`
-without panicking is not the same as self-hosting: stage 3, `pnc`-compiled-
-by-`pnc` matching `pnc`-compiled-by-`pncs` byte-for-byte, is still
-unverified (§1.5).
+**It now runs in CI** as its own job ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)),
+alongside `pncs/compile` and `test/test`, so a regression here is caught
+automatically. Producing a `.pnb` without panicking is not the same as
+self-hosting: stage 3, `pnc`-compiled-by-`pnc` matching
+`pnc`-compiled-by-`pncs` byte-for-byte, is still unverified (§1.5).
 
 ### The docs compile
 
@@ -134,8 +134,8 @@ one entry locally while remaining two separate files on Linux CI.
 ([`Program.scala`](pncs/src/main/scala/Program.scala)). Because `build.sbt`
 fails the task on a non-zero exit code
 ([`build.sbt:146`](build.sbt:146)), `sbt pnc/compile` **fails** rather than
-reporting diagnostics and succeeding — but see the note above: nothing in CI
-runs it.
+reporting diagnostics and succeeding — and, per the note above, CI now runs
+it, so that failure gates the build.
 
 ### 1.3 Burn down the diagnostics
 
@@ -489,8 +489,9 @@ moved.
 ## What's left, roughly in order
 
 1. ~~**§1.3**~~ — done. Self-hosting diagnostics are at zero.
-2. **Gate `sbt pnc/compile` in CI.** It isn't run there today, so the count
-   above isn't actually protected from regressing.
+2. ~~**Gate `sbt pnc/compile` in CI.**~~ — done. It now runs as its own job
+   in [`.github/workflows/ci.yml`](.github/workflows/ci.yml), so the count
+   above is protected from regressing.
 3. **§1.4** — close the remaining 26 `unimplemented` panics. `Lowered.scala`
    is fully done; the untracked `emitVariable`/`emitMemberAccess` panic that
    used to block emission before reaching any of the 26 is fixed, and
@@ -510,7 +511,7 @@ moved.
 
 | Metric                            |         Now | Target | Command                                     |
 | --------------------------------- | ----------: | -----: | -------------------------------------------- |
-| Self-hosting diagnostics          |           0 |      0 | `sbt pnc/compile` (fails on non-zero; not yet run in CI) |
+| Self-hosting diagnostics          |           0 |      0 | `sbt pnc/compile` (fails on non-zero; gated in CI) |
 | Self-hosting `unimplemented` panics |         26 |      0 | §1.4; `grep unimplemented`                   |
 | Doc blocks that fail              | **0 / 201** |      0 | `sbt "doccheck/run docs/src/content/docs"`   |
 | Doc blocks skipped as unsupported |           2 |      0 | as above                                     |
