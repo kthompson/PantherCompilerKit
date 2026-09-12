@@ -14,7 +14,8 @@ case class Dictionary[K, V](list: List[KeyValue[K, V]]) {
   val length: int = list.length
 
   def put(key: K, value: V): Dictionary[K, V] = {
-    new Dictionary[K, V](List.Cons(KeyValue(key, value), _remove(key, list)))
+    val tail = if (contains(key)) _remove(key, list) else list
+    new Dictionary[K, V](List.Cons(KeyValue(key, value), tail))
   }
 
   def getUnsafe(key: K): V = {
