@@ -1565,9 +1565,39 @@ class Emitter(
     // walked in the middle of its parent's members and the parent's remaining
     // fields have to carry on from where they were.
     val enclosingFieldIndex = classFieldIndex
-    classFieldIndex = 0
+    classFieldIndex = emitInheritedEnumFields(symbol)
     emitSymbolsMetadata(symbol.members(), isObject)
     classFieldIndex = enclosingFieldIndex
+  }
+
+  /** An enum case carries the fields declared by its parent enum before its own
+    * constructor fields. The duplicate metadata rows make the case's allocation
+    * size include those inherited slots; accesses still use the enum member's
+    * canonical field token, whose index is the same.
+    */
+  def emitInheritedEnumFields(symbol: Symbol): int = {
+    symbol.parent match {
+      case Option.Some(parent) =>
+        if (parent.kind == SymbolKind.Alias) {
+          emitInheritedEnumFieldList(parent.members(), 0)
+        } else {
+          0
+        }
+      case _ => 0
+    }
+  }
+
+  def emitInheritedEnumFieldList(symbols: List[Symbol], index: int): int = {
+    symbols match {
+      case List.Nil => index
+      case List.Cons(symbol, tail) =>
+        if (symbol.kind == SymbolKind.Field) {
+          metadata.addField(symbol.name, MetadataFlags.None, index, 0)
+          emitInheritedEnumFieldList(tail, index + 1)
+        } else {
+          emitInheritedEnumFieldList(tail, index)
+        }
+    }
   }
 
   def emitGivenMetadata(symbol: Symbol): unit = {

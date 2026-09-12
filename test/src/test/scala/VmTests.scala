@@ -666,6 +666,14 @@ class VmTests extends AnyFunSpec with Matchers {
       )
     }
 
+    it("should subsume any value to unit") {
+      execTraced(
+        "class Box()\nval ignored: unit = new Box()\nignored"
+      ) shouldBe InterpretResult.OkValue(
+        Value.Uninitialized
+      )
+    }
+
     /** `Eq[Array[T]]` given `Eq[T]`: a prelude given written by hand, because
       * `Array` is builtin and there is nothing to put `[derive(…)]` on. The
       * body loops rather than recursing, so its stack cost is flat in the
@@ -791,6 +799,24 @@ class VmTests extends AnyFunSpec with Matchers {
       assertExecValueStringWithSetup(setup, "Color.Green.show()", "Green()")
     }
 
+    it("should initialize fields declared on every enum case") {
+      val setup =
+        "enum Counted {\n" +
+          "  case Zero\n" +
+          "  case Next(previous: Counted)\n" +
+          "  val length: int = this match {\n" +
+          "    case Counted.Next(previous) => previous.length + 1\n" +
+          "    case _ => 0\n" +
+          "  }\n" +
+          "}"
+
+      assertExecValueIntWithSetup(
+        setup,
+        "Counted.Next(Counted.Next(Counted.Zero)).length",
+        2
+      )
+    }
+
     /** Two classes with instance fields. A field's index is its offset within
       * the object, so the second class's fields have to start at 0 again —
       * numbered across types, they land outside the object and the next
@@ -862,6 +888,11 @@ class VmTests extends AnyFunSpec with Matchers {
         "def threeargs(x: int, y: int, z: int): int = x + y + z",
         "threeargs(12, 13, 14)",
         39
+      )
+      assertExecValueIntWithSetup(
+        "def fiveargs(a: int, b: int, c: int, d: int, e: int): int = e",
+        "fiveargs(10, 20, 30, 40, 50)",
+        50
       )
     }
 
@@ -1074,6 +1105,29 @@ class VmTests extends AnyFunSpec with Matchers {
           "}",
         "new Foo().bar(6, 7, 9)",
         51
+      )
+    }
+
+    it("should pass this to an unqualified instance method call") {
+      val setup =
+        "class Counter() {\n" +
+          "  def addOne(value: int): int = value + 1\n" +
+          "  def addTwo(value: int): int = addOne(addOne(value))\n" +
+          "}"
+
+      assertExecValueIntWithSetup(setup, "new Counter().addTwo(40)", 42)
+    }
+
+    it("should not pass this to an unqualified builtin call") {
+      val setup =
+        "class Formatter() {\n" +
+          "  def appendChar(value: string, c: char): string = value + string(c)\n" +
+          "}"
+
+      assertExecValueStringWithSetup(
+        setup,
+        "new Formatter().appendChar(\"a\", 'b')",
+        "ab"
       )
     }
 

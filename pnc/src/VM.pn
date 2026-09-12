@@ -739,70 +739,113 @@ class VM(
     // Get the target type name from metadata
     val targetTypeName = metadata.getTypeName(targetTypeToken)
 
-    value match {
-      case Value.Int(i) =>
-        targetTypeName match {
-          case "int" => value // identity cast
-          case "char" =>
-            Value.Int(i) // int to char (keeping as int for simplicity)
-          case "string" => Value.String(string(i))
-          case "bool"   => Value.Bool(i != 0)
-          case "any"    => value // cast to any preserves the value
-          case _ =>
-            runtimeError("Cannot cast int to " + targetTypeName)
-            Value.Uninitialized
-        }
+    // Subsuming an expression to unit discards its value. This is how a block
+    // treats every non-final expression, and is valid for every source type.
+    if (targetTypeName == "unit") {
+      Value.Uninitialized
+    } else
+      value match {
+        case Value.Int(i) =>
+          targetTypeName match {
+            case "int" => value // identity cast
+            case "char" =>
+              Value.Int(i) // int to char (keeping as int for simplicity)
+            case "string" => Value.String(string(i))
+            case "bool"   => Value.Bool(i != 0)
+            case "any"    => value // cast to any preserves the value
+            case _ =>
+              runtimeError("Cannot cast int to " + targetTypeName)
+              Value.Uninitialized
+          }
 
-      case Value.Bool(b) =>
-        targetTypeName match {
-          case "bool"   => value // identity cast
-          case "int"    => Value.Int(if (b) 1 else 0)
-          case "string" => Value.String(string(b))
-          case "any"    => value // cast to any preserves the value
-          case _ =>
-            runtimeError("Cannot cast bool to " + targetTypeName)
-            Value.Uninitialized
-        }
+        case Value.Bool(b) =>
+          targetTypeName match {
+            case "bool"   => value // identity cast
+            case "int"    => Value.Int(if (b) 1 else 0)
+            case "string" => Value.String(string(b))
+            case "any"    => value // cast to any preserves the value
+            case _ =>
+              runtimeError("Cannot cast bool to " + targetTypeName)
+              Value.Uninitialized
+          }
 
-      case Value.String(s) =>
-        targetTypeName match {
-          case "string" => value // identity cast
-          case "any"    => value // cast to any preserves the value
-          case _ =>
-            runtimeError("Cannot cast string to " + targetTypeName)
-            Value.Uninitialized
-        }
+        case Value.String(s) =>
+          targetTypeName match {
+            case "string" => value // identity cast
+            case "any"    => value // cast to any preserves the value
+            case _ =>
+              runtimeError("Cannot cast string to " + targetTypeName)
+              Value.Uninitialized
+          }
 
-      case Value.Ref(actualTypeToken, addr) =>
-        targetTypeName match {
-          case "any" => value // cast to any preserves the value
-          case _ =>
-            if (actualTypeToken.token == targetTypeToken.token) {
-              value // identity cast for same type
-            } else {
+        case Value.Ref(actualTypeToken, addr) =>
+          targetTypeName match {
+            case "any" => value // cast to any preserves the value
+            case _ =>
+              if (actualTypeToken.token == targetTypeToken.token) {
+                value // identity cast for same type
+              } else {
+                runtimeError(
+                  "Cannot cast " + metadata.getTypeName(
+                    actualTypeToken
+                  ) + " to " + targetTypeName
+                )
+                Value.Uninitialized
+              }
+          }
+
+        case Value.Uninitialized =>
+          targetTypeName match {
+            case "any" => value
+            case _ =>
               runtimeError(
-                "Cannot cast " + metadata.getTypeName(
-                  actualTypeToken
-                ) + " to " + targetTypeName
+                "Cannot cast uninitialized value to " + targetTypeName
               )
               Value.Uninitialized
-            }
-        }
-
-      case Value.Uninitialized =>
-        targetTypeName match {
-          case "unit" => value
-          case "any"  => value
-          case _ =>
-            runtimeError("Cannot cast uninitialized value to " + targetTypeName)
-            Value.Uninitialized
-        }
-    }
+          }
+      }
   }
 
   def run(): InterpretResult = {
     setupHeap()
 
+    runEntry()
+  }
+
+  /** Runs an entry point of the form `main(args: Array[string])`.
+    *
+    * Images normally start with an empty stack. A command-line program is the
+    * exception: its argument array is a host value, so the VM has to lay it out
+    * on the heap and push its reference before building the entry frame.
+    */
+  def runWithArgs(args: Array[string]): InterpretResult = {
+    setupHeap()
+
+    entry match {
+      case Option.None => runtimeError("Image has no entry point")
+      case Option.Some(value) =>
+        if (metadata.getMethodParameterCount(value) != 1) {
+          runtimeError(
+            "Image entry point does not accept command-line arguments"
+          )
+        } else {
+          metadata.findTypeDefByName("string") match {
+            case Option.None =>
+              runtimeError("Image has no type token for string arguments")
+            case Option.Some(stringType) =>
+              val address = alloc(args.length + 1)
+              heap(address) = Value.Int(args.length)
+              for (i <- 0 to (args.length - 1)) {
+                heap(address + 1 + i) = Value.String(args(i))
+              }
+              push(Value.Ref(stringType, address))
+              runEntry()
+          }
+        }
+    }
+  }
+
+  def runEntry(): InterpretResult = {
     var result = entry match {
       case Option.None => InterpretResult.Continue
       case Option.Some(value) =>
@@ -894,6 +937,8 @@ class VM(
         push(stack(argsp + 2))
       case Opcode.Ldarg3 =>
         push(stack(argsp + 3))
+      case Opcode.Ldargn =>
+        push(stack(argsp + readI4()))
 
       // load locals
       case Opcode.Ldloc0 =>

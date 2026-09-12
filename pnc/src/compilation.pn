@@ -191,4 +191,20 @@ object ImageRunner {
       VM(image.chunk, image.metadata, image.entry, stack, heap, settings)
     vm.run()
   }
+
+  /** Runs a command-line image whose entry point accepts `Array[string]`. */
+  def execWithArgs(
+      path: string,
+      settings: CompilerSettings,
+      args: Array[string]
+  ): InterpretResult = {
+    val image = PnbFile.read(path)
+
+    val stack = new Array[Value](settings.stackSize)
+    val heap = new Array[Value](settings.heapSize)
+
+    val vm =
+      VM(image.chunk, image.metadata, image.entry, stack, heap, settings)
+    vm.runWithArgs(args)
+  }
 }

@@ -182,6 +182,32 @@ class PnbTests extends AnyFunSpec with Matchers {
       execViaImage("exit(3)") shouldBe InterpretResult.Exit(3)
     }
 
+    it("should pass command-line arguments to an image entry point") {
+      val file = Files.createTempFile("panther-image-args", ".pnb")
+      try {
+        mkCompilation(
+          "object Program {\n" +
+            "  def main(args: Array[string]): unit = println(args(1))\n" +
+            "}"
+        ).emit(file.toString)
+
+        val buffer = new java.io.ByteArrayOutputStream()
+        val result = Console.withOut(buffer) {
+          ImageRunner.execWithArgs(
+            file.toString,
+            CompilerSettingsFactory.default,
+            Array("first", "second")
+          )
+        }
+
+        result shouldBe InterpretResult.OkValue(Value.Uninitialized)
+        buffer.toString("utf-8") shouldBe "second\n"
+      } finally {
+        Files.deleteIfExists(file)
+        ()
+      }
+    }
+
     /** The entry point is one int in the header, and getting it wrong runs the
       * wrong method rather than failing.
       */

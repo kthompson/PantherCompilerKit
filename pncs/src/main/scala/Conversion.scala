@@ -5,11 +5,6 @@ enum Conversion {
   case Explicit
   case Identity
   case None
-
-  val isImplicit: bool = this == Implicit
-  val isExplicit: bool = this == Explicit
-  val isIdentity: bool = this == Identity
-  val Exists: bool = this != None
 }
 
 class ConversionClassifier(binder: Binder) {

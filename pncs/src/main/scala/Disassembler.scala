@@ -67,6 +67,8 @@ case class Disassembler(
       simpleInstruction(name, offset)
     } else if (opcode == Opcode.Ldarg3) {
       simpleInstruction(name, offset)
+    } else if (opcode == Opcode.Ldargn) {
+      i4Instruction(chunk, offset, name)
     } else if (opcode == Opcode.Ldloc0) {
       simpleInstruction(name, offset)
     } else if (opcode == Opcode.Ldloc1) {
@@ -85,8 +87,6 @@ case class Disassembler(
       simpleInstruction(name, offset)
     } else if (opcode == Opcode.LdcI4) {
       i4Instruction(chunk, offset, name)
-      //    } else if (opcode == Opcode.Ldargn) {
-      //      i4Instruction(chunk, offset, name)
     } else if (opcode == Opcode.Ldlocn) {
       i4Instruction(chunk, offset, name)
     } else if (opcode == Opcode.Stlocn) {
@@ -123,6 +123,8 @@ case class Disassembler(
     } else if (opcode == Opcode.Stsfld) {
       fieldTokenInstruction(chunk, offset, name)
     } else if (opcode == Opcode.IsInst) {
+      typeTokenInstruction(chunk, offset, name)
+    } else if (opcode == Opcode.Cast) {
       typeTokenInstruction(chunk, offset, name)
     } else if (opcode == Opcode.Dup) {
       simpleInstruction(name, offset)

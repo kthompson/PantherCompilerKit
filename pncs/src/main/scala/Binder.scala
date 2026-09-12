@@ -2576,7 +2576,7 @@ case class Binder(
         )
 
         addMembersToBind(symbol, members.functions, members.fields, List.Nil)
-        addStatementsToBind(symbol, members.globalStatements)
+        addEnumCaseStatements(symbol, cases, members.globalStatements)
 
         registerEnumDerivations(
           symbol,
@@ -2584,6 +2584,27 @@ case class Binder(
           derivedCases(symbol, cases),
           genericParameters
         )
+    }
+  }
+
+  /** Enum members are stored on every case instance, so their initializer
+    * statements belong in every case constructor. Binding them on the alias
+    * itself created a constructor that no enum value ever called.
+    */
+  def addEnumCaseStatements(
+      enumSymbol: Symbol,
+      cases: List[EnumCaseSyntax],
+      statements: List[MemberSyntax.GlobalStatementSyntax]
+  ): unit = {
+    cases match {
+      case List.Nil => ()
+      case List.Cons(enumCase, tail) =>
+        enumSymbol.lookupMember(enumCase.identifier.text) match {
+          case Option.None => ()
+          case Option.Some(caseSymbol) =>
+            addStatementsToBind(caseSymbol, statements)
+        }
+        addEnumCaseStatements(enumSymbol, tail, statements)
     }
   }
 

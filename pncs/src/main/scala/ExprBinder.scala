@@ -1545,7 +1545,7 @@ class ExprBinder(
           Result.Success(
             BoundExpression.Call(
               location,
-              Option.None,
+              receiverForUnqualifiedCall(location, symbol, scope),
               symbol,
               List.Nil,
               boundArgs,
@@ -1691,7 +1691,7 @@ class ExprBinder(
           Result.Success(
             BoundExpression.Call(
               location,
-              Option.None,
+              receiverForUnqualifiedCall(location, symbol, scope),
               symbol,
               inferredTypeArgs, // Pass the inferred type arguments
               boundArgs,
@@ -1792,7 +1792,7 @@ class ExprBinder(
           Result.Success(
             BoundExpression.Call(
               location,
-              Option.None,
+              receiverForUnqualifiedCall(location, symbol, scope),
               symbol,
               inferredTypeArgs,
               boundArgs,
@@ -1800,6 +1800,45 @@ class ExprBinder(
             )
           )
         case _ => invalidFunctionTarget(location)
+      }
+    }
+  }
+
+  /** A bare call to an instance method, such as `grow(1)` inside another
+    * method, is `this.grow(1)`. The method symbol alone used to produce a call
+    * with no receiver, leaving the VM to read an unrelated stack slot as
+    * argument zero.
+    */
+  def receiverForUnqualifiedCall(
+      location: TextLocation,
+      method: Symbol,
+      scope: Scope
+  ): Option[BoundLeftHandSide] = {
+    if (method.isStatic()) {
+      Option.None
+    } else {
+      scope.lookup("this") match {
+        case Option.None => Option.None
+        case Option.Some(receiver) =>
+          val receiverOwnsMethod = binder.tryGetSymbolType(receiver) match {
+            case Option.None => false
+            case Option.Some(receiverType) =>
+              binder.getTypeSymbol(receiverType) match {
+                case Option.None => false
+                case Option.Some(receiverTypeSymbol) =>
+                  method.parent match {
+                    case Option.None => false
+                    case Option.Some(methodOwner) =>
+                      receiverTypeSymbol == methodOwner ||
+                      receiverTypeSymbol.parent == Option.Some(methodOwner)
+                  }
+              }
+          }
+          if (receiverOwnsMethod) {
+            Option.Some(BoundLeftHandSide.Variable(location, receiver))
+          } else {
+            Option.None
+          }
       }
     }
   }
