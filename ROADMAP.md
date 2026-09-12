@@ -295,7 +295,10 @@ dictionary data. The attempted whole-compiler run overflowed at 32M, 64M, and
 128M heap slots before it could emit Stage 3; the 256M-slot attempt was stopped
 because it is a capacity experiment, not a sustainable proof.
 
-Before enabling the fixed-point gate, add a precise heap collector. The design
+Before enabling the fixed-point gate, add a precise heap collector.
+[ADR 0007](docs/architecture/adr/0007-garbage-collection.md) proposes a
+non-moving mark-and-sweep collector with allocation-side layout metadata,
+explicit rooting rules, and a Stage 3 validation plan. The design
 must identify object and array layouts, mark from stack and static-field roots,
 and reclaim unreachable temporary objects. Arrays currently carry their element
 type token rather than a distinct runtime array type, so their layout needs an
