@@ -22,6 +22,28 @@ class TranspilerTests extends AnyFunSpec with Matchers {
       mkTranspiled("class Heap(size: int)") shouldBe "class Heap(size: int)"
     }
 
+    it("should remove Scala access modifiers from methods and fields") {
+      mkTranspiled(
+        "object Counter {\n" +
+          "  private def increment(n: int): int = n + 1\n" +
+          "  protected var count = 0\n" +
+          "  public val name = \"counter\"\n" +
+          "}"
+      ) shouldBe
+        "object Counter {\n" +
+        "  def increment(n: int): int = n + 1\n" +
+        "  var count = 0\n" +
+        "  val name = \"counter\"\n" +
+        "}"
+    }
+
+    it("should preserve trivia when removing an access modifier") {
+      mkTranspiled(
+        "/** helper */\nprivate /* implementation detail */ def helper(): int = 1"
+      ) shouldBe
+        "/** helper */\n /* implementation detail */ def helper(): int = 1"
+    }
+
     /** The attribute is written where `case` was, so whatever indented the
       * declaration still indents it and the members below are untouched.
       */

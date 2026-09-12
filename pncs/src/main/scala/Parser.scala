@@ -28,14 +28,14 @@ case class Parser(
         diagnostics.reportUnexpectedToken(curr.location, curr.kind, kind)
       } else ()
 
-      if (!curr.isStatementTerminator()) prependTrivia()
+      if (!curr.isStatementTerminator()) moveTriviaToNext(false)
       else ()
 
       next()
     } else ()
   }
 
-  def prependTrivia(): unit = {
+  def moveTriviaToNext(preserveTrailingComments: bool): unit = {
     // this is a little hacky but basically we are taking any leading trivia from tokens
     // that we are throwing away and prepending it to the next token
     val len = _tokens.length
@@ -45,14 +45,31 @@ case class Parser(
     else {
       val next = _tokens(nextP)
       val curr = _tokens(currP)
-
-      val newLeading =
-        new Array[SyntaxTrivia](curr.leading.length + next.leading.length)
-      for (i <- 0 to (curr.leading.length - 1)) {
+      val leadingLength = curr.leading.length
+      var hasTrailingComment = false
+      for (i <- 0 to (curr.trailing.length - 1)) {
+        val kind = curr.trailing(i).kind
+        if (
+          kind == SyntaxKind.LineCommentTrivia ||
+          kind == SyntaxKind.BlockCommentTrivia
+        ) hasTrailingComment = true
+        else ()
+      }
+      val trailingLength =
+        if (preserveTrailingComments && hasTrailingComment)
+          curr.trailing.length
+        else 0
+      val newLeading = new Array[SyntaxTrivia](
+        leadingLength + trailingLength + next.leading.length
+      )
+      for (i <- 0 to (leadingLength - 1)) {
         newLeading(i) = curr.leading(i)
       }
+      for (i <- 0 to (trailingLength - 1)) {
+        newLeading(leadingLength + i) = curr.trailing(i)
+      }
       for (i <- 0 to (next.leading.length - 1)) {
-        newLeading(curr.leading.length + i) = next.leading(i)
+        newLeading(leadingLength + trailingLength + i) = next.leading(i)
       }
 
       _tokens(nextP) = new SyntaxToken(
@@ -1482,6 +1499,31 @@ case class Parser(
     new MemberSyntax.GlobalStatementSyntax(parseStatement())
   }
 
+  /** Scala access modifiers have no Panther equivalent yet. Recognize them
+    * contextually before methods and fields so the transpiler can erase the
+    * modifier without reserving otherwise-valid Panther identifiers.
+    *
+    * Moving the modifier's leading trivia onto the declaration keyword keeps
+    * indentation and comments intact after the modifier itself disappears.
+    */
+  def skipScalaMemberAccessModifier(): unit = {
+    val token = current()
+    val nextKind = peek(1).kind
+    val isAccessModifier =
+      token.kind == SyntaxKind.IdentifierToken &&
+        (token.text == "private" || token.text == "protected" || token.text == "public")
+    val modifiesMethodOrField =
+      nextKind == SyntaxKind.DefKeyword ||
+        nextKind == SyntaxKind.ValKeyword ||
+        nextKind == SyntaxKind.VarKeyword ||
+        nextKind == SyntaxKind.OverrideKeyword
+
+    if (scala && isAccessModifier && modifiesMethodOrField) {
+      moveTriviaToNext(true)
+      accept()
+    } else ()
+  }
+
   def parseMember(topLevelStatement: bool): MemberSyntax = {
     debugPrint("parseMember")
 
@@ -1490,6 +1532,7 @@ case class Parser(
     // attribute has already been consumed by then and the member is what the
     // reader has to change.
     val derives = parseDeriveAttribute()
+    skipScalaMemberAccessModifier()
 
     val kind = currentKind()
     if (kind == SyntaxKind.ObjectKeyword) {
