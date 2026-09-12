@@ -6,7 +6,8 @@ The three things that matter most:
 
 1. **Self-hosting** — `pnc` compiles itself without help from Scala.
    Diagnostics and the tracked `unimplemented` panics are both at zero.
-   Stage 3, the byte-for-byte fixed point, is the remaining proof (§1.5).
+   The Stage 3 runner exists, but its whole-compiler run is blocked by the
+   VM's non-collecting heap (§1.5).
 2. **Generics** — inference is done (§2.1); upper bounds, variance
    enforcement, and generic aliases/unions are not (§2.2–§2.5).
 3. **Sample programs** — a program can be written, compiled, and run. 4 of 6
@@ -280,11 +281,27 @@ assigning to a var field through member access") — the positive case the
 
 ### 1.5 Run the stages
 
-`scripts/stage0.ps1` (transpile), `stage1.ps1` (bootstrap), `stage2.ps1`
-(`pnc/compile`) already exist. Once §1.3 and §1.4 are clear, add **stage 3**:
-`pnc`-compiled-by-`pnc` must produce the same bytecode as
-`pnc`-compiled-by-`pncs`. That fixed point is what "self-hosted" means, and it
-is the point at which `pncs` stops being load-bearing.
+`scripts/stage0.ps1` (transpile), `stage1.ps1` (bootstrap), and
+`stage2.ps1` (`pnc/compile`) exist. Stage 3 is now implemented by
+[`scripts/stage3.ps1`](scripts/stage3.ps1) and
+[`tools/stage3/`](tools/stage3/): it runs the Stage 2 image with an
+`Array[string]` command line over a canonical source order, emits
+`pnc-stage3.pnb`, and compares its SHA-256 and bytes with Stage 2.
+
+It is deliberately **not in CI yet**. The VM heap is a bump pointer with no
+garbage collector. Compiling all 93 Panther sources retains long-lived syntax
+and bound structures while also allocating large amounts of temporary list and
+dictionary data. The attempted whole-compiler run overflowed at 32M, 64M, and
+128M heap slots before it could emit Stage 3; the 256M-slot attempt was stopped
+because it is a capacity experiment, not a sustainable proof.
+
+Before enabling the fixed-point gate, add a precise heap collector. The design
+must identify object and array layouts, mark from stack and static-field roots,
+and reclaim unreachable temporary objects. Arrays currently carry their element
+type token rather than a distinct runtime array type, so their layout needs an
+explicit tag (or equivalent metadata) before a precise collector can traverse
+references safely. Once that is in place, rerun `scripts/stage3.ps1`, record the
+image hash, and re-enable `sbt stage3/run` in CI.
 
 ---
 
@@ -515,7 +532,8 @@ moved.
    above is protected from regressing.
 3. ~~**§1.4**~~ — done. All 26 tracked `unimplemented` panics are closed and
    `pnc/compile` completes and writes a `.pnb`.
-4. **§1.5** — stage 3, the self-hosting fixed point.
+4. **§1.5** — implement VM garbage collection, then verify and gate the Stage
+   3 self-hosting fixed point.
 5. **Decide the stdlib-in-scope question** (§3.3/§4.4) — it's the one thing
    blocking the last 2 samples and doccheck's biggest gap simultaneously.
 6. **§3.3** — write `wordcount.pn` and `records.pn` once #5 is decided; §3.4

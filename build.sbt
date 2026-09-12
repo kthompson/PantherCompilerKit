@@ -95,8 +95,7 @@ lazy val pncs = project
         .exitValue()
 
       if (result != 0) sys.error(s"Transpile failed with exit code $result")
-    },
-
+    }
   )
 
 /** Panther Compiler in Panther
@@ -123,7 +122,7 @@ lazy val pnc = project
 
       (pncs / transpile).map { _ =>
         val sourceDir = sourceDirectory.value
-        val pnFiles = (sourceDir ** "*.pn").get
+        val pnFiles = (sourceDir ** "*.pn").get.sortBy(_.getAbsolutePath)
         val mainCls = (pncs / Compile / mainClass).value
           .getOrElse(sys.error("No main class in pncs"))
 
@@ -170,6 +169,21 @@ lazy val doccheck = project
     mainClass := Some("DocCheck")
   )
 
+/** Stage 3 self-hosting fixed-point check.
+  *
+  * `pnc/compile` produces the Stage 2 image. This tool runs that image as a
+  * compiler over the same Panther sources and compares the resulting Stage 3
+  * image byte-for-byte with Stage 2.
+  */
+lazy val stage3 = project
+  .in(file("tools/stage3"))
+  .dependsOn(pncs)
+  .settings(
+    mainClass := Some("Stage3"),
+    Compile / run / fork := true,
+    Compile / run / javaOptions += "-Xmx8G"
+  )
+
 lazy val test = project
   .dependsOn(runtime, pncs)
   .settings(
@@ -177,4 +191,3 @@ lazy val test = project
       "org.scalatest" %% "scalatest" % "3.2.19" % Test
     )
   )
-
