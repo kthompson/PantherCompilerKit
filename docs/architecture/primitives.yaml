@@ -87,7 +87,7 @@ primitives:
       - pncs/src/main/scala/SyntaxTree.scala
       - pnc/src/SyntaxTree.pn
       - pncs/src/main/scala/Ast.scala
-      - pnc/src/ast.pn
+      - pnc/src/Ast.pn
       - pncs/src/main/scala/AstPrinter.scala
       - pnc/src/AstPrinter.pn
       - pncs/src/main/scala/OperatorPrecedence.scala
@@ -336,6 +336,7 @@ primitives:
     code:
       - docs/architecture/primitives.yaml
       - .claude/skills/visual-recap/
+      - .agents/skills/visual-recap/
 
 invariants:
   - id: transpile-sync
