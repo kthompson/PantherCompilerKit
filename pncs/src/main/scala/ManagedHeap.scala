@@ -1,0 +1,267 @@
+import panther._
+
+/** The PVM's managed heap. It owns storage layout, allocation, roots retained
+  * by native helpers, and collection; the VM owns only its execution stack and
+  * passes its active prefix at allocation safepoints.
+  */
+class ManagedHeap(val values: Array[Value], temporaryRootCapacity: int) {
+  val blockSize = new Array[int](values.length)
+  val blockKind = new Array[int](values.length)
+  val marked = new Array[bool](values.length)
+  val markWork = new Array[int](values.length)
+  val temporaryRoots = new Array[Value](temporaryRootCapacity)
+
+  val FreeBlock = 0
+  val ObjectBlock = 1
+  val ArrayBlock = 2
+
+  var staticCount = 0
+  var heapp = 0
+  var temporaryRootCount = 0
+  var collecting = false
+  var collectionCount = 0
+  var allocatedSlots = 0
+  var reclaimedSlots = 0
+  var peakLiveSlots = 0
+
+  def update(addr: int, value: Value): unit = {
+    values(addr) = value
+  }
+
+  def apply(addr: int): Value = values(addr)
+
+  def updateBlockOffset(blockAddr: int, offset: int, value: Value): bool = {
+    if (
+      isAllocatedStart(blockAddr) && offset >= 0 && offset < blockSize(
+        blockAddr
+      )
+    ) {
+      values(blockAddr + offset) = value
+      true
+    } else {
+      false
+    }
+  }
+
+  def getBlockOffset(blockAddr: int, offset: int): Option[Value] = {
+    if (
+      isAllocatedStart(blockAddr) && offset >= 0 && offset < blockSize(
+        blockAddr
+      )
+    ) {
+      Option.Some(values(blockAddr + offset))
+    } else {
+      Option.None
+    }
+  }
+
+  def setupStaticFields(count: int): unit = {
+    if (count < 0 || count > values.length) {
+      panic("Invalid static heap size " + string(count))
+    }
+    staticCount = count
+    heapp = count
+    for (i <- 0 to (count - 1)) {
+      values(i) = Value.Uninitialized
+    }
+  }
+
+  def pushTemporaryRoot(value: Value): int = {
+    if (temporaryRootCount >= temporaryRoots.length) {
+      panic("Temporary root stack overflow")
+    }
+    temporaryRoots(temporaryRootCount) = value
+    temporaryRootCount = temporaryRootCount + 1
+    temporaryRootCount
+  }
+
+  def restoreTemporaryRoots(count: int): unit = {
+    while (temporaryRootCount > count) {
+      temporaryRootCount = temporaryRootCount - 1
+      temporaryRoots(temporaryRootCount) = Value.Uninitialized
+    }
+  }
+
+  def isAllocatedStart(address: int): bool =
+    address >= staticCount && address < heapp && blockSize(address) > 0 &&
+      blockKind(address) != FreeBlock
+
+  def isObject(address: int): bool =
+    isAllocatedStart(address) && blockKind(address) == ObjectBlock
+
+  def isArray(address: int): bool =
+    isAllocatedStart(address) && blockKind(address) == ArrayBlock
+
+  def findFreeBlock(size: int): int = {
+    var address = staticCount
+    var result = -1
+    while (address < heapp && result < 0) {
+      if (blockKind(address) == FreeBlock && blockSize(address) >= size) {
+        result = address
+      } else {
+        address = address + blockSize(address)
+      }
+    }
+    result
+  }
+
+  def reserveBlock(
+      size: int,
+      kind: int,
+      stackRoots: Array[Value],
+      stackRootCount: int
+  ): Option[int] = {
+    if (size <= 0 || size > values.length - staticCount) {
+      Option.None
+    } else {
+      var address = findFreeBlock(size)
+      if (address < 0 && values.length - heapp >= size) {
+        address = heapp
+        heapp = heapp + size
+      }
+      if (address < 0) {
+        collect(stackRoots, stackRootCount)
+        address = findFreeBlock(size)
+        if (address < 0 && values.length - heapp >= size) {
+          address = heapp
+          heapp = heapp + size
+        }
+      }
+      if (address < 0) {
+        Option.None
+      } else {
+        val oldSize = blockSize(address)
+        if (oldSize > size) {
+          val remainder = address + size
+          blockSize(remainder) = oldSize - size
+          blockKind(remainder) = FreeBlock
+          marked(remainder) = false
+        }
+        blockSize(address) = size
+        blockKind(address) = kind
+        marked(address) = false
+        allocatedSlots = allocatedSlots + size
+        Option.Some(address)
+      }
+    }
+  }
+
+  def allocateObject(
+      fieldSlots: int,
+      stackRoots: Array[Value],
+      stackRootCount: int
+  ): Option[int] = {
+    val size = if (fieldSlots < 1) 1 else fieldSlots
+    reserveBlock(size, ObjectBlock, stackRoots, stackRootCount) match {
+      case Option.None          => Option.None
+      case Option.Some(objAddr) =>
+        // clear the block for the object
+        for (i <- 0 to (blockSize(objAddr) - 1)) {
+          values(objAddr + i) = Value.Uninitialized
+        }
+        Option.Some(objAddr)
+    }
+  }
+
+  def allocateArray(
+      length: int,
+      defaultValue: Value,
+      stackRoots: Array[Value],
+      stackRootCount: int
+  ): Option[int] = {
+    if (length < 0 || length > values.length - staticCount - 1) Option.None
+    else
+      reserveBlock(length + 1, ArrayBlock, stackRoots, stackRootCount) match {
+        case Option.None            => Option.None
+        case Option.Some(arrayAddr) =>
+          // initialize the array's length field
+          values(arrayAddr) = Value.Int(length)
+          // default all the items in the array (skip the length field)
+          for (i <- 1 to (blockSize(arrayAddr) - 1)) {
+            values(arrayAddr + i) = defaultValue
+          }
+          Option.Some(arrayAddr)
+      }
+  }
+
+  def visit(value: Value, workCount: int): int = {
+    value match {
+      case Value.Ref(_, address) =>
+        if (!isAllocatedStart(address))
+          panic("Invalid heap reference " + string(address))
+        if (!marked(address)) {
+          marked(address) = true
+          markWork(workCount) = address
+          workCount + 1
+        } else workCount
+      case _ => workCount
+    }
+  }
+
+  /** Stop-the-world, iterative mark and sweep.  Addresses never move. */
+  def collect(stackRoots: Array[Value], stackRootCount: int): unit = {
+    if (collecting) panic("Recursive garbage collection")
+    collecting = true
+    var workCount = 0
+    for (i <- 0 to (stackRootCount - 1)) {
+      workCount = visit(stackRoots(i), workCount)
+    }
+    for (i <- 0 to (staticCount - 1)) {
+      workCount = visit(values(i), workCount)
+    }
+    for (i <- 0 to (temporaryRootCount - 1)) {
+      workCount = visit(temporaryRoots(i), workCount)
+    }
+
+    while (workCount > 0) {
+      workCount = workCount - 1
+      val address = markWork(workCount)
+      val start = if (blockKind(address) == ArrayBlock) address + 1 else address
+      val end = address + blockSize(address)
+      var slot = start
+      while (slot < end) {
+        workCount = visit(values(slot), workCount)
+        slot = slot + 1
+      }
+    }
+
+    var address = staticCount
+    var liveSlots = 0
+    while (address < heapp) {
+      val size = blockSize(address)
+      if (blockKind(address) != FreeBlock && marked(address)) {
+        marked(address) = false
+        liveSlots = liveSlots + size
+        address = address + size
+      } else {
+        var freeSize = 0
+        while (
+          address < heapp && (blockKind(address) == FreeBlock || !marked(
+            address
+          ))
+        ) {
+          val deadSize = blockSize(address)
+          var slot = address
+          while (slot < address + deadSize) {
+            values(slot) = Value.Uninitialized
+            slot = slot + 1
+          }
+          reclaimedSlots = reclaimedSlots + deadSize
+          freeSize = freeSize + deadSize
+          blockSize(address) = 0
+          marked(address) = false
+          address = address + deadSize
+        }
+        val freeStart = address - freeSize
+        if (address == heapp) heapp = freeStart
+        else {
+          blockSize(freeStart) = freeSize
+          blockKind(freeStart) = FreeBlock
+        }
+      }
+    }
+    if (liveSlots > peakLiveSlots) peakLiveSlots = liveSlots
+    collectionCount = collectionCount + 1
+    collecting = false
+  }
+}

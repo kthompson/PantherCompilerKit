@@ -59,14 +59,15 @@ class VM(
     metadata: Metadata,
     entry: Option[MethodToken],
     stack: Array[Value],
-    heap: Array[Value],
+    heapEntries: Array[Value],
     settings: CompilerSettings
 ) {
   var sp = 0 // stack pointer
   var ip = 0 // instruction pointer
   var argsp = 0 // argument stack pointer
   var localp = 0 // local variable pointer
-  var heapp = 0 // heap pointer
+
+  val heap = new ManagedHeap(heapEntries, stack.length)
 
   // static field pointer (portion of the heap)
   var staticp = 0
@@ -81,19 +82,33 @@ class VM(
   //    b. record number of static fields in the Chunk header
 
   def setupHeap(): unit = {
-    // allocate space on the heap for static fields
-    alloc(metadata.statics())
+    heap.setupStaticFields(metadata.statics())
   }
 
-  // allocates space on the heap for an object
-  def alloc(size: int): int = {
-    if (heapp + size > heap.length) {
-      panic("Heap overflow")
-    }
-    val addr = heapp
-    heapp = heapp + size
-    addr
+  /** Objects get one physical slot even when they have no fields, preserving
+    * identity between distinct zero-field instances.
+    */
+  def allocateObject(fieldSlots: int): Option[int] = {
+    heap.allocateObject(fieldSlots, stack, sp)
   }
+
+  def allocateArray(length: int): Option[int] = {
+    heap.allocateArray(length, Value.Uninitialized, stack, sp)
+  }
+
+  def allocateArray(length: int, defaultValue: Value): Option[int] = {
+    heap.allocateArray(length, defaultValue, stack, sp)
+  }
+
+  /** Stop-the-world, iterative mark and sweep.  Addresses never move. */
+  def collect(): unit = {
+    heap.collect(stack, sp)
+  }
+
+  def pushTemporaryRoot(value: Value): int = heap.pushTemporaryRoot(value)
+
+  def restoreTemporaryRoots(count: int): unit =
+    heap.restoreTemporaryRoots(count)
 
   def getDefaultValueForType(typeToken: TypeDefToken): Value = {
     // Get the type definition and return appropriate default value
@@ -163,7 +178,9 @@ class VM(
 
   def pop(): Value = {
     sp = sp - 1
-    stack(sp)
+    val value = stack(sp)
+    stack(sp) = Value.Uninitialized
+    value
   }
 
   /** Slides the top `numArgs` values up by one and drops `value` underneath
@@ -522,12 +539,15 @@ class VM(
           case Option.None =>
             runtimeError("readAllBytes: no type token for int")
           case Option.Some(elementType) =>
-            val addr = alloc(bytes.length + 1)
-            heap(addr) = Value.Int(bytes.length)
-            for (i <- 0 to (bytes.length - 1)) {
-              heap(addr + 1 + i) = Value.Int(bytes(i))
+            allocateArray(bytes.length) match {
+              case Option.None => runtimeError("Out of memory reading bytes")
+              case Option.Some(addr) =>
+                heap(addr) = Value.Int(bytes.length)
+                for (i <- 0 to (bytes.length - 1)) {
+                  heap(addr + 1 + i) = Value.Int(bytes(i))
+                }
+                push(Value.Ref(elementType, addr))
             }
-            push(Value.Ref(elementType, addr))
         }
       case _ =>
         runtimeError("Expected string path for readAllBytes")
@@ -540,16 +560,19 @@ class VM(
     val path = pop()
     Tuple2(path, arrayRef) match {
       case Tuple2(Value.String(file), Value.Ref(_, addr)) =>
-        heap(addr) match {
-          case Value.Int(count) =>
-            val bytes = new Array[int](count)
-            for (i <- 0 to (count - 1)) {
-              bytes(i) = toInt(heap(addr + 1 + i))
-            }
-            File.writeAllBytes(file, bytes)
-            push(Value.Uninitialized)
-          case _ =>
-            runtimeError("writeAllBytes: array has no length")
+        if (!heap.isArray(addr)) {
+          runtimeError("writeAllBytes: expected an array reference")
+        } else {
+          heap(addr) match {
+            case Value.Int(count) =>
+              val bytes = new Array[int](count)
+              for (i <- 0 to (count - 1)) {
+                bytes(i) = toInt(heap(addr + 1 + i))
+              }
+              File.writeAllBytes(file, bytes)
+              push(Value.Uninitialized)
+            case _ => runtimeError("writeAllBytes: array has no length")
+          }
         }
       case _ =>
         runtimeError("Expected a string path and an array for writeAllBytes")
@@ -833,13 +856,17 @@ class VM(
             case Option.None =>
               runtimeError("Image has no type token for string arguments")
             case Option.Some(stringType) =>
-              val address = alloc(args.length + 1)
-              heap(address) = Value.Int(args.length)
-              for (i <- 0 to (args.length - 1)) {
-                heap(address + 1 + i) = Value.String(args(i))
+              allocateArray(args.length) match {
+                case Option.None =>
+                  runtimeError("Out of memory allocating arguments")
+                case Option.Some(address) =>
+                  heap(address) = Value.Int(args.length)
+                  for (i <- 0 to (args.length - 1)) {
+                    heap(address + 1 + i) = Value.String(args(i))
+                  }
+                  push(Value.Ref(stringType, address))
+                  runEntry()
               }
-              push(Value.Ref(stringType, address))
-              runEntry()
           }
         }
     }
@@ -1061,11 +1088,16 @@ class VM(
         // pop the object reference
         val objRef = pop()
         objRef match {
-          case Value.Ref(typeToken, addr) =>
-            // load the instance field value
-            val value = heap(addr + field.index)
-            push(value)
-            InterpretResult.Continue
+          case Value.Ref(_, addr) =>
+            if (!heap.isObject(addr)) {
+              runtimeError("Expected object")
+            } else
+              heap.getBlockOffset(addr, field.index) match {
+                case Option.None => runtimeError("Invalid object field access")
+                case Option.Some(value) =>
+                  push(value)
+                  InterpretResult.Continue
+              }
           case _ =>
             runtimeError("Expected object reference for field access")
         }
@@ -1080,10 +1112,18 @@ class VM(
         // pop the object reference
         val objRef = pop()
         objRef match {
-          case Value.Ref(typeToken, addr) =>
-            // store the value in the instance field
-            heap(addr + field.index) = value
-            InterpretResult.Continue
+          case Value.Ref(_, addr) =>
+            if (
+              !heap.isObject(addr) || !heap.updateBlockOffset(
+                addr,
+                field.index,
+                value
+              )
+            ) {
+              runtimeError("Invalid object field assignment")
+            } else {
+              InterpretResult.Continue
+            }
           case _ =>
             runtimeError("Expected object reference for field assignment")
         }
@@ -1096,26 +1136,17 @@ class VM(
 
         // allocate space for the new object
         val objSize = metadata.getTypeDefSize(typeDef)
-        val objAddr = alloc(objSize)
-
-        // initialize all fields to Unit (could be improved to use default values)
-        for (i <- 0 to (objSize - 1)) {
-          heap(objAddr + i) = Value.Uninitialized
+        allocateObject(objSize) match {
+          case Option.None => runtimeError("Out of memory allocating object")
+          case Option.Some(objAddr) =>
+            // Publishing the receiver before entering the constructor makes it
+            // a root if the constructor allocates.
+            insertBelowArguments(
+              Value.Ref(typeDef, objAddr),
+              metadata.getMethodParameterCount(token)
+            )
+            methodCall(token, ip)
         }
-
-        // The receiver goes *beneath* the constructor's arguments, so `this`
-        // sits at argument slot 0 exactly as it does for every other instance
-        // call and `getMethodParameterMap` can number declared parameters from
-        // 1 either way. Pushing it on top would put it after the arguments,
-        // and the constructor's own return — which writes to argsp — would
-        // then overwrite the first argument instead of yielding the object.
-        insertBelowArguments(
-          Value.Ref(typeDef, objAddr),
-          metadata.getMethodParameterCount(token)
-        )
-
-        // call the constructor
-        methodCall(token, ip)
 
       // Array operations
       // An array's first slot holds its length and its elements follow, so
@@ -1131,21 +1162,13 @@ class VM(
         val sizeValue = pop()
         sizeValue match {
           case Value.Int(size) =>
-            // One slot for the length, then one per element
-            val arrayAddr = alloc(size + 1)
-            heap(arrayAddr) = Value.Int(size)
-
-            // Initialize all elements with appropriate default values based on type
             val defaultValue = getDefaultValueForType(elementTypeToken)
-            for (i <- 0 to (size - 1)) {
-              heap(arrayAddr + 1 + i) = defaultValue
+            allocateArray(size, defaultValue) match {
+              case Option.None => runtimeError("Out of memory allocating array")
+              case Option.Some(arrayAddr) =>
+                push(Value.Ref(elementTypeToken, arrayAddr))
+                InterpretResult.Continue
             }
-
-            // Use the element type token for the array reference
-            // Note: In a complete implementation, we might need a separate array type token
-            // but for now we'll use the element type token
-            push(Value.Ref(elementTypeToken, arrayAddr))
-            InterpretResult.Continue
           case _ =>
             runtimeError("Expected integer size for array creation")
         }
@@ -1154,8 +1177,12 @@ class VM(
         val arrayRef = pop()
         arrayRef match {
           case Value.Ref(_, addr) =>
-            push(heap(addr))
-            InterpretResult.Continue
+            if (!heap.isArray(addr))
+              runtimeError("Expected array reference for length")
+            else {
+              push(heap(addr))
+              InterpretResult.Continue
+            }
           // A string has a length too, and answers it directly rather than out
           // of a header slot, for the same reason `Ldelem` indexes one.
           case Value.String(str) =>
@@ -1176,11 +1203,23 @@ class VM(
         index match {
           case Value.Int(indexValue) =>
             arrayRef match {
-              case Value.Ref(typeToken, addr) =>
-                // Load the element from the array
-                val elementValue = heap(addr + 1 + indexValue)
-                push(elementValue)
-                InterpretResult.Continue
+              case Value.Ref(_, addr) =>
+                if (!heap.isArray(addr)) {
+                  runtimeError("Expected array reference for element access")
+                } else
+                  heap(addr) match {
+                    case Value.Int(length) =>
+                      if (indexValue < 0 || indexValue >= length) {
+                        runtimeError(
+                          "Array index " + string(indexValue) +
+                            " out of range for length " + string(length)
+                        )
+                      } else {
+                        push(heap(addr + 1 + indexValue))
+                        InterpretResult.Continue
+                      }
+                    case _ => runtimeError("Invalid array header")
+                  }
               // A string indexes too, and yields a char, which is an int here
               // for the same reason `ConvChar` produces one.
               case Value.String(str) =>
@@ -1210,10 +1249,25 @@ class VM(
         index match {
           case Value.Int(indexValue) =>
             arrayRef match {
-              case Value.Ref(typeToken, addr) =>
-                // Store the value in the array
-                heap(addr + 1 + indexValue) = value
-                InterpretResult.Continue
+              case Value.Ref(_, addr) =>
+                if (!heap.isArray(addr)) {
+                  runtimeError(
+                    "Expected array reference for element assignment"
+                  )
+                } else
+                  heap(addr) match {
+                    case Value.Int(length) =>
+                      if (indexValue < 0 || indexValue >= length) {
+                        runtimeError(
+                          "Array index " + string(indexValue) +
+                            " out of range for length " + string(length)
+                        )
+                      } else {
+                        heap(addr + 1 + indexValue) = value
+                        InterpretResult.Continue
+                      }
+                    case _ => runtimeError("Invalid array header")
+                  }
               case _ =>
                 runtimeError("Expected array reference for element assignment")
             }
@@ -1250,10 +1304,18 @@ class VM(
     val endFrame = localp
 
     val retAddr = stackAsInt(endFrame - 3)
-    stack(argsp) = pop()
+    val savedArgsp = stackAsInt(endFrame - 1)
+    val savedLocalp = stackAsInt(endFrame - 2)
+    val result = pop()
+    var slot = argsp
+    while (slot < endFrame) {
+      stack(slot) = Value.Uninitialized
+      slot = slot + 1
+    }
+    stack(argsp) = result
     sp = argsp + 1
-    argsp = stackAsInt(endFrame - 1)
-    localp = stackAsInt(endFrame - 2)
+    argsp = savedArgsp
+    localp = savedLocalp
     ip = retAddr
 
     if (ip == -1) {
