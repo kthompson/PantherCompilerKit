@@ -105,6 +105,47 @@ class GarbageCollectorTests extends AnyFunSpec with Matchers {
       vm.allocateObject(0) shouldBe Option.Some(0)
     }
 
+    it("preserves a large free block while splitting and reusing a small one") {
+      val vm = vmWithHeap(10)
+      vm.allocateObject(1) shouldBe Option.Some(0)
+      vm.allocateObject(4) shouldBe Option.Some(1) // large dead hole
+      vm.allocateObject(1) shouldBe Option.Some(5)
+      vm.allocateObject(2) shouldBe Option.Some(6) // small dead hole
+      vm.allocateObject(2) shouldBe Option.Some(8)
+
+      vm.push(Value.Ref(TypeDefToken(0), 0))
+      vm.push(Value.Ref(TypeDefToken(0), 5))
+      vm.push(Value.Ref(TypeDefToken(0), 8))
+      vm.collect()
+
+      vm.allocateObject(1) shouldBe Option.Some(6)
+      vm.allocateObject(1) shouldBe Option.Some(7) // split remainder
+      vm.allocateObject(4) shouldBe Option.Some(1) // large hole survived
+    }
+
+    it(
+      "rebuilds free lists and coalesces adjacent dead blocks on later collections"
+    ) {
+      val vm = vmWithHeap(6)
+      vm.allocateObject(1) shouldBe Option.Some(0)
+      vm.allocateObject(1) shouldBe Option.Some(1)
+      vm.allocateObject(1) shouldBe Option.Some(2)
+      vm.allocateObject(1) shouldBe Option.Some(3)
+      vm.allocateObject(1) shouldBe Option.Some(4)
+      vm.allocateObject(1) shouldBe Option.Some(5)
+
+      vm.push(Value.Ref(TypeDefToken(0), 0))
+      vm.push(Value.Ref(TypeDefToken(0), 5))
+      vm.collect()
+      vm.allocateObject(2) shouldBe Option.Some(1)
+
+      vm.push(Value.Ref(TypeDefToken(0), 1))
+      vm.collect()
+      vm.pop()
+      vm.collect()
+      vm.allocateObject(4) shouldBe Option.Some(1)
+    }
+
     it("keeps references stored in object fields across repeated collections") {
       val program =
         "class Box(value: int)\n" +

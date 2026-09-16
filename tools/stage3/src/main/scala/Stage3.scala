@@ -77,6 +77,13 @@ object Stage3 {
         s"${vm.heap.peakLiveSlots} peak live slots, " +
         s"${vm.heap.heapp} committed slots"
     )
+    val failedReservation =
+      if (vm.heap.lastFailedBlockSize > 0)
+        s"; last failed ${blockKindName(vm.heap, vm.heap.lastFailedBlockKind)} " +
+          s"reservation=${vm.heap.lastFailedBlockSize} slots; " +
+          s"site=${allocationSite(vm)}"
+      else ""
+    println(s"Stage 3 heap layout: ${heapLayout(vm.heap)}$failedReservation")
     result match {
       case InterpretResult.Ok | InterpretResult.OkValue(_) => ()
       case InterpretResult.Exit(0)                         => ()
@@ -101,6 +108,58 @@ object Stage3 {
     val hash =
       MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path))
     hash.map(byte => f"${byte & 0xff}%02x").mkString
+  }
+
+  /** Diagnostic-only summary of the non-moving heap after Stage 3 exits. */
+  private def heapLayout(heap: ManagedHeap): String = {
+    var address = heap.staticCount
+    var reusableFreeSlots = 0
+    var largestReusableFreeSpan = 0
+    var allocatedBlocks = 0
+    var largestAllocatedBlock = 0
+
+    while (address < heap.heapp) {
+      val size = heap.blockSize(address)
+      if (heap.blockKind(address) == heap.FreeBlock) {
+        reusableFreeSlots += size
+        if (size > largestReusableFreeSpan) largestReusableFreeSpan = size
+      } else {
+        allocatedBlocks += 1
+        if (size > largestAllocatedBlock) largestAllocatedBlock = size
+      }
+      address += size
+    }
+
+    val tailFreeSlots = heap.values.length - heap.heapp
+    s"$reusableFreeSlots reusable free slots; " +
+      s"$largestReusableFreeSpan largest reusable span; " +
+      s"$tailFreeSlots tail slots; $allocatedBlocks allocated blocks; " +
+      s"$largestAllocatedBlock largest allocated block"
+  }
+
+  private def blockKindName(heap: ManagedHeap, kind: int): String =
+    if (kind == heap.ArrayBlock) "array"
+    else if (kind == heap.ObjectBlock) "object"
+    else "unknown"
+
+  /** The failing `Newarr` has consumed its opcode and element token. */
+  private def allocationSite(vm: VM): String = {
+    val offset = vm.ip - 2
+    var method = -1
+    var methodAddress = -1
+    for (index <- 0 until vm.metadata.methods.size) {
+      val address = vm.metadata.methods.methods(index).address
+      if (address <= offset && address > methodAddress) {
+        method = index
+        methodAddress = address
+      }
+    }
+    if (method < 0 || offset < 0 || offset >= vm.chunk.size)
+      s"unknown bytecode offset $offset"
+    else {
+      val name = vm.metadata.getMethodName(MethodToken(method))
+      s"$name at source line ${vm.chunk.readLine(offset)} (bytecode offset $offset)"
+    }
   }
 
   private def findRepoRoot(start: Path): Path = {

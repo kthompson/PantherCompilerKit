@@ -10,6 +10,9 @@ class ManagedHeap(val values: Array[Value], temporaryRootCapacity: int) {
   val marked = new Array[bool](values.length)
   val markWork = new Array[int](values.length)
   val temporaryRoots = new Array[Value](temporaryRootCapacity)
+  // One intrusive free list per power-of-two size class. The first value in a
+  // free block is its next pointer, so this adds no per-slot side table.
+  val freeHeads = new Array[int](32)
 
   val FreeBlock = 0
   val ObjectBlock = 1
@@ -17,13 +20,18 @@ class ManagedHeap(val values: Array[Value], temporaryRootCapacity: int) {
 
   var staticCount = 0
   var heapp = 0
-  var freeSearchStart = 0
   var temporaryRootCount = 0
   var collecting = false
   var collectionCount = 0
   var allocatedSlots = 0
   var reclaimedSlots = 0
   var peakLiveSlots = 0
+  var freeListsBuilt = false
+  // Diagnostic state for a rejected reservation. The VM's public runtime
+  // error distinguishes object from array allocation, but not its requested
+  // size; retaining it here makes a fragmented-heap failure actionable.
+  var lastFailedBlockSize = 0
+  var lastFailedBlockKind = FreeBlock
 
   def update(addr: int, value: Value): unit = {
     values(addr) = value
@@ -62,7 +70,10 @@ class ManagedHeap(val values: Array[Value], temporaryRootCapacity: int) {
     }
     staticCount = count
     heapp = count
-    freeSearchStart = count
+    freeListsBuilt = false
+    for (i <- 0 to (freeHeads.length - 1)) freeHeads(i) = -1
+    lastFailedBlockSize = 0
+    lastFailedBlockKind = FreeBlock
     for (i <- 0 to (count - 1)) {
       values(i) = Value.Uninitialized
     }
@@ -94,25 +105,58 @@ class ManagedHeap(val values: Array[Value], temporaryRootCapacity: int) {
   def isArray(address: int): bool =
     isAllocatedStart(address) && blockKind(address) == ArrayBlock
 
-  def findFreeBlock(size: int): int = {
-    var address = freeSearchStart
-    var result = -1
-    while (address < heapp && result < 0) {
-      if (blockKind(address) == FreeBlock && blockSize(address) >= size) {
-        result = address
-      } else {
-        address = address + blockSize(address)
-      }
+  def freeListBucket(size: int): int = {
+    var bucket = 0
+    var upperBound = 1
+    while (upperBound < size && bucket + 1 < freeHeads.length) {
+      upperBound = upperBound * 2
+      bucket = bucket + 1
     }
-    address = staticCount
-    while (address < freeSearchStart && result < 0) {
-      if (blockKind(address) == FreeBlock && blockSize(address) >= size) {
-        result = address
-      } else {
-        address = address + blockSize(address)
+    bucket
+  }
+
+  def addFreeBlock(address: int): unit = {
+    val bucket = freeListBucket(blockSize(address))
+    values(address) = Value.Int(freeHeads(bucket))
+    freeHeads(bucket) = address
+  }
+
+  def takeFreeBlock(size: int): int = {
+    if (!freeListsBuilt) -1
+    else {
+      var bucket = freeListBucket(size)
+      var result = -1
+      while (bucket < freeHeads.length && result < 0) {
+        var previous = -1
+        var address = freeHeads(bucket)
+        while (address >= 0 && result < 0) {
+          val next = values(address) match {
+            case Value.Int(value) => value
+            case _                => panic("Invalid free-list link")
+          }
+          if (blockSize(address) >= size) {
+            if (previous < 0) freeHeads(bucket) = next
+            else values(previous) = Value.Int(next)
+            result = address
+          } else {
+            previous = address
+            address = next
+          }
+        }
+        bucket = bucket + 1
       }
+      result
     }
-    result
+  }
+
+  def rebuildFreeLists(): unit = {
+    for (i <- 0 to (freeHeads.length - 1)) freeHeads(i) = -1
+    var address = staticCount
+    while (address < heapp) {
+      if (blockKind(address) == FreeBlock) addFreeBlock(address) else ()
+      address = address + blockSize(address)
+    }
+    freeListsBuilt = true
   }
 
   def reserveBlock(
@@ -122,6 +166,8 @@ class ManagedHeap(val values: Array[Value], temporaryRootCapacity: int) {
       stackRootCount: int
   ): Option[int] = {
     if (size <= 0 || size > values.length - staticCount) {
+      lastFailedBlockSize = size
+      lastFailedBlockKind = kind
       Option.None
     } else {
       // Allocation is a bump-pointer fast path while the unused tail has
@@ -133,10 +179,10 @@ class ManagedHeap(val values: Array[Value], temporaryRootCapacity: int) {
         heapp = heapp + size
       }
       if (address < 0) {
-        address = findFreeBlock(size)
+        address = takeFreeBlock(size)
         if (address < 0) {
           collect(stackRoots, stackRootCount)
-          address = findFreeBlock(size)
+          address = takeFreeBlock(size)
           if (address < 0 && values.length - heapp >= size) {
             address = heapp
             heapp = heapp + size
@@ -144,6 +190,8 @@ class ManagedHeap(val values: Array[Value], temporaryRootCapacity: int) {
         }
       }
       if (address < 0) {
+        lastFailedBlockSize = size
+        lastFailedBlockKind = kind
         Option.None
       } else {
         val oldSize = blockSize(address)
@@ -152,14 +200,11 @@ class ManagedHeap(val values: Array[Value], temporaryRootCapacity: int) {
           blockSize(remainder) = oldSize - size
           blockKind(remainder) = FreeBlock
           marked(remainder) = false
+          addFreeBlock(remainder)
         }
         blockSize(address) = size
         blockKind(address) = kind
         marked(address) = false
-        if (oldSize > 0) {
-          freeSearchStart = address + size
-          if (freeSearchStart >= heapp) freeSearchStart = staticCount
-        }
         allocatedSlots = allocatedSlots + size
         Option.Some(address)
       }
@@ -282,7 +327,7 @@ class ManagedHeap(val values: Array[Value], temporaryRootCapacity: int) {
       }
     }
     if (liveSlots > peakLiveSlots) peakLiveSlots = liveSlots
-    freeSearchStart = staticCount
+    rebuildFreeLists()
     collectionCount = collectionCount + 1
     collecting = false
   }
