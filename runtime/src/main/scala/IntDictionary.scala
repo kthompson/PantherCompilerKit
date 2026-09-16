@@ -17,13 +17,18 @@ class IntDictionary[V](requestedCapacity: int) {
   // factory uses four slots, but callers of `new` must not create a table that
   // divides by zero while calculating its first probe.
   val initialCapacity = if (requestedCapacity < 4) 4 else requestedCapacity
+  val pageSize = 256
 
-  var _entries: Array[IntDictionaryEntry[V]] =
-    new Array[IntDictionaryEntry[V]](initialCapacity)
+  // A logical table is split into small pages so resizing avoids full-capacity
+  // contiguous managed-heap backing arrays. The first page is only as large
+  // as a small table needs; subsequent pages are fixed-size.
+  var _entryPages: Array[Array[IntDictionaryEntry[V]]] =
+    _newEntryPages(initialCapacity)
 
   // 0 = empty, 1 = occupied, 2 = deleted. Keeping tombstones means removal
   // cannot cut short a probe sequence created by a collision.
-  var _states: Array[int] = new Array[int](initialCapacity)
+  var _statePages: Array[Array[int]] = _newStatePages(initialCapacity)
+  var _capacity: int = initialCapacity
   var _size: int = 0
   var _used: int = 0
 
@@ -38,7 +43,7 @@ class IntDictionary[V](requestedCapacity: int) {
 
   def get(key: int): Option[V] = {
     val index = _findIndex(key)
-    if (index < 0) Option.None else Option.Some(_entries(index).value)
+    if (index < 0) Option.None else Option.Some(_entryAt(index).value)
   }
 
   def contains(key: int): bool = _findIndex(key) >= 0
@@ -46,15 +51,15 @@ class IntDictionary[V](requestedCapacity: int) {
   def put(key: int, value: V): unit = {
     val existing = _findIndex(key)
     if (existing >= 0) {
-      _entries(existing) = IntDictionaryEntry(key, value)
+      _setEntry(existing, IntDictionaryEntry(key, value))
     } else {
       // Rehash tombstones before they can make a miss scan the whole table.
       // Grow only when live entries, rather than deleted ones, caused the
       // load; churn at a small size simply rebuilds in place.
-      if ((_used + 1) * 4 >= _states.length * 3) {
-        if ((_size + 1) * 4 >= _states.length * 3)
-          _resize(_states.length * 2)
-        else _resize(_states.length)
+      if ((_used + 1) * 4 >= _capacity * 3) {
+        if ((_size + 1) * 4 >= _capacity * 3)
+          _resize(_capacity * 2)
+        else _resize(_capacity)
       } else ()
       _insert(key, value)
     }
@@ -63,19 +68,19 @@ class IntDictionary[V](requestedCapacity: int) {
   def remove(key: int): unit = {
     val index = _findIndex(key)
     if (index >= 0) {
-      _states(index) = 2
+      _setState(index, 2)
       _size = _size - 1
     } else ()
   }
 
   def _findIndex(key: int): int = {
-    val capacity = _states.length
+    val capacity = _capacity
     var index = _startIndex(key, capacity)
     var probes = 0
     var found = -1
 
-    while (probes < capacity && found < 0 && _states(index) != 0) {
-      if (_states(index) == 1 && _entries(index).key == key) found = index
+    while (probes < capacity && found < 0 && _stateAt(index) != 0) {
+      if (_stateAt(index) == 1 && _entryAt(index).key == key) found = index
       else ()
       index = (index + 1) % capacity
       probes = probes + 1
@@ -85,40 +90,90 @@ class IntDictionary[V](requestedCapacity: int) {
   }
 
   def _insert(key: int, value: V): unit = {
-    val capacity = _states.length
+    val capacity = _capacity
     var index = _startIndex(key, capacity)
     var firstDeleted = -1
     var probes = 0
 
-    while (probes < capacity && _states(index) != 0) {
-      if (_states(index) == 2 && firstDeleted < 0) firstDeleted = index else ()
+    while (probes < capacity && _stateAt(index) != 0) {
+      if (_stateAt(index) == 2 && firstDeleted < 0) firstDeleted = index else ()
       index = (index + 1) % capacity
       probes = probes + 1
     }
 
     val destination = if (firstDeleted >= 0) firstDeleted else index
-    if (_states(destination) == 0) _used = _used + 1 else ()
-    _entries(destination) = IntDictionaryEntry(key, value)
-    _states(destination) = 1
+    if (_stateAt(destination) == 0) _used = _used + 1 else ()
+    _setEntry(destination, IntDictionaryEntry(key, value))
+    _setState(destination, 1)
     _size = _size + 1
   }
 
   def _resize(newCapacity: int): unit = {
-    val oldEntries = _entries
-    val oldStates = _states
+    val oldEntryPages = _entryPages
+    val oldStatePages = _statePages
+    val oldCapacity = _capacity
 
-    _entries = new Array[IntDictionaryEntry[V]](newCapacity)
-    _states = new Array[int](newCapacity)
+    _entryPages = _newEntryPages(newCapacity)
+    _statePages = _newStatePages(newCapacity)
+    _capacity = newCapacity
     _size = 0
     _used = 0
 
     var index = 0
-    while (index < oldStates.length) {
-      if (oldStates(index) == 1)
-        _insert(oldEntries(index).key, oldEntries(index).value)
-      else ()
+    while (index < oldCapacity) {
+      val pageIndex = index / pageSize
+      val pageOffset = index % pageSize
+      if (oldStatePages(pageIndex)(pageOffset) == 1) {
+        val entry = oldEntryPages(pageIndex)(pageOffset)
+        _insert(entry.key, entry.value)
+      } else ()
       index = index + 1
     }
+  }
+
+  def _pageCount(capacity: int): int = {
+    val fullPages = capacity / pageSize
+    if (capacity % pageSize == 0) fullPages else fullPages + 1
+  }
+
+  def _pageLength(capacity: int, pageIndex: int): int = {
+    val remaining = capacity - pageIndex * pageSize
+    if (remaining < pageSize) remaining else pageSize
+  }
+
+  def _newEntryPages(capacity: int): Array[Array[IntDictionaryEntry[V]]] = {
+    val pages = new Array[Array[IntDictionaryEntry[V]]](_pageCount(capacity))
+    var pageIndex = 0
+    while (pageIndex < pages.length) {
+      pages(pageIndex) =
+        new Array[IntDictionaryEntry[V]](_pageLength(capacity, pageIndex))
+      pageIndex = pageIndex + 1
+    }
+    pages
+  }
+
+  def _newStatePages(capacity: int): Array[Array[int]] = {
+    val pages = new Array[Array[int]](_pageCount(capacity))
+    var pageIndex = 0
+    while (pageIndex < pages.length) {
+      pages(pageIndex) = new Array[int](_pageLength(capacity, pageIndex))
+      pageIndex = pageIndex + 1
+    }
+    pages
+  }
+
+  def _entryAt(index: int): IntDictionaryEntry[V] =
+    _entryPages(index / pageSize)(index % pageSize)
+
+  def _setEntry(index: int, entry: IntDictionaryEntry[V]): unit = {
+    _entryPages(index / pageSize)(index % pageSize) = entry
+  }
+
+  def _stateAt(index: int): int =
+    _statePages(index / pageSize)(index % pageSize)
+
+  def _setState(index: int, state: int): unit = {
+    _statePages(index / pageSize)(index % pageSize) = state
   }
 
   def _startIndex(key: int, capacity: int): int = {
