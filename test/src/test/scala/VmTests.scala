@@ -1223,6 +1223,18 @@ class VmTests extends AnyFunSpec with Matchers {
       assertExecValueStringWithSetup(colorMatch, "name(Color.Blue)", "b")
     }
 
+    it("should match a named static value") {
+      val setup =
+        "object Tags {\n  val one = 1\n  val two = 2\n}\n" +
+          "def name(value: int): string = value match {\n" +
+          "  case Tags.one => \"one\"\n" +
+          "  case Tags.two => \"two\"\n" +
+          "  case _ => \"other\"\n}\n"
+      assertExecValueStringWithSetup(setup, "name(1)", "one")
+      assertExecValueStringWithSetup(setup, "name(2)", "two")
+      assertExecValueStringWithSetup(setup, "name(3)", "other")
+    }
+
     val shapeEnum =
       "enum Shape {\n  case Circle(r: int)\n  case Rect(w: int, h: int)\n}\n"
 

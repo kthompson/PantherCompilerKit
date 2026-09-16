@@ -523,6 +523,27 @@ case class Binder(
     ),
     unitType
   )
+  builtinMethod(
+    fileSymbol,
+    "writeAllInts",
+    List.Cons(
+      Tuple2("file", stringType),
+      List.Cons(
+        Tuple2(
+          "values",
+          Type.Class(
+            noLoc,
+            List.Nil,
+            "Array",
+            ListModule.one(intType),
+            arraySymbol
+          )
+        ),
+        ListModule.one(Tuple2("count", intType))
+      )
+    ),
+    unitType
+  )
 
   builtinMethod(
     fileSymbol,
@@ -603,8 +624,8 @@ case class Binder(
   /** The static field holding each parameterless case's single instance, keyed
     * by the case's symbol. Defined once the program object exists.
     */
-  var singletonFields: Dictionary[Symbol, Symbol] =
-    DictionaryModule.empty[Symbol, Symbol]()
+  var singletonFields: Dictionary[int, Symbol] =
+    DictionaryModule.empty[int, Symbol]()
 
   /** The trait that claims each operator token, keyed by `SyntaxKind`.
     *
@@ -3927,7 +3948,7 @@ case class Binder(
           case Either.Right(field) =>
             field.extern = false
             setSymbolType(field, getSymbolType(head))
-            singletonFields = singletonFields.put(head, field)
+            singletonFields = singletonFields.put(getSymbolId(head), field)
         }
         defineEnumSingletons(tail, program)
     }

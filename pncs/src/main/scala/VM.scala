@@ -95,7 +95,10 @@ case class VM(
     heap.allocateArray(length, Value.Uninitialized, stack, sp)
   }
 
-  def allocateArray(length: int, defaultValue: Value): Option[int] = {
+  def allocateArrayWithDefault(
+      length: int,
+      defaultValue: Value
+  ): Option[int] = {
     heap.allocateArray(length, defaultValue, stack, sp)
   }
 
@@ -333,6 +336,8 @@ case class VM(
       readAllBytesOp()
     } else if (id == Builtin.WriteAllBytes) {
       writeAllBytesOp()
+    } else if (id == Builtin.WriteAllInts) {
+      writeAllIntsOp()
     } else if (id == Builtin.WriteAllText) {
       writeAllTextOp()
     } else if (id == Builtin.PathCombine) {
@@ -541,9 +546,9 @@ case class VM(
             allocateArray(bytes.length) match {
               case Option.None => runtimeError("Out of memory reading bytes")
               case Option.Some(addr) =>
-                heap(addr) = Value.Int(bytes.length)
+                heap.update(addr, Value.Int(bytes.length))
                 for (i <- 0 to (bytes.length - 1)) {
-                  heap(addr + 1 + i) = Value.Int(bytes(i))
+                  heap.update(addr + 1 + i, Value.Int(bytes(i)))
                 }
                 push(Value.Ref(elementType, addr))
             }
@@ -562,11 +567,11 @@ case class VM(
         if (!heap.isArray(addr)) {
           runtimeError("writeAllBytes: expected an array reference")
         } else {
-          heap(addr) match {
+          heap.apply(addr) match {
             case Value.Int(count) =>
               val bytes = new Array[int](count)
               for (i <- 0 to (count - 1)) {
-                bytes(i) = toInt(heap(addr + 1 + i))
+                bytes(i) = toInt(heap.apply(addr + 1 + i))
               }
               File.writeAllBytes(file, bytes)
               push(Value.Uninitialized)
@@ -575,6 +580,36 @@ case class VM(
         }
       case _ =>
         runtimeError("Expected a string path and an array for writeAllBytes")
+    }
+  }
+
+  /** Writes the active prefix of an int array as big-endian 32-bit values. The
+    * host stream avoids allocating a four-times-larger array in the managed
+    * heap at the end of a compiler run.
+    */
+  def writeAllIntsOp(): InterpretResult = {
+    val count = popInt()
+    val arrayRef = pop()
+    val path = pop()
+    Tuple2(path, arrayRef) match {
+      case Tuple2(Value.String(file), Value.Ref(_, addr)) =>
+        heap.apply(addr) match {
+          case Value.Int(length) =>
+            if (!heap.isArray(addr) || count < 0 || count > length) {
+              runtimeError("writeAllInts: invalid array range")
+            } else {
+              val values = new Array[int](count)
+              for (i <- 0 to (count - 1)) {
+                values(i) = toInt(heap.apply(addr + 1 + i))
+              }
+              File.writeAllInts(file, values, count)
+              push(Value.Uninitialized)
+              InterpretResult.Continue
+            }
+          case _ => runtimeError("writeAllInts: array has no length")
+        }
+      case _ =>
+        runtimeError("Expected a string path, int array, and count")
     }
   }
 
@@ -859,9 +894,9 @@ case class VM(
                 case Option.None =>
                   runtimeError("Out of memory allocating arguments")
                 case Option.Some(address) =>
-                  heap(address) = Value.Int(args.length)
+                  heap.update(address, Value.Int(args.length))
                   for (i <- 0 to (args.length - 1)) {
-                    heap(address + 1 + i) = Value.String(args(i))
+                    heap.update(address + 1 + i, Value.String(args(i)))
                   }
                   push(Value.Ref(stringType, address))
                   runEntry()
@@ -1069,14 +1104,14 @@ case class VM(
         val value = pop()
 
         // store the value in the static field
-        heap(staticp + field.index) = value
+        heap.update(staticp + field.index, value)
         InterpretResult.Continue
       case Opcode.Ldsfld =>
         val token = readFieldToken()
         val field = metadata.fields.get(token)
 
         // load the static field value
-        val value = heap(staticp + field.index)
+        val value = heap.apply(staticp + field.index)
         push(value)
         InterpretResult.Continue
 
@@ -1162,7 +1197,7 @@ case class VM(
         sizeValue match {
           case Value.Int(size) =>
             val defaultValue = getDefaultValueForType(elementTypeToken)
-            allocateArray(size, defaultValue) match {
+            allocateArrayWithDefault(size, defaultValue) match {
               case Option.None => runtimeError("Out of memory allocating array")
               case Option.Some(arrayAddr) =>
                 push(Value.Ref(elementTypeToken, arrayAddr))
@@ -1179,7 +1214,7 @@ case class VM(
             if (!heap.isArray(addr))
               runtimeError("Expected array reference for length")
             else {
-              push(heap(addr))
+              push(heap.apply(addr))
               InterpretResult.Continue
             }
           // A string has a length too, and answers it directly rather than out
@@ -1206,7 +1241,7 @@ case class VM(
                 if (!heap.isArray(addr)) {
                   runtimeError("Expected array reference for element access")
                 } else
-                  heap(addr) match {
+                  heap.apply(addr) match {
                     case Value.Int(length) =>
                       if (indexValue < 0 || indexValue >= length) {
                         runtimeError(
@@ -1214,7 +1249,7 @@ case class VM(
                             " out of range for length " + string(length)
                         )
                       } else {
-                        push(heap(addr + 1 + indexValue))
+                        push(heap.apply(addr + 1 + indexValue))
                         InterpretResult.Continue
                       }
                     case _ => runtimeError("Invalid array header")
@@ -1254,7 +1289,7 @@ case class VM(
                     "Expected array reference for element assignment"
                   )
                 } else
-                  heap(addr) match {
+                  heap.apply(addr) match {
                     case Value.Int(length) =>
                       if (indexValue < 0 || indexValue >= length) {
                         runtimeError(
@@ -1262,7 +1297,7 @@ case class VM(
                             " out of range for length " + string(length)
                         )
                       } else {
-                        heap(addr + 1 + indexValue) = value
+                        heap.update(addr + 1 + indexValue, value)
                         InterpretResult.Continue
                       }
                     case _ => runtimeError("Invalid array header")

@@ -53,7 +53,10 @@ object PnbFile {
     chunk.write(buffer)
     metadata.write(buffer)
 
-    File.writeAllBytes(path, toBytes(buffer))
+    // Write directly from the IntList's existing backing array. Building a
+    // second, four-times-larger managed byte array here creates a large
+    // contiguous-allocation requirement after the compiler heap is fragmented.
+    File.writeAllInts(path, buffer.array, buffer.size)
   }
 
   def read(path: string): PnbImage = {

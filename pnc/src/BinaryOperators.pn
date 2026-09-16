@@ -3,113 +3,6 @@ using panther
 [derive(Eq, Show)]
 class BinaryOperators(binder: Binder) {
 
-  var binaryOps: List[BinaryOperator] = List.Nil
-  var unaryOps: List[UnaryOperator] = List.Nil
-
-  // initialize unary operators
-  unaryOp(binder.intType, UnaryOperatorKind.Identity)
-  unaryOp(binder.intType, UnaryOperatorKind.Negation)
-  unaryOp(binder.intType, UnaryOperatorKind.BitwiseNegation)
-  unaryOp(binder.boolType, UnaryOperatorKind.LogicalNegation)
-
-  // initialize binary operators
-  simpleOp(binder.intType, BinaryOperatorKind.BitwiseAnd)
-  simpleOp(binder.intType, BinaryOperatorKind.BitwiseOr)
-  simpleOp(binder.intType, BinaryOperatorKind.BitwiseXor)
-  simpleOp(binder.intType, BinaryOperatorKind.Divide)
-  simpleOp(binder.intType, BinaryOperatorKind.Minus)
-  simpleOp(binder.intType, BinaryOperatorKind.Modulus)
-  simpleOp(binder.intType, BinaryOperatorKind.Multiply)
-  simpleOp(binder.intType, BinaryOperatorKind.Plus)
-  simpleOp(binder.intType, BinaryOperatorKind.ShiftLeft)
-  simpleOp(binder.intType, BinaryOperatorKind.ShiftRight)
-
-  simpleOp(binder.boolType, BinaryOperatorKind.LogicalOr)
-  simpleOp(binder.boolType, BinaryOperatorKind.LogicalAnd)
-  simpleOp(binder.boolType, BinaryOperatorKind.BitwiseAnd)
-  simpleOp(binder.boolType, BinaryOperatorKind.BitwiseOr)
-  simpleOp(binder.boolType, BinaryOperatorKind.BitwiseXor)
-
-  equalityOp(binder.charType, BinaryOperatorKind.Equals)
-  equalityOp(binder.charType, BinaryOperatorKind.NotEquals)
-  equalityOp(binder.charType, BinaryOperatorKind.LessThan)
-  equalityOp(binder.charType, BinaryOperatorKind.LessThanOrEqual)
-  equalityOp(binder.charType, BinaryOperatorKind.GreaterThan)
-  equalityOp(binder.charType, BinaryOperatorKind.GreaterThanOrEqual)
-
-  // Char arithmetic answers in int. `c - '0'` is how a digit character
-  // becomes its value and `'A' + n` is how one is built, and a char is an int
-  // at runtime anyway, so there is no representation to preserve by answering
-  // in char — the caller writes `char(…)` when it wants one back.
-  binaryOp(
-    binder.charType,
-    binder.charType,
-    BinaryOperatorKind.Minus,
-    binder.intType
-  )
-  binaryOp(
-    binder.charType,
-    binder.intType,
-    BinaryOperatorKind.Plus,
-    binder.intType
-  )
-  binaryOp(
-    binder.charType,
-    binder.intType,
-    BinaryOperatorKind.Minus,
-    binder.intType
-  )
-
-  equalityOp(binder.intType, BinaryOperatorKind.Equals)
-  equalityOp(binder.intType, BinaryOperatorKind.NotEquals)
-  equalityOp(binder.intType, BinaryOperatorKind.LessThan)
-  equalityOp(binder.intType, BinaryOperatorKind.LessThanOrEqual)
-  equalityOp(binder.intType, BinaryOperatorKind.GreaterThan)
-  equalityOp(binder.intType, BinaryOperatorKind.GreaterThanOrEqual)
-
-  equalityOp(binder.boolType, BinaryOperatorKind.Equals)
-  equalityOp(binder.boolType, BinaryOperatorKind.NotEquals)
-
-  equalityOp(binder.stringType, BinaryOperatorKind.Equals)
-  equalityOp(binder.stringType, BinaryOperatorKind.NotEquals)
-  // Ordering is lexicographic. The VM compares Value.String directly for Clt
-  // and Cgt, and the emitter builds <= and >= from those two, so all four
-  // work end to end.
-  equalityOp(binder.stringType, BinaryOperatorKind.LessThan)
-  equalityOp(binder.stringType, BinaryOperatorKind.LessThanOrEqual)
-  equalityOp(binder.stringType, BinaryOperatorKind.GreaterThan)
-  equalityOp(binder.stringType, BinaryOperatorKind.GreaterThanOrEqual)
-  binaryOp(
-    binder.stringType,
-    binder.stringType,
-    BinaryOperatorKind.Plus,
-    binder.stringType
-  )
-
-  def addOperator(operator: BinaryOperator): unit = {
-    binaryOps = List.Cons(operator, binaryOps)
-  }
-
-  def unaryOp(typ: Type, operator: UnaryOperatorKind): unit =
-    addUnaryOperator(UnaryOperator(typ, operator, typ))
-
-  def addUnaryOperator(operator: UnaryOperator): unit =
-    unaryOps = List.Cons(operator, unaryOps)
-
-  def simpleOp(typ: Type, operator: BinaryOperatorKind): unit =
-    binaryOp(typ, typ, operator, typ)
-
-  def binaryOp(
-      left: Type,
-      right: Type,
-      operator: BinaryOperatorKind,
-      result: Type
-  ): unit =
-    addOperator(new BinaryOperator(left, right, operator, result))
-
-  def equalityOp(typ: Type, operator: BinaryOperatorKind): unit =
-    binaryOp(typ, typ, operator, binder.boolType)
-
   /** The builtin table only.
     *
     * Reference equality used to be folded in here. It is now a separate
@@ -123,7 +16,47 @@ class BinaryOperators(binder: Binder) {
       left: Type,
       right: Type,
       operator: BinaryOperatorKind
-  ): Type = _checkBinary(binaryOps, left, right, operator)
+  ): Type = {
+    val leftCode = builtinTypeCode(left)
+    val rightCode = builtinTypeCode(right)
+    val operatorCode = binaryOperatorCode(operator)
+    if (leftCode == 1 && rightCode == 1) {
+      if (
+        operatorCode <= 4 ||
+        (operatorCode >= 13 && operatorCode <= 17)
+      ) binder.intType
+      else if (operatorCode >= 5 && operatorCode <= 10) binder.boolType
+      else missingBinary(left, right, operator)
+    } else if (leftCode == 2 && rightCode == 2) {
+      if (
+        operatorCode == 5 || operatorCode == 6 ||
+        (operatorCode >= 11 && operatorCode <= 15)
+      ) binder.boolType
+      else missingBinary(left, right, operator)
+    } else if (leftCode == 3 && rightCode == 3) {
+      if (operatorCode >= 5 && operatorCode <= 10) binder.boolType
+      else if (operatorCode == 1) binder.intType
+      else missingBinary(left, right, operator)
+    } else if (leftCode == 3 && rightCode == 1) {
+      if (operatorCode == 0 || operatorCode == 1) binder.intType
+      else missingBinary(left, right, operator)
+    } else if (leftCode == 4 && rightCode == 4) {
+      if (operatorCode == 0) binder.stringType
+      else if (operatorCode >= 5 && operatorCode <= 10) binder.boolType
+      else missingBinary(left, right, operator)
+    } else missingBinary(left, right, operator)
+  }
+
+  def missingBinary(
+      left: Type,
+      right: Type,
+      operator: BinaryOperatorKind
+  ): Type = {
+    Type.Error(
+      "Binary operator '" + string(operator) + "' not found for types '" +
+        left.toString() + "' and '" + right.toString() + "'."
+    )
+  }
 
   /** [ADR
     * 0003](../../../docs/architecture/adr/0003-equality-on-reference-types.md)'s
@@ -161,50 +94,73 @@ class BinaryOperators(binder: Binder) {
   }
 
   def isValueType(typ: Type): bool =
-    typ == binder.intType || typ == binder.boolType ||
-      typ == binder.charType || typ == binder.stringType ||
-      typ == binder.unitType
+    builtinTypeCode(typ) != 0
 
-  def _checkBinary(
-      ops: List[BinaryOperator],
-      left: Type,
-      right: Type,
-      operator: BinaryOperatorKind
-  ): Type =
-    ops match {
-      case List.Nil =>
-        Type.Error(
-          "Binary operator '" + string(operator) + "' not found for types '" +
-            string(left) + "' and '" + string(right) + "'."
-        )
-      case List.Cons(op, tail) =>
-        if (op.left == left && op.right == right && op.operator == operator) {
-          op.result
-        } else {
-          _checkBinary(tail, left, right, operator)
-        }
+  /** Rows in this table are only the root prelude's non-generic value types.
+    * Comparing their full recursive `Type` values invokes derived equality over
+    * locations and symbol graphs in the self-hosted compiler. The table's
+    * actual key is the canonical builtin name.
+    */
+  def builtinTypeCode(typ: Type): int =
+    typ match {
+      case Type.Class(_, _, name, _, _) =>
+        if (name == "int") 1
+        else if (name == "bool") 2
+        else if (name == "char") 3
+        else if (name == "string") 4
+        else if (name == "unit") 5
+        else 0
+      case _ => 0
+    }
+
+  /** Use compact keys for the builtin table. Besides avoiding allocations, this
+    * does not depend on derived equality dispatch while the compiler is
+    * compiling its own derived enum implementations.
+    */
+  def binaryOperatorCode(operator: BinaryOperatorKind): int =
+    operator match {
+      case BinaryOperatorKind.Plus               => 0
+      case BinaryOperatorKind.Minus              => 1
+      case BinaryOperatorKind.Multiply           => 2
+      case BinaryOperatorKind.Divide             => 3
+      case BinaryOperatorKind.Modulus            => 4
+      case BinaryOperatorKind.Equals             => 5
+      case BinaryOperatorKind.NotEquals          => 6
+      case BinaryOperatorKind.LessThan           => 7
+      case BinaryOperatorKind.LessThanOrEqual    => 8
+      case BinaryOperatorKind.GreaterThan        => 9
+      case BinaryOperatorKind.GreaterThanOrEqual => 10
+      case BinaryOperatorKind.LogicalAnd         => 11
+      case BinaryOperatorKind.LogicalOr          => 12
+      case BinaryOperatorKind.BitwiseAnd         => 13
+      case BinaryOperatorKind.BitwiseOr          => 14
+      case BinaryOperatorKind.BitwiseXor         => 15
+      case BinaryOperatorKind.ShiftLeft          => 16
+      case BinaryOperatorKind.ShiftRight         => 17
+      case BinaryOperatorKind.Error              => 18
+    }
+
+  def unaryOperatorCode(operator: UnaryOperatorKind): int =
+    operator match {
+      case UnaryOperatorKind.Identity        => 0
+      case UnaryOperatorKind.Negation        => 1
+      case UnaryOperatorKind.LogicalNegation => 2
+      case UnaryOperatorKind.BitwiseNegation => 3
+      case UnaryOperatorKind.Error           => 4
     }
 
   def checkUnary(operand: Type, operator: UnaryOperatorKind): Type = {
-    _checkUnary(unaryOps, operand, operator)
+    val typeCode = builtinTypeCode(operand)
+    val operatorCode = unaryOperatorCode(operator)
+    if (
+      typeCode == 1 && (operatorCode == 0 || operatorCode == 1 || operatorCode == 3)
+    )
+      binder.intType
+    else if (typeCode == 2 && operatorCode == 2) binder.boolType
+    else
+      Type.Error(
+        "Unary operator '" + string(operator) + "' not found for type '" +
+          operand.toString() + "'."
+      )
   }
-
-  def _checkUnary(
-      ops: List[UnaryOperator],
-      operand: Type,
-      operator: UnaryOperatorKind
-  ): Type =
-    ops match {
-      case List.Nil =>
-        Type.Error(
-          "Unary operator '" + string(operator) + "' not found for type '" +
-            string(operand) + "'."
-        )
-      case List.Cons(op, tail) =>
-        if (op.operand == operand && op.operator == operator) {
-          op.result
-        } else {
-          _checkUnary(tail, operand, operator)
-        }
-    }
 }

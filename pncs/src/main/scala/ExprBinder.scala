@@ -2853,7 +2853,18 @@ class ExprBinder(
         binder.bindTypeName(name, scope) match {
           case Type.Error(message) =>
             Result.Error(BoundExpression.Error(message))
-          case typ => Result.Success(BoundPattern.TypeTest(typ))
+          case typ =>
+            resolvePatternSymbol(name, scope) match {
+              case Option.Some(symbol) =>
+                if (
+                  symbol.kind == SymbolKind.Field ||
+                  !binder.singletonFields
+                    .get(binder.getSymbolId(symbol))
+                    .isEmpty()
+                ) Result.Success(BoundPattern.Named(symbol, typ))
+                else Result.Success(BoundPattern.TypeTest(typ))
+              case Option.None => Result.Success(BoundPattern.TypeTest(typ))
+            }
         }
       case PatternSyntax.TypeAssertion(innerPattern, typeAnnotation) =>
         // The annotation, not the scrutinee, is what the inner pattern sees —
@@ -2928,6 +2939,21 @@ class ExprBinder(
         }
     }
   }
+
+  def resolvePatternSymbol(name: NameSyntax, scope: Scope): Option[Symbol] =
+    name match {
+      case NameSyntax.SimpleName(
+            SimpleNameSyntax.IdentifierNameSyntax(identifier)
+          ) =>
+        scope.lookup(identifier.text)
+      case NameSyntax.QualifiedName(
+            left,
+            _,
+            SimpleNameSyntax.IdentifierNameSyntax(identifier)
+          ) =>
+        binder.bindNameToScope(left, scope).lookup(identifier.text)
+      case _ => Option.None
+    }
 
   /** The type arguments a constructor pattern inherits from the value it
     * destructures. A case's parameter list is its enum's, so the enum's

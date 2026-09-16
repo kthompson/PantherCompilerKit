@@ -1411,6 +1411,16 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
             binder.boolType
           )
         )
+      case BoundPattern.Named(symbol, typ) =>
+        Option.Some(
+          BoundExpression.Binary(
+            location,
+            scrutinee,
+            BinaryOperatorKind.Equals,
+            BoundExpression.Variable(location, symbol, Option.Some(typ)),
+            binder.boolType
+          )
+        )
       case BoundPattern.TypeTest(typ) =>
         Option.Some(BoundExpression.Is(location, scrutinee, typ))
       case BoundPattern.Typed(typ, inner) =>
@@ -1512,6 +1522,7 @@ class ExpressionLowerer(symbol: Symbol, binder: Binder) {
       case BoundPattern.Discard     => List.Nil
       case BoundPattern.Literal(_)  => List.Nil
       case BoundPattern.TypeTest(_) => List.Nil
+      case BoundPattern.Named(_, _) => List.Nil
       case BoundPattern.Typed(_, inner) =>
         patternBindings(scrutinee, inner, location)
       case BoundPattern.Variable(symbol) =>

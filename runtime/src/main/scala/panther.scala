@@ -17,6 +17,18 @@ object system {
         stream.close()
       }
 
+      def writeAllInts(file: string, values: Array[int], count: int): unit = {
+        val stream = new java.io.FileOutputStream(file)
+        for (i <- 0 until count) {
+          val value = values(i)
+          stream.write((value >> 24) & 255)
+          stream.write((value >> 16) & 255)
+          stream.write((value >> 8) & 255)
+          stream.write(value & 255)
+        }
+        stream.close()
+      }
+
       def readAllText(file: string): string = {
         val source = scala.io.Source.fromFile(file, "utf-8")
         val lines =

@@ -49,14 +49,35 @@ object Stage3 {
     val defaults = CompilerSettingsFactory.default
     val settings = defaults.copy(
       stackSize = 2097152,
-      heapSize = 268435456,
+      // The old 256M-slot capacity predated the collector and consumed several
+      // gigabytes across the heap's layout arrays before it could reach an
+      // allocation safepoint. Image output now streams from its existing int
+      // buffer, so it no longer needs a large contiguous managed byte array.
+      heapSize = 33554432,
       enableTracing = trace
     )
 
     println(
       s"Stage 3: running ${stage2.getFileName} over ${sources.length} sources"
     )
-    ImageRunner.execWithArgs(stage2.toString, settings, compilerArgs) match {
+    val image = PnbFile.read(stage2.toString)
+    val vm = VM(
+      image.chunk,
+      image.metadata,
+      image.entry,
+      new Array[Value](settings.stackSize),
+      new Array[Value](settings.heapSize),
+      settings
+    )
+    val result = vm.runWithArgs(compilerArgs)
+    println(
+      s"Stage 3 heap: ${vm.heap.collectionCount} collections, " +
+        s"${vm.heap.allocatedSlots} allocated slots, " +
+        s"${vm.heap.reclaimedSlots} reclaimed slots, " +
+        s"${vm.heap.peakLiveSlots} peak live slots, " +
+        s"${vm.heap.heapp} committed slots"
+    )
+    result match {
       case InterpretResult.Ok | InterpretResult.OkValue(_) => ()
       case InterpretResult.Exit(0)                         => ()
       case result => sys.error(s"Stage 3 compiler failed: $result")

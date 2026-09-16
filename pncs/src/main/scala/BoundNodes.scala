@@ -77,6 +77,12 @@ enum BoundPattern {
     */
   case TypeTest(typ: Type)
 
+  /** A named value pattern such as `SyntaxKind.PlusToken` or `Option.None`.
+    * Static constants compare by value; parameterless enum cases compare with
+    * their interned singleton.
+    */
+  case Named(symbol: Symbol, typ: Type)
+
   /** `case x: int =>` — a test on the annotation, and then whatever the inner
     * pattern does. Without the test the annotation would be a claim the match
     * never checks, and `case x: int` would catch everything.

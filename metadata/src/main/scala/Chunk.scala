@@ -90,6 +90,12 @@ case class Chunk() {
     offset + 1 + count + count
   }
 
-  def checkBounds(offset: int): unit =
-    assert(offset >= 0 && offset < size, "Invalid offset " + string(offset))
+  def checkBounds(offset: int): unit = {
+    // Keep formatting off the interpreter's hot path. Function arguments are
+    // eager, so passing this message to assert converted the instruction
+    // pointer to a string for every bytecode read, including valid ones.
+    if (offset < 0 || offset >= size) {
+      panic("Invalid offset " + string(offset))
+    } else ()
+  }
 }

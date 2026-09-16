@@ -379,6 +379,8 @@ class BoundAssemblyPrinter(
       writeWithColor(ColorPalette.Identifier, symbol.name)
     case BoundPattern.TypeTest(typ) =>
       writeWithColor(ColorPalette.Identifier, typ.toString())
+    case BoundPattern.Named(symbol, _) =>
+      writeWithColor(ColorPalette.Identifier, symbol.qualifiedName())
     case BoundPattern.Typed(typ, inner) =>
       printPattern(inner)
       writeWithColor(ColorPalette.Punctuation, ": ")

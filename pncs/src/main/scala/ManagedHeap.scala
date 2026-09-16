@@ -17,6 +17,7 @@ class ManagedHeap(val values: Array[Value], temporaryRootCapacity: int) {
 
   var staticCount = 0
   var heapp = 0
+  var freeSearchStart = 0
   var temporaryRootCount = 0
   var collecting = false
   var collectionCount = 0
@@ -61,6 +62,7 @@ class ManagedHeap(val values: Array[Value], temporaryRootCapacity: int) {
     }
     staticCount = count
     heapp = count
+    freeSearchStart = count
     for (i <- 0 to (count - 1)) {
       values(i) = Value.Uninitialized
     }
@@ -93,9 +95,17 @@ class ManagedHeap(val values: Array[Value], temporaryRootCapacity: int) {
     isAllocatedStart(address) && blockKind(address) == ArrayBlock
 
   def findFreeBlock(size: int): int = {
-    var address = staticCount
+    var address = freeSearchStart
     var result = -1
     while (address < heapp && result < 0) {
+      if (blockKind(address) == FreeBlock && blockSize(address) >= size) {
+        result = address
+      } else {
+        address = address + blockSize(address)
+      }
+    }
+    address = staticCount
+    while (address < freeSearchStart && result < 0) {
       if (blockKind(address) == FreeBlock && blockSize(address) >= size) {
         result = address
       } else {
@@ -114,17 +124,23 @@ class ManagedHeap(val values: Array[Value], temporaryRootCapacity: int) {
     if (size <= 0 || size > values.length - staticCount) {
       Option.None
     } else {
-      var address = findFreeBlock(size)
-      if (address < 0 && values.length - heapp >= size) {
+      // Allocation is a bump-pointer fast path while the unused tail has
+      // room. Walking every existing block before every allocation makes a
+      // large VM workload quadratic in the number of live objects.
+      var address = -1
+      if (values.length - heapp >= size) {
         address = heapp
         heapp = heapp + size
       }
       if (address < 0) {
-        collect(stackRoots, stackRootCount)
         address = findFreeBlock(size)
-        if (address < 0 && values.length - heapp >= size) {
-          address = heapp
-          heapp = heapp + size
+        if (address < 0) {
+          collect(stackRoots, stackRootCount)
+          address = findFreeBlock(size)
+          if (address < 0 && values.length - heapp >= size) {
+            address = heapp
+            heapp = heapp + size
+          }
         }
       }
       if (address < 0) {
@@ -140,6 +156,10 @@ class ManagedHeap(val values: Array[Value], temporaryRootCapacity: int) {
         blockSize(address) = size
         blockKind(address) = kind
         marked(address) = false
+        if (oldSize > 0) {
+          freeSearchStart = address + size
+          if (freeSearchStart >= heapp) freeSearchStart = staticCount
+        }
         allocatedSlots = allocatedSlots + size
         Option.Some(address)
       }
@@ -246,7 +266,8 @@ class ManagedHeap(val values: Array[Value], temporaryRootCapacity: int) {
             values(slot) = Value.Uninitialized
             slot = slot + 1
           }
-          reclaimedSlots = reclaimedSlots + deadSize
+          if (blockKind(address) != FreeBlock)
+            reclaimedSlots = reclaimedSlots + deadSize
           freeSize = freeSize + deadSize
           blockSize(address) = 0
           marked(address) = false
@@ -261,6 +282,7 @@ class ManagedHeap(val values: Array[Value], temporaryRootCapacity: int) {
       }
     }
     if (liveSlots > peakLiveSlots) peakLiveSlots = liveSlots
+    freeSearchStart = staticCount
     collectionCount = collectionCount + 1
     collecting = false
   }

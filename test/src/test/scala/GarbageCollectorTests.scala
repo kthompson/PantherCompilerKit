@@ -7,6 +7,15 @@ import panther.*
   */
 class GarbageCollectorTests extends AnyFunSpec with Matchers {
 
+  def execWithHeap(program: string, heapSize: int): InterpretResult = {
+    val base = CompilerSettingsFactory.default
+    val settings = base.copy(stackSize = 2048, heapSize = heapSize)
+    val tree = MakeSyntaxTree.parseContent(program, settings)
+    val compilation = MakeCompilation.create(ListModule.one(tree), settings)
+    compilation.diagnostics.count() shouldBe 0
+    compilation.exec()
+  }
+
   def vmWithHeap(size: int): VM = {
     val base = CompilerSettingsFactory.default
     val settings = CompilerSettings(
@@ -42,6 +51,7 @@ class GarbageCollectorTests extends AnyFunSpec with Matchers {
       heap.allocateObject(1, new Array[Value](0), 0) shouldBe Option.Some(1)
       heap.collect(new Array[Value](0), 0)
       heap.allocateObject(1, new Array[Value](0), 0) shouldBe Option.Some(0)
+      heap.allocateObject(1, new Array[Value](0), 0) shouldBe Option.Some(1)
     }
 
     it("collects once at an allocation slow path before reporting exhaustion") {
@@ -93,6 +103,27 @@ class GarbageCollectorTests extends AnyFunSpec with Matchers {
       vm.allocateArray(0) shouldBe Option.Some(2)
       vm.collect()
       vm.allocateObject(0) shouldBe Option.Some(0)
+    }
+
+    it("keeps references stored in object fields across repeated collections") {
+      val program =
+        "class Box(value: int)\n" +
+          "class Holder() {\n" +
+          "  val kept = new Box(42)\n" +
+          "  def churn(): int = {\n" +
+          "    var i = 0\n" +
+          "    var temporary = new Box(0)\n" +
+          "    while (i < 5000) {\n" +
+          "      temporary = new Box(i)\n" +
+          "      i = i + 1\n" +
+          "    }\n" +
+          "    kept.value\n" +
+          "  }\n" +
+          "}\n" +
+          "new Holder().churn()"
+
+      execWithHeap(program, 256) shouldBe
+        InterpretResult.OkValue(Value.Int(42))
     }
   }
 }

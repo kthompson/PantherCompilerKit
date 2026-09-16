@@ -120,8 +120,8 @@ class Emitter(
   val metadata = new Metadata()
   val chunk = new Chunk()
 
-  var typeTokens: Dictionary[Symbol, TypeDefToken] =
-    DictionaryModule.empty[Symbol, TypeDefToken]()
+  var typeTokens: Dictionary[int, TypeDefToken] =
+    DictionaryModule.empty[int, TypeDefToken]()
 
   var methodTokens: Dictionary[Symbol, MethodToken] =
     DictionaryModule.empty[Symbol, MethodToken]()
@@ -149,9 +149,10 @@ class Emitter(
   }
 
   def registerPrimitiveType(symbol: Symbol): unit = {
-    if (!typeTokens.contains(symbol)) {
+    val symbolId = binder.getSymbolId(symbol)
+    if (!typeTokens.contains(symbolId)) {
       typeTokens = typeTokens.put(
-        symbol,
+        symbolId,
         metadata.addTypeDef(symbol.name, ns(symbol.ns()), MetadataFlags.None)
       )
     }
@@ -405,7 +406,7 @@ class Emitter(
   def emitEnumSingleton(caseSymbol: Symbol): unit = {
     val line = caseSymbol.location.startLine
 
-    binder.singletonFields.get(caseSymbol) match {
+    binder.singletonFields.get(binder.getSymbolId(caseSymbol)) match {
       case Option.None => ()
       case Option.Some(field) =>
         fieldTokens.get(field) match {
@@ -582,7 +583,7 @@ class Emitter(
   }
 
   def anyTypeToken(): int = {
-    typeTokens.get(binder.anySymbol) match {
+    typeTokens.get(binder.getSymbolId(binder.anySymbol)) match {
       case Option.Some(token) => token.token
       case Option.None        => panic("anyTypeToken: any is not registered")
     }
@@ -1183,7 +1184,7 @@ class Emitter(
       // `Color.Red` names the one instance `$runtimeInit` built, so the
       // receiver is not emitted at all — the case's name is the whole
       // expression.
-      binder.singletonFields.get(expr.symbol) match {
+      binder.singletonFields.get(binder.getSymbolId(expr.symbol)) match {
         case Option.Some(field) =>
           fieldTokens.get(field) match {
             case Option.Some(token) =>
@@ -1203,7 +1204,7 @@ class Emitter(
   }
 
   def isEnumSingleton(symbol: Symbol): bool =
-    !binder.singletonFields.get(symbol).isEmpty()
+    !binder.singletonFields.get(binder.getSymbolId(symbol)).isEmpty()
 
   def emitNewExpression(
       expr: LoweredExpression.New,
@@ -1322,7 +1323,7 @@ class Emitter(
       // A bare enum case name, e.g. `Red` rather than `Color.Red`, names the
       // one instance `$runtimeInit` built — same singleton field load as the
       // `Color.Red` member-access form.
-      binder.singletonFields.get(expr.symbol) match {
+      binder.singletonFields.get(binder.getSymbolId(expr.symbol)) match {
         case Option.Some(field) =>
           fieldTokens.get(field) match {
             case Option.Some(token) =>
@@ -1552,7 +1553,7 @@ class Emitter(
       else MetadataFlags.None
 
     typeTokens = typeTokens.put(
-      symbol,
+      binder.getSymbolId(symbol),
       metadata.addTypeDef(symbol.name, ns(symbol.ns()), flags)
     )
 
@@ -1602,7 +1603,7 @@ class Emitter(
 
   def emitGivenMetadata(symbol: Symbol): unit = {
     typeTokens = typeTokens.put(
-      symbol,
+      binder.getSymbolId(symbol),
       metadata.addTypeDef(symbol.name, ns(symbol.ns()), MetadataFlags.Static)
     )
     emitSymbolsMetadata(symbol.members(), true)
@@ -1686,11 +1687,11 @@ class Emitter(
   def getTypeDefToken(typ: Type): Option[TypeDefToken] = {
     typ match {
       case Type.Class(_, _, _, _, symbol) =>
-        typeTokens.get(symbol)
+        typeTokens.get(binder.getSymbolId(symbol))
       case Type.GenericClass(_, _, _, _, symbol) =>
-        typeTokens.get(symbol)
+        typeTokens.get(binder.getSymbolId(symbol))
       case Type.Alias(_, _, _, _, _, symbol) =>
-        typeTokens.get(symbol)
+        typeTokens.get(binder.getSymbolId(symbol))
       case _ =>
         Option.None
     }

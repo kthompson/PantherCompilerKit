@@ -325,8 +325,8 @@ case class DiagnosticBag(settings: CompilerSettings) {
   ): unit =
     report(
       location,
-      "No operator '" + op + "' for operands " + string(left) + " and " +
-        string(right)
+      "No operator '" + op + "' for operands " + left.toString() + " and " +
+        right.toString()
     )
 
   def reportNoOperatorForOperand(
@@ -334,7 +334,10 @@ case class DiagnosticBag(settings: CompilerSettings) {
       op: string,
       operand: Type
   ): unit =
-    report(location, "No operator '" + op + "' for operand " + string(operand))
+    report(
+      location,
+      "No operator '" + op + "' for operand " + operand.toString()
+    )
 
   def reportTopLevelStatementsInMultipleFiles(
       firstLocation: TextLocation,
