@@ -154,12 +154,12 @@ case class Binder(
     diagnosticBag: DiagnosticBag
 ) {
 
-  var symbolTypes: Dictionary[int, SymbolLinks] = DictionaryModule.empty()
+  var symbolTypes: IntDictionary[SymbolLinks] = IntDictionaryModule.empty()
   var nextSymbolId = 0
 
   def setSymbolType(symbol: Symbol, typ: Type): Type = {
     val id = getSymbolId(symbol)
-    symbolTypes = symbolTypes.put(id, SymbolLinks(typ))
+    symbolTypes.put(id, SymbolLinks(typ))
     typ
   }
 
@@ -624,8 +624,7 @@ case class Binder(
   /** The static field holding each parameterless case's single instance, keyed
     * by the case's symbol. Defined once the program object exists.
     */
-  var singletonFields: Dictionary[int, Symbol] =
-    DictionaryModule.empty[int, Symbol]()
+  var singletonFields: IntDictionary[Symbol] = IntDictionaryModule.empty()
 
   /** The trait that claims each operator token, keyed by `SyntaxKind`.
     *
@@ -638,7 +637,7 @@ case class Binder(
     * while `SyntaxFacts.getBinaryOperatorText` gives `&&` for both `LogicalAnd`
     * and `BitwiseAnd`.
     */
-  var operatorTraits: Dictionary[int, Symbol] = DictionaryModule.empty()
+  var operatorTraits: IntDictionary[Symbol] = IntDictionaryModule.empty()
 
   /** Every evidence record the program needs, in reverse discovery order.
     *
@@ -769,7 +768,7 @@ case class Binder(
   }
 
   def claimBuiltinOperator(tokenKind: int, traitSymbol: Symbol): unit = {
-    operatorTraits = operatorTraits.put(tokenKind, traitSymbol)
+    operatorTraits.put(tokenKind, traitSymbol)
   }
 
   /** `name(a: operand, b: operand): result`, with no body — a requirement. */
@@ -2522,7 +2521,7 @@ case class Binder(
           )
         } else ()
       case Option.None =>
-        operatorTraits = operatorTraits.put(token.kind, traitSymbol)
+        operatorTraits.put(token.kind, traitSymbol)
     }
   }
 
@@ -3948,7 +3947,7 @@ case class Binder(
           case Either.Right(field) =>
             field.extern = false
             setSymbolType(field, getSymbolType(head))
-            singletonFields = singletonFields.put(getSymbolId(head), field)
+            singletonFields.put(getSymbolId(head), field)
         }
         defineEnumSingletons(tail, program)
     }

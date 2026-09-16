@@ -1,0 +1,131 @@
+using panther
+
+/** Mutable hash table for compiler-owned values keyed by `int`.
+  *
+  * This deliberately has a separate API from `Dictionary`: the latter is a
+  * persistent, insertion-ordered list map and remains appropriate wherever a
+  * caller retains older versions or walks its entries. This table is for the
+  * compiler's private lookup tables, where mutation is explicit and iteration
+  * order is neither exposed nor required.
+  */
+object IntDictionaryModule {
+  def empty[V](): IntDictionary[V] = new IntDictionary[V](4)
+}
+
+class IntDictionary[V](requestedCapacity: int) {
+  // A public constructor makes a defensive lower bound worthwhile. The module
+  // factory uses four slots, but callers of `new` must not create a table that
+  // divides by zero while calculating its first probe.
+  val initialCapacity = if (requestedCapacity < 4) 4 else requestedCapacity
+
+  var _entries: Array[IntDictionaryEntry[V]] =
+    new Array[IntDictionaryEntry[V]](initialCapacity)
+
+  // 0 = empty, 1 = occupied, 2 = deleted. Keeping tombstones means removal
+  // cannot cut short a probe sequence created by a collision.
+  var _states: Array[int] = new Array[int](initialCapacity)
+  var _size: int = 0
+  var _used: int = 0
+
+  def length(): int = _size
+
+  def getUnsafe(key: int): V = {
+    get(key) match {
+      case Option.Some(value) => value
+      case Option.None        => panic("Key not found")
+    }
+  }
+
+  def get(key: int): Option[V] = {
+    val index = _findIndex(key)
+    if (index < 0) Option.None else Option.Some(_entries(index).value)
+  }
+
+  def contains(key: int): bool = _findIndex(key) >= 0
+
+  def put(key: int, value: V): unit = {
+    val existing = _findIndex(key)
+    if (existing >= 0) {
+      _entries(existing) = IntDictionaryEntry(key, value)
+    } else {
+      // Rehash tombstones before they can make a miss scan the whole table.
+      // Grow only when live entries, rather than deleted ones, caused the
+      // load; churn at a small size simply rebuilds in place.
+      if ((_used + 1) * 4 >= _states.length * 3) {
+        if ((_size + 1) * 4 >= _states.length * 3)
+          _resize(_states.length * 2)
+        else _resize(_states.length)
+      } else ()
+      _insert(key, value)
+    }
+  }
+
+  def remove(key: int): unit = {
+    val index = _findIndex(key)
+    if (index >= 0) {
+      _states(index) = 2
+      _size = _size - 1
+    } else ()
+  }
+
+  def _findIndex(key: int): int = {
+    val capacity = _states.length
+    var index = _startIndex(key, capacity)
+    var probes = 0
+    var found = -1
+
+    while (probes < capacity && found < 0 && _states(index) != 0) {
+      if (_states(index) == 1 && _entries(index).key == key) found = index
+      else ()
+      index = (index + 1) % capacity
+      probes = probes + 1
+    }
+
+    found
+  }
+
+  def _insert(key: int, value: V): unit = {
+    val capacity = _states.length
+    var index = _startIndex(key, capacity)
+    var firstDeleted = -1
+    var probes = 0
+
+    while (probes < capacity && _states(index) != 0) {
+      if (_states(index) == 2 && firstDeleted < 0) firstDeleted = index else ()
+      index = (index + 1) % capacity
+      probes = probes + 1
+    }
+
+    val destination = if (firstDeleted >= 0) firstDeleted else index
+    if (_states(destination) == 0) _used = _used + 1 else ()
+    _entries(destination) = IntDictionaryEntry(key, value)
+    _states(destination) = 1
+    _size = _size + 1
+  }
+
+  def _resize(newCapacity: int): unit = {
+    val oldEntries = _entries
+    val oldStates = _states
+
+    _entries = new Array[IntDictionaryEntry[V]](newCapacity)
+    _states = new Array[int](newCapacity)
+    _size = 0
+    _used = 0
+
+    var index = 0
+    while (index < oldStates.length) {
+      if (oldStates(index) == 1)
+        _insert(oldEntries(index).key, oldEntries(index).value)
+      else ()
+      index = index + 1
+    }
+  }
+
+  def _startIndex(key: int, capacity: int): int = {
+    val remainder = key % capacity
+    if (remainder < 0) remainder + capacity else remainder
+  }
+}
+
+[derive(Eq, Show)]
+class IntDictionaryEntry[V](key: int, value: V)

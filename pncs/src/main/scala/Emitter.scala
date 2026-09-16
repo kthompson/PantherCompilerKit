@@ -117,8 +117,7 @@ case class Emitter(
   val metadata = new Metadata()
   val chunk = new Chunk()
 
-  var typeTokens: Dictionary[int, TypeDefToken] =
-    DictionaryModule.empty[int, TypeDefToken]()
+  var typeTokens: IntDictionary[TypeDefToken] = IntDictionaryModule.empty()
 
   var methodTokens: Dictionary[Symbol, MethodToken] =
     DictionaryModule.empty[Symbol, MethodToken]()
@@ -148,7 +147,7 @@ case class Emitter(
   def registerPrimitiveType(symbol: Symbol): unit = {
     val symbolId = binder.getSymbolId(symbol)
     if (!typeTokens.contains(symbolId)) {
-      typeTokens = typeTokens.put(
+      typeTokens.put(
         symbolId,
         metadata.addTypeDef(symbol.name, ns(symbol.ns()), MetadataFlags.None)
       )
@@ -1549,7 +1548,7 @@ case class Emitter(
       if (isObject) MetadataFlags.Static
       else MetadataFlags.None
 
-    typeTokens = typeTokens.put(
+    typeTokens.put(
       binder.getSymbolId(symbol),
       metadata.addTypeDef(symbol.name, ns(symbol.ns()), flags)
     )
@@ -1599,7 +1598,7 @@ case class Emitter(
   }
 
   def emitGivenMetadata(symbol: Symbol): unit = {
-    typeTokens = typeTokens.put(
+    typeTokens.put(
       binder.getSymbolId(symbol),
       metadata.addTypeDef(symbol.name, ns(symbol.ns()), MetadataFlags.Static)
     )
