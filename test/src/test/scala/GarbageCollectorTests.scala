@@ -146,6 +146,40 @@ class GarbageCollectorTests extends AnyFunSpec with Matchers {
       vm.allocateObject(4) shouldBe Option.Some(1)
     }
 
+    it(
+      "does not scan undersized small holes for an exact-size free-list request"
+    ) {
+      val vm = vmWithHeap(21)
+      vm.allocateObject(1) shouldBe Option.Some(0)
+      vm.allocateObject(4) shouldBe Option.Some(1)
+      vm.allocateObject(1) shouldBe Option.Some(5)
+      vm.allocateObject(3) shouldBe Option.Some(6)
+      vm.allocateObject(1) shouldBe Option.Some(9)
+      vm.allocateObject(3) shouldBe Option.Some(10)
+      vm.allocateObject(1) shouldBe Option.Some(13)
+      vm.allocateObject(3) shouldBe Option.Some(14)
+      vm.allocateObject(1) shouldBe Option.Some(17)
+      vm.allocateObject(3) shouldBe Option.Some(18)
+
+      vm.push(Value.Ref(TypeDefToken(0), 0))
+      vm.push(Value.Ref(TypeDefToken(0), 5))
+      vm.push(Value.Ref(TypeDefToken(0), 9))
+      vm.push(Value.Ref(TypeDefToken(0), 13))
+      vm.push(Value.Ref(TypeDefToken(0), 17))
+      vm.collect()
+
+      vm.allocateObject(4) shouldBe Option.Some(1)
+      vm.heap.lastFreeListProbeCount shouldBe 1
+    }
+
+    it("keeps free-list buckets valid at the largest positive request") {
+      val heap = new ManagedHeap(new Array[Value](1), 1)
+      val largestBucket = heap.freeListBucket(Int.MaxValue)
+      largestBucket should be >= 0
+      largestBucket should be < heap.freeHeads.length
+      heap.freeListBucket(Int.MaxValue - 1) should be <= largestBucket
+    }
+
     it("keeps references stored in object fields across repeated collections") {
       val program =
         "class Box(value: int)\n" +

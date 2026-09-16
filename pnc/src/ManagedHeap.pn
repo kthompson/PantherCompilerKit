@@ -10,9 +10,14 @@ class ManagedHeap(values: Array[Value], temporaryRootCapacity: int) {
   val marked = new Array[bool](values.length)
   val markWork = new Array[int](values.length)
   val temporaryRoots = new Array[Value](temporaryRootCapacity)
-  // One intrusive free list per power-of-two size class. The first value in a
-  // free block is its next pointer, so this adds no per-slot side table.
-  val freeHeads = new Array[int](32)
+  // Exact bins cover common object sizes. Larger spans use 256 sub-bins per
+  // power-of-two range. The first value in a free block is its next pointer,
+  // so this adds no per-slot side table.
+  val smallFreeBlockLimit = 256
+  val largeFreeBlockSubBuckets = 256
+  val freeHeads = new Array[int](
+    smallFreeBlockLimit + largeFreeBlockSubBuckets * 32
+  )
 
   val FreeBlock = 0
   val ObjectBlock = 1
@@ -32,6 +37,8 @@ class ManagedHeap(values: Array[Value], temporaryRootCapacity: int) {
   // size; retaining it here makes a fragmented-heap failure actionable.
   var lastFailedBlockSize = 0
   var lastFailedBlockKind = FreeBlock
+  var lastFreeListProbeCount = 0
+  var maxFreeListProbeCount = 0
 
   def update(addr: int, value: Value): unit = {
     values(addr) = value
@@ -106,13 +113,21 @@ class ManagedHeap(values: Array[Value], temporaryRootCapacity: int) {
     isAllocatedStart(address) && blockKind(address) == ArrayBlock
 
   def freeListBucket(size: int): int = {
-    var bucket = 0
-    var upperBound = 1
-    while (upperBound < size && bucket + 1 < freeHeads.length) {
-      upperBound = upperBound * 2
-      bucket = bucket + 1
+    if (size <= smallFreeBlockLimit) size - 1
+    else {
+      var power = smallFreeBlockLimit
+      var exponent = 0
+      while (power <= size / 2 && power <= 1073741823 && exponent + 1 < 32) {
+        power = power * 2
+        exponent = exponent + 1
+      }
+      val step = power / largeFreeBlockSubBuckets
+      var offset = (size - power) / step
+      if (offset >= largeFreeBlockSubBuckets) {
+        offset = largeFreeBlockSubBuckets - 1
+      }
+      smallFreeBlockLimit + exponent * largeFreeBlockSubBuckets + offset
     }
-    bucket
   }
 
   def addFreeBlock(address: int): unit = {
@@ -122,6 +137,7 @@ class ManagedHeap(values: Array[Value], temporaryRootCapacity: int) {
   }
 
   def takeFreeBlock(size: int): int = {
+    lastFreeListProbeCount = 0
     if (!freeListsBuilt) -1
     else {
       var bucket = freeListBucket(size)
@@ -130,6 +146,7 @@ class ManagedHeap(values: Array[Value], temporaryRootCapacity: int) {
         var previous = -1
         var address = freeHeads(bucket)
         while (address >= 0 && result < 0) {
+          lastFreeListProbeCount = lastFreeListProbeCount + 1
           val next = values(address) match {
             case Value.Int(value) => value
             case _                => panic("Invalid free-list link")
@@ -144,6 +161,9 @@ class ManagedHeap(values: Array[Value], temporaryRootCapacity: int) {
           }
         }
         bucket = bucket + 1
+      }
+      if (lastFreeListProbeCount > maxFreeListProbeCount) {
+        maxFreeListProbeCount = lastFreeListProbeCount
       }
       result
     }
