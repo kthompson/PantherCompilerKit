@@ -56,6 +56,10 @@
     │   │   ├──Parameter File.writeAllInts.file: string
     │   │   ├──Parameter File.writeAllInts.values: Array<int>
     │   │   └──Parameter File.writeAllInts.count: int
+    │   ├──Method File.writeAllIntPages: (file: string, pages: Array<Array<int>>, count: int) -> unit = [extern]
+    │   │   ├──Parameter File.writeAllIntPages.file: string
+    │   │   ├──Parameter File.writeAllIntPages.pages: Array<Array<int>>
+    │   │   └──Parameter File.writeAllIntPages.count: int
     │   └──Method File.writeAllText: (file: string, text: string) -> unit = [extern]
     │       ├──Parameter File.writeAllText.file: string
     │       └──Parameter File.writeAllText.text: string

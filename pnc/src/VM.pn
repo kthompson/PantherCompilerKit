@@ -339,6 +339,8 @@ class VM(
       writeAllBytesOp()
     } else if (id == Builtin.WriteAllInts) {
       writeAllIntsOp()
+    } else if (id == Builtin.WriteAllIntPages) {
+      writeAllIntPagesOp()
     } else if (id == Builtin.WriteAllText) {
       writeAllTextOp()
     } else if (id == Builtin.PathCombine) {
@@ -594,23 +596,103 @@ class VM(
     val path = pop()
     Tuple2(path, arrayRef) match {
       case Tuple2(Value.String(file), Value.Ref(_, addr)) =>
-        heap.apply(addr) match {
-          case Value.Int(length) =>
-            if (!heap.isArray(addr) || count < 0 || count > length) {
-              runtimeError("writeAllInts: invalid array range")
-            } else {
-              val values = new Array[int](count)
-              for (i <- 0 to (count - 1)) {
-                values(i) = toInt(heap.apply(addr + 1 + i))
+        if (!heap.isArray(addr)) {
+          runtimeError("writeAllInts: invalid array range")
+        } else {
+          heap.apply(addr) match {
+            case Value.Int(length) =>
+              if (count < 0 || count > length) {
+                runtimeError("writeAllInts: invalid array range")
+              } else {
+                val values = new Array[int](count)
+                for (i <- 0 to (count - 1)) {
+                  values(i) = toInt(heap.apply(addr + 1 + i))
+                }
+                File.writeAllInts(file, values, count)
+                push(Value.Uninitialized)
+                InterpretResult.Continue
               }
-              File.writeAllInts(file, values, count)
-              push(Value.Uninitialized)
-              InterpretResult.Continue
-            }
-          case _ => runtimeError("writeAllInts: array has no length")
+            case _ => runtimeError("writeAllInts: array has no length")
+          }
         }
       case _ =>
         runtimeError("Expected a string path, int array, and count")
+    }
+  }
+
+  /** Writes the active prefix of an array of int pages. Every page is checked
+    * before the host file is opened, so a malformed page list cannot truncate
+    * the destination before reporting a VM runtime error.
+    */
+  def writeAllIntPagesOp(): InterpretResult = {
+    val count = popInt()
+    val pageRefs = pop()
+    val path = pop()
+    Tuple2(path, pageRefs) match {
+      case Tuple2(Value.String(file), Value.Ref(_, pagesAddr)) =>
+        if (!heap.isArray(pagesAddr)) {
+          runtimeError("writeAllIntPages: expected an array of pages")
+        } else {
+          heap.apply(pagesAddr) match {
+            case Value.Int(pageCount) =>
+              var valid = count >= 0
+              var supplied = 0
+              var pageIndex = 0
+              while (pageIndex < pageCount) {
+                heap.apply(pagesAddr + 1 + pageIndex) match {
+                  case Value.Ref(_, pageAddr) =>
+                    if (!heap.isArray(pageAddr)) valid = false
+                    else {
+                      heap.apply(pageAddr) match {
+                        case Value.Int(pageLength) =>
+                          if (pageLength < 0) valid = false
+                          else if (supplied < count) {
+                            val remaining = count - supplied
+                            if (pageLength >= remaining) supplied = count
+                            else supplied = supplied + pageLength
+                          }
+                        case _ => valid = false
+                      }
+                    }
+                  case _ => valid = false
+                }
+                pageIndex = pageIndex + 1
+              }
+
+              if (!valid || supplied < count) {
+                runtimeError("writeAllIntPages: invalid page range")
+              } else {
+                val pages = new Array[Array[int]](pageCount)
+                var remaining = count
+                pageIndex = 0
+                while (pageIndex < pageCount) {
+                  heap.apply(pagesAddr + 1 + pageIndex) match {
+                    case Value.Ref(_, pageAddr) =>
+                      heap.apply(pageAddr) match {
+                        case Value.Int(pageLength) =>
+                          val pageCountToWrite =
+                            if (remaining < pageLength) remaining
+                            else pageLength
+                          val page = new Array[int](pageCountToWrite)
+                          for (i <- 0 to (pageCountToWrite - 1)) {
+                            page(i) = toInt(heap.apply(pageAddr + 1 + i))
+                          }
+                          pages(pageIndex) = page
+                          remaining = remaining - pageCountToWrite
+                        case _ => ()
+                      }
+                    case _ => ()
+                  }
+                  pageIndex = pageIndex + 1
+                }
+                File.writeAllIntPages(file, pages, count)
+                push(Value.Uninitialized)
+                InterpretResult.Continue
+              }
+            case _ => runtimeError("writeAllIntPages: page array has no length")
+          }
+        }
+      case _ => runtimeError("Expected a string path, int pages, and count")
     }
   }
 

@@ -479,7 +479,7 @@ case class Binder(
     * be unreachable. `println` and `panic` sit at the root for the same reason,
     * and the `pantherNamespace` TODO above covers moving all of them together.
     *
-    * Only the four members the compiler actually calls. `panther.scala` also
+    * Only the five members the compiler actually calls. `panther.scala` also
     * shims `readAllBytes`, `writeAllBytes`, `directoryName` and `separator`;
     * they can be declared when something needs them, and `writeAllBytes` is
     * what §3.1 will want for `.pnb`.
@@ -539,6 +539,33 @@ case class Binder(
             arraySymbol
           )
         ),
+        ListModule.one(Tuple2("count", intType))
+      )
+    ),
+    unitType
+  )
+
+  val intArrayType = Type.Class(
+    noLoc,
+    List.Nil,
+    "Array",
+    ListModule.one(intType),
+    arraySymbol
+  )
+  val intPageArrayType = Type.Class(
+    noLoc,
+    List.Nil,
+    "Array",
+    ListModule.one(intArrayType),
+    arraySymbol
+  )
+  builtinMethod(
+    fileSymbol,
+    "writeAllIntPages",
+    List.Cons(
+      Tuple2("file", stringType),
+      List.Cons(
+        Tuple2("pages", intPageArrayType),
         ListModule.one(Tuple2("count", intType))
       )
     ),

@@ -19,14 +19,43 @@ object system {
 
       def writeAllInts(file: string, values: Array[int], count: int): unit = {
         val stream = new java.io.FileOutputStream(file)
-        for (i <- 0 until count) {
-          val value = values(i)
-          stream.write((value >> 24) & 255)
-          stream.write((value >> 16) & 255)
-          stream.write((value >> 8) & 255)
-          stream.write(value & 255)
-        }
-        stream.close()
+        try {
+          for (i <- 0 until count) {
+            val value = values(i)
+            stream.write((value >> 24) & 255)
+            stream.write((value >> 16) & 255)
+            stream.write((value >> 8) & 255)
+            stream.write(value & 255)
+          }
+        } finally stream.close()
+      }
+
+      def writeAllIntPages(
+          file: string,
+          pages: Array[Array[int]],
+          count: int
+      ): unit = {
+        val stream = new java.io.FileOutputStream(file)
+        try {
+          var remaining = count
+          var pageIndex = 0
+          while (pageIndex < pages.length && remaining > 0) {
+            val page = pages(pageIndex)
+            val pageCount =
+              if (remaining < page.length) remaining else page.length
+            var index = 0
+            while (index < pageCount) {
+              val value = page(index)
+              stream.write((value >> 24) & 255)
+              stream.write((value >> 16) & 255)
+              stream.write((value >> 8) & 255)
+              stream.write(value & 255)
+              index += 1
+            }
+            remaining -= pageCount
+            pageIndex += 1
+          }
+        } finally stream.close()
       }
 
       def readAllText(file: string): string = {

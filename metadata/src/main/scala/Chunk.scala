@@ -4,32 +4,14 @@ case class Chunk() {
   // TODO: we don't currently support byte types so we will implement this with ints
 
   // line number for each instruction
-  var lines: Array[int] = new Array[int](0)
+  var lines = new IntList()
   // the actual instructions
-  var content: Array[int] = new Array[int](0)
-  var capacity = 0
+  var content = new IntList()
   var size = 0
 
   def ensureSpace(n: int): unit = {
-    if (size + n > capacity) {
-      var newCapacity = if (capacity == 0) 16 else capacity * 2
-      while (size + n > newCapacity) {
-        newCapacity = newCapacity * 2
-      }
-      val newContent = new Array[int](newCapacity)
-      for (i <- 0 to (size - 1)) {
-        newContent(i) = content(i)
-      }
-
-      val newLines = new Array[int](newCapacity)
-      for (i <- 0 to (size - 1)) {
-        newLines(i) = lines(i)
-      }
-
-      lines = newLines
-      content = newContent
-      capacity = newCapacity
-    } else ()
+    content.ensureSpace(n)
+    lines.ensureSpace(n)
   }
 
   def emitOpcode(opcode: int, line: int): unit = {
@@ -38,24 +20,24 @@ case class Chunk() {
 
   def emitI4(value: int, line: int): unit = {
     ensureSpace(1)
-    content(size) = value
-    lines(size) = line
+    content.add(value)
+    lines.add(line)
     size = size + 1
   }
 
   def readI4(offset: int): int = {
     checkBounds(offset)
-    content(offset)
+    content.read(offset)
   }
 
   def readLine(offset: int): int = {
     checkBounds(offset)
-    lines(offset)
+    lines.read(offset)
   }
 
   def patch(offset: int, value: int): unit = {
     checkBounds(offset)
-    content(offset) = value
+    content.update(offset, value)
   }
 
   /** The instructions and the line each came from.
@@ -67,25 +49,26 @@ case class Chunk() {
   def write(buffer: IntList): unit = {
     buffer.add(size)
     for (i <- 0 to (size - 1)) {
-      buffer.add(content(i))
+      buffer.add(content.read(i))
     }
     for (i <- 0 to (size - 1)) {
-      buffer.add(lines(i))
+      buffer.add(lines.read(i))
     }
   }
 
   def read(buffer: IntList, offset: int): int = {
     val count = buffer.read(offset)
     size = 0
-    ensureSpace(count)
-    size = count
+    content.size = 0
+    lines.size = 0
 
     for (i <- 0 to (count - 1)) {
-      content(i) = buffer.read(offset + 1 + i)
+      content.add(buffer.read(offset + 1 + i))
     }
     for (i <- 0 to (count - 1)) {
-      lines(i) = buffer.read(offset + 1 + count + i)
+      lines.add(buffer.read(offset + 1 + count + i))
     }
+    size = count
 
     offset + 1 + count + count
   }

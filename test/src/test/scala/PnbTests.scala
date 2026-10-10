@@ -73,6 +73,11 @@ class PnbTests extends AnyFunSpec with Matchers {
       PnbFile.toBytes(list).length shouldBe 8
     }
 
+    it("should round-trip values across IntList page boundaries") {
+      val values = (0 until 700).map(index => index * 17 - 300)
+      roundTrip(values) shouldBe values
+    }
+
     /** Through an actual file, which is the only way the sign matters:
       * `toBytes` hands back 0..255, but a byte read back off disk arrives
       * signed, so 0xFF is -1 and floods every bit above it unless it is masked.
@@ -99,6 +104,69 @@ class PnbTests extends AnyFunSpec with Matchers {
   }
 
   describe("PnbFile") {
+    it("should preserve chunk contents and lines across page boundaries") {
+      val chunk = new Chunk()
+      for (index <- 0 until 700) {
+        chunk.emitI4(index * 3, index + 10)
+      }
+
+      val buffer = new IntList()
+      chunk.write(buffer)
+      val restored = new Chunk()
+      restored.read(buffer, 0) shouldBe 1401
+      restored.size shouldBe 700
+      restored.readI4(256) shouldBe 768
+      restored.readLine(256) shouldBe 266
+      restored.readI4(699) shouldBe 2097
+      restored.readLine(699) shouldBe 709
+    }
+
+    it("should write paged ints through the generated VM builtin") {
+      val file = Files.createTempFile("panther-paged-ints", ".bin")
+      try {
+        val escapedPath = file.toString.replace("\\", "\\\\")
+        val source =
+          "val pages = new Array[Array[int]](2)\n" +
+            "val first = new Array[int](2)\n" +
+            "first(0) = 1\n" +
+            "first(1) = -1\n" +
+            "val second = new Array[int](1)\n" +
+            "second(0) = 305419896\n" +
+            "pages(0) = first\n" +
+            "pages(1) = second\n" +
+            "File.writeAllIntPages(\"" + escapedPath + "\", pages, 3)\n" +
+            "42"
+
+        execValue(source) shouldBe Value.Int(42)
+        val written =
+          PnbFile.fromBytes(system.io.File.readAllBytes(file.toString))
+        written.size shouldBe 3
+        written.read(0) shouldBe 1
+        written.read(1) shouldBe -1
+        written.read(2) shouldBe 305419896
+      } finally {
+        Files.deleteIfExists(file)
+        ()
+      }
+    }
+
+    it("should validate paged int output before truncating a destination") {
+      val file = Files.createTempFile("panther-paged-ints", ".bin")
+      try {
+        Files.write(file, Array[Byte](1, 2, 3, 4))
+        val escapedPath = file.toString.replace("\\", "\\\\")
+        val source =
+          "val pages = new Array[Array[int]](1)\n" +
+            "File.writeAllIntPages(\"" + escapedPath + "\", pages, 1)"
+
+        mkCompilation(source).exec() shouldBe InterpretResult.RuntimeError
+        Files.readAllBytes(file).toSeq shouldBe Seq[Byte](1, 2, 3, 4)
+      } finally {
+        Files.deleteIfExists(file)
+        ()
+      }
+    }
+
     it("should write a file that starts with the magic and version") {
       val file = Files.createTempFile("panther-image", ".pnb")
       try {

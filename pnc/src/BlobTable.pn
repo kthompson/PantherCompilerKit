@@ -17,21 +17,18 @@ class BlobTable() {
   }
 
   def write(buffer: IntList): unit = {
-    val array = intList.toArray()
-    buffer.add(array.length)
-    for (i <- 0 to (array.length - 1)) {
-      buffer.add(array(i))
+    buffer.add(intList.size)
+    for (i <- 0 to (intList.size - 1)) {
+      buffer.add(intList.read(i))
     }
   }
 
   def read(buffer: IntList, offset: int): int = {
     val blobSize = buffer.read(offset)
     intList.size = 0
-    intList.ensureSpace(blobSize)
-    intList.size = blobSize
 
     for (i <- 0 to (blobSize - 1)) {
-      intList.array(i) = buffer.read(offset + 1 + i)
+      intList.add(buffer.read(offset + 1 + i))
     }
 
     offset + 1 + blobSize

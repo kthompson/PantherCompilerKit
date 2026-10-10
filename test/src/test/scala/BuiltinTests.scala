@@ -26,6 +26,7 @@ class BuiltinTests extends AnyFunSpec with Matchers {
     "int.compareTo",
     "File.readAllText",
     "File.writeAllText",
+    "File.writeAllIntPages",
     "Path.combine",
     "Path.nameWithoutExtension"
   )
