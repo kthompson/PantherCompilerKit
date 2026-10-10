@@ -6,15 +6,15 @@ The three things that matter most:
 
 1. **Self-hosting** — `pnc` compiles itself without help from Scala.
    Diagnostics and the tracked `unimplemented` panics are both at zero.
-   The Stage 3 runner exists, but its whole-compiler run is blocked by the
-   VM's non-collecting heap (§1.5).
+   The Stage 3 fixed point is verified locally with garbage collection (§1.5).
+   Adding the fixed-point check to CI remains open.
 2. **Generics** — inference is done (§2.1); upper bounds, variance
    enforcement, and generic aliases/unions are not (§2.2–§2.5).
 3. **Sample programs** — a program can be written, compiled, and run. 4 of 6
    are written; the other 2 wait on a standard-library decision.
 
-Every number below is measured, not estimated, and every command shown
-reproduces the measurement. Re-run them rather than trusting the number.
+Build, test, doccheck, and Stage 3 results below were verified on 2026-10-10
+at commit `98e7026`. Re-run the commands when assessing a newer revision.
 
 ---
 
@@ -26,54 +26,22 @@ reproduces the measurement. Re-run them rather than trusting the number.
 sbt pncs/compile && sbt test/test
 ```
 
-Green: 534 tests across the lexer, parser, binder, type checker, VM, metadata
+Green: 564 tests across the lexer, parser, binder, type checker, VM, metadata
 format, transpiler, and args parser.
 
-### The self-hosted compiler emits, and produces a `.pnb`
+### The self-hosted compiler builds and compiles itself
 
 ```bash
-sbt pnc/compile
+sbt pnc/compile stage3/run
 ```
 
-**0 diagnostics**, and now a completed build: `sbt pnc/compile` succeeds and
-writes `pnc/target/pnc.pnb`. §1.3 is closed: the overload pair
-(`inferCall`/`printNew`, item 1), the stray zero-arg `println()` (item 2), and
-the 4 derivation reports (item 3) are all resolved.
+`pnc/compile` succeeds with **0 diagnostics** and writes `pnc/target/pnc.pnb`.
+It is gated in [CI](.github/workflows/ci.yml), alongside the Scala build,
+tests, source regeneration, documentation checks, and formatting.
 
-Emission used to panic on `emitVariable: unsupported symbol kind Class`
-([`Emitter.scala:1305`](pncs/src/main/scala/Emitter.scala:1305)) — an
-untracked bug, not one of the 26 `panic("unimplemented: …")` calls tracked at
-§1.4. `LoweredExpression.Variable` had no case for a bare reference to a
-class or parameterless enum case (e.g. naming an enum case without its
-enum's qualifier); `emitVariable` now handles it the same way
-`emitMemberAccess` already handled the qualified form — load the case's
-singleton static field, or emit nothing for an ordinary class named as a
-pseudo-value (`Emitter.scala:1290-1323`).
-
-Fixing that surfaced a second, related panic one level up:
-`emitMemberAccess: unsupported symbol kind Class`, from
-`if (expr == BoundExpression.Error)` in `ExprBinder.scala` (three call
-sites: `checkBlock`, `bindConversionExpr`, `inferBlock`). `Error` takes a
-`message: string`, so referencing it bare names the case's constructor, not
-a value — comparing an actual `BoundExpression` to it with `==` was never
-meaningful, only silently `false` in Scala and a hard panic once the
-self-hosted emitter had to generate real code for it. Rewritten as
-`expr match { case _: BoundExpression.Error => expr; case _ => ... }`,
-matching the `_: BoundExpression.Error` pattern already used a few lines
-away in the same file. This is unrelated to the tracked `==`/`!=` runtime
-bug at §1.3 (reference equality on two real instances) — pattern matching
-doesn't go through that codegen path at all.
-
-`build.sbt`'s `pnc/compile` task also passed its own `target/` directory as
-the compiler's output *file* path, which only surfaced once emission stopped
-panicking first; fixed to pass `target/pnc.pnb` instead
-(`build.sbt`).
-
-**It now runs in CI** as its own job ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)),
-alongside `pncs/compile` and `test/test`, so a regression here is caught
-automatically. Producing a `.pnb` without panicking is not the same as
-self-hosting: stage 3, `pnc`-compiled-by-`pnc` matching
-`pnc`-compiled-by-`pncs` byte-for-byte, is still unverified (§1.5).
+Stage 3 runs the resulting compiler over its own generated sources and emits
+an identical image. The fixed point is verified locally; **Stage 3 is not yet
+a CI gate**. See §1.5 for the hash and heap measurements.
 
 ### The docs compile
 
@@ -134,7 +102,7 @@ one entry locally while remaining two separate files on Linux CI.
 — and `main` turns a non-zero diagnostic count into `exit(1)`
 ([`Program.scala`](pncs/src/main/scala/Program.scala)). Because `build.sbt`
 fails the task on a non-zero exit code
-([`build.sbt:146`](build.sbt:146)), `sbt pnc/compile` **fails** rather than
+([`build.sbt`](build.sbt)), `sbt pnc/compile` **fails** rather than
 reporting diagnostics and succeeding — and, per the note above, CI now runs
 it, so that failure gates the build.
 
@@ -188,12 +156,11 @@ type), `No operator`, and the branch-widening `Cannot convert`s from `if`/`else`
 and generic call sites — is at zero. `this` binds
 ([ADR 0002](docs/architecture/adr/0002-binding-this.md)), and `==`/`!=` bind
 on reference types ([ADR 0003](docs/architecture/adr/0003-equality-on-reference-types.md)).
-That second one left a real runtime gap, not a diagnostic: **the bytecode is
-wrong**. `a == b` on two distinct instances evaluates to `true`, because the
-instance never reaches the stack as a `Value.Ref` — the ADR 0002 constructor
-hole, observable through the operator. Deciding reference vs. structural
-equality and fixing the codegen is separate back-end work, tracked under the
-cross-cutting gaps below.
+The constructor and reference-value codegen gaps recorded in ADRs 0002/0003
+were subsequently closed. Reference identity is the fallback; an `Eq` given
+or derived `Eq` supplies structural equality. `VmTests` covers derived
+class/enum equality and distinct parameterless enum cases, and the managed
+heap gives separate zero-field objects distinct addresses.
 
 ### 1.3b Make derivation cheaper on the stack
 
@@ -253,11 +220,11 @@ the panic was actually reachable:
   `MemberAccess`. The fix is in `ExprBinder.scala`, not the lowerer: a new
   `isAssignableLHS` check rejects them at bind time with "expression is not
   assignable", the same diagnostic that already existed
-  ([`DiagnosticBag.scala:118`](pncs/src/main/scala/DiagnosticBag.scala:118))
+  ([`DiagnosticBag.scala`](pncs/src/main/scala/DiagnosticBag.scala))
   but had no reachable call site. That makes the four `lowerAssignment` cases
   genuinely unreachable, the same as the existing
   `panic("bindLHS called with non-LHS expression")`
-  ([`ExprBinder.scala:647`](pncs/src/main/scala/ExprBinder.scala:647)).
+  ([`ExprBinder.scala`](pncs/src/main/scala/ExprBinder.scala)).
 - `lowerLeftHandSide`'s `ArrayCreation` and `EvidenceCall` cases were real
   gaps: `new Array[int](5).length`, or a trait member called through
   evidence used as the receiver of further member access, both bind cleanly
@@ -281,30 +248,47 @@ assigning to a var field through member access") — the positive case the
 
 ### 1.5 Run the stages
 
-`scripts/stage0.ps1` (transpile), `stage1.ps1` (bootstrap), and
-`stage2.ps1` (`pnc/compile`) exist. Stage 3 is now implemented by
-[`scripts/stage3.ps1`](scripts/stage3.ps1) and
-[`tools/stage3/`](tools/stage3/): it runs the Stage 2 image with an
-`Array[string]` command line over a canonical source order, emits
-`pnc-stage3.pnb`, and compares its SHA-256 and bytes with Stage 2.
+**Fixed point verified locally on 2026-10-10.**
 
-It is deliberately **not in CI yet**. The VM heap is a bump pointer with no
-garbage collector. Compiling all 93 Panther sources retains long-lived syntax
-and bound structures while also allocating large amounts of temporary list and
-dictionary data. The attempted whole-compiler run overflowed at 32M, 64M, and
-128M heap slots before it could emit Stage 3; the 256M-slot attempt was stopped
-because it is a capacity experiment, not a sustainable proof.
+```bash
+sbt pnc/compile stage3/run
+```
 
-Before enabling the fixed-point gate, add a precise heap collector.
-[ADR 0007](docs/architecture/adr/0007-garbage-collection.md) proposes a
-non-moving mark-and-sweep collector with allocation-side layout metadata,
-explicit rooting rules, and a Stage 3 validation plan. The design
-must identify object and array layouts, mark from stack and static-field roots,
-and reclaim unreachable temporary objects. Arrays currently carry their element
-type token rather than a distinct runtime array type, so their layout needs an
-explicit tag (or equivalent metadata) before a precise collector can traverse
-references safely. Once that is in place, rerun `scripts/stage3.ps1`, record the
-image hash, and re-enable `sbt stage3/run` in CI.
+The PowerShell equivalent is `./scripts/stage3.ps1`. Stage 2 regenerates and
+compiles `pnc/src` in canonical source order. The [Stage 3 runner](tools/stage3/)
+loads `pnc/target/pnc.pnb`, passes an `Array[string]` command line to it,
+writes `pnc/target/pnc-stage3.pnb`, and compares both bytes and SHA-256.
+
+| Measurement | Result |
+| --- | ---: |
+| Stage 2 and Stage 3 image size | 2,475,160 bytes each |
+| Managed heap capacity | 33,554,432 slots |
+| Execution stack capacity | 2,097,152 slots |
+| Collections | 3 |
+| Cumulative allocated slots | 77,558,461 |
+| Cumulative reclaimed slots | 61,657,902 |
+| Peak live slots | 21,252,603 |
+| Stage 3 sbt task elapsed time | 101 seconds |
+
+Matching image SHA-256:
+
+```text
+283df1c92d0ca3eedce6174bd6ac104fb20d81b186268cc43c3b306ff3edd65e
+```
+
+The VM now uses a precise, non-moving mark-and-sweep
+[managed heap](pncs/src/main/scala/ManagedHeap.scala), with stack/static/native
+roots, coalescing free lists, and size bins. Integer dictionaries, bytecode,
+and metadata buffers use paged storage; image output streams those pages
+instead of requiring a large contiguous managed array.
+[ADR 0007](docs/architecture/adr/0007-garbage-collection.md) records the design
+and implementation outcome.
+
+**Remaining:** add Stage 3 to CI after setting a resource/time budget. The
+runner currently requests an 8 GiB maximum JVM heap; peak process memory was
+not measured in this run. The slot counts above describe the guest heap,
+not total host memory. Older non-collecting runs exhausted 32M–128M slots;
+those failures no longer describe the current implementation.
 
 ---
 
@@ -329,23 +313,24 @@ against the callee rather than incrementally.
 
 ### 2.2 Upper bounds
 
-`GenericTypeParameter` carries an `upperBound: Option[Type]`, and nothing ever
-populates it. The parser drops bounds on the floor
-([`Parser.scala:395`](pncs/src/main/scala/Parser.scala:395), `// TODO: bounds
-support`) and the binder hardcodes `None`
-([`Binder.scala:1527`](pncs/src/main/scala/Binder.scala:1527)). `T <: Base`
-parses into a `GenericParameterSyntax` with no bounds and is silently ignored.
+`GenericTypeParameter` carries an `upperBound: Option[Type]`, but the binder
+still populates it with `None`. Subtype upper bounds (`T <: Base`) need parser,
+binder, and call-site enforcement with a real diagnostic.
 
-Wire it end to end: parse, bind, and enforce at the call site with a real
-diagnostic.
+This is separate from **trait context bounds**, which already work:
+`[T: Eq]` requires evidence for `Eq[T]`. The parser preserves these bounds,
+the binder resolves them, and the emitter passes evidence to generic calls.
+Conditional givens and `[derive(Eq, Ord, Show)]` are also implemented; see
+[ADR 0004](docs/architecture/adr/0004-traits-given-evidence-and-contextual-extensions.md)
+and [ADR 0006](docs/architecture/adr/0006-conditional-givens.md).
 
 ### 2.3 Variance keywords — done
 
 `out`/`in` (covariance/contravariance, matching C# and Kotlin) parse,
 transpile, and bind correctly end to end
 ([`Variance.scala`](pncs/src/main/scala/Variance.scala),
-[`Transpiler.scala:210`](pncs/src/main/scala/Transpiler.scala:210),
-[`Binder.scala:1505`](pncs/src/main/scala/Binder.scala:1505)), and
+[`Transpiler.scala`](pncs/src/main/scala/Transpiler.scala),
+[`Binder.scala`](pncs/src/main/scala/Binder.scala)), and
 `BinderTests` pins the mapping directly. They're recorded but not enforced —
 that's §2.4.
 
@@ -489,8 +474,7 @@ In rough order of usefulness:
 
 ## Cross-cutting
 
-Things that don't belong to one goal but block several. None of these have
-moved.
+Remaining language and coverage gaps that affect more than one goal.
 
 - **No `float`/`double`, and decimal literals do not even lex.** `99.99`
   comes back as `Unexpected token NumberToken, expected IdentifierToken` —
@@ -515,44 +499,39 @@ moved.
   types, but `(x) => x + 1` does not parse. The only feature the docs
   document as absent (`functions/higher-order-functions.md`), and the reason
   for the two `skip` blocks in §4.1.
-- **No lexer support for exponents, shifts, or hex/binary literals.**
+- **No lexer support for exponents or hex/binary literals.**
   `0x504e4200` lexes as `0` followed by the identifier `x504e4200`. Found
   writing the `.pnb` magic (§3.1), which is spelled in decimal because of it
   — exactly where a program wants hex.
-- **The `==`/`!=` runtime bug** at §1.3: reference equality on distinct
-  instances evaluates `true` today.
 - **Test coverage is stage-shaped, not feature-shaped** outside of
-  `SampleTests` — 534 tests, but most pin one stage against a hand-written
+  `SampleTests` — 564 tests, but most pin one stage against a hand-written
   expectation rather than source-to-output.
 
 ---
 
 ## What's left, roughly in order
 
-1. ~~**§1.3**~~ — done. Self-hosting diagnostics are at zero.
-2. ~~**Gate `sbt pnc/compile` in CI.**~~ — done. It now runs as its own job
-   in [`.github/workflows/ci.yml`](.github/workflows/ci.yml), so the count
-   above is protected from regressing.
-3. ~~**§1.4**~~ — done. All 26 tracked `unimplemented` panics are closed and
-   `pnc/compile` completes and writes a `.pnb`.
-4. **§1.5** — implement VM garbage collection, then verify and gate the Stage
-   3 self-hosting fixed point.
-5. **Decide the stdlib-in-scope question** (§3.3/§4.4) — it's the one thing
-   blocking the last 2 samples and doccheck's biggest gap simultaneously.
-6. **§3.3** — write `wordcount.pn` and `records.pn` once #5 is decided; §3.4
-   needs nothing further.
-7. **§3.2** — wire up `pvm`.
-8. **§2.2, §2.4, §2.5** — upper bounds, variance enforcement, generic aliases.
-9. **§4.3** — docs tree cleanup.
-10. Cross-cutting language gaps, as they block something above (lambdas block
-    two doc pages; hex literals and `return` are small and self-contained).
+1. **Gate the verified Stage 3 fixed point in CI** (§1.5), with a measured
+   resource budget. Diagnostics, tracked `unimplemented` holes, garbage
+   collection, and the local fixed point are complete.
+2. **Decide the stdlib-in-scope question** (§3.3/§4.4), which blocks the last
+   two samples and richer documentation snippets.
+3. **Write `wordcount.pn` and `records.pn`** (§3.3) once the stdlib decision is
+   made; existing sample tests already run in CI.
+4. **Wire up the standalone `pvm` command** (§3.2).
+5. **Complete generic upper bounds, aliases/unions, and variance enforcement**
+   (§2.2, §2.4, §2.5).
+6. **Clean up the docs tree** (§4.3) and extend doccheck (§4.4).
+7. Address cross-cutting language gaps as they block the work above.
 
 ## Tracking
 
-| Metric                            |         Now | Target | Command                                     |
-| --------------------------------- | ----------: | -----: | -------------------------------------------- |
-| Self-hosting diagnostics          |           0 |      0 | `sbt pnc/compile` (fails on non-zero; gated in CI) |
-| Self-hosting `unimplemented` panics |          0 |      0 | §1.4; `rg 'panic\("unimplemented:' pncs/src/main/scala pnc/src` |
-| Doc blocks that fail              | **0 / 201** |      0 | `sbt "doccheck/run docs/src/content/docs"`   |
-| Doc blocks skipped as unsupported |           2 |      0 | as above                                     |
-| Samples written / passing in CI   |         4/6 |    6/6 | `sbt "test/testOnly SampleTests"`            |
+| Metric | Now | Target | Command |
+| --- | --- | --- | --- |
+| Self-hosting diagnostics | 0 | 0 | `sbt pnc/compile` (gated in CI) |
+| Self-hosting `unimplemented` panics | 0 | 0 | §1.4; `rg 'panic\("unimplemented:' pncs/src/main/scala pnc/src` |
+| Stage 3 fixed point | verified locally | CI gate | `sbt pnc/compile stage3/run` |
+| Tests passing | 564 | all | `sbt test/test` |
+| Doc blocks that fail | 0 / 201 | 0 | `sbt "doccheck/run docs/src/content/docs"` |
+| Doc blocks skipped as unsupported | 2 | 0 | as above |
+| Samples written / passing in CI | 4/6 | 6/6 | `sbt "test/testOnly SampleTests"` |

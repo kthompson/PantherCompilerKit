@@ -21,9 +21,9 @@ Every checked block compiles. A run reports what it found:
 
 ```
 panther doc check  (stage: Bind)
-  22 files, 200 panther blocks
+  22 files, 201 panther blocks
 
-  200 blocks: 198 ok, 0 failing, 2 skipped
+  201 blocks: 199 ok, 0 failing, 2 skipped
 ```
 
 `0 failing` is the invariant CI enforces; the totals move as docs are added.
@@ -98,4 +98,5 @@ empty.
   type has to declare it.
 - Checking stops after binding. Blocks are never lowered, emitted, or run, so
   a snippet can pass here and still not produce the output the prose claims.
-  Executing blocks needs a `.pnb` writer and a runner first.
+  Image writing and VM execution now exist; integrating execution and output
+  assertions into doccheck remains open.

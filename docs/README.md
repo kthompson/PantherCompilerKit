@@ -1,49 +1,31 @@
-# Starlight Starter Kit: Basics
+# Panther documentation
 
-[![Built with Starlight](https://astro.badg.es/v2/built-with-starlight/tiny.svg)](https://starlight.astro.build)
+The language documentation site uses Astro and Starlight. Pages live under
+`src/content/docs/`; the site configuration is in `astro.config.mjs`.
+Architecture notes and ADRs live separately under `architecture/`.
 
-```
-pnpm create astro@latest -- --template starlight
-```
+Run these commands from the repository root:
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
-
-## 🚀 Project Structure
-
-Inside of your Astro + Starlight project, you'll see the following folders and files:
-
-```
-.
-├── public/
-├── src/
-│   ├── assets/
-│   ├── content/
-│   │   └── docs/
-│   └── content.config.ts
-├── astro.config.mjs
-├── package.json
-└── tsconfig.json
+```sh
+pnpm --dir docs install
+pnpm --dir docs dev
 ```
 
-Starlight looks for `.md` or `.mdx` files in the `src/content/docs/` directory. Each file is exposed as a route based on its file name.
+| Command | Purpose |
+| --- | --- |
+| `pnpm --dir docs dev` | Start the local documentation server |
+| `pnpm --dir docs build` | Build the static site into `docs/dist/` |
+| `pnpm --dir docs preview` | Preview the built site |
+| `sbt "doccheck/run docs/src/content/docs"` | Check Panther examples with the compiler |
 
-Images can be added to `src/assets/` and embedded in Markdown with a relative link.
+Every Panther fence is checked unless explicitly annotated. The latest check
+reports 201 blocks: 199 pass, 0 fail, and 2 are skipped for unsupported
+higher-order functions. The failure baseline is empty and enforced in CI.
+See [doccheck](../tools/doccheck/README.md) for directives and limitations.
 
-Static assets, like favicons, can be placed in the `public/` directory.
+Keep language examples consistent across the topic pages and the existing
+`guides/` pages until those duplicates are consolidated. `docs_old/` is an
+archived mdbook tree; add new documentation here.
 
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `pnpm install`             | Installs dependencies                            |
-| `pnpm dev`             | Starts local dev server at `localhost:4321`      |
-| `pnpm build`           | Build your production site to `./dist/`          |
-| `pnpm preview`         | Preview your build locally, before deploying     |
-| `pnpm astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `pnpm astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Check out [Starlight’s docs](https://starlight.astro.build/), read [the Astro documentation](https://docs.astro.build), or jump into the [Astro Discord server](https://astro.build/chat).
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for the development workflow and
+[ROADMAP.md](../ROADMAP.md) for current compiler capabilities and open work.

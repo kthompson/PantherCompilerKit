@@ -6,6 +6,16 @@
 (see [`primitives.yaml`](../primitives.yaml))
 **Roadmap:** [§1.3](../../../ROADMAP.md#13-burn-down-the-diagnostics)
 
+## Current implementation (2026-10-10)
+
+The constructor and reference-value execution gaps described in the original
+outcome below have since been closed. Class fields, `this`, parameterless enum
+singletons, and equality execute on the VM. Equality uses `Eq` evidence when
+available and otherwise falls back to reference identity. Derived `Eq` supplies
+structural equality; separately allocated zero-field objects have distinct
+addresses. `VmTests` and `GarbageCollectorTests` cover these behaviors.
+The dated context and outcome below preserve the original implementation history.
+
 ## Context
 
 `No operator` is the largest category in the self-hosting diagnostics: 138 of
@@ -153,7 +163,7 @@ Landed alongside, because it is the same table and the same one-line shape.
 
 `<`, `<=`, `>` and `>=` had no rows for `string`, so `VM.scala`'s own
 lexicographic comparison — `aStr > bStr`, at
-[`VM.scala:189`](../../../pncs/src/main/scala/VM.scala:189) — did not compile
+[`VM.scala`](../../../pncs/src/main/scala/VM.scala) — did not compile
 under the self-hosted compiler. The VM implements `Clt` and `Cgt` on
 `Value.String` directly and the emitter builds `<=` and `>=` out of those two,
 so all four already worked end to end and only the front end was missing.
@@ -215,7 +225,7 @@ stays at 199 of 201, 0 failing.
 |     1 | `char + int`                                 |
 
 Which reduces the category to two open questions, both already named in
-[§4.2](../../../ROADMAP.md#42-failures-come-back-as-diagnostics):
+[§4.2](../../../ROADMAP.md#42-failures-come-back-as-diagnostics--the-invariant-holds):
 
 ### `string + T` is still undecided
 

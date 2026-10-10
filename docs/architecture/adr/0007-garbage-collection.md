@@ -1,10 +1,41 @@
 # ADR 0007: Precise garbage collection for the PVM
 
-**Status:** Proposed — design only; no collector implemented
+**Status:** Accepted — collector implemented; Stage 3 verified 2026-10-10
 **Date:** 2026-09-11
 **Primitives:** `vm-runtime`, `compiler-driver`, `test-suite`, `transpiler`
 (see [`primitives.yaml`](../primitives.yaml))
 **Roadmap:** [§1.5](../../../ROADMAP.md#15-run-the-stages)
+
+## Implementation outcome (2026-10-10)
+
+The collector is implemented in
+[`ManagedHeap.scala`](../../../pncs/src/main/scala/ManagedHeap.scala) and
+integrated into [`VM.scala`](../../../pncs/src/main/scala/VM.scala), with a
+generated Panther mirror. It traces tagged references from active stack,
+static, and temporary roots, reclaims dead blocks, and coalesces reusable spans.
+Zero-field objects reserve a slot, preserving distinct identities.
+`GarbageCollectorTests` covers reachability, cycles, reuse, zero-field objects,
+free-list splitting/coalescing, and compiled allocation-heavy programs.
+
+The implementation uses integer kind arrays, boolean mark arrays, and a
+heap-capacity integer work stack. The packed bitmaps and growing work stack
+below were design proposals, not the implemented memory representation.
+Free lists use exact bins for small blocks and finer bins for larger spans.
+Paged dictionaries and image buffers reduce contiguous allocation pressure;
+PNB output streams integer pages directly.
+
+`sbt pnc/compile stage3/run` verified byte-identical Stage 2 and Stage 3 images
+on 2026-10-10 at `98e7026`: 2,475,160 bytes each, SHA-256
+`283df1c92d0ca3eedce6174bd6ac104fb20d81b186268cc43c3b306ff3edd65e`.
+The run used 33,554,432 managed heap slots, collected 3 times, reclaimed
+61,657,902 cumulative slots, and reached 21,252,603 peak live slots. The sbt
+Stage 3 task took 101 seconds. The harness uses an 8 GiB JVM maximum heap;
+peak host memory was not measured. Stage 3 is not yet a CI gate.
+
+The remainder preserves the original 2026-09-11 design and acceptance plan.
+References to the old allocator, proposed representations, and 256M-slot
+experimental harness describe that baseline. See [the current roadmap
+measurements](../../../ROADMAP.md#15-run-the-stages) for implementation status.
 
 ## Decision
 
@@ -20,7 +51,7 @@ reclaim compiler temporaries. Completing Stage 3 at a practical memory limit
 is an acceptance test, not a consequence we can promise before measuring the
 live set and fragmentation.
 
-## Current constraints
+## Constraints at proposal time
 
 The implementation source of truth is
 [`VM.scala`](../../../pncs/src/main/scala/VM.scala),
@@ -310,7 +341,7 @@ counters, and matching Stage 2/3 image hash. Run allocation-heavy bounded-live
 workloads much longer than their heap capacity permits without collection and
 verify reuse without monotonically growing retained slots.
 
-The current Stage 3 harness hard-codes 268435456 heap slots. Make that capacity
+At proposal time, the Stage 3 harness hard-coded 268435456 heap slots. Make that capacity
 configurable in the implementation work and compare smaller capacities with
 the same input. Set the CI capacity and time budget from a successful measured
 run with headroom; re-enable the fixed-point gate only after byte equality and

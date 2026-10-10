@@ -5,6 +5,16 @@
 **Primitives:** `binder`, `lowering-emit` (see [`primitives.yaml`](../primitives.yaml))
 **Roadmap:** [§1.3](../../../ROADMAP.md#13-burn-down-the-diagnostics)
 
+## Current implementation (2026-10-10)
+
+The constructor and reference-value execution gaps described in the original
+outcome below have since been closed. Class fields, `this`, parameterless enum
+singletons, and equality execute on the VM. Equality uses `Eq` evidence when
+available and otherwise falls back to reference identity. Derived `Eq` supplies
+structural equality; separately allocated zero-field objects have distinct
+addresses. `VmTests` and `GarbageCollectorTests` cover these behaviors.
+The dated context and outcome below preserve the original implementation history.
+
 ## Context
 
 `this` is the largest single item in the self-hosting diagnostics: 35 of the

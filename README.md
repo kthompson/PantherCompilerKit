@@ -7,8 +7,8 @@ The kit contains two compilers for the same language:
 
 - **`pncs`** — the compiler written in Scala 3. This is the canonical source.
 - **`pnc`** — the compiler written in Panther itself. It is **generated** from
-  the Scala sources by `sbt pncs/transpile` and checked into the repo, on the
-  way to a fully self-hosted compiler.
+  the Scala sources by `sbt pncs/transpile` and checked into the repo.
+  Stage 3 verifies that it compiles itself to the same bytecode image as `pncs`.
 
 ## Setup
 
@@ -55,9 +55,14 @@ sbt "pncs/run --help"
 sbt "pncs/run output.pnb source.pn"
 ```
 
-Note that the output path is not honoured yet: the emitter builds the chunk and
-metadata in memory and nothing is written to disk, so no `output.pnb` appears.
-See [ROADMAP.md](ROADMAP.md#31-write-and-read-pnb).
+This writes `output.pnb`. To compile and execute a program in one step:
+
+```sh
+sbt "pncs/run --run samples/hello.pn"
+```
+
+Compiled images can be loaded through `ImageRunner`; a standalone `pvm`
+command is still on the [roadmap](ROADMAP.md#32-add-a-runner--mostly-done).
 
 ### Regenerating the Panther sources
 
@@ -68,23 +73,28 @@ CI checks that `pnc/src/` is in sync.
 sbt pncs/transpile
 ```
 
-### Commands that do not work yet
+### Building and verifying the self-hosted compiler
 
-Self-hosting is not finished, so these do not produce a working compiler:
+```sh
+sbt pnc/compile stage3/run
+```
 
-- `sbt compile` (use `sbt pncs/compile`)
-- `sbt pnc/compile` — reports diagnostics against the generated `.pn` sources
-  and fails the build. [ROADMAP.md](ROADMAP.md#1-self-hosting) carries the
-  current count.
-- `sbt pncs/bootstrap`
+`pnc/compile` regenerates the Panther sources and compiles them with `pncs`
+to `pnc/target/pnc.pnb` (Stage 2). `stage3/run` runs that image over the same
+sources, writes `pnc/target/pnc-stage3.pnb`, and requires byte-for-byte equality.
 
-[ROADMAP.md](ROADMAP.md#1-self-hosting) tracks what is left.
+The fixed point was verified on 2026-10-10 using a 32M-slot managed heap;
+see [the measurements](ROADMAP.md#15-run-the-stages). Stage 3 currently runs
+locally and is not a CI gate. Its forked JVM has an 8 GiB maximum heap;
+managed heap slots are not a measure of total process memory.
 
 ### Scripts
 
 `scripts/` holds cross-platform PowerShell wrappers around the same sbt tasks:
 `tests.ps1`, `lint.ps1`, and the bootstrap stages `stage0.ps1` (transpile),
-`stage1.ps1` (bootstrap), `stage2.ps1` (`pnc/compile`).
+`stage1.ps1` (legacy Scala-source bootstrap), `stage2.ps1` (`pnc/compile`),
+and `stage3.ps1` (build Stage 2 and verify the self-hosting fixed point).
+Use Stage 2 followed by Stage 3 for the verified self-hosting workflow.
 
 ## Repository layout
 
@@ -97,7 +107,7 @@ Self-hosting is not finished, so these do not produce a working compiler:
 | `text/`     | Text processing library                                                     |
 | `test/`     | ScalaTest suites plus shared helpers                                        |
 | `docs/`     | Astro/Starlight documentation site                                          |
-| `tools/`    | Development tooling — currently `doccheck`, the doc code-block checker      |
+| `tools/`    | Development tooling — doc code-block checks and the Stage 3 verifier      |
 | `scripts/`  | Cross-platform PowerShell wrappers around the sbt tasks                     |
 
 Entry points: [`pncs/src/main/scala/Program.scala`](pncs/src/main/scala/Program.scala)
@@ -122,14 +132,14 @@ Every ` ```panther ` block in the docs is checked against the compiler by
 sbt "doccheck/run docs/src/content/docs"
 ```
 
-Every block compiles, and `tools/doccheck/baseline.txt` — the list of
-known-broken blocks — is empty, so CI fails if that stops being true.
+The latest check reports 201 blocks: 199 pass and 2 are explicitly skipped
+for unsupported higher-order functions. `tools/doccheck/baseline.txt` is empty;
+CI rejects new failures.
 
 ## Roadmap
 
-[ROADMAP.md](ROADMAP.md) covers the three things being worked toward —
-self-hosting, generics, and runnable sample programs — with the current
-measurements for each.
+[ROADMAP.md](ROADMAP.md) tracks completed milestones and remaining work in
+self-hosting, generics, and runnable sample programs, with measured results.
 
 ## Contributing
 

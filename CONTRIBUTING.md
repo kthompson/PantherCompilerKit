@@ -104,9 +104,9 @@ Every ` ```panther ` block under `docs/` is compiled by
 sbt "doccheck/run docs/src/content/docs"
 ```
 
-Every block compiles, and `tools/doccheck/baseline.txt` — the list of blocks
-known not to compile — is empty. Keep it that way: a snippet you add or change
-has to pass.
+The latest check reports 201 blocks: 199 pass and 2 are explicitly skipped
+for unsupported higher-order functions. `tools/doccheck/baseline.txt` is empty.
+Keep it that way: a snippet you add or change has to pass its declared check.
 
 The check fails in two directions — an unbaselined snippet producing a
 diagnostic, *and* a baselined snippet compiling cleanly — so if you ever do
@@ -150,7 +150,7 @@ sbt pncs/transpile
 ```
 
 ```bash
-sbt pncs/compile && sbt test/test && sbt scalafmtCheckAll
+sbt pncs/compile test/test pnc/compile scalafmtCheckAll
 ```
 
 ```bash
@@ -159,14 +159,26 @@ sbt "doccheck/run docs/src/content/docs"
 
 Then **commit the regenerated `.pn` files** along with your Scala changes.
 
-The [`ci`](.github/workflows/ci.yml) workflow runs four jobs on every pull
-request, all of which must pass:
+The [`ci`](.github/workflows/ci.yml) workflow runs five jobs on pull requests
+and manual dispatch:
 
 1. `sbt pncs/compile`, then `sbt test/test`
-2. `sbt pncs/transpile`, then `git diff --exit-code` — this fails if the
-   transpiled output in `pnc/src/` is out of sync with the Scala sources
-3. `doccheck` against its baseline
-4. `sbt scalafmtCheckAll`
+2. `sbt pnc/compile` — build the generated compiler image, failing on diagnostics
+3. `sbt pncs/transpile`, then `git add -A` and `git diff --cached --exit-code`
+   — detect modified, added, or deleted generated sources
+4. `doccheck` against its empty baseline
+5. `sbt scalafmtCheckAll`
+
+For changes affecting VM execution, metadata/image output, compiler ordering,
+or self-hosting, also run the local fixed-point check after building Stage 2:
+
+```bash
+sbt pnc/compile stage3/run
+```
+
+Stage 3 must emit an image byte-for-byte identical to Stage 2. It is currently
+not a CI gate; [the roadmap](ROADMAP.md#15-run-the-stages) records its resource
+settings and the latest verified result.
 
 For the pull request itself:
 
@@ -180,7 +192,7 @@ For the pull request itself:
 ### Optional: the system recap block
 
 For non-trivial changes, the repo has a `visual-recap` skill
-([`.claude/skills/visual-recap/SKILL.md`](.claude/skills/visual-recap/SKILL.md))
+([`.agents/skills/visual-recap/SKILL.md`](.agents/skills/visual-recap/SKILL.md))
 that generates a visual summary of which pipeline primitives a change touches
 and how risky it is, rendered inline in the PR description. It's informational
 and non-blocking — it supplements review, it doesn't replace reading the diff.
@@ -191,7 +203,7 @@ compilation stage, a split or renamed module, changed code roots), update
 same PR and validate it:
 
 ```bash
-node .claude/skills/visual-recap/scripts/check-primitives-map.mjs
+node .agents/skills/visual-recap/scripts/check-primitives-map.mjs
 ```
 
 Ordinary feature work inside an existing stage does **not** need a taxonomy
