@@ -29,8 +29,12 @@ on 2026-10-10 at `98e7026`: 2,475,160 bytes each, SHA-256
 `283df1c92d0ca3eedce6174bd6ac104fb20d81b186268cc43c3b306ff3edd65e`.
 The run used 33,554,432 managed heap slots, collected 3 times, reclaimed
 61,657,902 cumulative slots, and reached 21,252,603 peak live slots. The sbt
-Stage 3 task took 101 seconds. The harness uses an 8 GiB JVM maximum heap;
-peak host memory was not measured. Stage 3 is not yet a CI gate.
+Stage 3 task took 101 seconds. A follow-up resource run with a 4 GiB verifier
+JVM cap completed Stage 2 and Stage 3 in 109.16 seconds with GNU time reporting
+1,994,120 KiB maximum resident set size. That is the largest process RSS, not
+the concurrent total of sbt and its children. The CI compiler job now requires
+the fixed point, caps sbt at 1 GiB, and has a 15-minute job timeout. Measurements
+used the local Java 21 host with warm artifacts; CI uses Java 17.
 
 The remainder preserves the original 2026-09-11 design and acceptance plan.
 References to the old allocator, proposed representations, and 256M-slot

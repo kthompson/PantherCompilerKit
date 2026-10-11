@@ -84,9 +84,10 @@ to `pnc/target/pnc.pnb` (Stage 2). `stage3/run` runs that image over the same
 sources, writes `pnc/target/pnc-stage3.pnb`, and requires byte-for-byte equality.
 
 The fixed point was verified on 2026-10-10 using a 32M-slot managed heap;
-see [the measurements](ROADMAP.md#15-run-the-stages). Stage 3 currently runs
-locally and is not a CI gate. Its forked JVM has an 8 GiB maximum heap;
-managed heap slots are not a measure of total process memory.
+see [the measurements](ROADMAP.md#15-run-the-stages). The CI compiler job
+requires this fixed point, with a 15-minute job timeout. The verifier runs in
+a separate JVM capped at 4 GiB; managed heap slots do not measure total
+process memory.
 
 ### Scripts
 

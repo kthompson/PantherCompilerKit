@@ -181,7 +181,7 @@ lazy val stage3 = project
   .settings(
     mainClass := Some("Stage3"),
     Compile / run / fork := true,
-    Compile / run / javaOptions += "-Xmx8G"
+    Compile / run / javaOptions += "-Xmx4G"
   )
 
 lazy val test = project

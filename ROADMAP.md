@@ -6,8 +6,8 @@ The three things that matter most:
 
 1. **Self-hosting** — `pnc` compiles itself without help from Scala.
    Diagnostics and the tracked `unimplemented` panics are both at zero.
-   The Stage 3 fixed point is verified locally with garbage collection (§1.5).
-   Adding the fixed-point check to CI remains open.
+   The Stage 3 fixed point is verified with garbage collection (§1.5), and
+   the CI compiler job now requires it.
 2. **Generics** — inference is done (§2.1); upper bounds, variance
    enforcement, and generic aliases/unions are not (§2.2–§2.5).
 3. **Sample programs** — a program can be written, compiled, and run. 4 of 6
@@ -40,8 +40,8 @@ It is gated in [CI](.github/workflows/ci.yml), alongside the Scala build,
 tests, source regeneration, documentation checks, and formatting.
 
 Stage 3 runs the resulting compiler over its own generated sources and emits
-an identical image. The fixed point is verified locally; **Stage 3 is not yet
-a CI gate**. See §1.5 for the hash and heap measurements.
+an identical image. The CI compiler job requires this fixed point. See §1.5
+for the hash, heap measurements, and resource budget.
 
 ### The docs compile
 
@@ -269,6 +269,10 @@ writes `pnc/target/pnc-stage3.pnb`, and compares both bytes and SHA-256.
 | Cumulative reclaimed slots | 61,657,902 |
 | Peak live slots | 21,252,603 |
 | Stage 3 sbt task elapsed time | 101 seconds |
+| Stage 2 + Stage 3 warm-build wall time | 109.16 seconds |
+| GNU time maximum resident set size | 1,994,120 KiB (about 1.90 GiB) |
+| Verifier JVM maximum heap | 4 GiB |
+| CI job timeout | 15 minutes |
 
 Matching image SHA-256:
 
@@ -284,11 +288,17 @@ instead of requiring a large contiguous managed array.
 [ADR 0007](docs/architecture/adr/0007-garbage-collection.md) records the design
 and implementation outcome.
 
-**Remaining:** add Stage 3 to CI after setting a resource/time budget. The
-runner currently requests an 8 GiB maximum JVM heap; peak process memory was
-not measured in this run. The slot counts above describe the guest heap,
-not total host memory. Older non-collecting runs exhausted 32M–128M slots;
-those failures no longer describe the current implementation.
+The existing `pnc` CI job now runs `sbt -J-Xmx1G pnc/compile stage3/run`:
+1 GiB maximum heap for sbt, 4 GiB for the forked verifier, and a 15-minute
+job timeout to allow dependency downloads and cold compilation. This retains
+the job name while extending its checks to byte equality.
+
+The resource run used GNU `/usr/bin/time -v` over `sbt pnc/compile stage3/run`
+on the local Java 21 host with warm build artifacts. Its maximum resident set
+size is the largest process RSS reported by GNU time, not the simultaneous
+sum of sbt and its children. The slot counts describe the guest heap. CI uses
+Java 17, so its elapsed time and memory may differ. Older non-collecting runs
+exhausted 32M–128M slots; those failures no longer describe this implementation.
 
 ---
 
@@ -511,18 +521,15 @@ Remaining language and coverage gaps that affect more than one goal.
 
 ## What's left, roughly in order
 
-1. **Gate the verified Stage 3 fixed point in CI** (§1.5), with a measured
-   resource budget. Diagnostics, tracked `unimplemented` holes, garbage
-   collection, and the local fixed point are complete.
-2. **Decide the stdlib-in-scope question** (§3.3/§4.4), which blocks the last
+1. **Decide the stdlib-in-scope question** (§3.3/§4.4), which blocks the last
    two samples and richer documentation snippets.
-3. **Write `wordcount.pn` and `records.pn`** (§3.3) once the stdlib decision is
+2. **Write `wordcount.pn` and `records.pn`** (§3.3) once the stdlib decision is
    made; existing sample tests already run in CI.
-4. **Wire up the standalone `pvm` command** (§3.2).
-5. **Complete generic upper bounds, aliases/unions, and variance enforcement**
+3. **Wire up the standalone `pvm` command** (§3.2).
+4. **Complete generic upper bounds, aliases/unions, and variance enforcement**
    (§2.2, §2.4, §2.5).
-6. **Clean up the docs tree** (§4.3) and extend doccheck (§4.4).
-7. Address cross-cutting language gaps as they block the work above.
+5. **Clean up the docs tree** (§4.3) and extend doccheck (§4.4).
+6. Address cross-cutting language gaps as they block the work above.
 
 ## Tracking
 
@@ -530,7 +537,7 @@ Remaining language and coverage gaps that affect more than one goal.
 | --- | --- | --- | --- |
 | Self-hosting diagnostics | 0 | 0 | `sbt pnc/compile` (gated in CI) |
 | Self-hosting `unimplemented` panics | 0 | 0 | §1.4; `rg 'panic\("unimplemented:' pncs/src/main/scala pnc/src` |
-| Stage 3 fixed point | verified locally | CI gate | `sbt pnc/compile stage3/run` |
+| Stage 3 fixed point | verified; required by CI | maintain | `sbt pnc/compile stage3/run` |
 | Tests passing | 564 | all | `sbt test/test` |
 | Doc blocks that fail | 0 / 201 | 0 | `sbt "doccheck/run docs/src/content/docs"` |
 | Doc blocks skipped as unsupported | 2 | 0 | as above |

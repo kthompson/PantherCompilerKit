@@ -163,22 +163,24 @@ The [`ci`](.github/workflows/ci.yml) workflow runs five jobs on pull requests
 and manual dispatch:
 
 1. `sbt pncs/compile`, then `sbt test/test`
-2. `sbt pnc/compile` — build the generated compiler image, failing on diagnostics
+2. `sbt -J-Xmx1G pnc/compile stage3/run` — build the generated compiler image
+   and require the self-hosting fixed point, with a 15-minute job timeout
 3. `sbt pncs/transpile`, then `git add -A` and `git diff --cached --exit-code`
    — detect modified, added, or deleted generated sources
 4. `doccheck` against its empty baseline
 5. `sbt scalafmtCheckAll`
 
 For changes affecting VM execution, metadata/image output, compiler ordering,
-or self-hosting, also run the local fixed-point check after building Stage 2:
+or self-hosting, run the same fixed-point check locally:
 
 ```bash
 sbt pnc/compile stage3/run
 ```
 
-Stage 3 must emit an image byte-for-byte identical to Stage 2. It is currently
-not a CI gate; [the roadmap](ROADMAP.md#15-run-the-stages) records its resource
-settings and the latest verified result.
+Stage 3 must emit an image byte-for-byte identical to Stage 2. The CI compiler
+job runs this check with a 1 GiB cap on sbt and a separate 4 GiB cap on the
+verifier JVM. [The roadmap](ROADMAP.md#15-run-the-stages) records the resource
+measurements and latest verified result.
 
 For the pull request itself:
 
