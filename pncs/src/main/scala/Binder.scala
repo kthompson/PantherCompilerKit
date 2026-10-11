@@ -495,6 +495,12 @@ case class Binder(
     ListModule.one(Tuple2("file", stringType)),
     stringType
   )
+  builtinMethod(
+    fileSymbol,
+    "exists",
+    ListModule.one(Tuple2("file", stringType)),
+    boolType
+  )
   // The `.pnb` image is ints, so it is written and read as bytes rather than
   // text: `Array[int]`, one byte per element, which is what the shim does.
   builtinMethod(

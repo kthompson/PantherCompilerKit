@@ -1,0 +1,4 @@
+[derive(Eq, Show)] enum Result[out A, out B] {
+  case Error(value: A)
+  case Success(value: B)
+}

@@ -3,6 +3,8 @@ import panther._
 object system {
   object io {
     object File {
+      def exists(file: string): bool = new java.io.File(file).isFile
+
       def writeAllText(file: string, text: string): unit = {
         val writer = new java.io.PrintWriter(file, "utf-8")
         writer.write(text)

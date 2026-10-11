@@ -11,10 +11,12 @@ The three things that matter most:
 2. **Generics** — inference is done (§2.1); upper bounds, variance
    enforcement, and generic aliases/unions are not (§2.2–§2.5).
 3. **Sample programs** — a program can be written, compiled, and run. 4 of 6
-   are written; the other 2 wait on a standard-library decision.
+   are written; the standard library is now available for the remaining 2.
 
-Build, test, doccheck, and Stage 3 results below were verified on 2026-10-10
-at commit `98e7026`. Re-run the commands when assessing a newer revision.
+Build, test, doccheck, and Stage 3 results below were verified on 2026-10-10.
+The resource measurements are from `98e7026`; the stdlib follow-up also verifies
+matching user-program images from both compilers. Re-run the commands when
+assessing a newer revision.
 
 ---
 
@@ -26,7 +28,7 @@ at commit `98e7026`. Re-run the commands when assessing a newer revision.
 sbt pncs/compile && sbt test/test
 ```
 
-Green: 564 tests across the lexer, parser, binder, type checker, VM, metadata
+Green: 573 tests across the lexer, parser, binder, type checker, VM, metadata
 format, transpiler, and args parser.
 
 ### The self-hosted compiler builds and compiles itself
@@ -66,15 +68,17 @@ an image behaves the same as what went in. What's left is the `pvm` command
 itself (§3.2) — loading and running an image is a function with tests, not
 yet a command line.
 
-### There are 4 sample programs, and a stdlib decision blocks the rest
+### There are 4 sample programs, and the stdlib is available
 
 `samples/hello.pn`, `fizzbuzz.pn`, `fib.pn`, and `expr.pn` each run and are
 pinned four ways — output, symbols, lowered assembly, disassembly — by
-`SampleTests`, which runs as part of `sbt test/test` and so is already in CI.
-`wordcount.pn` and `records.pn` are blocked on the same thing that blocks
-doccheck's biggest gap (§4.4): `Option`, `List`, `Dictionary`, and `Result`
-live in `pnc/src`, the transpiled compiler, not anywhere a user program can
-reach. `val x = Option.Some(1)` in a sample reports `Symbol Option not found`.
+`SampleTests`. `wordcount.pn` and `records.pn` remain to be written.
+
+Both compiler drivers and doccheck include a source-based stdlib automatically:
+`Option`, `Result`, `Either`, `List`, `Dictionary`, and `Tuple2`. The default
+bundle is embedded in each compiler, independent of the working directory.
+`--no-stdlib` supports bootstrap builds and isolated compilation;
+`--stdlib <directory>` replaces the bundle. See [the stdlib guide](stdlib/README.md).
 
 ---
 
@@ -259,6 +263,8 @@ compiles `pnc/src` in canonical source order. The [Stage 3 runner](tools/stage3/
 loads `pnc/target/pnc.pnb`, passes an `Array[string]` command line to it,
 writes `pnc/target/pnc-stage3.pnb`, and compares both bytes and SHA-256.
 
+The following resource measurements predate the stdlib bundle (`98e7026`).
+
 | Measurement | Result |
 | --- | ---: |
 | Stage 2 and Stage 3 image size | 2,475,160 bytes each |
@@ -279,6 +285,11 @@ Matching image SHA-256:
 ```text
 283df1c92d0ca3eedce6174bd6ac104fb20d81b186268cc43c3b306ff3edd65e
 ```
+
+With the stdlib bundle, Stage 2 and Stage 3 also match: 2,518,316 bytes,
+SHA-256 `a0816bc1abaa4ab34d369a227669f3a0b04adc8b348661b4479fd1a7439561e9`.
+Stage 3 additionally checks matching stdlib user images, standalone execution,
+and self-hosted `--run` with both the embedded and replacement library.
 
 The VM now uses a precise, non-moving mark-and-sweep
 [managed heap](pncs/src/main/scala/ManagedHeap.scala), with stack/static/native
@@ -392,13 +403,11 @@ doesn't grow. The one thing `callx` doesn't cover is the two extern *fields*,
 | `fizzbuzz.pn`  | `while`, `if`/`else`, `mod`, string building       | done   |
 | `fib.pn`       | recursion, `int` arithmetic                        | done   |
 | `expr.pn`      | `enum`, pattern matching, recursion over a tree    | done   |
-| `wordcount.pn` | `Array`, `List`, `Dictionary`, string handling      | blocked on stdlib-in-scope |
-| `records.pn`   | classes, fields, generics                          | blocked on stdlib-in-scope |
+| `wordcount.pn` | `Array`, `List`, `Dictionary`, string handling      | ready to write |
+| `records.pn`   | classes, fields, generics                          | ready to write |
 
-The blocker is real and worth deciding rather than routing around: either a
-stdlib the driver compiles alongside user sources, or samples restricted to
-what the prelude actually provides. It's the same decision §4.4 needs for
-doccheck.
+The standard library is now compiled alongside user sources by both compiler
+drivers. The remaining samples can use it directly.
 
 `SampleTests` snapshots each sample four ways (`.out`, `.symbols`, `.lowered`,
 `.disasm`); regenerate with `UPDATE_SNAPSHOTS=1 sbt "test/testOnly SampleTests"`
@@ -469,13 +478,9 @@ In rough order of usefulness:
   `// Prints: 0, 1, 2, 3, 4`. No longer blocked — §3.1/§3.2 both exist now.
 - **Linked blocks**, so a walkthrough can build up across several fences
   instead of needing `parse-only`.
-- **A stdlib prelude — the most limiting gap.** `Option`, `Result`, `Either`,
-  `List`, and `Dictionary` live in `pnc/src/*.pn` and are _not_ builtins: only
-  `int`, `string`, `bool`, `char`, `unit`, and `Array` are wired into the
-  binder. A single-block compilation can't mention `Option` at all. Compiling
-  each block alongside the runtime `.pn` sources would fix this and would
-  match what a real Panther program sees — the same decision blocking §3.3's
-  remaining samples.
+- **A stdlib prelude — done.** Binding checks now use the same bundled source
+  library as user compilations. Documentation uses the actual `Option` and
+  `Result` APIs instead of redeclaring them.
 - **An opt-in prelude for page-local types**, so a snippet can use `User`
   without declaring it.
 - **Point it at `README.md` and `CONTRIBUTING.md`** too.
@@ -514,22 +519,20 @@ Remaining language and coverage gaps that affect more than one goal.
   writing the `.pnb` magic (§3.1), which is spelled in decimal because of it
   — exactly where a program wants hex.
 - **Test coverage is stage-shaped, not feature-shaped** outside of
-  `SampleTests` — 564 tests, but most pin one stage against a hand-written
+  `SampleTests` — 573 tests, but most pin one stage against a hand-written
   expectation rather than source-to-output.
 
 ---
 
 ## What's left, roughly in order
 
-1. **Decide the stdlib-in-scope question** (§3.3/§4.4), which blocks the last
-   two samples and richer documentation snippets.
-2. **Write `wordcount.pn` and `records.pn`** (§3.3) once the stdlib decision is
-   made; existing sample tests already run in CI.
-3. **Wire up the standalone `pvm` command** (§3.2).
-4. **Complete generic upper bounds, aliases/unions, and variance enforcement**
+1. **Write `wordcount.pn` and `records.pn`** (§3.3) using the bundled standard
+   library; existing sample tests already run in CI.
+2. **Wire up the standalone `pvm` command** (§3.2).
+3. **Complete generic upper bounds, aliases/unions, and variance enforcement**
    (§2.2, §2.4, §2.5).
-5. **Clean up the docs tree** (§4.3) and extend doccheck (§4.4).
-6. Address cross-cutting language gaps as they block the work above.
+4. **Clean up the docs tree** (§4.3) and extend doccheck (§4.4).
+5. Address cross-cutting language gaps as they block the work above.
 
 ## Tracking
 
@@ -538,7 +541,7 @@ Remaining language and coverage gaps that affect more than one goal.
 | Self-hosting diagnostics | 0 | 0 | `sbt pnc/compile` (gated in CI) |
 | Self-hosting `unimplemented` panics | 0 | 0 | §1.4; `rg 'panic\("unimplemented:' pncs/src/main/scala pnc/src` |
 | Stage 3 fixed point | verified; required by CI | maintain | `sbt pnc/compile stage3/run` |
-| Tests passing | 564 | all | `sbt test/test` |
+| Tests passing | 573 | all | `sbt test/test` |
 | Doc blocks that fail | 0 / 201 | 0 | `sbt "doccheck/run docs/src/content/docs"` |
 | Doc blocks skipped as unsupported | 2 | 0 | as above |
 | Samples written / passing in CI | 4/6 | 6/6 | `sbt "test/testOnly SampleTests"` |

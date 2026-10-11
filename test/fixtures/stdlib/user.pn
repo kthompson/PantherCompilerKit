@@ -1,0 +1,21 @@
+val option = Option.Some(42)
+assert(option.get() == 42, "option")
+assert(option == Option.Some(42), "derived equality")
+val list = List.Cons(1, List.Cons(2, List.Nil))
+assert(list.length == 2, "list")
+val values = new Array[int](2)
+ListModule.fill(values, 0, list)
+assert(values(0) == 1 && values(1) == 2, "list fill")
+val dictionary = DictionaryModule.empty[string, int]().put("answer", 42)
+assert(dictionary.getUnsafe("answer") == 42, "dictionary")
+val result: Result[string, int] = Result.Success(42)
+result match {
+  case Result.Success(value) => assert(value == 42, "result")
+  case Result.Error(_) => panic("result error")
+}
+val either: Either[string, int] = Either.Right(42)
+either match {
+  case Either.Right(value) => assert(value == 42, "either")
+  case Either.Left(_) => panic("either left")
+}
+exit(7)

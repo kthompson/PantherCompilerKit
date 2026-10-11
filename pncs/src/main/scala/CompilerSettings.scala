@@ -27,7 +27,9 @@ case class CompilerSettings(
     /** Compile and execute in one step, instead of emitting. There is no output
       * file in this mode — every positional argument is a source.
       */
-    run: bool
+    run: bool,
+    useStdlib: bool,
+    stdlibDirectory: string
 )
 
 object CompilerSettingsFactory {
@@ -48,6 +50,8 @@ object CompilerSettingsFactory {
     false, // printBoundAssembly
     false, // printLoweredAssembly
     false, // transpile
-    false // run
+    false, // run
+    true, // useStdlib
+    "" // stdlibDirectory: embedded default
   )
 }

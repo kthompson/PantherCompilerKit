@@ -77,8 +77,17 @@ object Program {
       }
     }
 
+    var libraryError = ""
+    Stdlib.withSources(trees, settings) match {
+      case Result.Success(allTrees) => trees = allTrees
+      case Result.Error(message)    => libraryError = message
+    }
+
     // verify no diagnostics from parse trees
-    if (hasDiagnostics(trees)) {
+    if (libraryError != "") {
+      println(libraryError)
+      RunResult.Diagnostics(1)
+    } else if (hasDiagnostics(trees)) {
       var parseErrors = 0
       while (trees != List.Nil) {
         trees match {

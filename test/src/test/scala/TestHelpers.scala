@@ -747,7 +747,9 @@ object TestHelpers {
       settings.printBoundAssembly,
       settings.printLoweredAssembly,
       settings.transpile,
-      settings.run
+      settings.run,
+      settings.useStdlib,
+      settings.stdlibDirectory
     )
     val tree = MakeSyntaxTree.parseContent(program, traced)
     val comp = MakeCompilation.create(ListModule.one(tree), traced)

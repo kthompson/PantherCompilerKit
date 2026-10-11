@@ -31,6 +31,10 @@ object ArgsParser {
       var printLoweredAssembly = settings.printLoweredAssembly
       var transpile = settings.transpile
       var run = settings.run
+      var useStdlib = settings.useStdlib
+      var stdlibDirectory = settings.stdlibDirectory
+      var stdlibSpecified = false
+      var noStdlibSpecified = false
 
       var outputFile = ""
       var sourceFiles: List[string] = List.Nil
@@ -54,6 +58,19 @@ object ArgsParser {
         } else if (arg == "--run" || arg == "-r") {
           run = true
           currentIndex = currentIndex + 1
+        } else if (arg == "--no-stdlib") {
+          useStdlib = false
+          noStdlibSpecified = true
+          currentIndex = currentIndex + 1
+        } else if (arg == "--stdlib") {
+          if (currentIndex + 1 >= args.length) {
+            error = Option.Some("--stdlib requires a directory")
+          } else {
+            currentIndex = currentIndex + 1
+            stdlibDirectory = args(currentIndex)
+            stdlibSpecified = true
+            currentIndex = currentIndex + 1
+          }
         } else if (arg == "--debug") {
           debug = true
           enableTracing = true
@@ -157,7 +174,9 @@ object ArgsParser {
 
       // Validate required arguments
       if (!showHelp && error == Option.None) {
-        if (run && transpile) {
+        if (stdlibSpecified && noStdlibSpecified) {
+          error = Option.Some("--stdlib and --no-stdlib are mutually exclusive")
+        } else if (run && transpile) {
           error = Option.Some("--run and --transpile are mutually exclusive")
         } else if (!run && outputFile == "") {
           error = Option.Some("output file is required")
@@ -178,7 +197,9 @@ object ArgsParser {
           printBoundAssembly,
           printLoweredAssembly,
           transpile,
-          run
+          run,
+          useStdlib,
+          stdlibDirectory
         ),
         outputFile,
         sourceFiles,
@@ -200,6 +221,10 @@ object ArgsParser {
     println(
       "  -r, --run                    Compile and execute, with no output file"
     )
+    println(
+      "  --no-stdlib                  Compile without the standard library"
+    )
+    println("  --stdlib <directory>         Use replacement stdlib .pn sources")
     println("  --debug                      Enable all debug options")
     println("  --trace                      Enable execution tracing")
     println("  --print-symbols              Print symbol table")

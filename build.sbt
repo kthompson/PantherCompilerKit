@@ -32,6 +32,9 @@ lazy val pncs = project
   .dependsOn(runtime, metadata, text)
   .settings(
     mainClass := Some("Program$"),
+    Compile / sourceGenerators += Def.task {
+      StdlibBundle.generate((ThisBuild / baseDirectory).value, (Compile / sourceManaged).value)
+    }.taskValue,
     libraryDependencies += "com.lihaoyi" %% "utest" % "0.8.4" % Test,
     testFrameworks += new TestFramework("utest.runner.Framework"),
     transpile := {
@@ -64,6 +67,14 @@ lazy val pncs = project
         .exitValue()
 
       if (result != 0) sys.error(s"Transpile failed with exit code $result")
+      val bundleDir = (ThisBuild / baseDirectory).value / "stdlib" / "src"
+      StdlibBundle.names.foreach { name =>
+        IO.copyFile(pncTargetDir / (name + ".pn"), bundleDir / (name + ".pn"))
+      }
+      // Refresh the embedded Panther bundle after regenerating library sources.
+      // The Scala source generator will pick up the same files on next compile.
+      val bundled = StdlibBundle.generate((ThisBuild / baseDirectory).value, target.value / "stdlib-bundle").head
+      IO.write(pncTargetDir / "BundledStdlib.pn", IO.read(bundled).replace("import panther._", "using panther"))
     },
     bootstrap := {
       val log = streams.value.log
@@ -89,7 +100,7 @@ lazy val pncs = project
       val result = Fork.java
         .fork(
           ForkOptions().withWorkingDirectory(baseDirectory.value),
-          Seq("-cp", cp, mainCls, outputFile.getAbsolutePath) ++
+          Seq("-cp", cp, mainCls, "--no-stdlib", outputFile.getAbsolutePath) ++
             sourceFiles
         )
         .exitValue()
@@ -142,6 +153,7 @@ lazy val pnc = project
                 "-cp",
                 cp,
                 mainCls,
+                "--no-stdlib",
                 outFile
               ) ++ pnFiles.map(_.getAbsolutePath)
             )

@@ -64,6 +64,7 @@ object Builtin {
   val WriteAllBytes = 21
   val WriteAllInts = 22
   val WriteAllIntPages = 23
+  val FileExists = 24
 
   /** The id for a method's qualified name, or `None` if it names no builtin. */
   def idOf(qualifiedName: string): int = {
@@ -82,6 +83,7 @@ object Builtin {
       case "string.endsWith"           => EndsWith
       case "string.compareTo"          => StringCompareTo
       case "int.compareTo"             => IntCompareTo
+      case "File.exists"               => FileExists
       case "File.readAllText"          => ReadAllText
       case "File.readAllBytes"         => ReadAllBytes
       case "File.writeAllBytes"        => WriteAllBytes
@@ -123,6 +125,8 @@ object Builtin {
       "string.compareTo"
     } else if (id == IntCompareTo) {
       "int.compareTo"
+    } else if (id == FileExists) {
+      "File.exists"
     } else if (id == ReadAllText) {
       "File.readAllText"
     } else if (id == WriteAllText) {

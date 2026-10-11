@@ -147,7 +147,11 @@ object BlockChecker {
       case Stage.Parse               => tree.diagnostics
       case Stage.Bind if parseFailed => tree.diagnostics
       case Stage.Bind =>
-        MakeCompilation.create(ListModule.one(tree), settings).diagnostics
+        Stdlib.withSources(ListModule.one(tree), settings) match {
+          case Result.Success(trees) =>
+            MakeCompilation.create(trees, settings).diagnostics
+          case Result.Error(message) => throw new IllegalStateException(message)
+        }
     }
   }
 }

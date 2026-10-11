@@ -29,7 +29,9 @@ class GarbageCollectorTests extends AnyFunSpec with Matchers {
       base.printBoundAssembly,
       base.printLoweredAssembly,
       base.transpile,
-      base.run
+      base.run,
+      base.useStdlib,
+      base.stdlibDirectory
     )
     val vm = VM(
       new Chunk(),

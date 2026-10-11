@@ -50,7 +50,9 @@ class ProgramTests extends AnyFunSpec with Matchers {
           settings.printBoundAssembly,
           settings.printLoweredAssembly,
           settings.transpile,
-          true // run
+          true, // run
+          settings.useStdlib,
+          settings.stdlibDirectory
         ),
         "",
         List.Cons(file.toString, List.Nil)

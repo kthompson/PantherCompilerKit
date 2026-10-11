@@ -47,6 +47,8 @@
     ├──Object File
     │   ├──Method File.readAllText: (file: string) -> string = [extern]
     │   │   └──Parameter File.readAllText.file: string
+    │   ├──Method File.exists: (file: string) -> bool = [extern]
+    │   │   └──Parameter File.exists.file: string
     │   ├──Method File.readAllBytes: (file: string) -> Array<int> = [extern]
     │   │   └──Parameter File.readAllBytes.file: string
     │   ├──Method File.writeAllBytes: (file: string, bytes: Array<int>) -> unit = [extern]

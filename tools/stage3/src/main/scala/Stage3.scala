@@ -41,7 +41,9 @@ object Stage3 {
       finally stream.close()
 
     val compilerArgs =
-      (stage3.toString +: sources.map(_.toAbsolutePath.toString)).toArray
+      (Seq("--no-stdlib", stage3.toString) ++ sources.map(
+        _.toAbsolutePath.toString
+      )).toArray
 
     // The compiler builds all syntax, symbols, metadata, and bytecode inside
     // one VM run. These are host capacities for that run, not language-level
@@ -101,6 +103,59 @@ object Stage3 {
 
     println(
       s"Stage 3 fixed point verified: ${Files.size(stage3)} bytes, ${digest(stage3)}"
+    )
+    verifyUserStdlib(root, image)
+
+  }
+
+  /** The self-hosted compiler must also supply the library to user programs. */
+  private def verifyUserStdlib(root: Path, compiler: PnbImage): Unit = {
+    val source = root.resolve("test/fixtures/stdlib/user.pn").toString
+    val expected = root.resolve("pnc/target/stdlib-pncs.pnb").toString
+    val actual = root.resolve("pnc/target/stdlib-pnc.pnb").toString
+    val defaults = CompilerSettingsFactory.default
+    require(
+      Program.run(defaults, expected, ListModule.one(source)) == RunResult
+        .Diagnostics(0)
+    )
+    val host = defaults.copy(stackSize = 65536, heapSize = 1048576)
+    def runCompiler(args: Array[String]): InterpretResult = {
+      VM(
+        compiler.chunk,
+        compiler.metadata,
+        compiler.entry,
+        new Array[Value](host.stackSize),
+        new Array[Value](host.heapSize),
+        host
+      ).runWithArgs(args)
+    }
+    runCompiler(Array(actual, source)) match {
+      case InterpretResult.Ok | InterpretResult.OkValue(_) |
+          InterpretResult.Exit(0) =>
+        ()
+      case result =>
+        sys.error(s"Self-hosted stdlib compilation failed: $result")
+    }
+    require(
+      Files.mismatch(Paths.get(expected), Paths.get(actual)) == -1,
+      "Compilers emitted different stdlib user images"
+    )
+    require(
+      ImageRunner.exec(actual, defaults) == InterpretResult.Exit(7),
+      "Stdlib user image failed"
+    )
+    require(
+      runCompiler(Array("--run", source)) == InterpretResult.Exit(7),
+      "Self-hosted --run with stdlib failed"
+    )
+    require(
+      runCompiler(
+        Array("--stdlib", root.resolve("stdlib/src").toString, "--run", source)
+      ) == InterpretResult.Exit(7),
+      "Self-hosted replacement stdlib failed"
+    )
+    println(
+      "Stage 3 stdlib verified: matching user images, standalone execution, --run, and replacement bundle"
     )
   }
 

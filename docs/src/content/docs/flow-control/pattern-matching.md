@@ -226,14 +226,9 @@ point match {
 
 ## Matching Options
 
-`Option` is not a built-in type, but you can define one and match on it like any other enum:
+`Option[T]` comes from the standard library, which the compiler includes automatically. Match on it like any other enum:
 
 ```panther
-enum Option[T] {
-    case Some(value: T)
-    case None
-}
-
 val maybeValue: Option[int] = Option.Some(42)
 
 maybeValue match {
@@ -245,11 +240,6 @@ maybeValue match {
 Use in functions:
 
 ```panther
-enum Option[T] {
-    case Some(value: T)
-    case None
-}
-
 def processOption(opt: Option[string]): string = {
     opt match {
         case Option.Some(s) => "Value: " + string(s)
@@ -260,34 +250,24 @@ def processOption(opt: Option[string]): string = {
 
 ## Matching Results
 
-The same approach works for a `Result`-shaped enum:
+The standard library provides `Result[ErrorType, ValueType]`, with `Error` and `Success` cases:
 
 ```panther
-enum Result {
-    case Ok(value: int)
-    case Err(error: string)
-}
-
-val result: Result = Result.Ok(42)
+val result: Result[string, int] = Result.Success(42)
 
 result match {
-    case Result.Ok(value) => println("Success: " + string(value))
-    case Result.Err(error) => println("Error: " + error)
+    case Result.Success(value) => println("Success: " + string(value))
+    case Result.Error(error) => println("Error: " + error)
 }
 ```
 
 With error handling:
 
 ```panther
-enum Result {
-    case Ok(value: int)
-    case Err(error: string)
-}
-
-def processResult(r: Result): int = {
+def processResult(r: Result[string, int]): int = {
     r match {
-        case Result.Ok(n) => n * 2
-        case Result.Err(msg) => {
+        case Result.Success(n) => n * 2
+        case Result.Error(msg) => {
             println(msg)
             0
         }
@@ -322,11 +302,6 @@ println(description)
 Patterns can nest, including inside a class's fields:
 
 ```panther
-enum Option[T] {
-    case Some(value: T)
-    case None
-}
-
 class Pair(first: Option[int], second: Option[int])
 
 val pair = Pair(Option.Some(10), Option.Some(20))
@@ -386,11 +361,6 @@ println(description)
 Match expressions should handle all possible cases:
 
 ```panther
-enum Option[T] {
-    case Some(value: T)
-    case None
-}
-
 val option: Option[int] = Option.Some(5)
 
 // Good: all cases covered

@@ -27,6 +27,11 @@ Iterate on a single suite with:
 sbt "test/testOnly BinderTests"
 ```
 
+User-library implementations are canonical in `runtime/src/main/scala`.
+`sbt pncs/transpile` refreshes the selected `stdlib/src` sources and the embedded
+bundle in `pnc/src`; commit both. Bootstrap builds pass `--no-stdlib` because
+they already supply the runtime declarations. See [stdlib/README.md](stdlib/README.md).
+
 ## Invariants
 
 ### `pncs/` is canonical; `pnc/` is generated

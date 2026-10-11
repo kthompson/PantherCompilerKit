@@ -87,19 +87,14 @@ val size = numbers.length
 
 ## List Type
 
-Panther's standard library has a `List[T]` type, but it is not a language built-in and has to be defined like any other type. It is a classic recursive "cons list": either `Nil` (empty) or `Cons(head, tail)`:
+The compiler automatically includes the standard library's `List[T]` type. It is a classic recursive "cons list": either `Nil` (empty) or `Cons(head, tail)`:
 
 ```panther
-enum IntList {
-  case Nil
-  case Cons(head: int, tail: IntList)
-}
-
-val numbers = IntList.Cons(1, IntList.Cons(2, IntList.Cons(3, IntList.Nil)))
+val numbers = List.Cons(1, List.Cons(2, List.Cons(3, List.Nil)))
 
 val first = numbers match {
-  case IntList.Cons(head, _) => head
-  case IntList.Nil => 0
+  case List.Cons(head, _) => head
+  case List.Nil => 0
 }
 
 println(string(first))
@@ -107,14 +102,9 @@ println(string(first))
 
 ## Option Type
 
-An `Option` type represents values that may or may not exist. Panther has no built-in `Option`, but it is easy to define as a generic enum with two cases:
+The standard library's `Option[T]` represents values that may or may not exist, with `None` and `Some` cases:
 
 ```panther
-enum Option[in T] {
-  case None
-  case Some(value: T)
-}
-
 val some: Option[int] = Option.Some(42)
 val none: Option[int] = Option.None
 
@@ -129,27 +119,22 @@ println(string(result))
 
 ## Result Type
 
-A `Result` type represents operations that can succeed or fail. Like `Option`, it is defined with an enum rather than being built into the language:
+The standard library's `Result[ErrorType, ValueType]` represents operations that can succeed or fail:
 
 ```panther
-enum DivideResult {
-  case Ok(value: int)
-  case Err(error: string)
-}
-
-def divide(a: int, b: int): DivideResult = {
+def divide(a: int, b: int): Result[string, int] = {
   if (b == 0) {
-    DivideResult.Err("Division by zero")
+    Result.Error("Division by zero")
   } else {
-    DivideResult.Ok(a / b)
+    Result.Success(a / b)
   }
 }
 
 val result = divide(10, 2)
 
 val message = result match {
-  case DivideResult.Ok(value) => "Result: " + string(value)
-  case DivideResult.Err(error) => "Error: " + error
+  case Result.Success(value) => "Result: " + string(value)
+  case Result.Error(error) => "Error: " + error
 }
 
 println(message)
@@ -285,11 +270,10 @@ val backToInt: int = int(asText) // Explicit conversion back to int
 
 1. **Use type inference** - Let the compiler infer types when obvious
 2. **Prefer immutability** - Use `val` over `var` when possible
-3. **Use Option and Result-shaped enums** - Model absence or failure instead of relying on `null`
+3. **Use Option and Result** - Model absence or failure instead of relying on `null`
 4. **Leverage pattern matching** - Destructure enum and class values safely
 5. **Keep types simple** - Deeply generic types can run into inference limits (see note below)
 
-> **Note:** The examples above that involve generics keep to a single type parameter used directly, because the current compiler's type inference for generics defined and used within one small snippet is limited — passing a generic value through a second generic function, or using two type parameters at once, can fail to infer correctly even when the shapes match. Panther's real standard library (`Option`, `List`, `Result`-like types) is generic; these gaps mostly show up when writing small, self-contained generic code rather than in the full compiler build.
 
 ## Next Steps
 

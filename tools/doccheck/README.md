@@ -6,7 +6,9 @@ valid Panther.
 The docs are the language's public contract, so every snippet in them has to
 survive the compiler. `doccheck` walks the markdown, extracts each Panther
 block, and pushes it through the real `pncs` front end — the same lexer,
-parser, and binder the compiler uses.
+parser, and binder the compiler uses. Binding includes the same bundled standard
+library as user compilations, so snippets can use `Option`, `List`, `Dictionary`,
+and `Result` directly.
 
 ## Running it
 

@@ -331,6 +331,12 @@ class VM(
       // Two ids, one implementation: `compareOp` already tells the operand
       // types apart by what it pops.
       compareOp()
+    } else if (id == Builtin.FileExists) {
+      pop() match {
+        case Value.String(file) =>
+          push(Value.Bool(File.exists(file)))
+        case _ => runtimeError("Expected string path for exists")
+      }
     } else if (id == Builtin.ReadAllText) {
       readAllTextOp()
     } else if (id == Builtin.ReadAllBytes) {

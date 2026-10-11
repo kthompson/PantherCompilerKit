@@ -5,6 +5,28 @@ import org.scalatest.matchers.should.Matchers
 class ArgsParserTests extends AnyFunSpec with Matchers {
 
   describe("ArgsParser") {
+    it("defaults to the bundled stdlib and supports explicit selection") {
+      val defaults = ArgsParser.parse(Array("--run", "hello.pn"))
+      defaults.settings.useStdlib shouldBe true
+      defaults.settings.stdlibDirectory shouldBe ""
+      ArgsParser
+        .parse(Array("--no-stdlib", "--run", "hello.pn"))
+        .settings
+        .useStdlib shouldBe false
+      ArgsParser
+        .parse(Array("--stdlib", "custom", "--run", "hello.pn"))
+        .settings
+        .stdlibDirectory shouldBe "custom"
+      ArgsParser.parse(Array("--stdlib")).error shouldBe Option.Some(
+        "--stdlib requires a directory"
+      )
+      ArgsParser
+        .parse(Array("--stdlib", "custom", "--no-stdlib", "--run", "hello.pn"))
+        .error shouldBe Option.Some(
+        "--stdlib and --no-stdlib are mutually exclusive"
+      )
+    }
+
     it("should show help when no args provided") {
       val result = ArgsParser.parse(Array())
       result.showHelp shouldBe true

@@ -64,10 +64,18 @@ sbt "pncs/run --run samples/hello.pn"
 Compiled images can be loaded through `ImageRunner`; a standalone `pvm`
 command is still on the [roadmap](ROADMAP.md#32-add-a-runner--mostly-done).
 
+### Standard library
+
+`Option`, `Result`, `Either`, `List`, `Dictionary`, and `Tuple2` are automatically
+available to user programs. Both compilers carry the source bundle, so the
+default works from any working directory. Emitted images include the library.
+Use `--no-stdlib` for isolated compilations, or `--stdlib <directory>` to replace
+the bundle. See [the stdlib guide](stdlib/README.md) for the required files.
+
 ### Regenerating the Panther sources
 
 Any change to the Scala sources must be transpiled and the result committed —
-CI checks that `pnc/src/` is in sync.
+CI checks that `pnc/src/` and `stdlib/src/` are in sync.
 
 ```sh
 sbt pncs/transpile
@@ -104,6 +112,7 @@ Use Stage 2 followed by Stage 3 for the verified self-hosting workflow.
 | `pncs/`     | The Panther compiler in Scala — lexer, parser, binder, lowering, emitter, VM |
 | `pnc/`      | **Generated** Panther sources (`.pn`) produced by `sbt pncs/transpile`       |
 | `runtime/`  | Panther standard library (and the `panther._` Scala shim)                    |
+| `stdlib/`   | Generated user library sources embedded in both compilers                   |
 | `metadata/` | Metadata reading/writing library                                            |
 | `text/`     | Text processing library                                                     |
 | `test/`     | ScalaTest suites plus shared helpers                                        |

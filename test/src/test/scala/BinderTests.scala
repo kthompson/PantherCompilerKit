@@ -53,6 +53,8 @@ class BinderTests extends AnyFunSpec with Matchers {
       assertSymbol(symbols, SymbolKind.Object, "File")
       assertSymbol(symbols, SymbolKind.Method, "readAllText")
       assertSymbol(symbols, SymbolKind.Parameter, "file")
+      assertSymbol(symbols, SymbolKind.Method, "exists")
+      assertSymbol(symbols, SymbolKind.Parameter, "file")
       assertSymbol(symbols, SymbolKind.Method, "readAllBytes")
       assertSymbol(symbols, SymbolKind.Parameter, "file")
       assertSymbol(symbols, SymbolKind.Method, "writeAllBytes")
