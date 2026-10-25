@@ -58,7 +58,7 @@ sbt "pncs/run --help"
 # Takes: ~10 seconds. Shows full usage with options and examples
 
 # Check every ```panther block in the docs compiles
-sbt "doccheck/run docs/src/content/docs"
+sbt "doccheck/run docs/language docs/architecture"
 # Takes: ~30 seconds. Baseline is empty, so any failure is a real regression.
 ```
 
@@ -105,7 +105,7 @@ pwsh scripts/lint.ps1    # Equivalent to: sbt scalafmtAll
 2. **Test validation**: `sbt test/test` (all tests must pass)
 3. **Format validation**: `sbt scalafmtCheckAll` (must pass for CI)
 4. **Transpile validation**: `sbt pncs/transpile` (should complete without errors)
-5. **Doc validation**: `sbt "doccheck/run docs/src/content/docs"` (0 failing
+5. **Doc validation**: `sbt "doccheck/run docs/language docs/architecture"` (0 failing
    blocks; required by CI)
 
 ### Manual Testing Scenarios
@@ -142,7 +142,8 @@ ls -la pnc/src/*.pn | wc -l
 - **metadata/** - Metadata reading/writing library
 - **text/** - Text processing library
 - **test/** - Test project (ScalaTest suites, one per pipeline stage)
-- **docs/** - Astro/Starlight documentation site (Node and pnpm needed only to
+- **docs/** - VitePress documentation site: language pages in `docs/language/`,
+  architecture notes in `docs/architecture/` (Node and pnpm needed only to
   run the site locally)
 - **tools/** - Development tooling, currently `doccheck`, the doc code-block
   checker
@@ -218,11 +219,12 @@ When you're done making changes, always run these commands in order:
 
 ### CI Pipeline Requirements
 
-The GitHub CI pipeline runs four jobs and ALL must pass:
+The GitHub CI pipeline runs five jobs and ALL must pass:
 
 1. `sbt pncs/compile`, then `sbt test/test`
 2. `sbt pncs/transpile` (then checks for git diff)
-3. `sbt "doccheck/run docs/src/content/docs"`
+3. `sbt "doccheck/run docs/language docs/architecture"`
 4. `sbt scalafmtCheckAll`
+5. `pnpm --dir docs install --frozen-lockfile && pnpm --dir docs build` (VitePress site; fails on dead links)
 
 Always run these locally before pushing changes.

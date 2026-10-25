@@ -174,7 +174,7 @@ class Compilation(
 }
 
 /** Runs a compiled image, which is what `pvm` will be once it has a command
-  * line (§3.2).
+  * line (ROADMAP §3.1).
   *
   * Deliberately knows nothing about a `Compilation`: an image is the whole of
   * what the VM needs, and nothing here should be able to reach the syntax trees

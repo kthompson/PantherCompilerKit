@@ -1,0 +1,108 @@
+/* Black panther: near-black surfaces, silver text, vibranium-purple accents. */
+
+:root {
+  --vp-c-brand-1: #6d28d9;
+  --vp-c-brand-2: #7c3aed;
+  --vp-c-brand-3: #6d28d9;
+  --vp-c-brand-soft: rgba(124, 58, 237, 0.14);
+
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(
+    120deg,
+    #c4b5fd 10%,
+    #8b5cf6 45%,
+    #e5e7eb 90%
+  );
+  --vp-home-hero-image-background-image: radial-gradient(
+    circle,
+    rgba(139, 92, 246, 0.45) 0%,
+    rgba(76, 29, 149, 0.15) 45%,
+    transparent 70%
+  );
+  --vp-home-hero-image-filter: blur(56px);
+}
+
+.dark {
+  --vp-c-bg: #08080a;
+  --vp-c-bg-alt: #0e0e12;
+  --vp-c-bg-elv: #131318;
+  --vp-c-bg-soft: #15151b;
+
+  --vp-c-divider: #23232b;
+  --vp-c-border: #2e2e38;
+  --vp-c-gutter: #000000;
+
+  --vp-c-text-1: #e8e8ee;
+  --vp-c-text-2: #a1a1b0;
+  --vp-c-text-3: #6b6b7a;
+
+  --vp-c-brand-1: #b197fc;
+  --vp-c-brand-2: #9775fa;
+  --vp-c-brand-3: #7048e8;
+  --vp-c-brand-soft: rgba(151, 117, 250, 0.16);
+
+  --vp-code-block-bg: #0c0c10;
+  --vp-code-bg: #1a1a22;
+  --vp-c-default-soft: #1a1a22;
+
+  --vp-button-brand-bg: #6d28d9;
+  --vp-button-brand-hover-bg: #7c3aed;
+  --vp-button-brand-active-bg: #5b21b6;
+  --vp-button-brand-border: transparent;
+}
+
+.dark .VPNav,
+.dark .VPNavBar:not(.home.top) .content-body {
+  background-color: rgba(8, 8, 10, 0.85);
+}
+
+/* A faint violet glow behind the home hero. */
+.dark .VPHome {
+  background: radial-gradient(
+      ellipse 80% 50% at 50% -10%,
+      rgba(109, 40, 217, 0.22),
+      transparent 70%
+    ),
+    var(--vp-c-bg);
+}
+
+.dark .VPFeature {
+  background-color: var(--vp-c-bg-alt);
+  border: 1px solid var(--vp-c-divider);
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+
+.dark .VPFeature:hover {
+  border-color: var(--vp-c-brand-3);
+  box-shadow: 0 0 24px rgba(139, 92, 246, 0.18);
+}
+
+.dark .vp-doc div[class*="language-"] {
+  border: 1px solid var(--vp-c-divider);
+}
+
+.dark .vp-doc a {
+  text-decoration-color: rgba(177, 151, 252, 0.4);
+}
+
+/* Compiler diagnostics written into expect-error blocks by doccheck. */
+.vp-doc .error-comment {
+  color: #f87171 !important;
+  font-style: italic;
+}
+
+.vp-doc .error-code {
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: #ef4444;
+  text-decoration-skip-ink: none;
+  text-underline-offset: 4px;
+}
+
+/* `output` fences: what the block above prints. */
+.vp-doc div.language-output {
+  margin-top: -8px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-top: 1px dashed var(--vp-c-divider);
+}

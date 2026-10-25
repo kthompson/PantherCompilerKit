@@ -1,8 +1,8 @@
 # ADR 0002: Binding `this`
 
-**Status:** Accepted — implemented 2026-09-03, see [Outcome](#outcome)
-**Date:** 2026-09-03
-**Primitives:** `binder`, `lowering-emit` (see [`primitives.yaml`](../primitives.yaml))
+**Status:** Accepted — implemented 2026-09-03, see [Outcome](#outcome)\
+**Date:** 2026-09-03\
+**Primitives:** `binder`, `lowering-emit` (see [`primitives.yaml`](../primitives.yaml))\
 **Roadmap:** [§1.3](../../../ROADMAP.md#13-burn-down-the-diagnostics)
 
 ## Current implementation (2026-10-10)

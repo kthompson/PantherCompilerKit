@@ -1,6 +1,6 @@
 // The compiler's runtime defines root-package Option/Either that would otherwise
 // shadow the Scala ones; explicit imports outrank package members.
-import scala.{Either, Left, Option, Right}
+import scala.{Either, Left, None, Option, Right, Some}
 
 import java.nio.file.{Files, Path, Paths}
 import scala.collection.mutable.ArrayBuffer
@@ -11,6 +11,7 @@ case class DocCheckOptions(
     stage: Stage,
     baseline: Option[Path],
     updateBaseline: Boolean,
+    update: Boolean,
     showPassing: Boolean,
     showKnown: Boolean,
     maxProblemsPerBlock: Int
@@ -30,8 +31,8 @@ case class DocCheckOptions(
   *
   * Usage:
   * {{{
-  * sbt "doccheck/run docs/src/content/docs"
-  * sbt "doccheck/run --no-baseline docs/src/content/docs"
+  * sbt "doccheck/run docs/language docs/architecture"
+  * sbt "doccheck/run --no-baseline docs/language docs/architecture"
   * }}}
   */
 object DocCheck {
@@ -51,6 +52,7 @@ object DocCheck {
       |  --baseline <file>        Use <file> instead of the default baseline
       |  --no-baseline            Ignore the baseline and report every failure
       |  --update-baseline        Rewrite the baseline from this run's failures
+      |  --update                 Rewrite // error: comments and output fences from this run
       |  --show-known             Also detail failures already in the baseline
       |  --show-passing           List blocks that passed as well as those that failed
       |  --max-problems <count>   Diagnostics to show per block (default: 5, 0 for all)
@@ -58,8 +60,12 @@ object DocCheck {
       |
       |Per-block directives go in an HTML comment on the line before the fence:
       |  <!-- panther-check: parse-only -->
-      |  <!-- panther-check: expect-error -->
-      |  <!-- panther-check: skip reason="..." -->
+      |  <!-- panther-check: expect-error -->         intentional error, shown as // error: comments
+      |  <!-- panther-check: ignore reason="..." -->  known failure, compiled but not enforced
+      |  <!-- panther-check: skip reason="..." -->    not compiled at all
+      |
+      |A ```output fence directly after a panther block makes the block run; it
+      |must print exactly the fence's contents. --update writes them.
       |""".stripMargin
 
   def main(args: Array[String]): Unit = {
@@ -86,6 +92,7 @@ object DocCheck {
     var baseline: Option[Path] = None
     var noBaseline = false
     var updateBaseline = false
+    var update = false
     var showPassing = false
     var showKnown = false
     var maxProblems = 5
@@ -116,6 +123,9 @@ object DocCheck {
           index += 1
         case "--update-baseline" =>
           updateBaseline = true
+          index += 1
+        case "--update" =>
+          update = true
           index += 1
         case flag @ "--stage" =>
           value(flag).foreach { name =>
@@ -169,6 +179,7 @@ object DocCheck {
               stage = stage,
               baseline = resolved,
               updateBaseline = updateBaseline,
+              update = update,
               showPassing = showPassing,
               showKnown = showKnown,
               maxProblemsPerBlock = maxProblems
@@ -222,7 +233,7 @@ object DocCheck {
   private def writeBaseline(path: Path, ids: Seq[String]): Unit = {
     val header = Seq(
       "# Documentation blocks that do not yet compile.",
-      "# Regenerate with: sbt \"doccheck/run --update-baseline docs/src/content/docs\"",
+      "# Regenerate with: sbt \"doccheck/run --update-baseline docs/language docs/architecture\"",
       "# This list is a ratchet: it should only ever get shorter. It is",
       "# currently empty -- every panther block in docs/ compiles.",
       ""
@@ -270,6 +281,44 @@ object DocCheck {
           "    expected a compile error but the block was accepted"
         )
 
+      case Outcome.Ignored(reason) =>
+        Seq(s"  ignored  ${block.id}  ($reason)")
+
+      case Outcome.IgnoredButClean =>
+        Seq(
+          s"  FAIL     ${block.id}  (line ${block.codeLine})",
+          "    marked ignore, but the block now compiles; remove the directive"
+        )
+
+      case Outcome.StaleOutput(actual) =>
+        Seq(
+          s"  FAIL     ${block.id}  (line ${block.codeLine})",
+          "    output fence does not match what the block prints (fix with --update):"
+        ) ++ actual.split("\n", -1).map("    | " + _)
+
+      case Outcome.RunFailed(detail) =>
+        Seq(
+          s"  FAIL     ${block.id}  (line ${block.codeLine})",
+          "    the block compiled but did not run to completion:"
+        ) ++ detail.split("\n", -1).map("    " + _)
+
+      case Outcome.Invalid(message) =>
+        Seq(
+          s"  FAIL     ${block.id}  (line ${block.codeLine})",
+          s"    $message"
+        )
+
+      case Outcome.StaleErrorComments(expected, _) =>
+        val lines = ArrayBuffer[String]()
+        lines += s"  FAIL     ${block.id}  (line ${block.codeLine})"
+        lines += "    // error: comments do not match the compiler (fix with --update):"
+        val actual = block.code.split("\n", -1)
+        expected.split("\n", -1).zipWithIndex.foreach { case (line, i) =>
+          if (i >= actual.length || actual(i) != line)
+            lines += s"    ${block.file}:${block.codeLine + i}: ${line.trim}"
+        }
+        lines.toSeq
+
       case Outcome.Crashed(detail) =>
         Seq(
           s"  CRASH    ${block.id}  (line ${block.codeLine})",
@@ -306,9 +355,22 @@ object DocCheck {
       )
     }
 
+    val updated =
+      if (options.update) writeUpdates(results.toSeq) else 0
+    if (options.update) {
+      results.mapInPlace { result =>
+        result.outcome match {
+          case Outcome.StaleErrorComments(_, _) | Outcome.StaleOutput(_) =>
+            result.copy(outcome = Outcome.Ok)
+          case _ => result
+        }
+      }
+    }
+
     val skipped = results.count(isSkipped)
+    val ignored = results.count(isIgnored)
     val failures = results.filter(_.failed).toSeq
-    val passing = results.length - failures.length - skipped
+    val passing = results.length - failures.length - skipped - ignored
     val failingIds = failures.map(_.block.id)
 
     // Most of the docs predate the current language, so without a baseline
@@ -328,8 +390,9 @@ object DocCheck {
     val detailed =
       if (options.showPassing) results.toSeq
       else if (options.showKnown)
-        results.toSeq.filter(r => r.failed || isSkipped(r))
-      else regressions ++ results.toSeq.filter(isSkipped)
+        results.toSeq.filter(r => r.failed || isSkipped(r) || isIgnored(r))
+      else
+        regressions ++ results.toSeq.filter(r => isSkipped(r) || isIgnored(r))
 
     detailed.foreach { result =>
       describe(result, options.maxProblemsPerBlock).foreach(println)
@@ -340,8 +403,13 @@ object DocCheck {
     if (problems.nonEmpty) println()
 
     println(
-      s"  ${results.length} blocks: $passing ok, ${failures.length} failing, $skipped skipped"
+      s"  ${results.length} blocks: $passing ok, ${failures.length} failing, $skipped skipped, $ignored ignored"
     )
+    if (options.update) {
+      println(
+        s"  updated ${plural(updated, "block")}"
+      )
+    }
 
     options.baseline match {
       case Some(path) if options.updateBaseline =>
@@ -382,6 +450,52 @@ object DocCheck {
 
   private def plural(count: Int, noun: String): String =
     if (count == 1) s"$count $noun" else s"$count ${noun}s"
+
+  private def isIgnored(result: BlockResult): Boolean =
+    result.outcome match {
+      case Outcome.Ignored(_) => true
+      case _                  => false
+    }
+
+  /** Writes corrected `// error:` comments and `output` fences back into the
+    * markdown. Error comments are trailing, so they never move a line and go
+    * first; output fences can change length, so they are patched from the
+    * bottom of each file up, leaving the lines above them where they were.
+    */
+  private def writeUpdates(results: Seq[BlockResult]): Int = {
+    val stale = results.filter { result =>
+      result.outcome match {
+        case Outcome.StaleErrorComments(_, _) | Outcome.StaleOutput(_) => true
+        case _                                                         => false
+      }
+    }
+    stale.groupBy(_.block.file).foreach { case (file, inFile) =>
+      val path = Paths.get(file)
+      val lines =
+        ArrayBuffer.from(Files.readString(path).split("\r\n|\n|\r", -1))
+      inFile.foreach { result =>
+        result.outcome match {
+          case Outcome.StaleErrorComments(expected, _) =>
+            expected.split("\n", -1).zipWithIndex.foreach { case (line, i) =>
+              lines(result.block.codeLine - 1 + i) = line
+            }
+          case _ => ()
+        }
+      }
+      inFile.sortBy(-_.block.fenceLine).foreach { result =>
+        (result.outcome, result.block.output) match {
+          case (Outcome.StaleOutput(actual), Some(fence)) =>
+            lines.remove(fence.fenceLine, fence.lineCount)
+            val replacement =
+              if (actual.isEmpty) Seq.empty else actual.split("\n", -1).toSeq
+            lines.insertAll(fence.fenceLine, replacement)
+          case _ => ()
+        }
+      }
+      Files.writeString(path, lines.mkString("\n"))
+    }
+    stale.length
+  }
 
   private def isSkipped(result: BlockResult): Boolean =
     result.outcome match {

@@ -88,7 +88,32 @@ jobs:
       # Picks up tools/doccheck/baseline.txt automatically. The baseline is
       # empty, so this fails on any doc snippet that produces a diagnostic.
       - name: doc code blocks
-        run: sbt "doccheck/run docs/src/content/docs"
+        run: sbt "doccheck/run docs/language docs/architecture"
+
+  docs-site:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: docs/package.json
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: docs/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm --dir docs install --frozen-lockfile
+
+      # VitePress fails the build on dead links.
+      - name: Build site
+        run: pnpm --dir docs build
 
   lint:
     runs-on: ubuntu-latest

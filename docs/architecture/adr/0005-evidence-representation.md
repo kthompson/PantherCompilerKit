@@ -1,9 +1,9 @@
 # ADR 0005: Evidence representation
 
-**Status:** Accepted — implemented 2026-09-05, see [Outcome](#outcome)
-**Date:** 2026-09-04
+**Status:** Accepted — implemented 2026-09-05, see [Outcome](#outcome)\
+**Date:** 2026-09-04\
 **Primitives:** `binder`, `lowering-emit`, `vm-runtime`, `metadata-format` (see
-[`primitives.yaml`](../primitives.yaml))
+[`primitives.yaml`](../primitives.yaml))\
 **Roadmap:** [§1.3](../../../ROADMAP.md#13-burn-down-the-diagnostics),
 [§2](../../../ROADMAP.md#2-generics)
 
@@ -52,6 +52,7 @@ def compute[K: Eq](a: K): bool
 
 becomes, conceptually:
 
+<!-- panther-check: skip reason="compiler-internal elaboration, not source" -->
 ```panther
 def compute[K](a: K, $ev$K$Eq: Eq[K]): bool
 ```
@@ -77,6 +78,7 @@ Because the constructor is elaborated like any other method, a constrained class
 receives its evidence as a constructor parameter and stores it in a synthesized
 field:
 
+<!-- panther-check: parse-only -->
 ```panther
 class Dictionary[K: Eq, V](list: List[KeyValue[K, V]])
 ```

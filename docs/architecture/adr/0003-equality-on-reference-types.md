@@ -1,9 +1,9 @@
 # ADR 0003: Equality on reference types
 
-**Status:** Accepted — implemented 2026-09-04, see [Outcome](#outcome)
-**Date:** 2026-09-04
+**Status:** Accepted — implemented 2026-09-04, see [Outcome](#outcome)\
+**Date:** 2026-09-04\
 **Primitives:** `parser` (the operator table lives there), `binder`, `vm-runtime`
-(see [`primitives.yaml`](../primitives.yaml))
+(see [`primitives.yaml`](../primitives.yaml))\
 **Roadmap:** [§1.3](../../../ROADMAP.md#13-burn-down-the-diagnostics)
 
 ## Current implementation (2026-10-10)
@@ -78,7 +78,7 @@ Add one fallback to `checkBinary`, reached only when the table has no row.
 For `==` and `!=`, when neither operand is a value type, the comparison binds to
 `bool` if either operand widens to the other:
 
-```
+```text
 referenceEqualityApplies(left, right) =
   !isValueType(left) && !isValueType(right) &&
   (widensTo(left, right) || widensTo(right, left))

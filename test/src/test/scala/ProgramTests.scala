@@ -83,8 +83,8 @@ class ProgramTests extends AnyFunSpec with Matchers {
     }
   }
 
-  /** `--run` is the whole of §3.2's first bullet: compile and execute in one
-    * step, with the program's exit code reaching the process.
+  /** `--run` compiles and executes in one step, with the program's exit code
+    * reaching the process.
     */
   describe("Program.run with --run") {
     it("should execute a program and report success") {

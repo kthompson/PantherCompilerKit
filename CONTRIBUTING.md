@@ -106,11 +106,12 @@ Every ` ```panther ` block under `docs/` is compiled by
 [`doccheck`](tools/doccheck/README.md):
 
 ```bash
-sbt "doccheck/run docs/src/content/docs"
+sbt "doccheck/run docs/language docs/architecture"
 ```
 
-The latest check reports 201 blocks: 199 pass and 2 are explicitly skipped
-for unsupported higher-order functions. `tools/doccheck/baseline.txt` is empty.
+The latest check reports 197 blocks: 184 pass, 6 are explicitly skipped and 7
+are ignored, because the snippet elides its body or uses a feature that is not
+built yet. `tools/doccheck/baseline.txt` is empty.
 Keep it that way: a snippet you add or change has to pass its declared check.
 
 The check fails in two directions — an unbaselined snippet producing a
@@ -118,13 +119,13 @@ diagnostic, *and* a baselined snippet compiling cleanly — so if you ever do
 need to baseline something, regenerate it in the same commit:
 
 ```bash
-sbt "doccheck/run --update-baseline docs/src/content/docs"
+sbt "doccheck/run --update-baseline docs/language docs/architecture"
 ```
 
 A snippet that should not be compiled as written gets a directive on the line
 above its fence — `parse-only`, `expect-error`, or `skip reason="..."`. Prefer
 fixing the snippet; see
-[ROADMAP.md](ROADMAP.md#4-documentation-that-is-checked) for what the checker
+[`tools/doccheck/README.md`](tools/doccheck/README.md) for what the checker
 does and does not cover.
 
 ## Commits
@@ -159,7 +160,7 @@ sbt pncs/compile test/test pnc/compile scalafmtCheckAll
 ```
 
 ```bash
-sbt "doccheck/run docs/src/content/docs"
+sbt "doccheck/run docs/language docs/architecture"
 ```
 
 Then **commit the regenerated `.pn` files** along with your Scala changes.
@@ -184,8 +185,8 @@ sbt pnc/compile stage3/run
 
 Stage 3 must emit an image byte-for-byte identical to Stage 2. The CI compiler
 job runs this check with a 1 GiB cap on sbt and a separate 4 GiB cap on the
-verifier JVM. [The roadmap](ROADMAP.md#15-run-the-stages) records the resource
-measurements and latest verified result.
+verifier JVM. [ADR 0007](docs/architecture/adr/0007-garbage-collection.md#implementation-outcome-2026-10-10)
+records the resource measurements and latest verified result.
 
 For the pull request itself:
 

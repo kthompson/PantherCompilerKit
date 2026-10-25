@@ -1,8 +1,8 @@
 # ADR 0001: Generic type inference
 
-**Status:** Accepted — implemented 2026-09-03, see [Outcome](#outcome)
-**Date:** 2026-09-03
-**Primitives:** `binder` (see [`primitives.yaml`](../primitives.yaml))
+**Status:** Accepted — implemented 2026-09-03, see [Outcome](#outcome)\
+**Date:** 2026-09-03\
+**Primitives:** `binder` (see [`primitives.yaml`](../primitives.yaml))\
 **Roadmap:** [§2.1](../../../ROADMAP.md#21-type-argument-inference-through-call-chains)
 
 ## Context
@@ -58,7 +58,12 @@ which takes no expected type. `bindPatternWithType` exists but its
 reads the constructor's parameter types raw through
 `getFunctionParameterTypes`, so in
 
-```
+<!-- panther-context
+def f(value: int): int = value
+-->
+
+```panther
+val list: List[int] = List.Nil
 list match {
   case List.Cons(head, tail) => f(head)
 }

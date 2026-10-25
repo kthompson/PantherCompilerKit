@@ -1,9 +1,9 @@
 # ADR 0004: Traits, given evidence, and contextual extensions
 
-**Status:** Accepted — implemented 2026-09-05, see [Outcome](#outcome)
-**Date:** 2026-09-04
+**Status:** Accepted — implemented 2026-09-05, see [Outcome](#outcome)\
+**Date:** 2026-09-04\
 **Primitives:** `parser`, `binder`, `lowering-emit` (see
-[`primitives.yaml`](../primitives.yaml))
+[`primitives.yaml`](../primitives.yaml))\
 **Roadmap:** [§1.3](../../../ROADMAP.md#13-burn-down-the-diagnostics),
 [§2](../../../ROADMAP.md#2-generics)
 
@@ -53,6 +53,7 @@ normal source code.
 
 A trait describes a capability or relationship involving a type.
 
+<!-- panther-check: ignore reason="associated members (val in a trait) are not implemented" -->
 ```panther
 trait Eq[T] {
   def equals(a: T, b: T): bool
@@ -78,6 +79,7 @@ Traits do not necessarily modify the declaration of the type they describe.
 
 A `given` provides evidence that a type satisfies a trait.
 
+<!-- panther-check: parse-only -->
 ```panther
 given Eq[int] {
   def equals(a: int, b: int): bool = a == b
@@ -103,6 +105,7 @@ recursive evidence is `Eq[List[Symbol]]` holding a reference to `Eq[Symbol]`.
 A conditional given binds its type parameters with context bounds and separates
 them from the trait head with `=>`:
 
+<!-- panther-check: skip reason="elided body" -->
 ```panther
 given [T: Ord] => Ord[List[T]] {
   def compare(a: List[T], b: List[T]): int = ...
@@ -286,6 +289,7 @@ avoids. Nothing in the compiler's sources needs it.
 
 A function can require trait evidence with a context bound:
 
+<!-- panther-check: skip reason="elided body" -->
 ```panther
 def contains[T: Eq](items: List[T], value: T): bool = ...
 ```
@@ -313,6 +317,7 @@ code.
 A trait may provide methods that become extensions on values of the constrained
 type. For example:
 
+<!-- panther-check: parse-only -->
 ```panther
 trait Eq[T] {
   def equals(a: T, b: T): bool
@@ -322,6 +327,7 @@ trait Eq[T] {
 could provide an extension `a.equals(b)` when `a: T`, `b: T`, and `Eq[T]` is
 available. A function can therefore write:
 
+<!-- panther-check: parse-only -->
 ```panther
 def same[T: Eq](a: T, b: T): bool = a.equals(b)
 ```
@@ -337,6 +343,7 @@ Trait members do not automatically become operators based on their names.
 
 For example:
 
+<!-- panther-check: parse-only -->
 ```panther
 trait Eq[T] {
   def equals(a: T, b: T): bool
@@ -363,6 +370,7 @@ operator.**
 Operators are associated with trait members explicitly, using the `operator`
 keyword in the trait declaration:
 
+<!-- panther-check: parse-only -->
 ```panther
 trait Eq[T] {
   operator ==(a: T, b: T): bool
@@ -413,6 +421,7 @@ Trait-provided values are accessed explicitly through the constrained type.
 
 Given:
 
+<!-- panther-check: ignore reason="associated members (val in a trait) are not implemented" -->
 ```panther
 trait Monoid[T] {
   val empty: T
@@ -422,6 +431,7 @@ trait Monoid[T] {
 
 and:
 
+<!-- panther-check: parse-only -->
 ```panther
 given Monoid[string] {
   val empty: string = ""
@@ -431,6 +441,7 @@ given Monoid[string] {
 
 a generic function can write:
 
+<!-- panther-check: ignore reason="associated members (T.empty) are not implemented" -->
 ```panther
 def emptyValue[T: Monoid](): T = T.empty
 ```
@@ -442,6 +453,7 @@ the programmer intended from the expected type of `empty`. This is intentional.
 
 A function may constrain multiple types with the same trait:
 
+<!-- panther-check: ignore reason="associated members (T.empty) are not implemented" -->
 ```panther
 def makePair[T: Monoid, U: Monoid](): Tuple2[T, U] =
   new Tuple2[T, U](T.empty, U.empty)
@@ -460,7 +472,7 @@ This avoids ambiguity and makes the source code's dependency obvious.
 
 Panther member lookup conceptually considers two sources:
 
-```
+```text
 Intrinsic members
         +
 Applicable contextual extensions
@@ -475,6 +487,7 @@ value's type and then applicable contextual extensions.
 A contextual extension is applicable when appropriate trait evidence exists. For
 example:
 
+<!-- panther-check: skip reason="elided body" -->
 ```panther
 trait Printable[T] {
   def print(value: T): string
@@ -487,6 +500,7 @@ given Printable[User] {
 
 Then:
 
+<!-- panther-check: parse-only -->
 ```panther
 def display[T: Printable](value: T): string = value.print()
 ```
@@ -503,6 +517,7 @@ Panther deliberately distinguishes between `T.empty` and `value.print()`.
 The distinction is useful because some capabilities describe properties of a
 type rather than operations performed on an instance. For example, given:
 
+<!-- panther-check: ignore reason="associated members (val in a trait) are not implemented" -->
 ```panther
 trait Monoid[T] {
   val empty: T
@@ -551,6 +566,7 @@ Requiring `T.empty` rather than `empty` has several advantages:
 
 For example:
 
+<!-- panther-check: ignore reason="associated members (T.empty) are not implemented" -->
 ```panther
 def foo[T: Monoid, U: Monoid](): Tuple2[T, U] =
   new Tuple2[T, U](T.empty, U.empty)
@@ -618,7 +634,7 @@ The relationship between a trait and an operator must be explicit.
 
 Panther's model is:
 
-```
+```text
 trait
   │
   │ describes capability
@@ -638,6 +654,7 @@ member         extension
 
 For example:
 
+<!-- panther-check: ignore reason="associated members (val in a trait) are not implemented" -->
 ```panther
 trait Monoid[T] {
   val empty: T
@@ -704,7 +721,10 @@ ADR motivates. It does not fire for a ground type: `1.equals(2)` with a visible
 and the ordinary member lookup owns that path. Extending it means deciding what
 happens when a real member and an evidence member share a name — a shadowing
 question the type-parameter case does not raise, since a type parameter has no
-members at all.
+members at all. (Closed in the second pass below: a ground type
+now resolves through its given, so `n.describe()` on an `int` with a visible
+`given Describe[int]` works. A literal receiver, `42.describe()`, still crashes
+the binder; that is the string-literal-receiver bug in the roadmap, not this.)
 
 ### What is not built
 

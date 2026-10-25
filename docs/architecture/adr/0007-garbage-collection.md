@@ -1,10 +1,9 @@
 # ADR 0007: Precise garbage collection for the PVM
 
-**Status:** Accepted — collector implemented; Stage 3 verified 2026-10-10
-**Date:** 2026-09-11
+**Status:** Accepted — collector implemented; Stage 3 verified 2026-10-10\
+**Date:** 2026-09-11\
 **Primitives:** `vm-runtime`, `compiler-driver`, `test-suite`, `transpiler`
 (see [`primitives.yaml`](../primitives.yaml))
-**Roadmap:** [§1.5](../../../ROADMAP.md#15-run-the-stages)
 
 ## Implementation outcome (2026-10-10)
 
@@ -38,8 +37,7 @@ used the local Java 21 host with warm artifacts; CI uses Java 17.
 
 The remainder preserves the original 2026-09-11 design and acceptance plan.
 References to the old allocator, proposed representations, and 256M-slot
-experimental harness describe that baseline. See [the current roadmap
-measurements](../../../ROADMAP.md#15-run-the-stages) for implementation status.
+experimental harness describe that baseline. The implementation outcome above is the current status.
 
 ## Decision
 

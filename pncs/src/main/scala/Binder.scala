@@ -481,8 +481,7 @@ case class Binder(
     *
     * Only the five members the compiler actually calls. `panther.scala` also
     * shims `readAllBytes`, `writeAllBytes`, `directoryName` and `separator`;
-    * they can be declared when something needs them, and `writeAllBytes` is
-    * what §3.1 will want for `.pnb`.
+    * they can be declared when something needs them.
     */
   // Typed like the object a declaration would have produced, which is what
   // naming one on the left of a dot reads.
@@ -967,7 +966,7 @@ case class Binder(
   //
   // The bodies loop rather than recurse. A recursive fold would be the shorter
   // thing to write, but the stack cost is linear in the array's length
-  // ([ROADMAP §1.3b](../../../ROADMAP.md#13b-make-derivation-cheaper-on-the-stack));
+  // ([ROADMAP §5](../../../ROADMAP.md#5-derivation-stack-cost));
   // a loop is flat.
 
   /** `Array[$0]`, the type these givens are about. */

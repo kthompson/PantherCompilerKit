@@ -62,7 +62,7 @@ sbt "pncs/run --run samples/hello.pn"
 ```
 
 Compiled images can be loaded through `ImageRunner`; a standalone `pvm`
-command is still on the [roadmap](ROADMAP.md#32-add-a-runner--mostly-done).
+command is still on the [roadmap](ROADMAP.md#31-a-pvm-command).
 
 ### Standard library
 
@@ -92,7 +92,7 @@ to `pnc/target/pnc.pnb` (Stage 2). `stage3/run` runs that image over the same
 sources, writes `pnc/target/pnc-stage3.pnb`, and requires byte-for-byte equality.
 
 The fixed point was verified on 2026-10-10 using a 32M-slot managed heap;
-see [the measurements](ROADMAP.md#15-run-the-stages). The CI compiler job
+see [the measurements](docs/architecture/adr/0007-garbage-collection.md#implementation-outcome-2026-10-10). The CI compiler job
 requires this fixed point, with a 15-minute job timeout. The verifier runs in
 a separate JVM capped at 4 GiB; managed heap slots do not measure total
 process memory.
@@ -116,7 +116,7 @@ Use Stage 2 followed by Stage 3 for the verified self-hosting workflow.
 | `metadata/` | Metadata reading/writing library                                            |
 | `text/`     | Text processing library                                                     |
 | `test/`     | ScalaTest suites plus shared helpers                                        |
-| `docs/`     | Astro/Starlight documentation site                                          |
+| `docs/`     | VitePress documentation site                                                |
 | `tools/`    | Development tooling — doc code-block checks and the Stage 3 verifier      |
 | `scripts/`  | Cross-platform PowerShell wrappers around the sbt tasks                     |
 
@@ -125,31 +125,29 @@ for the Scala compiler, and `pnc/src/Program.pn` for its transpiled twin.
 
 ## Documentation
 
-The site under `docs/` is Astro + Starlight, with content in
-`docs/src/content/docs/`:
+The site under `docs/` is built with VitePress. Language pages live in
+`docs/language/` and architecture notes in `docs/architecture/`:
 
 ```sh
 pnpm --dir docs install && pnpm --dir docs dev
 ```
 
-All documentation lives in `docs/`. (`docs_old/` is a stale mdbook tree pending
-deletion — do not add to it or cite it.)
-
 Every ` ```panther ` block in the docs is checked against the compiler by
 [`doccheck`](tools/doccheck/README.md):
 
 ```sh
-sbt "doccheck/run docs/src/content/docs"
+sbt "doccheck/run docs/language docs/architecture"
 ```
 
-The latest check reports 201 blocks: 199 pass and 2 are explicitly skipped
-for unsupported higher-order functions. `tools/doccheck/baseline.txt` is empty;
+The latest check reports 197 blocks: 184 pass, 6 are explicitly skipped and 7
+are ignored, because the snippet elides its body or uses a feature that is not
+built yet. `tools/doccheck/baseline.txt` is empty;
 CI rejects new failures.
 
 ## Roadmap
 
-[ROADMAP.md](ROADMAP.md) tracks completed milestones and remaining work in
-self-hosting, generics, and runnable sample programs, with measured results.
+[ROADMAP.md](ROADMAP.md) tracks the remaining work: removing the Scala dependency, generics, and
+runnable sample programs.
 
 ## Contributing
 

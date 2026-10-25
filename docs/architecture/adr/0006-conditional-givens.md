@@ -1,8 +1,8 @@
 # ADR 0006: Conditional givens
 
-**Status:** Accepted — implemented 2026-09-05, see [Outcome](#outcome)
-**Date:** 2026-09-05
-**Primitives:** `binder`, `lowering-emit` (see [`primitives.yaml`](../primitives.yaml))
+**Status:** Accepted — implemented 2026-09-05, see [Outcome](#outcome)\
+**Date:** 2026-09-05\
+**Primitives:** `binder`, `lowering-emit` (see [`primitives.yaml`](../primitives.yaml))\
 **Roadmap:** [§1.3a](../../../ROADMAP.md#13a-burn-down-the-derivation-reports)
 
 ## Context

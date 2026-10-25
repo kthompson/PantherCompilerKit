@@ -1,6 +1,6 @@
 // The compiler's runtime defines root-package Option/Either that would otherwise
 // shadow the Scala ones; explicit imports outrank package members.
-import scala.{Either, Left, Option, Right}
+import scala.{Either, Left, None, Option, Right, Some}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -10,13 +10,15 @@ import scala.collection.mutable.ArrayBuffer
   * more backticks or tildes, indented by at most three spaces, closed by a
   * fence of the same character that is at least as long. That is enough for the
   * docs site, and keeping it small means the checker has no markdown dependency
-  * to keep in step with Starlight.
+  * to keep in step with VitePress.
   */
 object MarkdownScanner {
 
   private val Fence = """^ {0,3}(`{3,}|~{3,})(.*)$""".r
   private val DirectiveComment =
     """^\s*<!--\s*panther-check:\s*(.*?)\s*-->\s*$""".r
+  private val ContextOpen = """^\s*<!--\s*panther-context\s*$""".r
+  private val CommentClose = """^\s*-->\s*$""".r
   private val Attribute = """([A-Za-z][\w-]*)="([^"]*)"""".r
 
   /** True when a fence's info string opens a Panther block. Matches `panther`
@@ -46,6 +48,13 @@ object MarkdownScanner {
       case "check"        => Right(Directive.Check)
       case "parse-only"   => Right(Directive.ParseOnly)
       case "expect-error" => Right(Directive.ExpectError)
+      case "ignore" =>
+        attributes.get("reason") match {
+          case Some(reason) if reason.nonEmpty =>
+            Right(Directive.Ignore(reason))
+          case _ =>
+            Left("`ignore` requires a reason, e.g. ignore reason=\"...\"")
+        }
       case "skip" =>
         attributes.get("reason") match {
           case Some(reason) if reason.nonEmpty => Right(Directive.Skip(reason))
@@ -54,7 +63,7 @@ object MarkdownScanner {
         }
       case other =>
         Left(
-          s"unknown mode '$other' (expected check, parse-only, expect-error or skip)"
+          s"unknown mode '$other' (expected check, parse-only, expect-error, ignore or skip)"
         )
     }
   }
@@ -80,11 +89,32 @@ object MarkdownScanner {
     var index = 0
     var ordinal = 0
     var pending: Option[Directive] = None
+    val context = ArrayBuffer[ContextCode]()
+    // The block an `output` fence would belong to: the last panther block,
+    // provided only blank lines have come since.
+    var outputOwner: Option[Int] = None
 
     while (index < lines.length) {
       val line = lines(index)
 
       line match {
+        case ContextOpen() =>
+          val openLine = index + 1
+          val body = ArrayBuffer[String]()
+          index += 1
+          var closed = false
+          while (index < lines.length && !closed) {
+            lines(index) match {
+              case CommentClose() => closed = true
+              case other          => body += other
+            }
+            index += 1
+          }
+          if (closed) context += ContextCode(openLine + 1, body.mkString("\n"))
+          else
+            problems += s"$file:$openLine: unterminated panther-context comment"
+          pending = None
+
         case DirectiveComment(body) =>
           parseDirective(body) match {
             case Right(directive) => pending = Some(directive)
@@ -112,7 +142,20 @@ object MarkdownScanner {
             index += 1
           }
 
-          if (isPantherInfo(info)) {
+          val isOutput = info.trim.equalsIgnoreCase("output")
+          if (isOutput) {
+            if (!closed)
+              problems += s"$file:$fenceLine: unterminated output fence"
+            outputOwner match {
+              case Some(owner) if pending.isEmpty =>
+                blocks(owner) = blocks(owner).copy(output =
+                  Some(OutputFence(fenceLine, body.mkString("\n"), body.length))
+                )
+              case _ =>
+                problems += s"$file:$fenceLine: an output fence must directly follow a panther block"
+            }
+            outputOwner = None
+          } else if (isPantherInfo(info)) {
             ordinal += 1
             if (!closed) {
               problems += s"$file:$fenceLine: unterminated panther code fence"
@@ -123,16 +166,23 @@ object MarkdownScanner {
               fenceLine = fenceLine,
               meta = metaOf(info),
               directive = pending.getOrElse(Directive.Check),
-              code = body.mkString("\n")
+              code = body.mkString("\n"),
+              context = context.toSeq
             )
-          } else if (pending.isDefined) {
-            problems += s"$file:$fenceLine: panther-check directive precedes a non-panther fence"
+            outputOwner = Some(blocks.length - 1)
+          } else {
+            if (pending.isDefined)
+              problems += s"$file:$fenceLine: panther-check directive precedes a non-panther fence"
+            outputOwner = None
           }
 
           pending = None
 
         case _ =>
-          if (line.trim.nonEmpty) pending = None
+          if (line.trim.nonEmpty) {
+            pending = None
+            outputOwner = None
+          }
           index += 1
       }
     }

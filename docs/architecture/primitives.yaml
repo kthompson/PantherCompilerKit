@@ -310,12 +310,14 @@ primitives:
 
   - id: language-docs
     group: quality
-    name: Panther language docs (Astro site)
+    name: Panther docs
     summary:
-      User-facing documentation for the Panther language, published from the
-      Astro/Starlight site in docs/.
+      User-facing documentation for the Panther language and the architecture
+      notes, published from the site in docs/.
     code:
-      - docs/src/
+      - docs/language/
+      - docs/.vitepress/
+      - docs/index.md
       - docs/public/
 
   - id: doc-check
